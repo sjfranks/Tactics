@@ -150,6 +150,12 @@
     return unit ? `${unit.name}, ${unit.hp} health, ${square}` : `Empty ${square}`;
   }
 
+  function terrainClass(x, y) {
+    const onRoad = (x === 15 && y >= 10 && y <= 25) || (y === 19 && x >= 8 && x <= 22);
+    if (onRoad) return "terrain-road";
+    return (x * 7 + y * 11) % 17 < 3 ? "terrain-heath" : "";
+  }
+
   function stopMovementAnimation() {
     activeAnimation?.cancel();
     activeAnimation = null;
@@ -365,6 +371,8 @@
         cell.setAttribute("aria-label", cellLabel(x, y, occupant));
         cell.dataset.x = String(x);
         cell.dataset.y = String(y);
+        const terrain = terrainClass(x, y);
+        if (terrain) cell.classList.add(terrain);
         if (isObstacle(x, y)) cell.classList.add("obstacle-cell");
         if (showMovementRange && withinMovementRange(active, x, y)) {
           cell.classList.add("reachable");
