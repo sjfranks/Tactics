@@ -261,6 +261,13 @@ button { font: inherit; }
 
 .unit.player { background: linear-gradient(145deg, #6ed0ff, #1677b8); }
 .unit.enemy { background: linear-gradient(145deg, #ff8b79, #b73847); }
+.unit.party {
+  inset: 6%;
+  border-color: #ffe6a3;
+  background: linear-gradient(145deg, #b58cff, #563eaf);
+  font-size: clamp(1rem, 5.5vw, 1.55rem);
+  box-shadow: 0 6px 11px rgba(0,0,0,.42), 0 0 0 3px rgba(245,191,85,.36), inset 0 -5px 0 rgba(0,0,0,.2);
+}
 .unit.acted { filter: grayscale(.55) brightness(.72); }
 .unit.selected { outline: 3px solid var(--gold); outline-offset: 2px; }
 .unit.previewing {
@@ -388,6 +395,8 @@ button { font: inherit; }
   align-items: center;
   gap: 9px;
 }
+.game-shell.exploring .command-panel { grid-template-columns: minmax(0, 1fr); }
+.game-shell.exploring .actions { display: none; }
 .player-roster { gap: 9px; min-width: 0; }
 .roster-token {
   width: 46px;

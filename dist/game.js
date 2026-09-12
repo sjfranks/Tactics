@@ -6,6 +6,8 @@
   const MOVEMENT = 2;
   const MIN_MAP_ZOOM = 2.5;
   const MAX_MAP_ZOOM = 8;
+  const ENCOUNTER_DISTANCE = 4;
+  const STARTING_PARTY = { id: "party", name: "Party", mark: "✦", team: "player", x: 15, y: 24 };
   const OBSTACLES = [{ x: 15, y: 18, name: "Ancient pillar" }];
   const STARTING_UNITS = [
     { id: "alden", name: "Alden", mark: "A", team: "player", x: 14, y: 20, hp: 5, maxHp: 5, damage: 2 },
@@ -15,6 +17,7 @@
   ];
 
   const battlefield = document.querySelector("#battlefield");
+  const gameShell = document.querySelector(".game-shell");
   const battlefieldFrame = document.querySelector("#battlefield-frame");
   const playerRoster = document.querySelector("#player-roster");
   const endTurnButton = document.querySelector("#end-turn");
@@ -32,6 +35,7 @@
   const portrait = document.querySelector("#portrait");
   const turnNumberLabel = document.querySelector("#turn-number");
   const turnPill = document.querySelector("#turn-pill");
+  const turnCounter = document.querySelector(".turn-counter");
   const resultOverlay = document.querySelector("#result-overlay");
   const resultTitle = document.querySelector("#result-title");
   const resultCopy = document.querySelector("#result-copy");
@@ -40,6 +44,9 @@
   const forecastResult = document.querySelector("#forecast-result");
 
   let units = [];
+  let gameMode = "explore";
+  let party = { ...STARTING_PARTY };
+  let exploreMove = null;
   let selectedId = null;
   let turnNumber = 1;
   let phase = "player";
@@ -69,6 +76,9 @@
 
   function resetGame() {
     units = STARTING_UNITS.map((unit) => ({ ...unit, acted: false }));
+    gameMode = "explore";
+    party = { ...STARTING_PARTY };
+    exploreMove = null;
     selectedId = "alden";
     turnNumber = 1;
     phase = "player";
@@ -79,15 +89,16 @@
     stopMovementAnimation();
     clearDrag();
     resultOverlay.hidden = true;
-    instruction.textContent = "Tap or drag a hero to move. Target a highlighted raider to preview an attack.";
+    instruction.textContent = "Tap a destination or drag the party token to explore.";
     render();
-    requestAnimationFrame(() => centerOnUnit(selected(), false));
+    requestAnimationFrame(() => centerOnPosition(party.x, party.y, false));
   }
 
   function findRoute(start, destination, movingUnitId) {
     if (!start || !destination || isObstacle(destination.x, destination.y)) return [];
     const destinationUnit = at(destination.x, destination.y);
-    if (destinationUnit && destinationUnit.id !== movingUnitId) return [];
+    if (destinationUnit && destinationUnit.id !== movingUnitId
+      && (gameMode !== "explore" || destinationUnit.team === "enemy")) return [];
     const startKey = keyOf(start.x, start.y);
     const endKey = keyOf(destination.x, destination.y);
     const queue = [{ x: start.x, y: start.y }];
@@ -99,7 +110,10 @@
       for (const next of neighbors(current)) {
         const nextKey = keyOf(next.x, next.y);
         const blocker = at(next.x, next.y);
-        if (previous.has(nextKey) || isObstacle(next.x, next.y) || (blocker && blocker.id !== movingUnitId)) continue;
+        const blockedByUnit = gameMode === "explore"
+          ? blocker?.team === "enemy"
+          : blocker && blocker.id !== movingUnitId;
+        if (previous.has(nextKey) || isObstacle(next.x, next.y) || blockedByUnit) continue;
         previous.set(nextKey, current);
         queue.push(next);
       }
@@ -147,6 +161,7 @@
     const square = `column ${x + 1}, row ${y + 1}`;
     const obstacle = OBSTACLES.find((item) => item.x === x && item.y === y);
     if (obstacle) return `${obstacle.name}, impassable, ${square}`;
+    if (unit?.id === "party") return `Party, ${square}`;
     return unit ? `${unit.name}, ${unit.hp} health, ${square}` : `Empty ${square}`;
   }
 
@@ -157,6 +172,10 @@
   }
 
   function displayedAt(x, y) {
+    if (gameMode === "explore") {
+      const shownParty = exploreMove ? { ...party, x: exploreMove.x, y: exploreMove.y } : party;
+      return shownParty.x === x && shownParty.y === y ? shownParty : null;
+    }
     if (pendingMove) {
       const moving = units.find((unit) => unit.id === pendingMove.unitId);
       if (moving && pendingMove.x === x && pendingMove.y === y) return moving;
@@ -180,6 +199,13 @@
   }
 
   function selectRosterUnit(unit) {
+    if (gameMode === "explore") {
+      selectedId = unit.id;
+      instruction.textContent = `${unit.name} selected. The party remains together while exploring.`;
+      render();
+      requestAnimationFrame(() => centerOnPosition(party.x, party.y));
+      return;
+    }
     if (phase === "player" && !resolvingAttack) {
       if (pendingMove) {
         stopMovementAnimation();
@@ -294,6 +320,141 @@
     }
   }
 
+  function nearestEncounter(route) {
+    for (let index = 1; index < route.length; index += 1) {
+      const enemy = living("enemy").find((candidate) => distance(route[index], candidate) <= ENCOUNTER_DISTANCE);
+      if (enemy) return { enemy, index };
+    }
+    return null;
+  }
+
+  async function movePartyTo(x, y, method = "tap") {
+    if (gameMode !== "explore" || gameOver || isAnimating || isObstacle(x, y)) return;
+    const destinationUnit = at(x, y);
+    if (destinationUnit?.team === "enemy") return;
+    const route = findRoute(party, { x, y }, party.id);
+    if (route.length < 2) return;
+    const encounter = nearestEncounter(route);
+    const travelRoute = encounter ? route.slice(0, encounter.index + 1) : route;
+    const destination = travelRoute[travelRoute.length - 1];
+    exploreMove = { x: destination.x, y: destination.y, route: travelRoute, method };
+    instruction.textContent = encounter ? "Something moves ahead…" : "The party is travelling.";
+    render();
+    await animateUnitAlongRoute(party, travelRoute);
+    if (!exploreMove || gameMode !== "explore") return;
+    party.x = destination.x;
+    party.y = destination.y;
+    exploreMove = null;
+    render();
+    if (encounter?.enemy?.hp > 0) startCombat(encounter.enemy);
+  }
+
+  function combatFormation(origin) {
+    const candidates = [
+      { x: origin.x - 1, y: origin.y }, { x: origin.x + 1, y: origin.y },
+      { x: origin.x, y: origin.y + 1 }, { x: origin.x - 1, y: origin.y + 1 },
+      { x: origin.x + 1, y: origin.y + 1 }, { x: origin.x, y: origin.y }
+    ].filter((cell) => cell.x >= 0 && cell.x < COLS && cell.y >= 0 && cell.y < ROWS
+      && !isObstacle(cell.x, cell.y) && !living("enemy").some((enemy) => enemy.x === cell.x && enemy.y === cell.y));
+    return candidates;
+  }
+
+  function startCombat(spottedEnemy) {
+    stopMovementAnimation();
+    clearDrag();
+    gameMode = "combat";
+    phase = "player";
+    turnNumber = 1;
+    pendingMove = null;
+    const formation = combatFormation(party);
+    living("player").forEach((unit, index) => {
+      const position = formation[index] || party;
+      unit.x = position.x;
+      unit.y = position.y;
+      unit.acted = false;
+    });
+    selectedId = living("player")[0]?.id || null;
+    instruction.textContent = `${spottedEnemy.name} spotted. The party spreads out for battle.`;
+    render();
+    requestAnimationFrame(() => centerOnPosition(party.x, party.y));
+  }
+
+  function returnToExploration() {
+    const survivors = living("player");
+    const regroupAt = survivors[0] || party;
+    party.x = regroupAt.x;
+    party.y = regroupAt.y;
+    gameMode = "explore";
+    phase = "player";
+    pendingMove = null;
+    resolvingAttack = null;
+    units.forEach((unit) => { unit.acted = false; });
+    selectedId = survivors[0]?.id || null;
+    instruction.textContent = "Victory. The party regroups and exploration continues.";
+    render();
+    requestAnimationFrame(() => centerOnPosition(party.x, party.y));
+  }
+
+  function attachPartyDragHandlers(token) {
+    token.addEventListener("pointerdown", (event) => {
+      if ((event.button !== undefined && event.button !== 0) || isAnimating || gameOver) return;
+      suppressGestureClick = null;
+      token.classList.add("lifted");
+      dragState = {
+        token,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        dragging: false,
+        target: null,
+        ghost: null,
+        exploring: true
+      };
+      token.setPointerCapture(event.pointerId);
+    });
+
+    token.addEventListener("pointermove", (event) => {
+      if (!dragState?.exploring || dragState.pointerId !== event.pointerId) return;
+      const moved = Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY);
+      if (!dragState.dragging && moved > 7) {
+        dragState.dragging = true;
+        document.body.classList.add("unit-dragging");
+        dragState.ghost = token.cloneNode(true);
+        dragState.ghost.classList.add("drag-ghost");
+        document.body.appendChild(dragState.ghost);
+      }
+      if (!dragState.dragging) return;
+      event.preventDefault();
+      dragState.ghost.style.left = `${event.clientX}px`;
+      dragState.ghost.style.top = `${event.clientY}px`;
+      battlefield.querySelectorAll(".drag-target, .drag-invalid").forEach((cell) => cell.classList.remove("drag-target", "drag-invalid"));
+      const hovered = document.elementFromPoint(event.clientX, event.clientY)?.closest(".cell");
+      dragState.target = null;
+      if (hovered) {
+        const x = Number(hovered.dataset.x);
+        const y = Number(hovered.dataset.y);
+        const occupant = at(x, y);
+        const valid = !isObstacle(x, y) && occupant?.team !== "enemy"
+          && (x !== party.x || y !== party.y);
+        hovered.classList.add(valid ? "drag-target" : "drag-invalid");
+        if (valid) dragState.target = { x, y };
+      }
+    });
+
+    const finish = (event) => {
+      if (!dragState?.exploring || dragState.pointerId !== event.pointerId) return;
+      const completed = dragState.dragging;
+      const target = dragState.target;
+      clearDrag();
+      if (completed) {
+        suppressGestureClick = { until: event.timeStamp + 700 };
+        if (target) void movePartyTo(target.x, target.y, "drag");
+      }
+    };
+    token.addEventListener("pointerup", finish);
+    token.addEventListener("pointercancel", finish);
+  }
+
   async function animateAttackTokens(attacker, target) {
     const attackerToken = battlefield.querySelector(`.unit[data-unit-id="${attacker.id}"]`);
     const targetToken = battlefield.querySelector(`.unit[data-unit-id="${target.id}"]`);
@@ -350,8 +511,8 @@
   function render() {
     battlefield.innerHTML = "";
     const active = selected();
-    const route = pendingMove?.route || [];
-    const showMovementRange = active && !resolvingAttack
+    const route = gameMode === "explore" ? (exploreMove?.route || []) : (pendingMove?.route || []);
+    const showMovementRange = gameMode === "combat" && active && !resolvingAttack
       && ((phase === "player" && (active.team === "enemy" || !active.acted))
         || (phase === "enemy" && active.team === "enemy" && !active.acted));
 
@@ -370,7 +531,7 @@
           cell.classList.add("reachable");
           if (active.team === "enemy") cell.classList.add("enemy-reachable");
         }
-        if (!resolvingAttack && active?.team === "player" && occupant?.team === "enemy" && attackPlan(active, occupant)) cell.classList.add("attackable");
+        if (gameMode === "combat" && !resolvingAttack && active?.team === "player" && occupant?.team === "enemy" && attackPlan(active, occupant)) cell.classList.add("attackable");
         if (pendingMove?.type === "attack" && pendingMove.targetId === occupant?.id) cell.classList.add("attack-target");
         if (pendingMove && pendingMove.x === x && pendingMove.y === y) cell.classList.add("pending-destination");
         if (pendingMove && active && active.x === x && active.y === y) cell.classList.add("move-origin");
@@ -387,26 +548,31 @@
           cell.appendChild(obstacle);
         } else if (occupant) {
           const token = document.createElement("span");
-          token.className = `unit ${occupant.team}${occupant.acted ? " acted" : ""}${occupant.id === selectedId ? " selected" : ""}`;
+          token.className = `unit ${occupant.team}${occupant.id === "party" ? " party selected" : ""}${occupant.acted ? " acted" : ""}${occupant.id === selectedId ? " selected" : ""}`;
           token.dataset.unitId = occupant.id;
-          if (pendingMove?.unitId === occupant.id) token.classList.add("previewing");
+          if (pendingMove?.unitId === occupant.id || (occupant.id === "party" && exploreMove)) token.classList.add("previewing");
           token.textContent = occupant.mark;
-          const pips = document.createElement("span");
-          pips.className = "hp-pips";
-          for (let i = 0; i < occupant.maxHp; i += 1) {
-            const pip = document.createElement("i");
-            if (i >= occupant.hp) pip.className = "empty";
-            pips.appendChild(pip);
+          if (occupant.id === "party") {
+            attachPartyDragHandlers(token);
+          } else {
+            const pips = document.createElement("span");
+            pips.className = "hp-pips";
+            for (let i = 0; i < occupant.maxHp; i += 1) {
+              const pip = document.createElement("i");
+              if (i >= occupant.hp) pip.className = "empty";
+              pips.appendChild(pip);
+            }
+            token.appendChild(pips);
+            if (occupant.team === "player") attachDragHandlers(token, occupant);
           }
-          token.appendChild(pips);
-          if (occupant.team === "player") attachDragHandlers(token, occupant);
           cell.appendChild(token);
         }
         battlefield.appendChild(cell);
       }
     }
-    renderRouteOverlay(route, active?.team);
-    renderCombatForecast(active);
+    renderRouteOverlay(route, gameMode === "explore" ? "player" : active?.team);
+    if (gameMode === "combat") renderCombatForecast(active);
+    else combatForecast.hidden = true;
     renderPlayerRoster();
 
     const shown = active || living("player")[0] || living("enemy")[0];
@@ -419,9 +585,12 @@
       attackStat.textContent = String(shown.damage);
       movementStat.textContent = String(MOVEMENT);
     }
+    gameShell.classList.toggle("exploring", gameMode === "explore");
     turnNumberLabel.textContent = String(turnNumber);
-    turnPill.textContent = phase === "player" ? "Player" : "Enemy";
-    turnPill.classList.toggle("enemy", phase === "enemy");
+    turnPill.textContent = gameMode === "explore" ? "Explore" : phase === "player" ? "Player" : "Enemy";
+    turnPill.classList.toggle("enemy", gameMode === "combat" && phase === "enemy");
+    turnCounter.hidden = gameMode === "explore";
+    endTurnButton.hidden = gameMode === "explore";
     const playerPending = phase === "player" ? pendingMove : null;
     endTurnButton.textContent = resolvingAttack && phase === "player"
       ? "Resolving…"
@@ -430,7 +599,7 @@
       : playerPending ? "Confirm" : "End Turn";
     endTurnButton.classList.toggle("confirm-move", playerPending?.type === "move");
     endTurnButton.classList.toggle("confirm-attack", playerPending?.type === "attack" || Boolean(resolvingAttack && phase === "player"));
-    endTurnButton.disabled = phase !== "player" || gameOver || Boolean(resolvingAttack);
+    endTurnButton.disabled = gameMode !== "combat" || phase !== "player" || gameOver || Boolean(resolvingAttack);
   }
 
   function renderCombatForecast(attacker) {
@@ -471,6 +640,10 @@
     }
     if (suppressGestureClick && event?.timeStamp <= suppressGestureClick.until) {
       suppressGestureClick = null;
+      return;
+    }
+    if (gameMode === "explore") {
+      if (!gameOver && x >= 0 && y >= 0) void movePartyTo(x, y, "tap");
       return;
     }
     if (phase !== "player" || gameOver || resolvingAttack) return;
@@ -746,7 +919,7 @@
   }
 
   async function enemyTurn() {
-    if (phase !== "player" || gameOver) return;
+    if (gameMode !== "combat" || phase !== "player" || gameOver) return;
     phase = "enemy";
     selectedId = null;
     instruction.textContent = "The raiders are moving…";
@@ -798,7 +971,7 @@
 
   function checkResult() {
     if (living("enemy").length === 0) {
-      finish("Victory", "The pass is secure. Both heroes survived the skirmish.");
+      returnToExploration();
       return true;
     }
     if (living("player").length === 0) {
@@ -818,6 +991,8 @@
 
   function battleState() {
     return {
+      mode: gameMode,
+      party: { x: party.x, y: party.y },
       turn: turnNumber,
       phase,
       gameOver,
