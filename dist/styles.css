@@ -62,6 +62,47 @@ button { font: inherit; }
   gap: 8px;
 }
 
+.settings-menu { position: relative; margin-right: auto; }
+.settings-menu summary {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(147, 164, 187, .34);
+  border-radius: 10px;
+  color: #c8d6e6;
+  background: rgba(18, 28, 44, .82);
+  cursor: pointer;
+  list-style: none;
+  touch-action: manipulation;
+}
+.settings-menu summary::-webkit-details-marker { display: none; }
+.settings-menu summary:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+.settings-menu summary svg { width: 19px; height: 19px; fill: currentColor; }
+.settings-popover {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 154px;
+  padding: 6px;
+  border: 1px solid #40506a;
+  border-radius: 11px;
+  background: rgba(18, 28, 44, .98);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, .42);
+}
+.settings-popover button {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  color: #f4dfe2;
+  background: #42232d;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .turn-pill {
   padding: 4px 8px;
   color: #bfe6ff;
@@ -349,10 +390,12 @@ button { font: inherit; }
 }
 .unit-summary { gap: 11px; }
 .portrait { width: 48px; height: 48px; display: grid; place-items: center; flex: 0 0 auto; border: 2px solid #addfff; border-radius: 13px; background: linear-gradient(145deg, #4eb9f3, #145c91); font-family: Georgia, serif; font-size: 1.35rem; font-weight: 900; }
+.portrait.enemy { border-color: #ffc0b7; background: linear-gradient(145deg, #ff8171, #a92f40); }
 .unit-summary strong { display: inline-block; margin-top: 2px; }
 .health-track { display: inline-block; width: 84px; height: 6px; margin: 0 6px; overflow: hidden; border-radius: 6px; background: #29374a; vertical-align: middle; }
 .health-track span { display: block; width: 100%; height: 100%; background: #42dc8b; transition: width .2s ease; }
 .health-text { color: var(--muted); font-size: .75rem; }
+.unit-stats { display: block; margin-top: 3px; color: #c6d3e2; font-size: .72rem; font-weight: 800; letter-spacing: .04em; }
 .actions { gap: 10px; }
 .actions button, .result-overlay button { min-height: 46px; border-radius: 12px; padding: 0 18px; border: 1px solid transparent; font-weight: 850; cursor: pointer; touch-action: manipulation; }
 .actions button { flex: 1; }

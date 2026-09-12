@@ -11,6 +11,16 @@
   <body>
     <main class="game-shell" aria-label="Tactics battle">
       <header class="game-status" aria-label="Turn status">
+        <details class="settings-menu" id="settings-menu">
+          <summary aria-label="Settings" title="Settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2Zm8.2 4.7v-2.2l-2.1-.7a7 7 0 0 0-.6-1.5l1-2-1.6-1.6-2 1a7 7 0 0 0-1.5-.6L12.7 2h-2.2l-.7 2.1a7 7 0 0 0-1.5.6l-2-1-1.6 1.6 1 2a7 7 0 0 0-.6 1.5L3 10.9v2.2l2.1.7a7 7 0 0 0 .6 1.5l-1 2 1.6 1.6 2-1a7 7 0 0 0 1.5.6l.7 2.1h2.2l.7-2.1a7 7 0 0 0 1.5-.6l2 1 1.6-1.6-1-2a7 7 0 0 0 .6-1.5l2.1-.7Z" />
+            </svg>
+          </summary>
+          <div class="settings-popover">
+            <button id="restart" type="button">Restart battle</button>
+          </div>
+        </details>
         <span class="turn-pill" id="turn-pill" aria-live="polite">Player turn</span>
         <span class="turn-counter">Turn <strong id="turn-number">1</strong></span>
       </header>
@@ -35,14 +45,14 @@
         <div class="unit-summary">
           <div class="portrait" id="portrait" aria-hidden="true">A</div>
           <div>
-            <span class="label">Selected unit</span>
+            <span class="label" id="selected-team">Hero</span>
             <strong id="selected-name">Alden</strong>
             <div class="health-track" aria-hidden="true"><span id="health-fill"></span></div>
             <span class="health-text" id="health-text">5 / 5 HP</span>
+            <span class="unit-stats" id="unit-stats">ATK 2 · MOV 2</span>
           </div>
         </div>
         <div class="actions">
-          <button id="restart" class="secondary-button" type="button">Restart</button>
           <button id="end-turn" class="primary-button" type="button">End Turn</button>
         </div>
       </section>

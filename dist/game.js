@@ -15,9 +15,12 @@
   const battlefield = document.querySelector("#battlefield");
   const endTurnButton = document.querySelector("#end-turn");
   const restartButton = document.querySelector("#restart");
+  const settingsMenu = document.querySelector("#settings-menu");
   const restartOverlayButton = document.querySelector("#restart-overlay");
   const instruction = document.querySelector("#instruction");
   const selectedName = document.querySelector("#selected-name");
+  const selectedTeam = document.querySelector("#selected-team");
+  const unitStats = document.querySelector("#unit-stats");
   const healthText = document.querySelector("#health-text");
   const healthFill = document.querySelector("#health-fill");
   const portrait = document.querySelector("#portrait");
@@ -296,8 +299,9 @@
     battlefield.innerHTML = "";
     const active = selected();
     const route = pendingMove?.route || [];
-    const showMovementRange = active && !active.acted && !resolvingAttack
-      && ((phase === "player" && active.team === "player") || (phase === "enemy" && active.team === "enemy"));
+    const showMovementRange = active && !resolvingAttack
+      && ((phase === "player" && (active.team === "enemy" || !active.acted))
+        || (phase === "enemy" && active.team === "enemy" && !active.acted));
 
     for (let y = 0; y < ROWS; y += 1) {
       for (let x = 0; x < COLS; x += 1) {
@@ -355,7 +359,10 @@
     const shown = active || living("player")[0] || living("enemy")[0];
     if (shown) {
       selectedName.textContent = shown.name;
+      selectedTeam.textContent = shown.team === "enemy" ? "Enemy" : "Hero";
+      unitStats.textContent = `ATK ${shown.damage} · MOV ${MOVEMENT}`;
       portrait.textContent = shown.mark;
+      portrait.classList.toggle("enemy", shown.team === "enemy");
       healthText.textContent = `${shown.hp} / ${shown.maxHp} HP`;
       healthFill.style.width = `${(shown.hp / shown.maxHp) * 100}%`;
     }
@@ -447,17 +454,15 @@
       return;
     }
 
-    if (!active || active.acted) {
-      instruction.textContent = "Select a blue unit that has not acted.";
+    if (occupant?.team === "enemy") {
+      selectedId = occupant.id;
+      instruction.textContent = `${occupant.name} selected. Attack ${occupant.damage}, movement ${MOVEMENT}.`;
+      render();
       return;
     }
 
-    if (occupant?.team === "enemy") {
-      if (attackPlan(active, occupant)) stageAttack(active, occupant, "tap");
-      else {
-        instruction.textContent = `${occupant.name} cannot be reached this turn.`;
-        render();
-      }
+    if (!active || active.acted) {
+      instruction.textContent = "Select a blue unit that has not acted.";
       return;
     }
 
@@ -789,12 +794,16 @@
     if (pendingMove) void confirmPendingMove();
     else void enemyTurn();
   });
-  restartButton.addEventListener("click", resetGame);
+  restartButton.addEventListener("click", () => {
+    settingsMenu.open = false;
+    resetGame();
+  });
   restartOverlayButton.addEventListener("click", resetGame);
-  document.addEventListener("pointerdown", () => {
+  document.addEventListener("pointerdown", (event) => {
     // A fresh touch is always a new command. Only the synthetic click emitted by
     // the previous drag gesture should ever be ignored.
     suppressGestureClick = null;
+    if (settingsMenu.open && !settingsMenu.contains(event.target)) settingsMenu.open = false;
   }, true);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && pendingMove) cancelPendingMove();
