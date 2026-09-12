@@ -22,7 +22,6 @@
   const selectedTeam = document.querySelector("#selected-team");
   const unitStats = document.querySelector("#unit-stats");
   const healthText = document.querySelector("#health-text");
-  const healthFill = document.querySelector("#health-fill");
   const portrait = document.querySelector("#portrait");
   const turnNumberLabel = document.querySelector("#turn-number");
   const turnPill = document.querySelector("#turn-pill");
@@ -32,7 +31,6 @@
   const combatForecast = document.querySelector("#combat-forecast");
   const forecastMatchup = document.querySelector("#forecast-matchup");
   const forecastResult = document.querySelector("#forecast-result");
-  const forecastHealthFill = document.querySelector("#forecast-health-fill");
 
   let units = [];
   let selectedId = null;
@@ -364,10 +362,9 @@
       portrait.textContent = shown.mark;
       portrait.classList.toggle("enemy", shown.team === "enemy");
       healthText.textContent = `${shown.hp} / ${shown.maxHp} HP`;
-      healthFill.style.width = `${(shown.hp / shown.maxHp) * 100}%`;
     }
     turnNumberLabel.textContent = String(turnNumber);
-    turnPill.textContent = phase === "player" ? "Player turn" : "Enemy turn";
+    turnPill.textContent = phase === "player" ? "Player" : "Enemy";
     turnPill.classList.toggle("enemy", phase === "enemy");
     const playerPending = phase === "player" ? pendingMove : null;
     endTurnButton.textContent = resolvingAttack && phase === "player"
@@ -394,8 +391,12 @@
     forecastResult.textContent = preview
       ? `${shownAttacker.damage} damage · ${target.hp} → ${remaining} HP`
       : `${target.hp} / ${target.maxHp} HP`;
-    forecastHealthFill.style.width = `${(target.hp / target.maxHp) * 100}%`;
     combatForecast.classList.toggle("resolving", Boolean(resolution));
+    combatForecast.classList.toggle("clickable", Boolean(preview));
+    combatForecast.tabIndex = preview ? 0 : -1;
+    combatForecast.setAttribute("aria-label", preview
+      ? `Confirm attack. ${shownAttacker.name} deals ${shownAttacker.damage} damage to ${target.name}, leaving ${remaining} health.`
+      : `${shownAttacker.name} attacks ${target.name}.`);
     combatForecast.hidden = false;
   }
 
@@ -793,6 +794,14 @@
   endTurnButton.addEventListener("click", () => {
     if (pendingMove) void confirmPendingMove();
     else void enemyTurn();
+  });
+  combatForecast.addEventListener("click", () => {
+    if (pendingMove?.type === "attack") void confirmPendingMove();
+  });
+  combatForecast.addEventListener("keydown", (event) => {
+    if (pendingMove?.type !== "attack" || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    void confirmPendingMove();
   });
   restartButton.addEventListener("click", () => {
     settingsMenu.open = false;

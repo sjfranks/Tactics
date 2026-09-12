@@ -21,17 +21,16 @@
             <button id="restart" type="button">Restart battle</button>
           </div>
         </details>
-        <span class="turn-pill" id="turn-pill" aria-live="polite">Player turn</span>
+        <span class="turn-pill" id="turn-pill" aria-live="polite">Player</span>
         <span class="turn-counter">Turn <strong id="turn-number">1</strong></span>
       </header>
 
       <section class="battlefield-frame">
         <div id="battlefield" class="battlefield" role="grid" aria-label="Tactical battlefield"></div>
-        <div id="combat-forecast" class="combat-forecast" role="status" hidden>
+        <div id="combat-forecast" class="combat-forecast" role="button" tabindex="-1" hidden>
           <strong>ATTACK</strong>
           <span id="forecast-matchup"></span>
           <b id="forecast-result"></b>
-          <div class="forecast-health" aria-hidden="true"><span id="forecast-health-fill"></span></div>
         </div>
         <div id="result-overlay" class="result-overlay" hidden>
           <p class="eyebrow" id="result-kicker">BATTLE COMPLETE</p>
@@ -47,7 +46,6 @@
           <div>
             <span class="label" id="selected-team">Hero</span>
             <strong id="selected-name">Alden</strong>
-            <div class="health-track" aria-hidden="true"><span id="health-fill"></span></div>
             <span class="health-text" id="health-text">5 / 5 HP</span>
             <span class="unit-stats" id="unit-stats">ATK 2 · MOV 2</span>
           </div>
