@@ -367,7 +367,7 @@
       ? "Resolving…"
       : playerPending?.type === "attack"
       ? "Confirm Attack"
-      : playerPending ? "Confirm Move" : "End Turn";
+      : playerPending ? "Confirm" : "End Turn";
     endTurnButton.classList.toggle("confirm-move", playerPending?.type === "move");
     endTurnButton.classList.toggle("confirm-attack", playerPending?.type === "attack" || Boolean(resolvingAttack && phase === "player"));
     endTurnButton.disabled = phase !== "player" || gameOver || Boolean(resolvingAttack);
@@ -477,7 +477,7 @@
     const route = routeTo(unit, { x, y });
     pendingMove = { type: "move", unitId: unit.id, x, y, method, route };
     const spaces = route.length - 1;
-    instruction.textContent = `${unit.name}: ${spaces} ${spaces === 1 ? "space" : "spaces"}. Tap the endpoint or Confirm Move; choose another highlighted tile to revise.`;
+    instruction.textContent = `${unit.name}: ${spaces} ${spaces === 1 ? "space" : "spaces"}. Tap the endpoint or Confirm; choose another highlighted tile to revise.`;
     render();
     void animateUnitAlongRoute(unit, route);
   }

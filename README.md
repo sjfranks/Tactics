@@ -2,6 +2,10 @@
 
 A portrait-first, touch-friendly tactical battle prototype.
 
+## Play
+
+[Play Tactics on GitHub Pages](https://sjfranks.github.io/Tactics/)
+
 ## Play locally
 
 Open `dist/index.html` in a browser. No build step or dependencies are required.
