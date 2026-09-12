@@ -5,7 +5,6 @@ import './phaser.css';
 type Team = 'player' | 'enemy';
 type PrototypeMode = 'tactical' | 'exploration';
 type GameMode = 'combat' | 'explore';
-
 type Point = { x: number; y: number };
 type Unit = Point & {
   id: string;
@@ -19,6 +18,8 @@ type Unit = Point & {
 };
 type Obstacle = Point & { name: string };
 type Prototype = { cols: number; rows: number; zoom: number; obstacles: Obstacle[]; units: Omit<Unit, 'acted'>[] };
+
+type PendingAttack = { actorId: string; targetId: string; route: Point[] };
 
 const CELL = 80;
 const MOVE = 2;
@@ -69,9 +70,12 @@ class TacticsScene extends Phaser.Scene {
   cells = new Map<string, any>();
   tokens = new Map<string, any>();
   routeGraphics?: any;
-  dragOrigin?: any;
+  destinationGraphics?: any;
   panOrigin?: { x: number; y: number; scrollX: number; scrollY: number };
   pinchDistance = 0;
+  pendingAttack?: PendingAttack;
+  draggingId?: string;
+  dragRoute: Point[] = [];
 
   constructor() { super('tactics'); }
 
@@ -94,11 +98,13 @@ class TacticsScene extends Phaser.Scene {
     this.cols = p.cols; this.rows = p.rows; this.obstacles = p.obstacles.map(o => ({ ...o }));
     this.units = p.units.map(u => ({ ...u, acted: false })); this.party = { ...STARTING_PARTY };
     this.selectedId = 'alden'; this.turn = 1; this.phase = 'player'; this.gameOver = false;
+    this.pendingAttack = undefined; this.draggingId = undefined; this.dragRoute = [];
+    this.hideForecast();
     this.buildBoard();
     this.cameras.main.setBounds(0, 0, this.cols * CELL, this.rows * CELL);
     if (this.gameMode === 'combat') this.fitTactical(); else { this.setZoom(.85); this.centerOn(this.party); }
     ui.resultOverlay.hidden = true;
-    this.message(this.gameMode === 'explore' ? 'Tap a destination or drag the party token to explore.' : 'Tap a hero, then a highlighted square or raider.');
+    this.message(this.gameMode === 'explore' ? 'Tap a destination or drag the party token to explore.' : 'Tap or drag a hero to move. Tap a raider to preview an attack.');
     this.syncUI();
   }
 
@@ -125,45 +131,136 @@ class TacticsScene extends Phaser.Scene {
     const text = this.add.text(0,-3,unit.mark,{fontFamily:'Georgia',fontStyle:'bold',fontSize:'28px',color:'#fff'}).setOrigin(.5);
     const hp = this.add.text(0,25,`${unit.hp}/${unit.maxHp}`,{fontSize:'11px',color:'#d8ffe8'}).setOrigin(.5);
     c.add([circle,text,hp]).setSize(CELL*.72,CELL*.72).setInteractive({ useHandCursor:true });
-    c.on('pointerup', (_p: any, _lx:number, _ly:number, event:any) => { event.stopPropagation(); this.handleUnit(unit.id); });
+    c.setData('unitId', unit.id); c.setData('dragged', false);
+    if (unit.team === 'player') {
+      this.input.setDraggable(c);
+      c.on('dragstart', () => this.beginUnitDrag(unit, c));
+      c.on('drag', (pointer:any) => this.updateUnitDrag(unit, c, pointer));
+      c.on('dragend', () => this.finishUnitDrag(unit, c));
+    }
+    c.on('pointerup', (_p: any, _lx:number, _ly:number, event:any) => {
+      event.stopPropagation();
+      if (c.getData('dragged')) { c.setData('dragged', false); return; }
+      this.handleUnit(unit.id);
+    });
     this.tokens.set(unit.id,c);
   }
 
   createPartyToken() {
     const c = this.add.container(this.party.x*CELL+CELL/2,this.party.y*CELL+CELL/2);
     const circle = this.add.circle(0,0,CELL*.34,0x563eaf).setStrokeStyle(4,0xffe6a3);
-    const text = this.add.text(0,0,'✦',{fontSize:'31px',color:'#fff'}).setOrigin(.5); c.add([circle,text]).setSize(CELL*.8,CELL*.8).setInteractive({useHandCursor:true});
+    const text = this.add.text(0,0,'✦',{fontSize:'31px',color:'#fff'}).setOrigin(.5);
+    c.add([circle,text]).setSize(CELL*.8,CELL*.8).setInteractive({useHandCursor:true});
+    c.setData('dragged', false); this.input.setDraggable(c);
+    c.on('dragstart', () => { this.draggingId='party'; c.setData('dragged', true); this.panOrigin=undefined; });
+    c.on('drag', (pointer:any) => this.updatePartyDrag(c,pointer));
+    c.on('dragend', () => this.finishPartyDrag(c));
     this.tokens.set('party',c);
   }
+
+  beginUnitDrag(unit:Unit, token:any) {
+    if (this.gameOver || this.gameMode !== 'combat' || this.phase !== 'player' || unit.acted) return;
+    this.clearAttackPreview();
+    this.selectedId=unit.id; this.draggingId=unit.id; this.dragRoute=[]; token.setData('dragged',true); token.setDepth(40); token.setAlpha(.88);
+    this.refreshHighlights(); this.syncUI();
+  }
+
+  updateUnitDrag(unit:Unit, token:any, pointer:any) {
+    if (this.draggingId !== unit.id || unit.acted) return;
+    const world=this.cameras.main.getWorldPoint(pointer.x,pointer.y);
+    const dest={x:Math.floor(world.x/CELL),y:Math.floor(world.y/CELL)};
+    const route=this.findRoute(unit,dest,unit.id);
+    const legal=route.length>1 && route.length-1<=MOVE && !this.at(dest.x,dest.y);
+    this.dragRoute=legal?route:[];
+    token.x=world.x; token.y=world.y;
+    this.showDragDestination(legal?dest:undefined, legal?route:undefined);
+  }
+
+  finishUnitDrag(unit:Unit, token:any) {
+    if (this.draggingId !== unit.id) return;
+    this.draggingId=undefined; token.setDepth(0); token.setAlpha(1);
+    const route=this.dragRoute; this.dragRoute=[]; this.clearDragDestination();
+    if (route.length>1) {
+      const start=route[0]; token.x=start.x*CELL+CELL/2; token.y=start.y*CELL+CELL/2;
+      this.moveUnit(unit,route,true);
+    } else {
+      token.x=unit.x*CELL+CELL/2; token.y=unit.y*CELL+CELL/2;
+    }
+  }
+
+  updatePartyDrag(token:any,pointer:any) {
+    if(this.draggingId!=='party') return;
+    const world=this.cameras.main.getWorldPoint(pointer.x,pointer.y); const dest={x:Math.floor(world.x/CELL),y:Math.floor(world.y/CELL)};
+    const route=this.findRoute(this.party,dest,'party',true); this.dragRoute=route.length>1?route:[];
+    token.x=world.x;token.y=world.y;this.showDragDestination(this.dragRoute.length?dest:undefined,this.dragRoute.length?this.dragRoute:undefined);
+  }
+
+  finishPartyDrag(token:any) {
+    if(this.draggingId!=='party')return; this.draggingId=undefined; const route=this.dragRoute;this.dragRoute=[];this.clearDragDestination();
+    token.x=this.party.x*CELL+CELL/2;token.y=this.party.y*CELL+CELL/2;
+    if(route.length>1)this.moveParty(route[route.length-1]);
+  }
+
+  showDragDestination(dest?:Point,route?:Point[]) {
+    this.destinationGraphics?.destroy(); this.destinationGraphics=undefined;
+    if(!dest||!route){this.routeGraphics?.clear();return;}
+    this.drawRoute(route,'player'); const g=this.add.graphics().setDepth(35);g.fillStyle(0x71e4ff,.28).fillRoundedRect(dest.x*CELL+5,dest.y*CELL+5,CELL-10,CELL-10,10);g.lineStyle(5,0x9cf0ff,1).strokeRoundedRect(dest.x*CELL+5,dest.y*CELL+5,CELL-10,CELL-10,10);this.destinationGraphics=g;
+  }
+  clearDragDestination(){this.destinationGraphics?.destroy();this.destinationGraphics=undefined;this.routeGraphics?.clear();}
 
   handleUnit(id: string) {
     if (this.gameOver || this.gameMode !== 'combat' || this.phase !== 'player') return;
     const target = this.unit(id); if (!target) return;
-    if (target.team === 'player') { this.selectedId = id; this.message(`${target.name} selected.`); this.refreshHighlights(); this.syncUI(); return; }
-    const actor = this.selected(); if (actor && this.canAttack(actor,target)) this.attack(actor,target);
+    if (target.team === 'player') {
+      this.clearAttackPreview(); this.selectedId = id; this.message(`${target.name} selected.`); this.refreshHighlights(); this.syncUI(); return;
+    }
+    const actor = this.selected(); if (actor && this.canAttack(actor,target)) this.previewAttack(actor,target);
   }
 
   handleCell(x:number,y:number) {
-    if (this.gameOver) return;
+    if (this.gameOver || this.draggingId) return;
     if (this.gameMode === 'explore') { this.moveParty({x,y}); return; }
     if (this.phase !== 'player') return;
     const actor = this.selected(); if (!actor || actor.acted) return;
     const occupant = this.at(x,y);
-    if (occupant?.team === 'enemy' && this.canAttack(actor,occupant)) { this.attack(actor,occupant); return; }
-    const route = this.findRoute(actor,{x,y},actor.id); if (route.length > 1 && route.length-1 <= MOVE) this.moveUnit(actor,route,true);
+    if (occupant?.team === 'enemy' && this.canAttack(actor,occupant)) { this.previewAttack(actor,occupant); return; }
+    this.clearAttackPreview();
+    const route = this.findRoute(actor,{x,y},actor.id);
+    if (route.length > 1 && route.length-1 <= MOVE) this.moveUnit(actor,route,true);
   }
+
+  previewAttack(actor:Unit,target:Unit) {
+    const route=this.attackRoute(actor,target); if(!route)return;
+    this.pendingAttack={actorId:actor.id,targetId:target.id,route};
+    this.drawRoute([...route,{x:target.x,y:target.y}],actor.team);
+    this.refreshHighlights();
+    const remaining=Math.max(0,target.hp-actor.damage);
+    ui.matchup.textContent=`${actor.name} → ${target.name}`;
+    ui.forecastResult.textContent=`${actor.damage} damage · ${target.hp} → ${remaining} HP · tap to confirm`;
+    ui.forecast.hidden=false; ui.forecast.tabIndex=0;
+    this.message(`Preview: ${actor.name} attacks ${target.name} for ${actor.damage}. Confirm the attack.`);
+  }
+
+  confirmAttack() {
+    const pending=this.pendingAttack;if(!pending)return;
+    const actor=this.unit(pending.actorId),target=this.unit(pending.targetId);this.pendingAttack=undefined;this.hideForecast();
+    if(actor&&target)this.attack(actor,target,pending.route);
+  }
+
+  clearAttackPreview(){this.pendingAttack=undefined;this.hideForecast();this.routeGraphics?.clear();this.refreshHighlights();}
+  hideForecast(){ui.forecast.hidden=true;ui.forecast.tabIndex=-1;}
 
   moveUnit(unit:Unit, route:Point[], consumeAction:boolean) {
     const token = this.tokens.get(unit.id); if (!token) return;
-    const dest = route[route.length-1]; this.drawRoute(route, unit.team);
+    this.clearAttackPreview(); const dest = route[route.length-1]; this.drawRoute(route, unit.team);
     this.tweens.add({ targets:token, x:dest.x*CELL+CELL/2, y:dest.y*CELL+CELL/2, duration:180*(route.length-1), ease:'Sine.easeInOut', onComplete:()=>{
       unit.x=dest.x; unit.y=dest.y; if (consumeAction) unit.acted=true; this.routeGraphics?.clear(); this.refreshHighlights(); this.syncUI();
     }});
   }
 
-  async attack(actor:Unit,target:Unit) {
+  async attack(actor:Unit,target:Unit,knownRoute?:Point[]) {
     if (actor.acted || target.hp<=0) return;
-    const route = this.attackRoute(actor,target); if (!route) return;
+    const route = knownRoute ?? this.attackRoute(actor,target); if (!route) return;
     if (route.length>1) await new Promise<void>(resolve=>{
       const token=this.tokens.get(actor.id)!; const dest=route[route.length-1]; this.drawRoute(route,actor.team);
       this.tweens.add({targets:token,x:dest.x*CELL+CELL/2,y:dest.y*CELL+CELL/2,duration:170*(route.length-1),onComplete:()=>{actor.x=dest.x;actor.y=dest.y;resolve();}});
@@ -177,7 +274,7 @@ class TacticsScene extends Phaser.Scene {
 
   endPlayerTurn() {
     if (this.gameOver || this.gameMode !== 'combat' || this.phase !== 'player') return;
-    this.phase='enemy'; this.syncUI(); this.message('Enemies are moving…');
+    this.clearAttackPreview(); this.phase='enemy'; this.syncUI(); this.message('Enemies are moving…');
     this.time.delayedCall(300,()=>this.enemyTurn());
   }
 
@@ -235,23 +332,24 @@ class TacticsScene extends Phaser.Scene {
     if(this.gameMode!=='combat'||this.phase!=='player')return; const actor=this.selected(); if(!actor||actor.acted)return;
     this.cells.forEach((cell)=>{const{x,y}=cell.data.values;const route=this.findRoute(actor,{x,y},actor.id);if(!this.at(x,y)&&route.length>1&&route.length-1<=MOVE){cell.setFillStyle(0x1c90be,.62).setStrokeStyle(3,0x71e4ff,.95);}});
     this.living('enemy').forEach(e=>{if(this.canAttack(actor,e))this.cells.get(`${e.x},${e.y}`)?.setFillStyle(0xa33638,.75).setStrokeStyle(4,0xff9a78,1);});
+    if(this.pendingAttack){const t=this.unit(this.pendingAttack.targetId);if(t)this.cells.get(`${t.x},${t.y}`)?.setFillStyle(0xd14b3f,.92).setStrokeStyle(5,0xffd18a,1);}
   }
 
   fitTactical(){ const cam=this.cameras.main; const zoom=Math.min(cam.width/(this.cols*CELL),cam.height/(this.rows*CELL)); cam.setZoom(zoom); cam.centerOn(this.cols*CELL/2,this.rows*CELL/2); }
   setZoom(z:number){const cam=this.cameras.main;cam.setZoom(Phaser.Math.Clamp(z,.35,2.4));}
   centerOn(p:Point){this.cameras.main.pan(p.x*CELL+CELL/2,p.y*CELL+CELL/2,220,'Sine.easeOut');}
 
-  onPointerDown(pointer:any){ if(this.gameMode!=='explore')return; this.dragOrigin=new Phaser.Math.Vector2(pointer.x,pointer.y); this.panOrigin={x:pointer.x,y:pointer.y,scrollX:this.cameras.main.scrollX,scrollY:this.cameras.main.scrollY}; }
-  onPointerMove(pointer:any){ if(this.gameMode!=='explore')return; const p1=this.input.pointer1,p2=this.input.pointer2; if(p1.isDown&&p2.isDown){const d=Phaser.Math.Distance.Between(p1.x,p1.y,p2.x,p2.y);if(this.pinchDistance){this.setZoom(this.cameras.main.zoom*(d/this.pinchDistance));}this.pinchDistance=d;return;} if(pointer.isDown&&this.panOrigin){const cam=this.cameras.main;cam.scrollX=this.panOrigin.scrollX-(pointer.x-this.panOrigin.x)/cam.zoom;cam.scrollY=this.panOrigin.scrollY-(pointer.y-this.panOrigin.y)/cam.zoom;} }
+  onPointerDown(pointer:any){ if(this.gameMode!=='explore'||this.draggingId)return; this.panOrigin={x:pointer.x,y:pointer.y,scrollX:this.cameras.main.scrollX,scrollY:this.cameras.main.scrollY}; }
+  onPointerMove(pointer:any){ if(this.gameMode!=='explore'||this.draggingId)return; const p1=this.input.pointer1,p2=this.input.pointer2; if(p1.isDown&&p2.isDown){const d=Phaser.Math.Distance.Between(p1.x,p1.y,p2.x,p2.y);if(this.pinchDistance){this.setZoom(this.cameras.main.zoom*(d/this.pinchDistance));}this.pinchDistance=d;return;} if(pointer.isDown&&this.panOrigin){const cam=this.cameras.main;cam.scrollX=this.panOrigin.scrollX-(pointer.x-this.panOrigin.x)/cam.zoom;cam.scrollY=this.panOrigin.scrollY-(pointer.y-this.panOrigin.y)/cam.zoom;} }
 
-  checkGameOver(){const heroes=this.living('player'),enemies=this.living('enemy');if(heroes.length&&enemies.length)return;this.gameOver=true;ui.resultOverlay.hidden=false;ui.resultTitle.textContent=heroes.length?'Victory':'Defeat';ui.resultCopy.textContent=heroes.length?'The pass is secure.':'The party has fallen.';}
+  checkGameOver(){const heroes=this.living('player'),enemies=this.living('enemy');if(heroes.length&&enemies.length)return;this.gameOver=true;this.clearAttackPreview();ui.resultOverlay.hidden=false;ui.resultTitle.textContent=heroes.length?'Victory':'Defeat';ui.resultCopy.textContent=heroes.length?'The pass is secure.':'The party has fallen.';}
   message(text:string){ui.instruction.textContent=text;}
   syncUI(){
     ui.turnNumber.textContent=String(this.turn); ui.turnPill.textContent=this.gameMode==='explore'?'Explore':this.phase==='player'?'Player':'Enemy'; ui.turnPill.classList.toggle('enemy',this.phase==='enemy');
     ui.endTurn.hidden=this.gameMode==='explore'; ui.endTurn.disabled=this.phase!=='player'||this.gameOver;
     ui.tactical.setAttribute('aria-pressed',String(this.mode==='tactical')); ui.exploration.setAttribute('aria-pressed',String(this.mode==='exploration'));
     const s=this.selected()??this.living('player')[0]; if(s){ui.selectedName.textContent=s.name;ui.selectedTeam.textContent=s.team==='player'?'Hero':'Enemy';ui.health.textContent=`${s.hp} / ${s.maxHp}`;ui.attack.textContent=String(s.damage);ui.movement.textContent=String(MOVE);ui.portrait.textContent=s.mark;}
-    ui.roster.innerHTML=''; for(const u of this.living('player')){const b=document.createElement('button');b.type='button';b.className=`roster-token${u.id===this.selectedId?' selected':''}${u.acted?' acted':''}`;b.textContent=u.mark;b.setAttribute('aria-label',`${u.name}, ${u.hp} of ${u.maxHp} health`);b.addEventListener('click',()=>{this.selectedId=u.id;this.refreshHighlights();this.syncUI();if(this.gameMode==='combat')this.centerOn(u);});ui.roster.appendChild(b);}
+    ui.roster.innerHTML=''; for(const u of this.living('player')){const b=document.createElement('button');b.type='button';b.className=`roster-token${u.id===this.selectedId?' selected':''}${u.acted?' acted':''}`;b.textContent=u.mark;b.setAttribute('aria-label',`${u.name}, ${u.hp} of ${u.maxHp} health`);b.addEventListener('click',()=>{this.clearAttackPreview();this.selectedId=u.id;this.refreshHighlights();this.syncUI();if(this.gameMode==='combat')this.centerOn(u);});ui.roster.appendChild(b);}
   }
 }
 
@@ -264,6 +362,8 @@ new Phaser.Game({
   scene: TacticsScene
 });
 
+ui.forecast.addEventListener('click',()=>scene.confirmAttack());
+ui.forecast.addEventListener('keydown',(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();scene.confirmAttack();}});
 ui.endTurn.addEventListener('click',()=>scene.endPlayerTurn());
 ui.restart.addEventListener('click',()=>{scene.reset();ui.settings.open=false;});
 ui.restartOverlay.addEventListener('click',()=>scene.reset());
