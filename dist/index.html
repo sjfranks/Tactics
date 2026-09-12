@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#111827" />
+    <meta name="description" content="A portrait-first, touch-friendly tactical battle prototype." />
+    <title>Tactics — First Battle</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="game-shell" aria-label="Tactics battle">
+      <header class="game-status" aria-label="Turn status">
+        <span class="turn-pill" id="turn-pill" aria-live="polite">Player turn</span>
+        <span class="turn-counter">Turn <strong id="turn-number">1</strong></span>
+      </header>
+
+      <section class="battlefield-frame">
+        <div id="battlefield" class="battlefield" role="grid" aria-label="Tactical battlefield"></div>
+        <div id="combat-forecast" class="combat-forecast" role="status" hidden>
+          <strong>ATTACK</strong>
+          <span id="forecast-matchup"></span>
+          <b id="forecast-result"></b>
+          <div class="forecast-health" aria-hidden="true"><span id="forecast-health-fill"></span></div>
+        </div>
+        <div id="result-overlay" class="result-overlay" hidden>
+          <p class="eyebrow" id="result-kicker">BATTLE COMPLETE</p>
+          <h2 id="result-title">Victory</h2>
+          <p id="result-copy">The pass is secure.</p>
+          <button id="restart-overlay" class="primary-button" type="button">Play again</button>
+        </div>
+      </section>
+
+      <section class="command-panel" aria-label="Unit commands">
+        <div class="unit-summary">
+          <div class="portrait" id="portrait" aria-hidden="true">A</div>
+          <div>
+            <span class="label">Selected unit</span>
+            <strong id="selected-name">Alden</strong>
+            <div class="health-track" aria-hidden="true"><span id="health-fill"></span></div>
+            <span class="health-text" id="health-text">5 / 5 HP</span>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="restart" class="secondary-button" type="button">Restart</button>
+          <button id="end-turn" class="primary-button" type="button">End Turn</button>
+        </div>
+      </section>
+      <p class="sr-only" id="instruction" aria-live="polite"></p>
+    </main>
+    <script src="./game.js"></script>
+  </body>
+</html>
