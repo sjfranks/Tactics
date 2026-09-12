@@ -91,6 +91,16 @@ button { font: inherit; }
   background: rgba(18, 28, 44, .98);
   box-shadow: 0 12px 26px rgba(0, 0, 0, .42);
 }
+.settings-label {
+  display: block;
+  padding: 5px 7px 4px;
+  color: var(--muted);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.mode-options { display: grid; gap: 4px; margin-bottom: 5px; }
 .settings-popover button {
   width: 100%;
   min-height: 42px;
@@ -101,6 +111,14 @@ button { font: inherit; }
   background: #42232d;
   font-weight: 800;
   cursor: pointer;
+}
+.settings-popover .mode-option {
+  color: #dce8f5;
+  background: #1a283b;
+}
+.settings-popover .mode-option[aria-pressed="true"] {
+  color: #102033;
+  background: var(--gold);
 }
 
 .turn-pill {
@@ -154,12 +172,12 @@ button { font: inherit; }
 
 .battlefield {
   position: relative;
-  width: calc(var(--map-zoom, 5) * 100%);
+  width: calc(var(--map-zoom, 1) * 100%);
   height: auto;
-  aspect-ratio: 1;
+  aspect-ratio: var(--map-cols, 6) / var(--map-rows, 8);
   display: grid;
-  grid-template-columns: repeat(30, 1fr);
-  grid-template-rows: repeat(30, 1fr);
+  grid-template-columns: repeat(var(--map-cols, 6), 1fr);
+  grid-template-rows: repeat(var(--map-rows, 8), 1fr);
   padding: 5px;
   gap: 3px;
   cursor: grab;

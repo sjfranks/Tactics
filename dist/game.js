@@ -1,20 +1,41 @@
 (() => {
   "use strict";
 
-  const COLS = 30;
-  const ROWS = 30;
+  let COLS = 6;
+  let ROWS = 8;
   const MOVEMENT = 2;
   const MIN_MAP_ZOOM = 2.5;
   const MAX_MAP_ZOOM = 8;
+  const MAX_TACTICAL_ZOOM = 3;
   const ENCOUNTER_DISTANCE = 4;
   const STARTING_PARTY = { id: "party", name: "Party", mark: "✦", team: "player", x: 15, y: 24 };
-  const OBSTACLES = [{ x: 15, y: 18, name: "Ancient pillar" }];
-  const STARTING_UNITS = [
-    { id: "alden", name: "Alden", mark: "A", team: "player", x: 14, y: 20, hp: 5, maxHp: 5, damage: 2 },
-    { id: "mira", name: "Mira", mark: "M", team: "player", x: 16, y: 21, hp: 4, maxHp: 4, damage: 2 },
-    { id: "raider-1", name: "North Raider", mark: "R", team: "enemy", x: 14, y: 15, hp: 3, maxHp: 3, damage: 1 },
-    { id: "raider-2", name: "Hill Raider", mark: "R", team: "enemy", x: 17, y: 17, hp: 3, maxHp: 3, damage: 1 }
-  ];
+  let OBSTACLES = [];
+  const PROTOTYPES = {
+    tactical: {
+      cols: 6,
+      rows: 8,
+      zoom: 1,
+      obstacles: [{ x: 2, y: 4, name: "Ancient pillar" }],
+      units: [
+        { id: "alden", name: "Alden", mark: "A", team: "player", x: 1, y: 6, hp: 5, maxHp: 5, damage: 2 },
+        { id: "mira", name: "Mira", mark: "M", team: "player", x: 4, y: 6, hp: 4, maxHp: 4, damage: 2 },
+        { id: "raider-1", name: "North Raider", mark: "R", team: "enemy", x: 1, y: 1, hp: 3, maxHp: 3, damage: 1 },
+        { id: "raider-2", name: "Hill Raider", mark: "R", team: "enemy", x: 4, y: 2, hp: 3, maxHp: 3, damage: 1 }
+      ]
+    },
+    exploration: {
+      cols: 30,
+      rows: 30,
+      zoom: 5,
+      obstacles: [{ x: 15, y: 18, name: "Ancient pillar" }],
+      units: [
+        { id: "alden", name: "Alden", mark: "A", team: "player", x: 14, y: 20, hp: 5, maxHp: 5, damage: 2 },
+        { id: "mira", name: "Mira", mark: "M", team: "player", x: 16, y: 21, hp: 4, maxHp: 4, damage: 2 },
+        { id: "raider-1", name: "North Raider", mark: "R", team: "enemy", x: 14, y: 15, hp: 3, maxHp: 3, damage: 1 },
+        { id: "raider-2", name: "Hill Raider", mark: "R", team: "enemy", x: 17, y: 17, hp: 3, maxHp: 3, damage: 1 }
+      ]
+    }
+  };
 
   const battlefield = document.querySelector("#battlefield");
   const gameShell = document.querySelector(".game-shell");
@@ -22,6 +43,8 @@
   const playerRoster = document.querySelector("#player-roster");
   const endTurnButton = document.querySelector("#end-turn");
   const restartButton = document.querySelector("#restart");
+  const tacticalModeButton = document.querySelector("#tactical-mode");
+  const explorationModeButton = document.querySelector("#exploration-mode");
   const settingsMenu = document.querySelector("#settings-menu");
   const restartOverlayButton = document.querySelector("#restart-overlay");
   const instruction = document.querySelector("#instruction");
@@ -44,7 +67,8 @@
   const forecastResult = document.querySelector("#forecast-result");
 
   let units = [];
-  let gameMode = "explore";
+  let prototypeMode = "tactical";
+  let gameMode = "combat";
   let party = { ...STARTING_PARTY };
   let exploreMove = null;
   let selectedId = null;
@@ -75,8 +99,16 @@
   ].filter((cell) => cell.x >= 0 && cell.x < COLS && cell.y >= 0 && cell.y < ROWS);
 
   function resetGame() {
-    units = STARTING_UNITS.map((unit) => ({ ...unit, acted: false }));
-    gameMode = "explore";
+    const prototype = PROTOTYPES[prototypeMode];
+    COLS = prototype.cols;
+    ROWS = prototype.rows;
+    OBSTACLES = prototype.obstacles.map((obstacle) => ({ ...obstacle }));
+    mapZoom = prototype.zoom;
+    battlefield.style.setProperty("--map-zoom", String(mapZoom));
+    battlefield.style.setProperty("--map-cols", String(COLS));
+    battlefield.style.setProperty("--map-rows", String(ROWS));
+    units = prototype.units.map((unit) => ({ ...unit, acted: false }));
+    gameMode = prototypeMode === "exploration" ? "explore" : "combat";
     party = { ...STARTING_PARTY };
     exploreMove = null;
     selectedId = "alden";
@@ -85,13 +117,21 @@
     gameOver = false;
     pendingMove = null;
     resolvingAttack = null;
+    pinchState = null;
+    panState = null;
+    mapPointers.clear();
+    battlefieldFrame.classList.remove("panning");
     attackSequence += 1;
     stopMovementAnimation();
     clearDrag();
     resultOverlay.hidden = true;
-    instruction.textContent = "Tap a destination or drag the party token to explore.";
+    instruction.textContent = gameMode === "explore"
+      ? "Tap a destination or drag the party token to explore."
+      : "Tap or drag a hero to move. Target a highlighted raider to preview an attack.";
     render();
-    requestAnimationFrame(() => centerOnPosition(party.x, party.y, false));
+    requestAnimationFrame(() => gameMode === "explore"
+      ? centerOnPosition(party.x, party.y, false)
+      : centerOnUnit(selected(), false));
   }
 
   function findRoute(start, destination, movingUnitId) {
@@ -574,6 +614,8 @@
     if (gameMode === "combat") renderCombatForecast(active);
     else combatForecast.hidden = true;
     renderPlayerRoster();
+    tacticalModeButton.setAttribute("aria-pressed", String(prototypeMode === "tactical"));
+    explorationModeButton.setAttribute("aria-pressed", String(prototypeMode === "exploration"));
 
     const shown = active || living("player")[0] || living("enemy")[0];
     if (shown) {
@@ -971,7 +1013,8 @@
 
   function checkResult() {
     if (living("enemy").length === 0) {
-      returnToExploration();
+      if (prototypeMode === "exploration") returnToExploration();
+      else finish("Victory", "The pass is secure. Both heroes survived the skirmish.");
       return true;
     }
     if (living("player").length === 0) {
@@ -991,6 +1034,7 @@
 
   function battleState() {
     return {
+      prototype: prototypeMode,
       mode: gameMode,
       party: { x: party.x, y: party.y },
       turn: turnNumber,
@@ -1094,10 +1138,10 @@
       const localX = midpoint.x - frameRect.left;
       const localY = midpoint.y - frameRect.top;
       const nextZoom = Math.min(MAX_MAP_ZOOM, Math.max(
-        MIN_MAP_ZOOM,
+        prototypeMode === "tactical" ? 1 : MIN_MAP_ZOOM,
         pinchState.startZoom * pointerDistance(points[0], points[1]) / pinchState.startDistance
       ));
-      mapZoom = nextZoom;
+      mapZoom = Math.min(prototypeMode === "tactical" ? MAX_TACTICAL_ZOOM : MAX_MAP_ZOOM, nextZoom);
       battlefield.style.setProperty("--map-zoom", String(mapZoom));
       battlefieldFrame.scrollLeft = pinchState.contentX * mapZoom - localX;
       battlefieldFrame.scrollTop = pinchState.contentY * mapZoom - localY;
@@ -1146,6 +1190,16 @@
   };
   battlefieldFrame.addEventListener("pointerup", finishPan);
   battlefieldFrame.addEventListener("pointercancel", finishPan);
+  tacticalModeButton.addEventListener("click", () => {
+    prototypeMode = "tactical";
+    settingsMenu.open = false;
+    resetGame();
+  });
+  explorationModeButton.addEventListener("click", () => {
+    prototypeMode = "exploration";
+    settingsMenu.open = false;
+    resetGame();
+  });
   restartButton.addEventListener("click", () => {
     settingsMenu.open = false;
     resetGame();
