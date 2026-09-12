@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#111827" />
+    <meta name="description" content="A portrait-first, touch-friendly tactical battle prototype." />
+    <title>Tactics — First Battle</title>
+  </head>
+  <body>
+    <main class="game-shell" aria-label="Tactics battle">
+      <header class="game-status" aria-label="Turn status">
+        <details class="settings-menu" id="settings-menu">
+          <summary aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2Zm8.2 4.7v-2.2l-2.1-.7a7 7 0 0 0-.6-1.5l1-2-1.6-1.6-2 1a7 7 0 0 0-1.5-.6L12.7 2h-2.2l-.7 2.1a7 7 0 0 0-1.5.6l-2-1-1.6 1.6 1 2a7 7 0 0 0-.6 1.5L3 10.9v2.2l2.1.7a7 7 0 0 0 .6 1.5l-1 2 1.6 1.6 2-1a7 7 0 0 0 1.5.6l.7 2.1h2.2l.7-2.1a7 7 0 0 0 1.5-.6l2 1 1.6-1.6-1-2a7 7 0 0 0 .6-1.5l2.1-.7Z" /></svg></summary>
+          <div class="settings-popover">
+            <span class="settings-label">Prototype mode</span>
+            <div class="mode-options" role="group" aria-label="Prototype mode">
+              <button id="tactical-mode" class="mode-option" type="button" aria-pressed="true">Tactical battle</button>
+              <button id="exploration-mode" class="mode-option" type="button" aria-pressed="false">Exploration demo</button>
+            </div>
+            <button id="restart" type="button">Restart battle</button>
+          </div>
+        </details>
+        <span class="turn-pill" id="turn-pill" aria-live="polite">Player</span>
+        <span class="turn-counter">Turn <strong id="turn-number">1</strong></span>
+      </header>
+      <section class="battlefield-viewport">
+        <div id="battlefield-frame" class="battlefield-frame"><div id="battlefield" class="battlefield" aria-label="Tactical battlefield"></div></div>
+        <div id="combat-forecast" class="combat-forecast" role="button" tabindex="-1" hidden><strong>ATTACK</strong><span id="forecast-matchup"></span><b id="forecast-result"></b></div>
+        <div id="result-overlay" class="result-overlay" hidden><p class="eyebrow">BATTLE COMPLETE</p><h2 id="result-title">Victory</h2><p id="result-copy">The pass is secure.</p><button id="restart-overlay" class="primary-button" type="button">Play again</button></div>
+      </section>
+      <section class="command-panel" aria-label="Unit commands"><div class="player-roster" id="player-roster" aria-label="Player characters"></div><div class="actions"><button id="end-turn" class="primary-button" type="button">End Turn</button></div></section>
+      <p class="sr-only" id="instruction" aria-live="polite"></p>
+    </main>
+    <aside class="unit-drawer" id="unit-drawer" aria-label="Selected unit stats">
+      <button class="drawer-tab" id="drawer-toggle" type="button" aria-label="Show selected unit stats" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg></button>
+      <div class="drawer-content"><span class="label" id="selected-team">Hero</span><div class="drawer-heading"><div class="portrait" id="portrait" aria-hidden="true">A</div><strong id="selected-name">Alden</strong></div><dl class="stat-list"><div><dt>HP</dt><dd id="health-text">5 / 5</dd></div><div><dt>Attack</dt><dd id="attack-stat">2</dd></div><div><dt>Move</dt><dd id="movement-stat">2</dd></div></dl></div>
+    </aside>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

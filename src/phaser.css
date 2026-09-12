@@ -1,0 +1,14 @@
+/* Phaser owns the battlefield surface; existing UI chrome remains unchanged. */
+.battlefield-frame { overflow: hidden; }
+.battlefield {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  display: block;
+  padding: 0;
+  gap: 0;
+  cursor: default;
+  background: #243d44;
+  touch-action: none;
+}
+.battlefield canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; }
