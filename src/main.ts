@@ -78,6 +78,7 @@ class TacticsScene extends Phaser.Scene {
   pendingAttack?: PendingAttack;
   draggingId?: string;
   dragRoute: Point[] = [];
+  dragAttackTargetId?: string;
   actionHistory: TurnSnapshot[] = [];
   scheduledEvents: Phaser.Time.TimerEvent[] = [];
 
@@ -103,12 +104,12 @@ class TacticsScene extends Phaser.Scene {
     this.cols = p.cols; this.rows = p.rows; this.obstacles = p.obstacles.map(o => ({ ...o }));
     this.units = p.units.map(u => ({ ...u, acted: false })); this.party = { ...STARTING_PARTY };
     this.selectedId = 'alden'; this.turn = 1; this.phase = 'player'; this.gameOver = false;
-    this.pendingAttack = undefined; this.draggingId = undefined; this.dragRoute = []; this.actionHistory = [];
+    this.pendingAttack = undefined; this.draggingId = undefined; this.dragRoute = []; this.dragAttackTargetId = undefined; this.actionHistory = [];
     this.hideForecast(); this.buildBoard();
     this.cameras.main.setBounds(0, 0, this.cols * CELL, this.rows * CELL);
     if (this.gameMode === 'combat') this.fitTactical(); else { this.setZoom(.85); this.centerOn(this.party); }
     ui.resultOverlay.hidden = true;
-    this.message(this.gameMode === 'explore' ? 'Tap a destination or drag the party token to explore.' : 'Tap or drag a hero to move. Select an enemy to inspect its danger area.');
+    this.message(this.gameMode === 'explore' ? 'Tap a destination or drag the party token to explore.' : 'Tap or drag a hero to move. Drag a hero onto an enemy to attack.');
     this.syncUI();
   }
 
@@ -164,21 +165,44 @@ class TacticsScene extends Phaser.Scene {
 
   beginUnitDrag(unit:Unit, token:Phaser.GameObjects.Container) {
     if (this.gameOver || this.gameMode !== 'combat' || this.phase !== 'player' || unit.team !== 'player' || unit.acted) return;
-    this.clearAttackPreview(); this.selectedId=unit.id; this.draggingId=unit.id; this.dragRoute=[];
+    this.clearAttackPreview(); this.selectedId=unit.id; this.draggingId=unit.id; this.dragRoute=[]; this.dragAttackTargetId=undefined;
     token.setData('dragged',true).setDepth(40).setAlpha(.88); this.refreshHighlights(); this.syncUI();
   }
 
   updateUnitDrag(unit:Unit, token:Phaser.GameObjects.Container, pointer:Phaser.Input.Pointer) {
     if (this.draggingId !== unit.id || unit.acted) return;
-    const world=this.cameras.main.getWorldPoint(pointer.x,pointer.y); const dest={x:Math.floor(world.x/CELL),y:Math.floor(world.y/CELL)};
-    const route=this.findRoute(unit,dest,unit.id); const legal=route.length>1 && route.length-1<=MOVE && !this.at(dest.x,dest.y);
+    const world=this.cameras.main.getWorldPoint(pointer.x,pointer.y);
+    const dest={x:Math.floor(world.x/CELL),y:Math.floor(world.y/CELL)};
+    const occupant=this.at(dest.x,dest.y);
+
+    this.dragAttackTargetId=undefined;
+    if(occupant?.team==='enemy') {
+      const attackRoute=this.attackRoute(unit,occupant);
+      if(attackRoute) {
+        this.dragAttackTargetId=occupant.id;
+        this.dragRoute=attackRoute;
+        token.x=world.x; token.y=world.y;
+        this.showDragAttackTarget(occupant,attackRoute);
+        return;
+      }
+    }
+
+    const route=this.findRoute(unit,dest,unit.id);
+    const legal=route.length>1 && route.length-1<=MOVE && !occupant;
     this.dragRoute=legal?route:[]; token.x=world.x; token.y=world.y; this.showDragDestination(legal?dest:undefined, legal?route:undefined);
   }
 
   finishUnitDrag(unit:Unit, token:Phaser.GameObjects.Container) {
     if (this.draggingId !== unit.id) return;
-    this.draggingId=undefined; token.setDepth(0).setAlpha(1); const route=this.dragRoute; this.dragRoute=[]; this.clearDragDestination();
+    this.draggingId=undefined; token.setDepth(0).setAlpha(1);
+    const route=this.dragRoute; const attackTargetId=this.dragAttackTargetId;
+    this.dragRoute=[]; this.dragAttackTargetId=undefined; this.clearDragDestination();
     token.x=unit.x*CELL+CELL/2; token.y=unit.y*CELL+CELL/2;
+    if(attackTargetId) {
+      const target=this.unit(attackTargetId);
+      if(target) this.previewAttack(unit,target);
+      return;
+    }
     if (route.length>1) this.moveUnit(unit,route,true);
   }
 
@@ -201,6 +225,16 @@ class TacticsScene extends Phaser.Scene {
     const g=this.add.graphics().setDepth(35); g.fillStyle(0x6bdcff,.24).fillRoundedRect(dest.x*CELL+5,dest.y*CELL+5,CELL-10,CELL-10,10);
     g.lineStyle(5,0xb8f5ff,1).strokeRoundedRect(dest.x*CELL+5,dest.y*CELL+5,CELL-10,CELL-10,10); this.destinationGraphics=g;
   }
+
+  showDragAttackTarget(target:Unit,route:Point[]) {
+    this.destinationGraphics?.destroy(); this.destinationGraphics=undefined;
+    this.drawRoute([...route,{x:target.x,y:target.y}],'player');
+    const g=this.add.graphics().setDepth(35);
+    g.fillStyle(0xd14b3f,.34).fillRoundedRect(target.x*CELL+4,target.y*CELL+4,CELL-8,CELL-8,10);
+    g.lineStyle(6,0xffd18a,1).strokeRoundedRect(target.x*CELL+4,target.y*CELL+4,CELL-8,CELL-8,10);
+    this.destinationGraphics=g;
+  }
+
   clearDragDestination(){this.destinationGraphics?.destroy();this.destinationGraphics=undefined;this.routeGraphics?.clear();}
 
   handleUnit(id: string) {
