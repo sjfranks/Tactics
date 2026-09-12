@@ -25,8 +25,10 @@
         <span class="turn-counter">Turn <strong id="turn-number">1</strong></span>
       </header>
 
-      <section class="battlefield-frame">
-        <div id="battlefield" class="battlefield" role="grid" aria-label="Tactical battlefield"></div>
+      <section class="battlefield-viewport">
+        <div id="battlefield-frame" class="battlefield-frame">
+          <div id="battlefield" class="battlefield" role="grid" aria-label="30 by 30 tactical battlefield"></div>
+        </div>
         <div id="combat-forecast" class="combat-forecast" role="button" tabindex="-1" hidden>
           <strong>ATTACK</strong>
           <span id="forecast-matchup"></span>
@@ -41,21 +43,31 @@
       </section>
 
       <section class="command-panel" aria-label="Unit commands">
-        <div class="unit-summary">
-          <div class="portrait" id="portrait" aria-hidden="true">A</div>
-          <div>
-            <span class="label" id="selected-team">Hero</span>
-            <strong id="selected-name">Alden</strong>
-            <span class="health-text" id="health-text">5 / 5 HP</span>
-            <span class="unit-stats" id="unit-stats">ATK 2 · MOV 2</span>
-          </div>
-        </div>
+        <div class="player-roster" id="player-roster" aria-label="Player characters"></div>
         <div class="actions">
           <button id="end-turn" class="primary-button" type="button">End Turn</button>
         </div>
       </section>
       <p class="sr-only" id="instruction" aria-live="polite"></p>
     </main>
+
+    <aside class="unit-drawer" id="unit-drawer" aria-label="Selected unit stats">
+      <button class="drawer-tab" id="drawer-toggle" type="button" aria-label="Show selected unit stats" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg>
+      </button>
+      <div class="drawer-content">
+        <span class="label" id="selected-team">Hero</span>
+        <div class="drawer-heading">
+          <div class="portrait" id="portrait" aria-hidden="true">A</div>
+          <strong id="selected-name">Alden</strong>
+        </div>
+        <dl class="stat-list">
+          <div><dt>HP</dt><dd id="health-text">5 / 5</dd></div>
+          <div><dt>Attack</dt><dd id="attack-stat">2</dd></div>
+          <div><dt>Move</dt><dd id="movement-stat">2</dd></div>
+        </dl>
+      </div>
+    </aside>
     <script src="./game.js"></script>
   </body>
 </html>

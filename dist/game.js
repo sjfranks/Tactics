@@ -1,27 +1,32 @@
 (() => {
   "use strict";
 
-  const COLS = 6;
-  const ROWS = 8;
+  const COLS = 30;
+  const ROWS = 30;
   const MOVEMENT = 2;
-  const OBSTACLES = [{ x: 2, y: 4, name: "Ancient pillar" }];
+  const OBSTACLES = [{ x: 15, y: 18, name: "Ancient pillar" }];
   const STARTING_UNITS = [
-    { id: "alden", name: "Alden", mark: "A", team: "player", x: 1, y: 6, hp: 5, maxHp: 5, damage: 2 },
-    { id: "mira", name: "Mira", mark: "M", team: "player", x: 4, y: 6, hp: 4, maxHp: 4, damage: 2 },
-    { id: "raider-1", name: "North Raider", mark: "R", team: "enemy", x: 1, y: 1, hp: 3, maxHp: 3, damage: 1 },
-    { id: "raider-2", name: "Hill Raider", mark: "R", team: "enemy", x: 4, y: 2, hp: 3, maxHp: 3, damage: 1 }
+    { id: "alden", name: "Alden", mark: "A", team: "player", x: 14, y: 20, hp: 5, maxHp: 5, damage: 2 },
+    { id: "mira", name: "Mira", mark: "M", team: "player", x: 16, y: 21, hp: 4, maxHp: 4, damage: 2 },
+    { id: "raider-1", name: "North Raider", mark: "R", team: "enemy", x: 14, y: 15, hp: 3, maxHp: 3, damage: 1 },
+    { id: "raider-2", name: "Hill Raider", mark: "R", team: "enemy", x: 17, y: 17, hp: 3, maxHp: 3, damage: 1 }
   ];
 
   const battlefield = document.querySelector("#battlefield");
+  const battlefieldFrame = document.querySelector("#battlefield-frame");
+  const playerRoster = document.querySelector("#player-roster");
   const endTurnButton = document.querySelector("#end-turn");
   const restartButton = document.querySelector("#restart");
   const settingsMenu = document.querySelector("#settings-menu");
   const restartOverlayButton = document.querySelector("#restart-overlay");
   const instruction = document.querySelector("#instruction");
+  const unitDrawer = document.querySelector("#unit-drawer");
+  const drawerToggle = document.querySelector("#drawer-toggle");
   const selectedName = document.querySelector("#selected-name");
   const selectedTeam = document.querySelector("#selected-team");
-  const unitStats = document.querySelector("#unit-stats");
   const healthText = document.querySelector("#health-text");
+  const attackStat = document.querySelector("#attack-stat");
+  const movementStat = document.querySelector("#movement-stat");
   const portrait = document.querySelector("#portrait");
   const turnNumberLabel = document.querySelector("#turn-number");
   const turnPill = document.querySelector("#turn-pill");
@@ -39,6 +44,8 @@
   let gameOver = false;
   let pendingMove = null;
   let dragState = null;
+  let panState = null;
+  let suppressMapClick = null;
   let suppressGestureClick = null;
   let isAnimating = false;
   let activeAnimation = null;
@@ -69,6 +76,7 @@
     resultOverlay.hidden = true;
     instruction.textContent = "Tap or drag a hero to move. Target a highlighted raider to preview an attack.";
     render();
+    requestAnimationFrame(() => centerOnUnit(selected(), false));
   }
 
   function findRoute(start, destination, movingUnitId) {
@@ -108,6 +116,7 @@
 
   function withinMovementRange(unit, x, y) {
     if (!unit || at(x, y) || isObstacle(x, y)) return false;
+    if (distance(unit, { x, y }) > MOVEMENT) return false;
     const route = routeTo(unit, { x, y });
     return route.length > 1 && route.length - 1 <= MOVEMENT;
   }
@@ -149,6 +158,46 @@
       if (moving && moving.x === x && moving.y === y) return null;
     }
     return at(x, y);
+  }
+
+  function centerOnPosition(x, y, smooth = true) {
+    const cell = battlefield.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`);
+    if (!cell) return;
+    battlefieldFrame.scrollTo({
+      left: cell.offsetLeft + cell.offsetWidth / 2 - battlefieldFrame.clientWidth / 2,
+      top: cell.offsetTop + cell.offsetHeight / 2 - battlefieldFrame.clientHeight / 2,
+      behavior: smooth ? "smooth" : "auto"
+    });
+  }
+
+  function centerOnUnit(unit, smooth = true) {
+    if (unit) centerOnPosition(unit.x, unit.y, smooth);
+  }
+
+  function selectRosterUnit(unit) {
+    if (phase === "player" && !resolvingAttack) {
+      if (pendingMove) {
+        stopMovementAnimation();
+        pendingMove = null;
+      }
+      selectedId = unit.id;
+      instruction.textContent = `${unit.name} selected.`;
+      render();
+    }
+    requestAnimationFrame(() => centerOnUnit(unit));
+  }
+
+  function renderPlayerRoster() {
+    playerRoster.innerHTML = "";
+    for (const unit of living("player")) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `roster-token${unit.id === selectedId ? " selected" : ""}${unit.acted ? " acted" : ""}`;
+      button.textContent = unit.mark;
+      button.setAttribute("aria-label", `${unit.name}, ${unit.hp} of ${unit.maxHp} health${unit.acted ? ", acted" : ""}. Select and center map.`);
+      button.addEventListener("click", () => selectRosterUnit(unit));
+      playerRoster.appendChild(button);
+    }
   }
 
   function routePoints(route) {
@@ -353,15 +402,17 @@
     }
     renderRouteOverlay(route, active?.team);
     renderCombatForecast(active);
+    renderPlayerRoster();
 
     const shown = active || living("player")[0] || living("enemy")[0];
     if (shown) {
       selectedName.textContent = shown.name;
       selectedTeam.textContent = shown.team === "enemy" ? "Enemy" : "Hero";
-      unitStats.textContent = `ATK ${shown.damage} · MOV ${MOVEMENT}`;
       portrait.textContent = shown.mark;
       portrait.classList.toggle("enemy", shown.team === "enemy");
-      healthText.textContent = `${shown.hp} / ${shown.maxHp} HP`;
+      healthText.textContent = `${shown.hp} / ${shown.maxHp}`;
+      attackStat.textContent = String(shown.damage);
+      movementStat.textContent = String(MOVEMENT);
     }
     turnNumberLabel.textContent = String(turnNumber);
     turnPill.textContent = phase === "player" ? "Player" : "Enemy";
@@ -402,17 +453,17 @@
 
   function cellAtPointer(event) {
     if (!event || event.detail === 0) return null;
-    for (const cell of battlefield.querySelectorAll(".cell")) {
-      const rect = cell.getBoundingClientRect();
-      if (event.clientX >= rect.left && event.clientX <= rect.right
-        && event.clientY >= rect.top && event.clientY <= rect.bottom) {
-        return { x: Number(cell.dataset.x), y: Number(cell.dataset.y) };
-      }
-    }
-    return null;
+    const cell = document.elementFromPoint(event.clientX, event.clientY)?.closest(".cell");
+    return cell && battlefield.contains(cell)
+      ? { x: Number(cell.dataset.x), y: Number(cell.dataset.y) }
+      : null;
   }
 
   function handleCell(x, y, event) {
+    if (suppressMapClick && event?.timeStamp <= suppressMapClick.until) {
+      suppressMapClick = null;
+      return;
+    }
     if (suppressGestureClick && event?.timeStamp <= suppressGestureClick.until) {
       suppressGestureClick = null;
       return;
@@ -700,6 +751,7 @@
       selectedId = enemy.id;
       instruction.textContent = `${enemy.name} is choosing a move…`;
       render();
+      requestAnimationFrame(() => centerOnUnit(enemy));
       await new Promise((resolve) => setTimeout(resolve, 480));
 
       const targets = living("player").sort((a, b) => distance(enemy, a) - distance(enemy, b));
@@ -712,6 +764,7 @@
           pendingMove = { type: "move", unitId: enemy.id, x: destination.x, y: destination.y, method: "enemy", route };
           instruction.textContent = `${enemy.name} advances.`;
           render();
+          requestAnimationFrame(() => centerOnPosition(destination.x, destination.y));
           await animateUnitAlongRoute(enemy, route);
           await new Promise((resolve) => setTimeout(resolve, 220));
           enemy.x = destination.x;
@@ -803,6 +856,45 @@
     event.preventDefault();
     void confirmPendingMove();
   });
+  drawerToggle.addEventListener("click", () => {
+    const open = unitDrawer.classList.toggle("open");
+    drawerToggle.setAttribute("aria-expanded", String(open));
+    drawerToggle.setAttribute("aria-label", open ? "Hide selected unit stats" : "Show selected unit stats");
+  });
+  battlefield.addEventListener("pointerdown", (event) => {
+    if ((event.button !== undefined && event.button !== 0) || event.target.closest(".unit")) return;
+    panState = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      scrollLeft: battlefieldFrame.scrollLeft,
+      scrollTop: battlefieldFrame.scrollTop,
+      dragging: false
+    };
+    battlefieldFrame.setPointerCapture(event.pointerId);
+  });
+  battlefieldFrame.addEventListener("pointermove", (event) => {
+    if (!panState || panState.pointerId !== event.pointerId) return;
+    const dx = event.clientX - panState.startX;
+    const dy = event.clientY - panState.startY;
+    if (!panState.dragging && Math.hypot(dx, dy) > 6) {
+      panState.dragging = true;
+      battlefieldFrame.classList.add("panning");
+    }
+    if (!panState.dragging) return;
+    event.preventDefault();
+    battlefieldFrame.scrollLeft = panState.scrollLeft - dx;
+    battlefieldFrame.scrollTop = panState.scrollTop - dy;
+  });
+  const finishPan = (event) => {
+    if (!panState || panState.pointerId !== event.pointerId) return;
+    if (panState.dragging) suppressMapClick = { until: event.timeStamp + 500 };
+    battlefieldFrame.classList.remove("panning");
+    if (battlefieldFrame.hasPointerCapture(event.pointerId)) battlefieldFrame.releasePointerCapture(event.pointerId);
+    panState = null;
+  };
+  battlefieldFrame.addEventListener("pointerup", finishPan);
+  battlefieldFrame.addEventListener("pointercancel", finishPan);
   restartButton.addEventListener("click", () => {
     settingsMenu.open = false;
     resetGame();
