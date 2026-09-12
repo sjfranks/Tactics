@@ -12,3 +12,10 @@
   touch-action: none;
 }
 .battlefield canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; }
+
+/* In the Phaser build the forecast itself is the attack confirmation control. */
+.combat-forecast:not([hidden]) {
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: manipulation;
+}
