@@ -4,6 +4,8 @@
   const COLS = 30;
   const ROWS = 30;
   const MOVEMENT = 2;
+  const MIN_MAP_ZOOM = 2.5;
+  const MAX_MAP_ZOOM = 8;
   const OBSTACLES = [{ x: 15, y: 18, name: "Ancient pillar" }];
   const STARTING_UNITS = [
     { id: "alden", name: "Alden", mark: "A", team: "player", x: 14, y: 20, hp: 5, maxHp: 5, damage: 2 },
@@ -45,6 +47,9 @@
   let pendingMove = null;
   let dragState = null;
   let panState = null;
+  let pinchState = null;
+  let mapZoom = 5;
+  const mapPointers = new Map();
   let suppressMapClick = null;
   let suppressGestureClick = null;
   let isAnimating = false;
@@ -861,8 +866,39 @@
     drawerToggle.setAttribute("aria-expanded", String(open));
     drawerToggle.setAttribute("aria-label", open ? "Hide selected unit stats" : "Show selected unit stats");
   });
+  function pointerDistance(first, second) {
+    return Math.hypot(second.x - first.x, second.y - first.y);
+  }
+
+  function pointerMidpoint(first, second) {
+    return { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 };
+  }
+
+  function beginPinch() {
+    const points = [...mapPointers.values()].slice(0, 2);
+    if (points.length < 2) return;
+    const midpoint = pointerMidpoint(points[0], points[1]);
+    const frameRect = battlefieldFrame.getBoundingClientRect();
+    const localX = midpoint.x - frameRect.left;
+    const localY = midpoint.y - frameRect.top;
+    pinchState = {
+      startDistance: Math.max(pointerDistance(points[0], points[1]), 1),
+      startZoom: mapZoom,
+      contentX: (battlefieldFrame.scrollLeft + localX) / mapZoom,
+      contentY: (battlefieldFrame.scrollTop + localY) / mapZoom
+    };
+    panState = null;
+    battlefieldFrame.classList.add("panning");
+  }
+
   battlefield.addEventListener("pointerdown", (event) => {
     if ((event.button !== undefined && event.button !== 0) || event.target.closest(".unit")) return;
+    mapPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    battlefieldFrame.setPointerCapture(event.pointerId);
+    if (mapPointers.size >= 2) {
+      beginPinch();
+      return;
+    }
     panState = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -871,9 +907,28 @@
       scrollTop: battlefieldFrame.scrollTop,
       dragging: false
     };
-    battlefieldFrame.setPointerCapture(event.pointerId);
   });
   battlefieldFrame.addEventListener("pointermove", (event) => {
+    if (mapPointers.has(event.pointerId)) {
+      mapPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+    if (pinchState && mapPointers.size >= 2) {
+      const points = [...mapPointers.values()].slice(0, 2);
+      const midpoint = pointerMidpoint(points[0], points[1]);
+      const frameRect = battlefieldFrame.getBoundingClientRect();
+      const localX = midpoint.x - frameRect.left;
+      const localY = midpoint.y - frameRect.top;
+      const nextZoom = Math.min(MAX_MAP_ZOOM, Math.max(
+        MIN_MAP_ZOOM,
+        pinchState.startZoom * pointerDistance(points[0], points[1]) / pinchState.startDistance
+      ));
+      mapZoom = nextZoom;
+      battlefield.style.setProperty("--map-zoom", String(mapZoom));
+      battlefieldFrame.scrollLeft = pinchState.contentX * mapZoom - localX;
+      battlefieldFrame.scrollTop = pinchState.contentY * mapZoom - localY;
+      event.preventDefault();
+      return;
+    }
     if (!panState || panState.pointerId !== event.pointerId) return;
     const dx = event.clientX - panState.startX;
     const dy = event.clientY - panState.startY;
@@ -887,11 +942,32 @@
     battlefieldFrame.scrollTop = panState.scrollTop - dy;
   });
   const finishPan = (event) => {
-    if (!panState || panState.pointerId !== event.pointerId) return;
-    if (panState.dragging) suppressMapClick = { until: event.timeStamp + 500 };
-    battlefieldFrame.classList.remove("panning");
+    const wasPinching = Boolean(pinchState);
+    const wasDragging = panState?.pointerId === event.pointerId && panState.dragging;
+    mapPointers.delete(event.pointerId);
+    if (wasPinching) {
+      suppressMapClick = { until: event.timeStamp + 500 };
+      pinchState = null;
+      const remaining = [...mapPointers.entries()][0];
+      if (remaining) {
+        panState = {
+          pointerId: remaining[0],
+          startX: remaining[1].x,
+          startY: remaining[1].y,
+          scrollLeft: battlefieldFrame.scrollLeft,
+          scrollTop: battlefieldFrame.scrollTop,
+          dragging: false
+        };
+      } else {
+        panState = null;
+        battlefieldFrame.classList.remove("panning");
+      }
+    } else if (panState?.pointerId === event.pointerId) {
+      if (wasDragging) suppressMapClick = { until: event.timeStamp + 500 };
+      panState = null;
+      battlefieldFrame.classList.remove("panning");
+    }
     if (battlefieldFrame.hasPointerCapture(event.pointerId)) battlefieldFrame.releasePointerCapture(event.pointerId);
-    panState = null;
   };
   battlefieldFrame.addEventListener("pointerup", finishPan);
   battlefieldFrame.addEventListener("pointercancel", finishPan);

@@ -154,7 +154,7 @@ button { font: inherit; }
 
 .battlefield {
   position: relative;
-  width: 500%;
+  width: calc(var(--map-zoom, 5) * 100%);
   height: auto;
   aspect-ratio: 1;
   display: grid;
