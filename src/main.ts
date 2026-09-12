@@ -18,8 +18,8 @@ type Unit = Point & {
 };
 type Obstacle = Point & { name: string };
 type Prototype = { cols: number; rows: number; zoom: number; obstacles: Obstacle[]; units: Omit<Unit, 'acted'>[] };
-
 type PendingAttack = { actorId: string; targetId: string; route: Point[] };
+type TurnSnapshot = { units: Unit[]; selectedId: string };
 
 const CELL = 80;
 const MOVE = 2;
@@ -48,7 +48,7 @@ const PROTOTYPES: Record<PrototypeMode, Prototype> = {
 
 const $ = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const ui = {
-  instruction: $('#instruction'), roster: $('#player-roster'), endTurn: $('#end-turn') as HTMLButtonElement,
+  instruction: $('#instruction'), roster: $('#player-roster'), undo: $('#end-turn') as HTMLButtonElement,
   restart: $('#restart') as HTMLButtonElement, restartOverlay: $('#restart-overlay') as HTMLButtonElement,
   tactical: $('#tactical-mode') as HTMLButtonElement, exploration: $('#exploration-mode') as HTMLButtonElement,
   settings: $('#settings-menu') as HTMLDetailsElement, turnPill: $('#turn-pill'), turnNumber: $('#turn-number'),
@@ -76,6 +76,8 @@ class TacticsScene extends Phaser.Scene {
   pendingAttack?: PendingAttack;
   draggingId?: string;
   dragRoute: Point[] = [];
+  actionHistory: TurnSnapshot[] = [];
+  autoEndEvent?: Phaser.Time.TimerEvent;
 
   constructor() { super('tactics'); }
 
@@ -92,13 +94,14 @@ class TacticsScene extends Phaser.Scene {
   }
 
   reset(mode = this.mode) {
+    this.autoEndEvent?.remove(false); this.autoEndEvent = undefined;
     this.mode = mode;
     const p = PROTOTYPES[mode];
     this.gameMode = mode === 'exploration' ? 'explore' : 'combat';
     this.cols = p.cols; this.rows = p.rows; this.obstacles = p.obstacles.map(o => ({ ...o }));
     this.units = p.units.map(u => ({ ...u, acted: false })); this.party = { ...STARTING_PARTY };
     this.selectedId = 'alden'; this.turn = 1; this.phase = 'player'; this.gameOver = false;
-    this.pendingAttack = undefined; this.draggingId = undefined; this.dragRoute = [];
+    this.pendingAttack = undefined; this.draggingId = undefined; this.dragRoute = []; this.actionHistory = [];
     this.hideForecast();
     this.buildBoard();
     this.cameras.main.setBounds(0, 0, this.cols * CELL, this.rows * CELL);
@@ -250,38 +253,63 @@ class TacticsScene extends Phaser.Scene {
   clearAttackPreview(){this.pendingAttack=undefined;this.hideForecast();this.routeGraphics?.clear();this.refreshHighlights();}
   hideForecast(){ui.forecast.hidden=true;ui.forecast.tabIndex=-1;}
 
+  recordPlayerAction() {
+    this.autoEndEvent?.remove(false); this.autoEndEvent=undefined;
+    this.actionHistory.push({ units:this.units.map(u=>({...u})), selectedId:this.selectedId });
+    this.syncUI();
+  }
+
+  undoLastAction() {
+    if(this.gameMode!=='combat'||this.phase!=='player'||this.gameOver||!this.actionHistory.length)return;
+    this.autoEndEvent?.remove(false);this.autoEndEvent=undefined;
+    const snapshot=this.actionHistory.pop()!;
+    this.tweens.killAll(); this.pendingAttack=undefined; this.hideForecast(); this.routeGraphics?.destroy(); this.routeGraphics=undefined;
+    this.units=snapshot.units.map(u=>({...u})); this.selectedId=snapshot.selectedId; ui.resultOverlay.hidden=true;
+    this.buildBoard(); this.syncUI(); this.message(`Undid ${this.selected()?.name ?? 'the last unit'}'s last action.`);
+  }
+
+  maybeAutoEndTurn() {
+    if(this.gameMode!=='combat'||this.phase!=='player'||this.gameOver)return;
+    if(!this.living('player').every(u=>u.acted))return;
+    this.autoEndEvent?.remove(false);
+    this.message('All heroes have acted. Enemy turn…');
+    this.autoEndEvent=this.time.delayedCall(450,()=>this.endPlayerTurn());
+  }
+
   moveUnit(unit:Unit, route:Point[], consumeAction:boolean) {
     const token = this.tokens.get(unit.id); if (!token) return;
+    if(consumeAction&&unit.team==='player')this.recordPlayerAction();
     this.clearAttackPreview(); const dest = route[route.length-1]; this.drawRoute(route, unit.team);
     this.tweens.add({ targets:token, x:dest.x*CELL+CELL/2, y:dest.y*CELL+CELL/2, duration:180*(route.length-1), ease:'Sine.easeInOut', onComplete:()=>{
-      unit.x=dest.x; unit.y=dest.y; if (consumeAction) unit.acted=true; this.routeGraphics?.clear(); this.refreshHighlights(); this.syncUI();
+      unit.x=dest.x; unit.y=dest.y; if (consumeAction) unit.acted=true; this.routeGraphics?.clear(); this.refreshHighlights(); this.syncUI(); if(consumeAction)this.maybeAutoEndTurn();
     }});
   }
 
   async attack(actor:Unit,target:Unit,knownRoute?:Point[]) {
     if (actor.acted || target.hp<=0) return;
     const route = knownRoute ?? this.attackRoute(actor,target); if (!route) return;
+    this.recordPlayerAction();
     if (route.length>1) await new Promise<void>(resolve=>{
       const token=this.tokens.get(actor.id)!; const dest=route[route.length-1]; this.drawRoute(route,actor.team);
       this.tweens.add({targets:token,x:dest.x*CELL+CELL/2,y:dest.y*CELL+CELL/2,duration:170*(route.length-1),onComplete:()=>{actor.x=dest.x;actor.y=dest.y;resolve();}});
     });
     actor.acted=true; target.hp=Math.max(0,target.hp-actor.damage); this.message(`${actor.name} hits ${target.name} for ${actor.damage}.`);
     const t=this.tokens.get(target.id); if (t) this.tweens.add({targets:t,alpha:.25,duration:80,yoyo:true,repeat:2,onComplete:()=>{ if(target.hp<=0){t.destroy();this.tokens.delete(target.id);} else this.rebuildToken(target); }});
-    this.routeGraphics?.clear(); this.checkGameOver(); this.refreshHighlights(); this.syncUI();
+    this.routeGraphics?.clear(); this.checkGameOver(); this.refreshHighlights(); this.syncUI(); if(!this.gameOver)this.maybeAutoEndTurn();
   }
 
   rebuildToken(unit:Unit) { const old=this.tokens.get(unit.id); old?.destroy(); this.createToken(unit); }
 
   endPlayerTurn() {
     if (this.gameOver || this.gameMode !== 'combat' || this.phase !== 'player') return;
-    this.clearAttackPreview(); this.phase='enemy'; this.syncUI(); this.message('Enemies are moving…');
+    this.autoEndEvent=undefined; this.clearAttackPreview(); this.phase='enemy'; this.syncUI(); this.message('Enemies are moving…');
     this.time.delayedCall(300,()=>this.enemyTurn());
   }
 
   enemyTurn() {
     const enemies=this.living('enemy'); let delay=0;
     enemies.forEach(enemy=>{ this.time.delayedCall(delay,()=>this.enemyAct(enemy)); delay+=500; });
-    this.time.delayedCall(delay+150,()=>{ if(this.gameOver)return; this.phase='player'; this.turn++; this.living('player').forEach(u=>u.acted=false); this.syncUI(); this.refreshHighlights(); this.message('Your turn.'); });
+    this.time.delayedCall(delay+150,()=>{ if(this.gameOver)return; this.phase='player'; this.turn++; this.living('player').forEach(u=>u.acted=false); this.actionHistory=[]; this.syncUI(); this.refreshHighlights(); this.message('Your turn.'); });
   }
 
   enemyAct(enemy:Unit) {
@@ -342,11 +370,11 @@ class TacticsScene extends Phaser.Scene {
   onPointerDown(pointer:any){ if(this.gameMode!=='explore'||this.draggingId)return; this.panOrigin={x:pointer.x,y:pointer.y,scrollX:this.cameras.main.scrollX,scrollY:this.cameras.main.scrollY}; }
   onPointerMove(pointer:any){ if(this.gameMode!=='explore'||this.draggingId)return; const p1=this.input.pointer1,p2=this.input.pointer2; if(p1.isDown&&p2.isDown){const d=Phaser.Math.Distance.Between(p1.x,p1.y,p2.x,p2.y);if(this.pinchDistance){this.setZoom(this.cameras.main.zoom*(d/this.pinchDistance));}this.pinchDistance=d;return;} if(pointer.isDown&&this.panOrigin){const cam=this.cameras.main;cam.scrollX=this.panOrigin.scrollX-(pointer.x-this.panOrigin.x)/cam.zoom;cam.scrollY=this.panOrigin.scrollY-(pointer.y-this.panOrigin.y)/cam.zoom;} }
 
-  checkGameOver(){const heroes=this.living('player'),enemies=this.living('enemy');if(heroes.length&&enemies.length)return;this.gameOver=true;this.clearAttackPreview();ui.resultOverlay.hidden=false;ui.resultTitle.textContent=heroes.length?'Victory':'Defeat';ui.resultCopy.textContent=heroes.length?'The pass is secure.':'The party has fallen.';}
+  checkGameOver(){const heroes=this.living('player'),enemies=this.living('enemy');if(heroes.length&&enemies.length)return;this.gameOver=true;this.autoEndEvent?.remove(false);this.autoEndEvent=undefined;this.clearAttackPreview();ui.resultOverlay.hidden=false;ui.resultTitle.textContent=heroes.length?'Victory':'Defeat';ui.resultCopy.textContent=heroes.length?'The pass is secure.':'The party has fallen.';}
   message(text:string){ui.instruction.textContent=text;}
   syncUI(){
     ui.turnNumber.textContent=String(this.turn); ui.turnPill.textContent=this.gameMode==='explore'?'Explore':this.phase==='player'?'Player':'Enemy'; ui.turnPill.classList.toggle('enemy',this.phase==='enemy');
-    ui.endTurn.hidden=this.gameMode==='explore'; ui.endTurn.disabled=this.phase!=='player'||this.gameOver;
+    ui.undo.hidden=this.gameMode==='explore'; ui.undo.textContent='Undo'; ui.undo.disabled=this.phase!=='player'||this.gameOver||this.actionHistory.length===0;
     ui.tactical.setAttribute('aria-pressed',String(this.mode==='tactical')); ui.exploration.setAttribute('aria-pressed',String(this.mode==='exploration'));
     const s=this.selected()??this.living('player')[0]; if(s){ui.selectedName.textContent=s.name;ui.selectedTeam.textContent=s.team==='player'?'Hero':'Enemy';ui.health.textContent=`${s.hp} / ${s.maxHp}`;ui.attack.textContent=String(s.damage);ui.movement.textContent=String(MOVE);ui.portrait.textContent=s.mark;}
     ui.roster.innerHTML=''; for(const u of this.living('player')){const b=document.createElement('button');b.type='button';b.className=`roster-token${u.id===this.selectedId?' selected':''}${u.acted?' acted':''}`;b.textContent=u.mark;b.setAttribute('aria-label',`${u.name}, ${u.hp} of ${u.maxHp} health`);b.addEventListener('click',()=>{this.clearAttackPreview();this.selectedId=u.id;this.refreshHighlights();this.syncUI();if(this.gameMode==='combat')this.centerOn(u);});ui.roster.appendChild(b);}
@@ -364,7 +392,7 @@ new Phaser.Game({
 
 ui.forecast.addEventListener('click',()=>scene.confirmAttack());
 ui.forecast.addEventListener('keydown',(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();scene.confirmAttack();}});
-ui.endTurn.addEventListener('click',()=>scene.endPlayerTurn());
+ui.undo.addEventListener('click',()=>scene.undoLastAction());
 ui.restart.addEventListener('click',()=>{scene.reset();ui.settings.open=false;});
 ui.restartOverlay.addEventListener('click',()=>scene.reset());
 ui.tactical.addEventListener('click',()=>{scene.reset('tactical');ui.settings.open=false;});
