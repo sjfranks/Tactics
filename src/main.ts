@@ -14,15 +14,17 @@ type Unit = Point & {
   hp: number;
   maxHp: number;
   damage: number;
-  acted: boolean;
+  actionsUsed: number;
 };
 type Obstacle = Point & { name: string };
-type Prototype = { cols: number; rows: number; obstacles: Obstacle[]; units: Omit<Unit, 'acted'>[] };
+type Prototype = { cols: number; rows: number; obstacles: Obstacle[]; units: Omit<Unit, 'actionsUsed'>[] };
 type PendingAttack = { actorId: string; targetId: string; route: Point[] };
 type TurnSnapshot = { units: Unit[]; selectedId: string; turn: number; phase: Team };
 
 const CELL = 80;
 const MOVE = 2;
+const ACTIONS_PER_TURN = 3;
+const HEAL_AMOUNT = 2;
 const ENCOUNTER_DISTANCE = 4;
 const STARTING_PARTY = { id: 'party', name: 'Party', mark: '✦', team: 'player' as const, x: 15, y: 24 };
 const PROTOTYPES: Record<PrototypeMode, Prototype> = {
@@ -49,8 +51,17 @@ const PROTOTYPES: Record<PrototypeMode, Prototype> = {
 };
 
 const $ = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
+const actionsEl = $('.actions');
+const healButton = document.createElement('button');
+healButton.id = 'heal-action';
+healButton.type = 'button';
+healButton.className = 'secondary-button';
+healButton.textContent = `Heal +${HEAL_AMOUNT}`;
+healButton.setAttribute('aria-label', `Heal selected hero for ${HEAL_AMOUNT} HP, costs one action`);
+actionsEl.prepend(healButton);
+
 const ui = {
-  instruction: $('#instruction'), roster: $('#player-roster'), undo: $('#end-turn') as HTMLButtonElement,
+  instruction: $('#instruction'), roster: $('#player-roster'), undo: $('#end-turn') as HTMLButtonElement, heal: healButton,
   restart: $('#restart') as HTMLButtonElement, restartOverlay: $('#restart-overlay') as HTMLButtonElement,
   tactical: $('#tactical-mode') as HTMLButtonElement, exploration: $('#exploration-mode') as HTMLButtonElement,
   settings: $('#settings-menu') as HTMLDetailsElement, turnPill: $('#turn-pill'), turnNumber: $('#turn-number'),
@@ -102,14 +113,14 @@ class TacticsScene extends Phaser.Scene {
     const p = PROTOTYPES[mode];
     this.gameMode = mode === 'exploration' ? 'explore' : 'combat';
     this.cols = p.cols; this.rows = p.rows; this.obstacles = p.obstacles.map(o => ({ ...o }));
-    this.units = p.units.map(u => ({ ...u, acted: false })); this.party = { ...STARTING_PARTY };
+    this.units = p.units.map(u => ({ ...u, actionsUsed: 0 })); this.party = { ...STARTING_PARTY };
     this.selectedId = 'alden'; this.turn = 1; this.phase = 'player'; this.gameOver = false;
     this.pendingAttack = undefined; this.draggingId = undefined; this.dragRoute = []; this.dragAttackTargetId = undefined; this.actionHistory = [];
     this.hideForecast(); this.buildBoard();
     this.cameras.main.setBounds(0, 0, this.cols * CELL, this.rows * CELL);
     if (this.gameMode === 'combat') this.fitTactical(); else { this.setZoom(.85); this.centerOn(this.party); }
     ui.resultOverlay.hidden = true;
-    this.message(this.gameMode === 'explore' ? 'Tap a destination or drag the party token to explore.' : 'Tap or drag a hero to move. Drag a hero onto an enemy to attack.');
+    this.message(this.gameMode === 'explore' ? 'Tap a destination or drag the party token to explore.' : 'Each unit gets 3 actions. Move, attack, or use Heal.');
     this.syncUI();
   }
 
@@ -133,9 +144,16 @@ class TacticsScene extends Phaser.Scene {
   createToken(unit: Unit) {
     const c = this.add.container(unit.x*CELL+CELL/2, unit.y*CELL+CELL/2);
     const circle = this.add.circle(0,0,CELL*.31, unit.team === 'player' ? 0x1677b8 : 0xb73847).setStrokeStyle(3,0xffffff,.8);
-    const text = this.add.text(0,-3,unit.mark,{fontFamily:'Georgia',fontStyle:'bold',fontSize:'28px',color:'#fff'}).setOrigin(.5);
-    const hp = this.add.text(0,25,`${unit.hp}/${unit.maxHp}`,{fontSize:'11px',color:'#d8ffe8'}).setOrigin(.5);
-    c.add([circle,text,hp]).setSize(CELL*.72,CELL*.72).setInteractive({ useHandCursor:true });
+    const text = this.add.text(0,-6,unit.mark,{fontFamily:'Georgia',fontStyle:'bold',fontSize:'27px',color:'#fff'}).setOrigin(.5);
+    const hp = this.add.text(0,20,`${unit.hp}/${unit.maxHp}`,{fontSize:'11px',color:'#d8ffe8'}).setOrigin(.5);
+    c.add([circle,text,hp]);
+    for(let i=0;i<ACTIONS_PER_TURN;i++) {
+      const available=i>=unit.actionsUsed;
+      const pip=this.add.circle((i-1)*12,31,4,available ? (unit.team==='player'?0x8ce9ff:0xff9b9b) : 0x263746,available?1:.65)
+        .setStrokeStyle(1,0xffffff,available?.9:.18);
+      c.add(pip);
+    }
+    c.setSize(CELL*.72,CELL*.72).setInteractive({ useHandCursor:true });
     c.setData('dragged', false);
     if (unit.team === 'player') {
       this.input.setDraggable(c);
@@ -148,6 +166,7 @@ class TacticsScene extends Phaser.Scene {
       if (c.getData('dragged')) { c.setData('dragged', false); return; }
       this.handleUnit(unit.id);
     });
+    if(unit.actionsUsed>=ACTIONS_PER_TURN)c.setAlpha(.62);
     this.tokens.set(unit.id,c);
   }
 
@@ -163,30 +182,28 @@ class TacticsScene extends Phaser.Scene {
     this.tokens.set('party',c);
   }
 
+  hasAction(unit:Unit){ return unit.actionsUsed < ACTIONS_PER_TURN; }
+  useAction(unit:Unit){ unit.actionsUsed=Math.min(ACTIONS_PER_TURN,unit.actionsUsed+1); }
+
   beginUnitDrag(unit:Unit, token:Phaser.GameObjects.Container) {
-    if (this.gameOver || this.gameMode !== 'combat' || this.phase !== 'player' || unit.team !== 'player' || unit.acted) return;
+    if (this.gameOver || this.gameMode !== 'combat' || this.phase !== 'player' || unit.team !== 'player' || !this.hasAction(unit)) return;
     this.clearAttackPreview(); this.selectedId=unit.id; this.draggingId=unit.id; this.dragRoute=[]; this.dragAttackTargetId=undefined;
     token.setData('dragged',true).setDepth(40).setAlpha(.88); this.refreshHighlights(); this.syncUI();
   }
 
   updateUnitDrag(unit:Unit, token:Phaser.GameObjects.Container, pointer:Phaser.Input.Pointer) {
-    if (this.draggingId !== unit.id || unit.acted) return;
+    if (this.draggingId !== unit.id || !this.hasAction(unit)) return;
     const world=this.cameras.main.getWorldPoint(pointer.x,pointer.y);
     const dest={x:Math.floor(world.x/CELL),y:Math.floor(world.y/CELL)};
     const occupant=this.at(dest.x,dest.y);
-
     this.dragAttackTargetId=undefined;
     if(occupant?.team==='enemy') {
       const attackRoute=this.attackRoute(unit,occupant);
       if(attackRoute) {
-        this.dragAttackTargetId=occupant.id;
-        this.dragRoute=attackRoute;
-        token.x=world.x; token.y=world.y;
-        this.showDragAttackTarget(occupant,attackRoute);
-        return;
+        this.dragAttackTargetId=occupant.id; this.dragRoute=attackRoute;
+        token.x=world.x; token.y=world.y; this.showDragAttackTarget(occupant,attackRoute); return;
       }
     }
-
     const route=this.findRoute(unit,dest,unit.id);
     const legal=route.length>1 && route.length-1<=MOVE && !occupant;
     this.dragRoute=legal?route:[]; token.x=world.x; token.y=world.y; this.showDragDestination(legal?dest:undefined, legal?route:undefined);
@@ -198,12 +215,8 @@ class TacticsScene extends Phaser.Scene {
     const route=this.dragRoute; const attackTargetId=this.dragAttackTargetId;
     this.dragRoute=[]; this.dragAttackTargetId=undefined; this.clearDragDestination();
     token.x=unit.x*CELL+CELL/2; token.y=unit.y*CELL+CELL/2;
-    if(attackTargetId) {
-      const target=this.unit(attackTargetId);
-      if(target) this.previewAttack(unit,target);
-      return;
-    }
-    if (route.length>1) this.moveUnit(unit,route,true);
+    if(attackTargetId) { const target=this.unit(attackTargetId); if(target)this.previewAttack(unit,target); return; }
+    if(route.length>1)this.moveUnit(unit,route,true);
   }
 
   updatePartyDrag(token:Phaser.GameObjects.Container,pointer:Phaser.Input.Pointer) {
@@ -240,36 +253,25 @@ class TacticsScene extends Phaser.Scene {
   handleUnit(id: string) {
     if (this.gameOver || this.gameMode !== 'combat') return;
     const target = this.unit(id); if (!target) return;
-
-    if (this.pendingAttack && id === this.pendingAttack.targetId) {
-      this.confirmAttack();
-      return;
-    }
-
+    if (this.pendingAttack && id === this.pendingAttack.targetId) { this.confirmAttack(); return; }
     if (target.team === 'player') {
       if(this.phase!=='player') return;
-      this.clearAttackPreview(); this.selectedId=id; this.message(`${target.name} selected.`); this.refreshHighlights(); this.syncUI(); return;
+      this.clearAttackPreview(); this.selectedId=id; this.message(`${target.name} selected · ${ACTIONS_PER_TURN-target.actionsUsed} actions left.`); this.refreshHighlights(); this.syncUI(); return;
     }
-
     const actor = this.pendingAttack ? this.unit(this.pendingAttack.actorId) : this.selected();
-    if(this.phase==='player' && actor?.team==='player' && this.canAttack(actor,target)) {
-      this.previewAttack(actor,target); return;
-    }
-
-    this.clearAttackPreview(); this.selectedId=id; this.message(`${target.name}: enemy movement and threat range.`); this.refreshHighlights(); this.syncUI();
+    if(this.phase==='player' && actor?.team==='player' && this.hasAction(actor) && this.canAttack(actor,target)) { this.previewAttack(actor,target); return; }
+    this.clearAttackPreview(); this.selectedId=id; this.message(`${target.name}: ${ACTIONS_PER_TURN-target.actionsUsed} actions left. Enemy movement and threat range.`); this.refreshHighlights(); this.syncUI();
   }
 
   handleCell(x:number,y:number) {
     if (this.gameOver || this.draggingId) return;
     if (this.gameMode === 'explore') { this.moveParty({x,y}); return; }
     if (this.phase !== 'player') return;
-
     if (this.pendingAttack) {
       const pendingTarget=this.unit(this.pendingAttack.targetId);
       if(pendingTarget && pendingTarget.x===x && pendingTarget.y===y){ this.confirmAttack(); return; }
     }
-
-    const actor = this.selected(); if (!actor || actor.team!=='player' || actor.acted) return;
+    const actor = this.selected(); if (!actor || actor.team!=='player' || !this.hasAction(actor)) return;
     const occupant = this.at(x,y);
     if (occupant?.team === 'enemy' && this.canAttack(actor,occupant)) { this.previewAttack(actor,occupant); return; }
     this.clearAttackPreview(); const route = this.findRoute(actor,{x,y},actor.id);
@@ -277,21 +279,21 @@ class TacticsScene extends Phaser.Scene {
   }
 
   previewAttack(actor:Unit,target:Unit) {
+    if(!this.hasAction(actor))return;
     const route=this.attackRoute(actor,target); if(!route)return;
     this.pendingAttack={actorId:actor.id,targetId:target.id,route}; this.selectedId=target.id;
     this.drawRoute([...route,{x:target.x,y:target.y}],actor.team); this.refreshHighlights(); this.syncUI();
     const remaining=Math.max(0,target.hp-actor.damage);
     ui.matchup.textContent=`${actor.name} → ${target.name}`;
-    ui.forecastResult.textContent=`${actor.damage} damage · ${target.hp} → ${remaining} HP · tap box or target to confirm`;
+    ui.forecastResult.textContent=`${actor.damage} damage · ${target.hp} → ${remaining} HP · 1 action · tap to confirm`;
     ui.forecast.hidden=false; ui.forecast.tabIndex=0;
-    this.message(`Preview: ${actor.name} attacks ${target.name} for ${actor.damage}. Tap the target again or the attack box to confirm.`);
+    this.message(`Preview: ${actor.name} attacks ${target.name}. ${ACTIONS_PER_TURN-actor.actionsUsed} actions available.`);
   }
 
   confirmAttack() {
     const pending=this.pendingAttack;if(!pending)return;
     const actor=this.unit(pending.actorId),target=this.unit(pending.targetId);
-    this.pendingAttack=undefined;this.hideForecast();
-    if(actor&&target)this.attack(actor,target,pending.route);
+    this.pendingAttack=undefined;this.hideForecast(); if(actor&&target)this.attack(actor,target,pending.route);
   }
   clearAttackPreview(){this.pendingAttack=undefined;this.hideForecast();this.routeGraphics?.clear();}
   hideForecast(){ui.forecast.hidden=true;ui.forecast.tabIndex=-1;}
@@ -306,93 +308,101 @@ class TacticsScene extends Phaser.Scene {
     this.cancelScheduledEvents(); this.tweens.killAll();
     const snapshot=this.actionHistory.pop()!; this.pendingAttack=undefined; this.hideForecast(); this.routeGraphics?.destroy(); this.routeGraphics=undefined;
     this.gameOver=false; ui.resultOverlay.hidden=true; this.units=snapshot.units.map(u=>({...u})); this.selectedId=snapshot.selectedId; this.turn=snapshot.turn; this.phase='player';
-    this.buildBoard(); this.syncUI(); this.message(`Rewound to ${this.selected()?.name ?? 'the previous unit'} before that move.`);
+    this.buildBoard(); this.syncUI(); this.message(`Undid one action. ${this.selected()?.name ?? 'Unit'} restored.`);
   }
 
   maybeAutoEndTurn() {
-    if(this.gameMode!=='combat'||this.phase!=='player'||this.gameOver||!this.living('player').every(u=>u.acted))return;
-    this.message('All heroes have acted. Enemy turn…'); this.schedule(450,()=>this.endPlayerTurn());
+    if(this.gameMode!=='combat'||this.phase!=='player'||this.gameOver||!this.living('player').every(u=>u.actionsUsed>=ACTIONS_PER_TURN))return;
+    this.message('All hero actions used. Enemy turn…'); this.schedule(450,()=>this.endPlayerTurn());
   }
 
   moveUnit(unit:Unit, route:Point[], consumeAction:boolean) {
     const token=this.tokens.get(unit.id); if(!token)return;
-    if(consumeAction&&unit.team==='player') this.recordPlayerAction(unit.id);
+    if(consumeAction&&unit.team==='player')this.recordPlayerAction(unit.id);
     this.clearAttackPreview(); const dest=route[route.length-1]; this.drawRoute(route,unit.team);
     this.tweens.add({ targets:token, x:dest.x*CELL+CELL/2, y:dest.y*CELL+CELL/2, duration:180*(route.length-1), ease:'Sine.easeInOut', onComplete:()=>{
-      unit.x=dest.x;unit.y=dest.y;if(consumeAction)unit.acted=true;this.routeGraphics?.clear();this.refreshHighlights();this.syncUI();if(consumeAction)this.maybeAutoEndTurn();
+      unit.x=dest.x;unit.y=dest.y;if(consumeAction)this.useAction(unit);this.routeGraphics?.clear();this.rebuildToken(unit);this.refreshHighlights();this.syncUI();if(consumeAction&&unit.team==='player')this.maybeAutoEndTurn();
     }});
   }
 
-  tweenTo(config: Phaser.Types.Tweens.TweenBuilderConfig) {
-    return new Promise<void>(resolve=>this.tweens.add({...config,onComplete:()=>resolve()}));
+  healSelected() {
+    if(this.gameMode!=='combat'||this.phase!=='player'||this.gameOver)return;
+    const unit=this.selected(); if(!unit||unit.team!=='player'||!this.hasAction(unit)||unit.hp>=unit.maxHp)return;
+    this.clearAttackPreview(); this.recordPlayerAction(unit.id);
+    const amount=Math.min(HEAL_AMOUNT,unit.maxHp-unit.hp); unit.hp+=amount; this.useAction(unit);
+    const token=this.tokens.get(unit.id); if(token){
+      const text=this.add.text(token.x,token.y-18,`+${amount}`,{fontFamily:'Georgia',fontStyle:'bold',fontSize:'24px',color:'#b8ffd0',stroke:'#145b3a',strokeThickness:5}).setOrigin(.5).setDepth(70);
+      this.tweens.add({targets:text,y:token.y-50,alpha:0,duration:560,ease:'Quad.easeOut',onComplete:()=>text.destroy()});
+      this.tweens.add({targets:token,scale:1.12,duration:100,yoyo:true,ease:'Quad.easeOut'});
+    }
+    this.message(`${unit.name} heals ${amount} HP. ${ACTIONS_PER_TURN-unit.actionsUsed} actions left.`);
+    this.rebuildToken(unit);this.refreshHighlights();this.syncUI();this.maybeAutoEndTurn();
   }
+
+  tweenTo(config: Phaser.Types.Tweens.TweenBuilderConfig) { return new Promise<void>(resolve=>this.tweens.add({...config,onComplete:()=>resolve()})); }
 
   async animateAttack(actor:Unit,target:Unit) {
     const a=this.tokens.get(actor.id), t=this.tokens.get(target.id); if(!a||!t)return;
-    const baseX=a.x,baseY=a.y;
-    const dx=t.x-a.x,dy=t.y-a.y; const len=Math.hypot(dx,dy)||1;
-    const ux=dx/len,uy=dy/len;
-    a.setDepth(45);
-    await this.tweenTo({targets:a,x:baseX+ux*22,y:baseY+uy*22,duration:85,ease:'Quad.easeOut'});
-
-    const impactX=(a.x+t.x)/2, impactY=(a.y+t.y)/2;
-    const slash=this.add.graphics().setDepth(60);
+    const baseX=a.x,baseY=a.y; const dx=t.x-a.x,dy=t.y-a.y; const len=Math.hypot(dx,dy)||1; const ux=dx/len,uy=dy/len;
+    a.setDepth(45); await this.tweenTo({targets:a,x:baseX+ux*22,y:baseY+uy*22,duration:85,ease:'Quad.easeOut'});
+    const impactX=(a.x+t.x)/2, impactY=(a.y+t.y)/2; const slash=this.add.graphics().setDepth(60);
     slash.lineStyle(7,0xfff1a8,1).beginPath().moveTo(impactX-uy*18-ux*8,impactY+ux*18-uy*8).lineTo(impactX+uy*18+ux*8,impactY-ux*18+uy*8).strokePath();
     slash.lineStyle(3,0xffffff,1).beginPath().moveTo(impactX-uy*14-ux*5,impactY+ux*14-uy*5).lineTo(impactX+uy*14+ux*5,impactY-ux*14+uy*5).strokePath();
     this.tweens.add({targets:slash,alpha:0,duration:180,onComplete:()=>slash.destroy()});
-
     const damageText=this.add.text(t.x,t.y-18,`-${actor.damage}`,{fontFamily:'Georgia',fontStyle:'bold',fontSize:'24px',color:'#fff1a8',stroke:'#7a1724',strokeThickness:5}).setOrigin(.5).setDepth(70);
     this.tweens.add({targets:damageText,y:t.y-48,alpha:0,duration:520,ease:'Quad.easeOut',onComplete:()=>damageText.destroy()});
-    this.tweens.add({targets:t,x:t.x+ux*8,y:t.y+uy*8,scale:1.12,alpha:.45,duration:60,yoyo:true,repeat:2,ease:'Quad.easeInOut'});
-    this.cameras.main.shake(100,.004);
-
-    await this.tweenTo({targets:a,x:baseX,y:baseY,duration:105,ease:'Quad.easeIn'});
-    a.setDepth(0);
+    this.tweens.add({targets:t,x:t.x+ux*8,y:t.y+uy*8,scale:1.12,alpha:.45,duration:60,yoyo:true,repeat:2,ease:'Quad.easeInOut'}); this.cameras.main.shake(100,.004);
+    await this.tweenTo({targets:a,x:baseX,y:baseY,duration:105,ease:'Quad.easeIn'}); a.setDepth(0);
   }
 
   async attack(actor:Unit,target:Unit,knownRoute?:Point[]) {
-    if(actor.acted||target.hp<=0)return; const route=knownRoute??this.attackRoute(actor,target);if(!route)return;
-    this.recordPlayerAction(actor.id);
-    if(route.length>1) await new Promise<void>(resolve=>{const token=this.tokens.get(actor.id)!;const dest=route[route.length-1];this.drawRoute(route,actor.team);this.tweens.add({targets:token,x:dest.x*CELL+CELL/2,y:dest.y*CELL+CELL/2,duration:170*(route.length-1),ease:'Sine.easeInOut',onComplete:()=>{actor.x=dest.x;actor.y=dest.y;resolve();}});});
-    await this.animateAttack(actor,target);
-    actor.acted=true;target.hp=Math.max(0,target.hp-actor.damage);this.selectedId=actor.id;this.message(`${actor.name} hits ${target.name} for ${actor.damage}.`);
+    if(!this.hasAction(actor)||target.hp<=0)return; const route=knownRoute??this.attackRoute(actor,target);if(!route)return;
+    if(actor.team==='player')this.recordPlayerAction(actor.id);
+    if(route.length>1)await new Promise<void>(resolve=>{const token=this.tokens.get(actor.id)!;const dest=route[route.length-1];this.drawRoute(route,actor.team);this.tweens.add({targets:token,x:dest.x*CELL+CELL/2,y:dest.y*CELL+CELL/2,duration:170*(route.length-1),ease:'Sine.easeInOut',onComplete:()=>{actor.x=dest.x;actor.y=dest.y;resolve();}});});
+    await this.animateAttack(actor,target); this.useAction(actor); target.hp=Math.max(0,target.hp-actor.damage);this.selectedId=actor.id;
+    this.message(`${actor.name} hits ${target.name} for ${actor.damage}. ${ACTIONS_PER_TURN-actor.actionsUsed} actions left.`);
     const t=this.tokens.get(target.id);if(t){if(target.hp<=0){this.tweens.add({targets:t,alpha:0,scale:.7,duration:180,onComplete:()=>{t.destroy();this.tokens.delete(target.id);}});}else this.rebuildToken(target);}
-    this.routeGraphics?.clear();this.checkGameOver();this.refreshHighlights();this.syncUI();if(!this.gameOver)this.maybeAutoEndTurn();
+    this.rebuildToken(actor);this.routeGraphics?.clear();this.checkGameOver();this.refreshHighlights();this.syncUI();if(actor.team==='player'&&!this.gameOver)this.maybeAutoEndTurn();
   }
 
   rebuildToken(unit:Unit){const old=this.tokens.get(unit.id);old?.destroy();this.createToken(unit);}
 
   endPlayerTurn() {
     if(this.gameOver||this.gameMode!=='combat'||this.phase!=='player')return;
-    this.clearAttackPreview();this.phase='enemy';this.syncUI();this.message('Enemy phase.');this.enemyTurn();
+    this.clearAttackPreview();this.phase='enemy';this.living('enemy').forEach(u=>u.actionsUsed=0);this.buildBoard();this.syncUI();this.message('Enemy phase.');this.enemyTurn();
   }
 
   enemyTurn() {
     const enemies=this.living('enemy'); let delay=250;
     enemies.forEach(enemy=>{
-      this.schedule(delay,()=>this.telegraphEnemy(enemy)); delay+=350;
-      this.schedule(delay,()=>this.enemyAct(enemy)); delay+=650;
+      for(let action=0;action<ACTIONS_PER_TURN;action++){
+        this.schedule(delay,()=>this.telegraphEnemy(enemy)); delay+=220;
+        this.schedule(delay,()=>this.enemyAct(enemy)); delay+=620;
+      }
     });
-    this.schedule(delay,()=>{if(this.gameOver)return;this.phase='player';this.turn++;this.living('player').forEach(u=>u.acted=false);const first=this.living('player')[0];if(first)this.selectedId=first.id;this.syncUI();this.refreshHighlights();this.message('Your turn. Undo can still rewind the previous turn.');});
+    this.schedule(delay,()=>{
+      if(this.gameOver)return;this.phase='player';this.turn++;this.living('player').forEach(u=>u.actionsUsed=0);
+      const first=this.living('player')[0];if(first)this.selectedId=first.id;this.buildBoard();this.syncUI();this.refreshHighlights();this.message('Your turn. Each hero has 3 actions.');
+    });
   }
 
   telegraphEnemy(enemy:Unit) {
-    if(enemy.hp<=0||this.gameOver)return; this.selectedId=enemy.id; this.refreshHighlights();this.syncUI();this.message(`${enemy.name} is moving…`);
+    if(enemy.hp<=0||this.gameOver||!this.hasAction(enemy))return; this.selectedId=enemy.id; this.refreshHighlights();this.syncUI();this.message(`${enemy.name}: ${ACTIONS_PER_TURN-enemy.actionsUsed} actions left.`);
   }
 
   enemyAct(enemy:Unit) {
-    if(enemy.hp<=0||this.gameOver)return; const heroes=this.living('player');if(!heroes.length)return;
-    heroes.sort((a,b)=>this.distance(enemy,a)-this.distance(enemy,b));const target=heroes[0];
+    if(enemy.hp<=0||this.gameOver||!this.hasAction(enemy))return;
+    const heroes=this.living('player');if(!heroes.length)return;heroes.sort((a,b)=>this.distance(enemy,a)-this.distance(enemy,b));const target=heroes[0];
     if(this.distance(enemy,target)===1){void this.enemyAttack(enemy,target);return;}
     const options=this.reachableTiles(enemy,MOVE).map(p=>({p,route:this.findRoute(enemy,p,enemy.id)})).filter(o=>o.route.length>1).sort((a,b)=>this.distance(a.p,target)-this.distance(b.p,target)||a.route.length-b.route.length);
-    const best=options[0]; if(best)this.moveUnit(enemy,best.route,false);
+    const best=options[0]; if(best){this.moveUnit(enemy,best.route,true);return;} this.useAction(enemy);this.rebuildToken(enemy);this.syncUI();
   }
 
   async enemyAttack(enemy:Unit,target:Unit) {
-    await this.animateAttack(enemy,target);
-    target.hp=Math.max(0,target.hp-enemy.damage);this.message(`${enemy.name} hits ${target.name} for ${enemy.damage}.`);
+    if(!this.hasAction(enemy))return; await this.animateAttack(enemy,target);this.useAction(enemy);
+    target.hp=Math.max(0,target.hp-enemy.damage);this.message(`${enemy.name} hits ${target.name} for ${enemy.damage}. ${ACTIONS_PER_TURN-enemy.actionsUsed} actions left.`);
     const t=this.tokens.get(target.id);if(t){if(target.hp<=0){this.tweens.add({targets:t,alpha:0,scale:.7,duration:180,onComplete:()=>{t.destroy();this.tokens.delete(target.id);}});}else this.rebuildToken(target);}
-    this.checkGameOver();this.refreshHighlights();this.syncUI();
+    this.rebuildToken(enemy);this.checkGameOver();this.refreshHighlights();this.syncUI();
   }
 
   moveParty(dest:Point) {
@@ -414,7 +424,7 @@ class TacticsScene extends Phaser.Scene {
   }
 
   attackRoute(actor:Unit,target:Unit):Point[]|null {
-    if(actor.acted||actor.team===target.team)return null;if(this.distance(actor,target)===1)return[{x:actor.x,y:actor.y}];
+    if(!this.hasAction(actor)||actor.team===target.team)return null;if(this.distance(actor,target)===1)return[{x:actor.x,y:actor.y}];
     const candidates=this.neighbors(target).map(p=>({p,route:this.findRoute(actor,p,actor.id)})).filter(o=>o.route.length>1&&o.route.length-1<=MOVE).sort((a,b)=>a.route.length-b.route.length);return candidates[0]?.route??null;
   }
   canAttack(a:Unit,t:Unit){return!!this.attackRoute(a,t);}
@@ -428,35 +438,16 @@ class TacticsScene extends Phaser.Scene {
 
   drawRoute(route:Point[],team:Team) {
     this.routeGraphics?.destroy(); if(route.length<1)return;
-    const g=this.add.graphics().setDepth(30);
-    const outer=team==='enemy'?0x7a1724:0x075f88;const inner=team==='enemy'?0xf05663:0x62dcff;const shine=team==='enemy'?0xffa0a8:0xc6f7ff;
+    const g=this.add.graphics().setDepth(30); const outer=team==='enemy'?0x7a1724:0x075f88;const inner=team==='enemy'?0xf05663:0x62dcff;const shine=team==='enemy'?0xffa0a8:0xc6f7ff;
     const pts=route.map(p=>({x:p.x*CELL+CELL/2,y:p.y*CELL+CELL/2}));
-
     if(pts.length===1){g.fillStyle(outer,.95).fillCircle(pts[0].x,pts[0].y,11);g.fillStyle(inner,1).fillCircle(pts[0].x,pts[0].y,6.5);this.routeGraphics=g;return;}
-
-    const prev=pts[pts.length-2],end=pts[pts.length-1];
-    const angle=Math.atan2(end.y-prev.y,end.x-prev.x);const ux=Math.cos(angle),uy=Math.sin(angle),px=-uy,py=ux;
-    const shaftEnd={x:end.x-ux*14,y:end.y-uy*14};
-    const shaftPts=[...pts.slice(0,-1),shaftEnd];
-    const stroke=(width:number,color:number,alpha=1)=>{
-      g.lineStyle(width,color,alpha);g.beginPath();shaftPts.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.strokePath();
-      shaftPts.slice(0,-1).forEach(p=>g.fillStyle(color,alpha).fillCircle(p.x,p.y,width/2));
-    };
+    const prev=pts[pts.length-2],end=pts[pts.length-1];const angle=Math.atan2(end.y-prev.y,end.x-prev.x);const ux=Math.cos(angle),uy=Math.sin(angle),px=-uy,py=ux;
+    const shaftEnd={x:end.x-ux*14,y:end.y-uy*14};const shaftPts=[...pts.slice(0,-1),shaftEnd];
+    const stroke=(width:number,color:number,alpha=1)=>{g.lineStyle(width,color,alpha);g.beginPath();shaftPts.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.strokePath();shaftPts.slice(0,-1).forEach(p=>g.fillStyle(color,alpha).fillCircle(p.x,p.y,width/2));};
     stroke(24,outer,.96);stroke(14,inner,1);stroke(4,shine,.72);
-
-    const base={x:end.x-ux*16,y:end.y-uy*16};
-    const tip={x:end.x+ux*24,y:end.y+uy*24};
-    const left={x:base.x+px*22,y:base.y+py*22};
-    const right={x:base.x-px*22,y:base.y-py*22};
-    g.fillStyle(outer,1).fillTriangle(tip.x,tip.y,left.x,left.y,right.x,right.y);
-
-    const ibase={x:end.x-ux*13,y:end.y-uy*13};
-    const itip={x:end.x+ux*17,y:end.y+uy*17};
-    const ileft={x:ibase.x+px*13,y:ibase.y+py*13};
-    const iright={x:ibase.x-px*13,y:ibase.y-py*13};
-    g.fillStyle(inner,1).fillTriangle(itip.x,itip.y,ileft.x,ileft.y,iright.x,iright.y);
-    g.lineStyle(3,shine,.72).beginPath().moveTo(ibase.x+px*4,ibase.y+py*4).lineTo(itip.x-ux*3,itip.y-uy*3).strokePath();
-    this.routeGraphics=g;
+    const base={x:end.x-ux*16,y:end.y-uy*16};const tip={x:end.x+ux*24,y:end.y+uy*24};const left={x:base.x+px*22,y:base.y+py*22};const right={x:base.x-px*22,y:base.y-py*22};g.fillStyle(outer,1).fillTriangle(tip.x,tip.y,left.x,left.y,right.x,right.y);
+    const ibase={x:end.x-ux*13,y:end.y-uy*13};const itip={x:end.x+ux*17,y:end.y+uy*17};const ileft={x:ibase.x+px*13,y:ibase.y+py*13};const iright={x:ibase.x-px*13,y:ibase.y-py*13};g.fillStyle(inner,1).fillTriangle(itip.x,itip.y,ileft.x,ileft.y,iright.x,iright.y);
+    g.lineStyle(3,shine,.72).beginPath().moveTo(ibase.x+px*4,ibase.y+py*4).lineTo(itip.x-ux*3,itip.y-uy*3).strokePath();this.routeGraphics=g;
   }
 
   refreshHighlights() {
@@ -467,7 +458,7 @@ class TacticsScene extends Phaser.Scene {
       const danger=new Set<string>();this.reachableTiles(actor,MOVE).forEach(p=>this.neighbors(p).forEach(n=>danger.add(`${n.x},${n.y}`)));danger.forEach(k=>this.cells.get(k)?.setFillStyle(0xc66b45,.40));
       this.cells.get(`${actor.x},${actor.y}`)?.setStrokeStyle(5,0xffd5a6,1);return;
     }
-    if(this.phase!=='player'||actor.acted)return;
+    if(this.phase!=='player'||!this.hasAction(actor))return;
     this.reachableTiles(actor,MOVE).forEach(p=>{if(!(p.x===actor.x&&p.y===actor.y))this.cells.get(`${p.x},${p.y}`)?.setFillStyle(0x238dc1,.52).setStrokeStyle(3,0x71e4ff,.9);});
     this.living('enemy').forEach(e=>{if(this.canAttack(actor,e))this.cells.get(`${e.x},${e.y}`)?.setFillStyle(0xb34842,.72).setStrokeStyle(4,0xff9a78,1);});
     if(this.pendingAttack){const t=this.unit(this.pendingAttack.targetId);if(t)this.cells.get(`${t.x},${t.y}`)?.setFillStyle(0xd14b3f,.92).setStrokeStyle(5,0xffd18a,1);}
@@ -486,9 +477,15 @@ class TacticsScene extends Phaser.Scene {
   syncUI(){
     ui.turnNumber.textContent=String(this.turn);ui.turnPill.textContent=this.gameMode==='explore'?'Explore':this.phase==='player'?'Player':'Enemy';ui.turnPill.classList.toggle('enemy',this.phase==='enemy');
     ui.undo.hidden=this.gameMode==='explore';ui.undo.textContent='Undo';ui.undo.disabled=this.actionHistory.length===0;
+    const selected=this.selected();ui.heal.hidden=this.gameMode==='explore';ui.heal.disabled=!selected||selected.team!=='player'||this.phase!=='player'||!this.hasAction(selected)||selected.hp>=selected.maxHp||this.gameOver;
     ui.tactical.setAttribute('aria-pressed',String(this.mode==='tactical'));ui.exploration.setAttribute('aria-pressed',String(this.mode==='exploration'));
-    const s=this.selected()??this.living('player')[0]??this.living('enemy')[0];if(s){ui.selectedName.textContent=s.name;ui.selectedTeam.textContent=s.team==='player'?'Hero':'Enemy';ui.health.textContent=`${s.hp} / ${s.maxHp}`;ui.attack.textContent=String(s.damage);ui.movement.textContent=String(MOVE);ui.portrait.textContent=s.mark;}
-    ui.roster.innerHTML='';for(const u of this.living('player')){const b=document.createElement('button');b.type='button';b.className=`roster-token${u.id===this.selectedId?' selected':''}${u.acted?' acted':''}`;b.textContent=u.mark;b.setAttribute('aria-label',`${u.name}, ${u.hp} of ${u.maxHp} health`);b.addEventListener('click',()=>{if(this.phase!=='player')return;this.clearAttackPreview();this.selectedId=u.id;this.refreshHighlights();this.syncUI();this.centerOn(u);});ui.roster.appendChild(b);}
+    const s=selected??this.living('player')[0]??this.living('enemy')[0];if(s){ui.selectedName.textContent=s.name;ui.selectedTeam.textContent=`${s.team==='player'?'Hero':'Enemy'} · ${ACTIONS_PER_TURN-s.actionsUsed}/${ACTIONS_PER_TURN} actions`;ui.health.textContent=`${s.hp} / ${s.maxHp}`;ui.attack.textContent=String(s.damage);ui.movement.textContent=String(MOVE);ui.portrait.textContent=s.mark;}
+    ui.roster.innerHTML='';for(const u of this.living('player')){
+      const b=document.createElement('button');b.type='button';b.className=`roster-token${u.id===this.selectedId?' selected':''}${u.actionsUsed>=ACTIONS_PER_TURN?' acted':''}`;
+      b.innerHTML=`<span aria-hidden="true">${u.mark}</span><small style="display:block;font:700 9px/1 system-ui;margin-top:1px">${'●'.repeat(ACTIONS_PER_TURN-u.actionsUsed)}${'○'.repeat(u.actionsUsed)}</small>`;
+      b.setAttribute('aria-label',`${u.name}, ${u.hp} of ${u.maxHp} health, ${ACTIONS_PER_TURN-u.actionsUsed} actions remaining`);
+      b.addEventListener('click',()=>{if(this.phase!=='player')return;this.clearAttackPreview();this.selectedId=u.id;this.refreshHighlights();this.syncUI();this.centerOn(u);});ui.roster.appendChild(b);
+    }
   }
 }
 
@@ -496,6 +493,7 @@ new Phaser.Game({type:Phaser.AUTO,parent:'battlefield',backgroundColor:'#243d44'
 ui.forecast.addEventListener('click',()=>scene.confirmAttack());
 ui.forecast.addEventListener('keydown',(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();scene.confirmAttack();}});
 ui.undo.addEventListener('click',()=>scene.undoLastAction());
+ui.heal.addEventListener('click',()=>scene.healSelected());
 ui.restart.addEventListener('click',()=>{scene.reset();ui.settings.open=false;});
 ui.restartOverlay.addEventListener('click',()=>scene.reset());
 ui.tactical.addEventListener('click',()=>{scene.reset('tactical');ui.settings.open=false;});
