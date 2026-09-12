@@ -206,14 +206,22 @@ class TacticsScene extends Phaser.Scene {
   handleUnit(id: string) {
     if (this.gameOver || this.gameMode !== 'combat') return;
     const target = this.unit(id); if (!target) return;
+
+    if (this.pendingAttack && id === this.pendingAttack.targetId) {
+      this.confirmAttack();
+      return;
+    }
+
     if (target.team === 'player') {
       if(this.phase!=='player') return;
       this.clearAttackPreview(); this.selectedId=id; this.message(`${target.name} selected.`); this.refreshHighlights(); this.syncUI(); return;
     }
-    const actor=this.selected();
+
+    const actor = this.pendingAttack ? this.unit(this.pendingAttack.actorId) : this.selected();
     if(this.phase==='player' && actor?.team==='player' && this.canAttack(actor,target)) {
       this.previewAttack(actor,target); return;
     }
+
     this.clearAttackPreview(); this.selectedId=id; this.message(`${target.name}: enemy movement and threat range.`); this.refreshHighlights(); this.syncUI();
   }
 
@@ -221,6 +229,12 @@ class TacticsScene extends Phaser.Scene {
     if (this.gameOver || this.draggingId) return;
     if (this.gameMode === 'explore') { this.moveParty({x,y}); return; }
     if (this.phase !== 'player') return;
+
+    if (this.pendingAttack) {
+      const pendingTarget=this.unit(this.pendingAttack.targetId);
+      if(pendingTarget && pendingTarget.x===x && pendingTarget.y===y){ this.confirmAttack(); return; }
+    }
+
     const actor = this.selected(); if (!actor || actor.team!=='player' || actor.acted) return;
     const occupant = this.at(x,y);
     if (occupant?.team === 'enemy' && this.canAttack(actor,occupant)) { this.previewAttack(actor,occupant); return; }
@@ -233,13 +247,17 @@ class TacticsScene extends Phaser.Scene {
     this.pendingAttack={actorId:actor.id,targetId:target.id,route}; this.selectedId=target.id;
     this.drawRoute([...route,{x:target.x,y:target.y}],actor.team); this.refreshHighlights(); this.syncUI();
     const remaining=Math.max(0,target.hp-actor.damage);
-    ui.matchup.textContent=`${actor.name} → ${target.name}`; ui.forecastResult.textContent=`${actor.damage} damage · ${target.hp} → ${remaining} HP · tap to confirm`;
-    ui.forecast.hidden=false; ui.forecast.tabIndex=0; this.message(`Preview: ${actor.name} attacks ${target.name} for ${actor.damage}.`);
+    ui.matchup.textContent=`${actor.name} → ${target.name}`;
+    ui.forecastResult.textContent=`${actor.damage} damage · ${target.hp} → ${remaining} HP · tap box or target to confirm`;
+    ui.forecast.hidden=false; ui.forecast.tabIndex=0;
+    this.message(`Preview: ${actor.name} attacks ${target.name} for ${actor.damage}. Tap the target again or the attack box to confirm.`);
   }
 
   confirmAttack() {
     const pending=this.pendingAttack;if(!pending)return;
-    const actor=this.unit(pending.actorId),target=this.unit(pending.targetId);this.pendingAttack=undefined;this.hideForecast(); if(actor&&target)this.attack(actor,target,pending.route);
+    const actor=this.unit(pending.actorId),target=this.unit(pending.targetId);
+    this.pendingAttack=undefined;this.hideForecast();
+    if(actor&&target)this.attack(actor,target,pending.route);
   }
   clearAttackPreview(){this.pendingAttack=undefined;this.hideForecast();this.routeGraphics?.clear();}
   hideForecast(){ui.forecast.hidden=true;ui.forecast.tabIndex=-1;}
@@ -271,12 +289,40 @@ class TacticsScene extends Phaser.Scene {
     }});
   }
 
+  tweenTo(config: Phaser.Types.Tweens.TweenBuilderConfig) {
+    return new Promise<void>(resolve=>this.tweens.add({...config,onComplete:()=>resolve()}));
+  }
+
+  async animateAttack(actor:Unit,target:Unit) {
+    const a=this.tokens.get(actor.id), t=this.tokens.get(target.id); if(!a||!t)return;
+    const baseX=a.x,baseY=a.y;
+    const dx=t.x-a.x,dy=t.y-a.y; const len=Math.hypot(dx,dy)||1;
+    const ux=dx/len,uy=dy/len;
+    a.setDepth(45);
+    await this.tweenTo({targets:a,x:baseX+ux*22,y:baseY+uy*22,duration:85,ease:'Quad.easeOut'});
+
+    const impactX=(a.x+t.x)/2, impactY=(a.y+t.y)/2;
+    const slash=this.add.graphics().setDepth(60);
+    slash.lineStyle(7,0xfff1a8,1).beginPath().moveTo(impactX-uy*18-ux*8,impactY+ux*18-uy*8).lineTo(impactX+uy*18+ux*8,impactY-ux*18+uy*8).strokePath();
+    slash.lineStyle(3,0xffffff,1).beginPath().moveTo(impactX-uy*14-ux*5,impactY+ux*14-uy*5).lineTo(impactX+uy*14+ux*5,impactY-ux*14+uy*5).strokePath();
+    this.tweens.add({targets:slash,alpha:0,duration:180,onComplete:()=>slash.destroy()});
+
+    const damageText=this.add.text(t.x,t.y-18,`-${actor.damage}`,{fontFamily:'Georgia',fontStyle:'bold',fontSize:'24px',color:'#fff1a8',stroke:'#7a1724',strokeThickness:5}).setOrigin(.5).setDepth(70);
+    this.tweens.add({targets:damageText,y:t.y-48,alpha:0,duration:520,ease:'Quad.easeOut',onComplete:()=>damageText.destroy()});
+    this.tweens.add({targets:t,x:t.x+ux*8,y:t.y+uy*8,scale:1.12,alpha:.45,duration:60,yoyo:true,repeat:2,ease:'Quad.easeInOut'});
+    this.cameras.main.shake(100,.004);
+
+    await this.tweenTo({targets:a,x:baseX,y:baseY,duration:105,ease:'Quad.easeIn'});
+    a.setDepth(0);
+  }
+
   async attack(actor:Unit,target:Unit,knownRoute?:Point[]) {
     if(actor.acted||target.hp<=0)return; const route=knownRoute??this.attackRoute(actor,target);if(!route)return;
     this.recordPlayerAction(actor.id);
-    if(route.length>1) await new Promise<void>(resolve=>{const token=this.tokens.get(actor.id)!;const dest=route[route.length-1];this.drawRoute(route,actor.team);this.tweens.add({targets:token,x:dest.x*CELL+CELL/2,y:dest.y*CELL+CELL/2,duration:170*(route.length-1),onComplete:()=>{actor.x=dest.x;actor.y=dest.y;resolve();}});});
+    if(route.length>1) await new Promise<void>(resolve=>{const token=this.tokens.get(actor.id)!;const dest=route[route.length-1];this.drawRoute(route,actor.team);this.tweens.add({targets:token,x:dest.x*CELL+CELL/2,y:dest.y*CELL+CELL/2,duration:170*(route.length-1),ease:'Sine.easeInOut',onComplete:()=>{actor.x=dest.x;actor.y=dest.y;resolve();}});});
+    await this.animateAttack(actor,target);
     actor.acted=true;target.hp=Math.max(0,target.hp-actor.damage);this.selectedId=actor.id;this.message(`${actor.name} hits ${target.name} for ${actor.damage}.`);
-    const t=this.tokens.get(target.id);if(t)this.tweens.add({targets:t,alpha:.25,duration:80,yoyo:true,repeat:2,onComplete:()=>{if(target.hp<=0){t.destroy();this.tokens.delete(target.id);}else this.rebuildToken(target);}});
+    const t=this.tokens.get(target.id);if(t){if(target.hp<=0){this.tweens.add({targets:t,alpha:0,scale:.7,duration:180,onComplete:()=>{t.destroy();this.tokens.delete(target.id);}});}else this.rebuildToken(target);}
     this.routeGraphics?.clear();this.checkGameOver();this.refreshHighlights();this.syncUI();if(!this.gameOver)this.maybeAutoEndTurn();
   }
 
@@ -303,9 +349,16 @@ class TacticsScene extends Phaser.Scene {
   enemyAct(enemy:Unit) {
     if(enemy.hp<=0||this.gameOver)return; const heroes=this.living('player');if(!heroes.length)return;
     heroes.sort((a,b)=>this.distance(enemy,a)-this.distance(enemy,b));const target=heroes[0];
-    if(this.distance(enemy,target)===1){target.hp=Math.max(0,target.hp-enemy.damage);this.message(`${enemy.name} hits ${target.name} for ${enemy.damage}.`);if(target.hp<=0){this.tokens.get(target.id)?.destroy();this.tokens.delete(target.id);}else this.rebuildToken(target);this.checkGameOver();return;}
+    if(this.distance(enemy,target)===1){void this.enemyAttack(enemy,target);return;}
     const options=this.reachableTiles(enemy,MOVE).map(p=>({p,route:this.findRoute(enemy,p,enemy.id)})).filter(o=>o.route.length>1).sort((a,b)=>this.distance(a.p,target)-this.distance(b.p,target)||a.route.length-b.route.length);
     const best=options[0]; if(best)this.moveUnit(enemy,best.route,false);
+  }
+
+  async enemyAttack(enemy:Unit,target:Unit) {
+    await this.animateAttack(enemy,target);
+    target.hp=Math.max(0,target.hp-enemy.damage);this.message(`${enemy.name} hits ${target.name} for ${enemy.damage}.`);
+    const t=this.tokens.get(target.id);if(t){if(target.hp<=0){this.tweens.add({targets:t,alpha:0,scale:.7,duration:180,onComplete:()=>{t.destroy();this.tokens.delete(target.id);}});}else this.rebuildToken(target);}
+    this.checkGameOver();this.refreshHighlights();this.syncUI();
   }
 
   moveParty(dest:Point) {
@@ -341,11 +394,34 @@ class TacticsScene extends Phaser.Scene {
 
   drawRoute(route:Point[],team:Team) {
     this.routeGraphics?.destroy(); if(route.length<1)return;
-    const g=this.add.graphics().setDepth(30); const outer=team==='enemy'?0x7a1724:0x075f88;const inner=team==='enemy'?0xf05663:0x62dcff;const shine=team==='enemy'?0xffa0a8:0xc6f7ff;
+    const g=this.add.graphics().setDepth(30);
+    const outer=team==='enemy'?0x7a1724:0x075f88;const inner=team==='enemy'?0xf05663:0x62dcff;const shine=team==='enemy'?0xffa0a8:0xc6f7ff;
     const pts=route.map(p=>({x:p.x*CELL+CELL/2,y:p.y*CELL+CELL/2}));
-    const stroke=(width:number,color:number,alpha=1)=>{g.lineStyle(width,color,alpha);g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.strokePath();pts.forEach(p=>g.fillStyle(color,alpha).fillCircle(p.x,p.y,width/2));};
-    stroke(22,outer,.95);stroke(13,inner,1);stroke(4,shine,.7);
-    if(pts.length>1){const a=pts[pts.length-2],b=pts[pts.length-1];const angle=Math.atan2(b.y-a.y,b.x-a.x);const tip={x:b.x+Math.cos(angle)*18,y:b.y+Math.sin(angle)*18};const left={x:b.x+Math.cos(angle+2.45)*24,y:b.y+Math.sin(angle+2.45)*24};const right={x:b.x+Math.cos(angle-2.45)*24,y:b.y+Math.sin(angle-2.45)*24};g.fillStyle(outer,1).fillTriangle(tip.x,tip.y,left.x,left.y,right.x,right.y);const s=0.72;g.fillStyle(inner,1).fillTriangle(tip.x,tip.y,b.x+(left.x-b.x)*s,b.y+(left.y-b.y)*s,b.x+(right.x-b.x)*s,b.y+(right.y-b.y)*s);}
+
+    if(pts.length===1){g.fillStyle(outer,.95).fillCircle(pts[0].x,pts[0].y,11);g.fillStyle(inner,1).fillCircle(pts[0].x,pts[0].y,6.5);this.routeGraphics=g;return;}
+
+    const prev=pts[pts.length-2],end=pts[pts.length-1];
+    const angle=Math.atan2(end.y-prev.y,end.x-prev.x);const ux=Math.cos(angle),uy=Math.sin(angle),px=-uy,py=ux;
+    const shaftEnd={x:end.x-ux*14,y:end.y-uy*14};
+    const shaftPts=[...pts.slice(0,-1),shaftEnd];
+    const stroke=(width:number,color:number,alpha=1)=>{
+      g.lineStyle(width,color,alpha);g.beginPath();shaftPts.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.strokePath();
+      shaftPts.slice(0,-1).forEach(p=>g.fillStyle(color,alpha).fillCircle(p.x,p.y,width/2));
+    };
+    stroke(24,outer,.96);stroke(14,inner,1);stroke(4,shine,.72);
+
+    const base={x:end.x-ux*16,y:end.y-uy*16};
+    const tip={x:end.x+ux*24,y:end.y+uy*24};
+    const left={x:base.x+px*22,y:base.y+py*22};
+    const right={x:base.x-px*22,y:base.y-py*22};
+    g.fillStyle(outer,1).fillTriangle(tip.x,tip.y,left.x,left.y,right.x,right.y);
+
+    const ibase={x:end.x-ux*13,y:end.y-uy*13};
+    const itip={x:end.x+ux*17,y:end.y+uy*17};
+    const ileft={x:ibase.x+px*13,y:ibase.y+py*13};
+    const iright={x:ibase.x-px*13,y:ibase.y-py*13};
+    g.fillStyle(inner,1).fillTriangle(itip.x,itip.y,ileft.x,ileft.y,iright.x,iright.y);
+    g.lineStyle(3,shine,.72).beginPath().moveTo(ibase.x+px*4,ibase.y+py*4).lineTo(itip.x-ux*3,itip.y-uy*3).strokePath();
     this.routeGraphics=g;
   }
 
