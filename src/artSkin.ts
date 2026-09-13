@@ -3,14 +3,10 @@ import { ART } from './generatedAssets';
 const style=document.createElement('style');
 style.textContent=`
 .initiative-token{background:#111923;overflow:visible}
-.initiative-token>span{position:absolute;inset:0;border-radius:50%;overflow:hidden;display:grid;place-items:center}
-.initiative-token img{width:100%;height:100%;display:block;object-fit:cover;transform:none;pointer-events:none}
-.initiative-token img[data-art-id="alden"]{object-position:50% 54%}
-.initiative-token img[data-art-id="mira"]{object-position:50% 54%}
-.initiative-token img[data-art-id="raider-1"]{object-position:54% 54%}
-.initiative-token img[data-art-id="raider-2"]{object-position:46% 54%}
+.initiative-token>span{position:absolute;inset:0;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:#111923}
+.initiative-token img{width:88%;height:88%;display:block;object-fit:contain;object-position:50% 50%;transform:none;pointer-events:none;margin:auto}
 .initiative-token.active img{filter:drop-shadow(0 0 5px rgba(50,188,255,.7))}
-#portrait{background-position:50% 54%;background-size:cover;background-repeat:no-repeat;color:transparent;overflow:hidden}
+#portrait{background-position:50% 50%;background-size:contain;background-repeat:no-repeat;background-color:#111923;color:transparent;overflow:hidden}
 `;
 document.head.appendChild(style);
 
