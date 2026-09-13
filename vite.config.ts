@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import { layoutPolish } from './vite-layout-polish';
 import { combatPolish } from './vite-combat-polish';
 import { dragPolish } from './vite-drag-polish';
+import { renderPolish } from './vite-render-polish';
 
 const gestureGuard = {
   name: 'gesture-guard',
@@ -38,6 +39,6 @@ const gestureGuard = {
 
 export default defineConfig({
   base: '/Tactics/',
-  plugins: [gestureGuard, combatPolish, dragPolish, layoutPolish],
+  plugins: [gestureGuard, combatPolish, dragPolish, renderPolish, layoutPolish],
   build: { outDir: 'build', emptyOutDir: true }
 });
