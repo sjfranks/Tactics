@@ -4,8 +4,8 @@
   "version": "0.3.0",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/write-background.mjs && vite",
-    "build": "node scripts/write-background.mjs && vite build",
+    "dev": "vite",
+    "build": "vite build",
     "typecheck": "tsc -b",
     "preview": "vite preview"
   },
