@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 type Point = { x: number; y: number };
+type RailUnit = { id: string; team: 'player' | 'enemy'; x?: number; y?: number };
 type LooseScene = Phaser.Scene & {
   gestureActive: boolean;
   gestureDistance: number;
@@ -11,7 +12,7 @@ type LooseScene = Phaser.Scene & {
   rows: number;
   gameMode: string;
   tokens: Map<string, Phaser.GameObjects.Container>;
-  units: Array<{ id: string; team: 'player' | 'enemy' }>;
+  units: RailUnit[];
   draggingId?: string;
   cancelPieceDragForGesture: () => void;
   twoFingersDown: () => boolean;
@@ -19,6 +20,7 @@ type LooseScene = Phaser.Scene & {
   handleTwoFingerGesture: () => void;
   setLooseCameraBounds: () => void;
   fitTactical: () => void;
+  moveEnemy: (enemy: RailUnit, route: Point[]) => Promise<void>;
 };
 
 const CELL = 80;
@@ -72,7 +74,7 @@ function leaveGesture(scene: LooseScene) {
 }
 
 function installSceneFixes(scene: LooseScene) {
-  const patched = scene as LooseScene & { __mobilePolishInstalled?: boolean };
+  const patched = scene as LooseScene & { __mobilePolishInstalled?: boolean; __enemyFollowInstalled?: boolean };
   if (patched.__mobilePolishInstalled) return;
   patched.__mobilePolishInstalled = true;
 
@@ -94,6 +96,28 @@ function installSceneFixes(scene: LooseScene) {
     cam.scrollX = patched.cols * CELL / 2 - cam.width / (2 * cam.zoom);
     cam.scrollY = patched.rows * CELL / 2 - cam.height / (2 * cam.zoom);
   };
+
+  // Follow an enemy token for the duration of each movement action. The
+  // original movement routine still owns path drawing, state updates and token
+  // rebuilding; this wrapper only controls the camera.
+  if (!patched.__enemyFollowInstalled) {
+    patched.__enemyFollowInstalled = true;
+    const originalMoveEnemy = patched.moveEnemy.bind(patched);
+    patched.moveEnemy = async (enemy: RailUnit, route: Point[]) => {
+      const token = patched.tokens.get(enemy.id);
+      const cam = patched.cameras.main;
+      if (token) cam.startFollow(token, true, 0.16, 0.16);
+      try {
+        await originalMoveEnemy(enemy, route);
+      } finally {
+        cam.stopFollow();
+        const current = patched.units.find(unit => unit.id === enemy.id);
+        if (current?.x != null && current?.y != null) {
+          cam.pan(current.x * CELL + CELL / 2, current.y * CELL + CELL / 2, 120, 'Sine.easeOut');
+        }
+      }
+    };
+  }
 
   patched.setLooseCameraBounds();
 }
@@ -176,13 +200,14 @@ battlefield?.addEventListener('touchmove', beginOrUpdateGesture, { passive: fals
 battlefield?.addEventListener('touchend', endGesture, { passive: false, capture: true });
 battlefield?.addEventListener('touchcancel', endGesture, { passive: false, capture: true });
 
-// Add names beneath the initiative portraits and give the enlarged active token
-// enough vertical room to remain fully visible.
+// Add names beneath the initiative portraits. Keep the scaled active token
+// inside the horizontal scroll box so Safari cannot clip its top edge.
 const style = document.createElement('style');
 style.textContent = `
-  .initiative-dock{height:104px!important;overflow:visible!important}
-  .initiative-rail{padding-top:24px!important;padding-bottom:12px!important;overflow-y:visible!important}
-  .initiative-token{overflow:visible!important;margin-bottom:18px!important}
+  .initiative-dock{height:122px!important;overflow:visible!important;align-items:flex-end!important}
+  .initiative-rail{height:122px!important;padding-top:38px!important;padding-bottom:14px!important;align-items:flex-end!important}
+  .initiative-token{overflow:visible!important;margin-bottom:20px!important;transform-origin:center bottom!important}
+  .initiative-token.active{transform:scale(1.2)!important;transform-origin:center bottom!important}
   .initiative-name{position:absolute;left:50%;top:calc(100% + 5px);transform:translateX(-50%);max-width:74px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(255,255,255,.86);font:700 10px/1.1 Inter,system-ui,sans-serif;text-shadow:0 1px 3px #000;pointer-events:none}
   .initiative-token.active .initiative-name{color:#fff;font-weight:900}
 `;
