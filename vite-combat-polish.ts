@@ -26,6 +26,7 @@ export const combatPolish = {
       `  beginHealTargeting(){const u=this.active();if(!u||u.team!=='player'||!this.hasAction(u)||this.busy)return;this.healTargeting=true;this.pendingAttack=undefined;this.hideForecast();this.closeActionMenu();this.selectedId=u.id;this.message('Choose a hero within 2 squares to heal.');this.render();}\n  healTarget(t:Unit){const u=this.active();if(!u||u.team!=='player'||t.team!=='player'||!this.hasAction(u)||this.distance(u,t)>2||t.hp>=t.maxHp||this.busy)return;this.record();const n=Math.min(HEAL,t.maxHp-t.hp);t.hp+=n;u.actionsUsed++;this.healTargeting=false;this.log(\`${'${u.name}'} heals ${'${t.name}'}: +${'${n}'} HP.\`);this.selectedId=t.id;this.render();this.maybeFinish(u);}`,'heal methods');
 
     swap(`ui.heal.disabled=!a||a.team!=='player'||!this.hasAction(a)||a.hp>=a.maxHp;`,`ui.heal.disabled=!a||a.team!=='player'||!this.hasAction(a);`,'heal availability');
+    swap(`this.pendingAttack={actorId:a.id,targetId:t.id};this.selectedId=t.id;`,`this.pendingAttack={actorId:a.id,targetId:t.id};this.selectedId=a.id;`,'attack selection');
     return {code:next,map:null};
   }
 };
