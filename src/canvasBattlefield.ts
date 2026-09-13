@@ -3,10 +3,11 @@ import { BATTLEFIELD_BACKGROUND } from './background';
 
 const CELL=80;
 const frame=document.querySelector<HTMLElement>('#battlefield-frame')!;
-const mapArt=document.createElement('div');
+const mapArt=document.createElement('img');
 mapArt.className='battlefield-map-art';
 mapArt.setAttribute('aria-hidden','true');
-mapArt.style.backgroundImage=`url("${BATTLEFIELD_BACKGROUND}")`;
+mapArt.alt='';
+mapArt.src=BATTLEFIELD_BACKGROUND;
 const canvas=document.createElement('canvas');
 canvas.className='battlefield-canvas';
 canvas.setAttribute('aria-hidden','true');
@@ -17,7 +18,7 @@ const style=document.createElement('style');
 style.textContent=`
 #battlefield-frame{position:relative;background:#000!important;overflow:hidden}
 #battlefield{position:absolute!important;inset:0;z-index:3;background:transparent!important}
-.battlefield-map-art{position:absolute;z-index:1;pointer-events:none;background-position:center;background-size:100% 100%;background-repeat:no-repeat;transform-origin:0 0;will-change:transform}
+.battlefield-map-art{position:absolute;z-index:1;pointer-events:none;display:block;object-fit:fill;transform-origin:0 0;will-change:transform;-webkit-user-drag:none;user-select:none}
 .battlefield-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;background:transparent!important}
 .game-board{position:absolute!important;inset:0;z-index:3;background:transparent!important;width:100%!important;height:100%!important}
 .game-board[aria-label="6 by 8 tactical battlefield"] .tiles>*,
@@ -54,7 +55,6 @@ function corners(c:CanvasRenderingContext2D,svg:SVGSVGElement){const id=selected
 
 function drawPortrait(c:CanvasRenderingContext2D,id:string){
   const im=art[id];if(!im?.complete||!im.naturalWidth)return;
-  // Keep the complete square crop centred rather than zooming or translating it.
   const size=46;c.drawImage(im,-size/2,-size/2,size,size);
 }
 function actionDots(c:CanvasRenderingContext2D,g:SVGGElement){
