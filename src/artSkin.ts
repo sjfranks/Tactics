@@ -1,17 +1,16 @@
 import { ART } from './generatedAssets';
-import { TACTICAL_BACKGROUND } from './backgroundMicro';
 
 const NS='http://www.w3.org/2000/svg';
+const XHTML='http://www.w3.org/1999/xhtml';
+const TACTICAL_BACKGROUND=`${import.meta.env.BASE_URL}assets/tactical-background.jpg`;
 const styled=new WeakSet<Element>();
-const backgroundReady=new Image();
-backgroundReady.src=TACTICAL_BACKGROUND;
 
 const style=document.createElement('style');
 style.textContent=`
-.battlefield{background:#26341f center top/100% auto no-repeat}.game-board{background:transparent}.terrain-background{pointer-events:none}.game-board.screenshot-terrain .tile{fill:transparent!important;stroke:rgba(12,17,10,.52)!important;stroke-width:1.15!important;vector-effect:non-scaling-stroke}.game-board.screenshot-terrain .grass-speck{display:none}
+.battlefield{background:#26341f center top/100% auto no-repeat}.game-board{background:transparent}.terrain-background{pointer-events:none}.terrain-background>div{width:100%;height:100%;background-position:center;background-size:cover;background-repeat:no-repeat}.game-board.screenshot-terrain .tile{fill:transparent!important;stroke:rgba(12,17,10,.52)!important;stroke-width:1.15!important;vector-effect:non-scaling-stroke}.game-board.screenshot-terrain .grass-speck{display:none}
 .move-range{fill:#329bda!important;fill-opacity:.38!important;stroke:#72ddff!important;stroke-width:2.6!important;filter:drop-shadow(0 0 3px rgba(50,185,255,.5))}.attack-range{fill:#c53f3f!important;fill-opacity:.34!important;stroke:#ff756d!important}.enemy-range{fill:#a92f38!important;fill-opacity:.22!important}.enemy-threat{fill:#ce7045!important;fill-opacity:.16!important}
-.unit-token .token-inner{fill:#101722;stroke:#d7c9ae;stroke-opacity:.62}.unit-token.player .token-outer{fill:#112942;stroke:#8ddcff}.unit-token.enemy .token-outer{fill:#46151b;stroke:#ff5550}.unit-token.active .token-outer{stroke:#e8fbff;stroke-width:5;filter:drop-shadow(0 0 7px #2abaff)}.token-art{pointer-events:none}.token-glyph{display:none}.obstacle-art{pointer-events:none;filter:drop-shadow(0 4px 5px rgba(0,0,0,.55))}.obstacle>circle,.obstacle>text{display:none}
-.initiative-token{background:#111923;overflow:hidden}.initiative-token>span{position:absolute;inset:0;border-radius:50%;overflow:hidden;display:grid;place-items:center}.initiative-token img{width:100%;height:100%;display:block;object-fit:cover;object-position:50% 50%;transform:scale(1.08);transform-origin:center;pointer-events:none}.initiative-token.active img{filter:drop-shadow(0 0 5px rgba(50,188,255,.7))}
+.unit-token .token-inner{fill:#101722;stroke:#d7c9ae;stroke-opacity:.62}.unit-token.player .token-outer{fill:#112942;stroke:#8ddcff}.unit-token.enemy .token-outer{fill:#46151b;stroke:#ff5550}.unit-token.active .token-outer{stroke:#e8fbff;stroke-width:5;filter:drop-shadow(0 0 7px #2abaff)}.token-art{pointer-events:none}.obstacle-art{pointer-events:none;filter:drop-shadow(0 4px 5px rgba(0,0,0,.55))}.obstacle>circle,.obstacle>text{display:none}
+.initiative-token{background:#111923;overflow:hidden}.initiative-token>span{position:absolute;inset:0;border-radius:50%;overflow:hidden;display:grid;place-items:center}.initiative-token img{width:112%;height:112%;display:block;object-fit:cover;object-position:50% 48%;transform:translate(-6%,-6%);pointer-events:none}.initiative-token.active img{filter:drop-shadow(0 0 5px rgba(50,188,255,.7))}
 .selection-corners{pointer-events:none;fill:none;stroke:#e7fbff;stroke-width:4;stroke-linecap:square;filter:drop-shadow(0 0 3px #23b7ff)}.selection-corners.enemy{stroke:#ffd8d3;filter:drop-shadow(0 0 3px #ff4d4d)}
 `;
 document.head.appendChild(style);
@@ -29,12 +28,12 @@ function skinBoard(){
   const tiles=svg.querySelector<SVGGElement>('.tiles');
   if(tactical&&tiles&&!styled.has(tiles)){
     svg.classList.add('screenshot-terrain');
-    const bg=addSvgImage(tiles,TACTICAL_BACKGROUND,0,0,480,640,'terrain-background');
-    tiles.insertBefore(bg,tiles.firstChild);styled.add(tiles);
+    const fo=document.createElementNS(NS,'foreignObject');fo.setAttribute('x','0');fo.setAttribute('y','0');fo.setAttribute('width','480');fo.setAttribute('height','640');fo.setAttribute('class','terrain-background');
+    const div=document.createElementNS(XHTML,'div');(div as HTMLElement).style.backgroundImage=`url("${TACTICAL_BACKGROUND}")`;fo.appendChild(div);tiles.insertBefore(fo,tiles.firstChild);styled.add(tiles);
   }
   for(const token of svg.querySelectorAll<SVGGElement>('.unit-token[data-id]')){
     if(styled.has(token))continue;const id=token.dataset.id??'';if(id==='party')continue;
-    token.querySelector('.token-glyph')?.remove();const im=addSvgImage(token,artForId(id),-28,-28,56,56,'token-art');const hp=token.querySelector('.hp-back');if(hp)token.insertBefore(im,hp);styled.add(token);
+    token.querySelector('.token-glyph')?.remove();const im=addSvgImage(token,artForId(id),-29,-29,58,58,'token-art');const hp=token.querySelector('.hp-back');if(hp)token.insertBefore(im,hp);styled.add(token);
   }
   for(const obstacle of svg.querySelectorAll<SVGGElement>('.obstacle')){if(styled.has(obstacle))continue;addSvgImage(obstacle,ART.campfire,-31,-31,62,62,'obstacle-art');styled.add(obstacle);}
 }
