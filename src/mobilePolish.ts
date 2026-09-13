@@ -1,7 +1,14 @@
 import Phaser from 'phaser';
 
 type Point = { x: number; y: number };
-type RailUnit = { id: string; team: 'player' | 'enemy'; x?: number; y?: number; defending?: boolean };
+type RailUnit = {
+  id: string;
+  team: 'player' | 'enemy';
+  x?: number;
+  y?: number;
+  defending?: boolean;
+};
+
 type LooseScene = Phaser.Scene & {
   gestureActive: boolean;
   gestureDistance: number;
@@ -21,8 +28,6 @@ type LooseScene = Phaser.Scene & {
   setLooseCameraBounds: () => void;
   fitTactical: () => void;
   centerOn: (point: Point) => void;
-  moveActive: (unit: RailUnit, route: Point[]) => Promise<void>;
-  moveEnemy: (enemy: RailUnit, route: Point[]) => Promise<void>;
   defendSelected: () => void;
   finishActiveTurn: () => void;
   activeUnit: () => RailUnit | undefined;
@@ -38,7 +43,7 @@ let activeTouchCount = 0;
 let lastMid: Point | undefined;
 let lastDistance = 0;
 let restoreTimer = 0;
-let followMode = false;
+let cameraMode: 'clean' | 'follow' = 'clean';
 
 function getScene(): LooseScene | undefined {
   const registry = (Phaser as unknown as { GAMES?: Phaser.Game[] }).GAMES ?? [];
@@ -58,10 +63,68 @@ function setPieceDragging(scene: LooseScene, enabled: boolean) {
   if (party) scene.input.setDraggable(party, enabled);
 }
 
+function cleanZoom(scene: LooseScene) {
+  const cam = scene.cameras.main;
+  return Math.min(cam.width / (scene.cols * CELL), cam.height / (scene.rows * CELL));
+}
+
+function applyCleanView(scene: LooseScene) {
+  if (scene.gameMode !== 'combat') return;
+  const cam = scene.cameras.main;
+  const zoom = cleanZoom(scene);
+  scene.baseZoom = zoom;
+  cam.stopFollow();
+  cam.panEffect?.reset();
+  cam.setZoom(zoom);
+  cam.scrollX = scene.cols * CELL / 2 - cam.width / (2 * zoom);
+  cam.scrollY = scene.rows * CELL / 2 - cam.height / (2 * zoom);
+}
+
+function centreCameraOnToken(scene: LooseScene, token: Phaser.GameObjects.Container) {
+  const cam = scene.cameras.main;
+  cam.scrollX = token.x - cam.width / (2 * cam.zoom);
+  cam.scrollY = token.y - cam.height / (2 * cam.zoom);
+}
+
+function enterFollowMode() {
+  cameraMode = 'follow';
+}
+
+function resetToCleanView(scene: LooseScene) {
+  cameraMode = 'clean';
+  applyCleanView(scene);
+}
+
+function tokenIsMoving(unit: RailUnit, token: Phaser.GameObjects.Container) {
+  if (unit.x == null || unit.y == null) return false;
+  const homeX = unit.x * CELL + CELL / 2;
+  const homeY = unit.y * CELL + CELL / 2;
+  return Math.abs(token.x - homeX) > 0.75 || Math.abs(token.y - homeY) > 0.75;
+}
+
+function updateCameraController(scene: LooseScene) {
+  if (scene.gameMode !== 'combat') return;
+
+  if (cameraMode === 'clean') {
+    // Clean mode is authoritative. This intentionally defeats any camera pan
+    // requested by main.ts at turn start or from token selection.
+    applyCleanView(scene);
+    return;
+  }
+
+  // Follow mode only follows actual movement. A turn change by itself must not
+  // pan the camera. During a tween the token moves before the unit's grid x/y is
+  // updated, so comparing the two lets us track the moving piece every frame.
+  const active = scene.activeUnit();
+  if (!active) return;
+  const token = scene.tokens.get(active.id);
+  if (token && tokenIsMoving(active, token)) centreCameraOnToken(scene, token);
+}
+
 function enterGesture(scene: LooseScene) {
   window.clearTimeout(restoreTimer);
   nativeGestureActive = true;
-  followMode = true;
+  enterFollowMode();
   scene.gestureActive = true;
   scene.suppressInputUntil = Number.POSITIVE_INFINITY;
   scene.cancelPieceDragForGesture();
@@ -81,27 +144,11 @@ function leaveGesture(scene: LooseScene) {
   restoreTimer = window.setTimeout(() => setPieceDragging(scene, true), 450);
 }
 
-function centreCameraOnToken(scene: LooseScene, token: Phaser.GameObjects.Container) {
-  const cam = scene.cameras.main;
-  cam.scrollX = token.x - cam.width / (2 * cam.zoom);
-  cam.scrollY = token.y - cam.height / (2 * cam.zoom);
-}
-
-function resetToCleanView(scene: LooseScene) {
-  const cam = scene.cameras.main;
-  followMode = false;
-  cam.stopFollow();
-  cam.panEffect?.reset();
-  scene.fitTactical();
-}
-
 function installSceneFixes(scene: LooseScene) {
-  const patched = scene as LooseScene & { __mobilePolishInstalled?: boolean };
-  if (patched.__mobilePolishInstalled) return;
-  patched.__mobilePolishInstalled = true;
+  const patched = scene as LooseScene & { __cameraControllerInstalled?: boolean };
+  if (patched.__cameraControllerInstalled) return;
+  patched.__cameraControllerInstalled = true;
 
-  // Native touch handlers below own all two-finger camera gestures. Phaser's
-  // original handler is disabled so it cannot fight the camera.
   patched.handleTwoFingerGesture = () => {};
   patched.twoFingersDown = () => nativeGestureActive || activeTouchCount >= 2;
   patched.inputSuppressed = () =>
@@ -111,62 +158,17 @@ function installSceneFixes(scene: LooseScene) {
     patched.cameras.main.setBounds(-100000, -100000, 200000, 200000);
   };
 
-  // Clean tactical mode: show the whole 6x8 board, centred, with no token
-  // following or automatic recentering.
-  patched.fitTactical = () => {
-    const cam = patched.cameras.main;
-    patched.baseZoom = Math.min(cam.width / (patched.cols * CELL), cam.height / (patched.rows * CELL));
-    cam.setZoom(patched.baseZoom);
-    cam.scrollX = patched.cols * CELL / 2 - cam.width / (2 * cam.zoom);
-    cam.scrollY = patched.rows * CELL / 2 - cam.height / (2 * cam.zoom);
-  };
+  patched.fitTactical = () => applyCleanView(patched);
 
-  // Main game code calls centerOn at turn changes. Ignore those calls while the
-  // player is in clean-board mode. Once the player pans or zooms, follow mode
-  // is active and turn changes may centre the new active combatant.
+  // Never let combat turn-start / token-selection logic directly move the
+  // camera. Movement-follow is handled separately by the frame controller.
   const originalCenterOn = patched.centerOn.bind(patched);
   patched.centerOn = (point: Point) => {
-    if (patched.gameMode === 'combat' && !followMode) return;
+    if (patched.gameMode === 'combat') return;
     originalCenterOn(point);
   };
 
-  const followMovement = async (
-    unit: RailUnit,
-    route: Point[],
-    original: (unit: RailUnit, route: Point[]) => Promise<void>
-  ) => {
-    const cam = patched.cameras.main;
-    const token = patched.tokens.get(unit.id);
-    const shouldFollow = Boolean(followMode && token && patched.gameMode === 'combat');
-
-    if (shouldFollow && token) {
-      // Exact follow in both axes: the camera tracks every tween frame, keeping
-      // the moving token centred rather than only panning at movement start/end.
-      cam.panEffect?.reset();
-      cam.startFollow(token, false, 1, 1);
-      centreCameraOnToken(patched, token);
-    }
-
-    try {
-      await original(unit, route);
-    } finally {
-      if (shouldFollow) {
-        cam.stopFollow();
-        const current = patched.tokens.get(unit.id);
-        if (current) centreCameraOnToken(patched, current);
-      }
-    }
-  };
-
-  const originalMoveActive = patched.moveActive.bind(patched);
-  patched.moveActive = (unit: RailUnit, route: Point[]) =>
-    followMovement(unit, route, originalMoveActive);
-
-  const originalMoveEnemy = patched.moveEnemy.bind(patched);
-  patched.moveEnemy = (unit: RailUnit, route: Point[]) =>
-    followMovement(unit, route, originalMoveEnemy);
-
-  // Defend applies its shield and immediately ends the player's turn.
+  // Defend applies the shield and then ends the player's turn immediately.
   const originalDefend = patched.defendSelected.bind(patched);
   patched.defendSelected = () => {
     const before = patched.activeUnit();
@@ -179,10 +181,11 @@ function installSceneFixes(scene: LooseScene) {
   };
 
   patched.setLooseCameraBounds();
+  patched.events.on('update', () => updateCameraController(patched));
 
-  // main.ts has already begun the first turn by the time this compatibility
-  // layer installs. Cancel that startup pan and explicitly restore clean mode.
-  if (patched.gameMode === 'combat') resetToCleanView(patched);
+  // The first turn has already started before this module gets the scene.
+  // Force the initial state back to the canonical whole-board view.
+  resetToCleanView(patched);
 }
 
 function waitForScene() {
@@ -208,7 +211,7 @@ function beginOrUpdateGesture(event: TouchEvent) {
   event.preventDefault();
 
   if (!nativeGestureActive) enterGesture(scene);
-  followMode = true;
+  enterFollowMode();
 
   const rect = battlefield.getBoundingClientRect();
   const p1 = touchPoint(event.touches[0], rect);
@@ -261,9 +264,7 @@ battlefield?.addEventListener('touchmove', beginOrUpdateGesture, { passive: fals
 battlefield?.addEventListener('touchend', endGesture, { passive: false, capture: true });
 battlefield?.addEventListener('touchcancel', endGesture, { passive: false, capture: true });
 
-// Desktop/trackpad zoom also opts into follow mode. The game itself still owns
-// the actual wheel zoom calculation.
-battlefield?.addEventListener('wheel', () => { followMode = true; }, { passive: true, capture: true });
+battlefield?.addEventListener('wheel', () => enterFollowMode(), { passive: true, capture: true });
 
 resetView?.addEventListener('click', () => {
   const scene = getScene();
