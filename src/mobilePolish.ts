@@ -49,8 +49,13 @@ function getScene(): LooseScene | undefined {
   const registry = (Phaser as unknown as { GAMES?: Phaser.Game[] }).GAMES ?? [];
   const game = registry.find(Boolean);
   if (!game) return undefined;
+
+  // ScenePlugin.isActive() was the bug here: calling it through the candidate
+  // scene without a key can report false even though the scene itself is
+  // running. That meant every scene-dependent camera fix silently no-op'd.
+  // If getScene() resolves the registered scene, it is the scene we want.
   const candidate = game.scene.getScene('tactics') as LooseScene | undefined;
-  return candidate?.scene?.isActive() ? candidate : undefined;
+  return candidate;
 }
 
 function setPieceDragging(scene: LooseScene, enabled: boolean) {
@@ -106,15 +111,10 @@ function updateCameraController(scene: LooseScene) {
   if (scene.gameMode !== 'combat') return;
 
   if (cameraMode === 'clean') {
-    // Clean mode is authoritative. This intentionally defeats any camera pan
-    // requested by main.ts at turn start or from token selection.
     applyCleanView(scene);
     return;
   }
 
-  // Follow mode only follows actual movement. A turn change by itself must not
-  // pan the camera. During a tween the token moves before the unit's grid x/y is
-  // updated, so comparing the two lets us track the moving piece every frame.
   const active = scene.activeUnit();
   if (!active) return;
   const token = scene.tokens.get(active.id);
@@ -160,15 +160,12 @@ function installSceneFixes(scene: LooseScene) {
 
   patched.fitTactical = () => applyCleanView(patched);
 
-  // Never let combat turn-start / token-selection logic directly move the
-  // camera. Movement-follow is handled separately by the frame controller.
   const originalCenterOn = patched.centerOn.bind(patched);
   patched.centerOn = (point: Point) => {
     if (patched.gameMode === 'combat') return;
     originalCenterOn(point);
   };
 
-  // Defend applies the shield and then ends the player's turn immediately.
   const originalDefend = patched.defendSelected.bind(patched);
   patched.defendSelected = () => {
     const before = patched.activeUnit();
@@ -182,9 +179,6 @@ function installSceneFixes(scene: LooseScene) {
 
   patched.setLooseCameraBounds();
   patched.events.on('update', () => updateCameraController(patched));
-
-  // The first turn has already started before this module gets the scene.
-  // Force the initial state back to the canonical whole-board view.
   resetToCleanView(patched);
 }
 
