@@ -3,18 +3,23 @@ import { BATTLEFIELD_BACKGROUND } from './background';
 
 const CELL=80;
 const frame=document.querySelector<HTMLElement>('#battlefield-frame')!;
+const mapArt=document.createElement('div');
+mapArt.className='battlefield-map-art';
+mapArt.setAttribute('aria-hidden','true');
+mapArt.style.backgroundImage=`url("${BATTLEFIELD_BACKGROUND}")`;
 const canvas=document.createElement('canvas');
 canvas.className='battlefield-canvas';
 canvas.setAttribute('aria-hidden','true');
 frame.prepend(canvas);
+frame.prepend(mapArt);
 
 const style=document.createElement('style');
 style.textContent=`
 #battlefield-frame{position:relative;background:#000!important;overflow:hidden}
-#battlefield{position:absolute!important;inset:0;z-index:2;background:transparent!important}
-.battlefield-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;background:#000}
-.game-board{position:absolute!important;inset:0;z-index:2;background:transparent!important;width:100%!important;height:100%!important}
-/* Tactical SVG is interaction-only. Keep its route/drag overlay, but never let its painted tiles or tokens cover Canvas. */
+#battlefield{position:absolute!important;inset:0;z-index:3;background:transparent!important}
+.battlefield-map-art{position:absolute;z-index:1;pointer-events:none;background-position:center;background-size:100% 100%;background-repeat:no-repeat;transform-origin:0 0;will-change:transform}
+.battlefield-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;background:transparent!important}
+.game-board{position:absolute!important;inset:0;z-index:3;background:transparent!important;width:100%!important;height:100%!important}
 .game-board[aria-label="6 by 8 tactical battlefield"] .tiles>*,
 .game-board[aria-label="6 by 8 tactical battlefield"] .highlights>*,
 .game-board[aria-label="6 by 8 tactical battlefield"] .props>*,
@@ -23,7 +28,6 @@ style.textContent=`
 `;
 document.head.appendChild(style);
 
-const bg=new Image();bg.decoding='async';bg.src=BATTLEFIELD_BACKGROUND;
 const art:Record<string,HTMLImageElement>={};
 for(const [id,src] of Object.entries({alden:ART.alden,mira:ART.mira,'raider-1':ART.goblin1,'raider-2':ART.goblin2,campfire:ART.campfire})){
   const im=new Image();im.decoding='async';im.src=src;art[id]=im;
@@ -35,10 +39,6 @@ const tr=(el:Element)=>{const m=/translate\(([-.\d]+)[ ,]([-.\d]+)\)/.exec(el.ge
 const camera=(svg:SVGSVGElement)=>{const raw=svg.querySelector('.world')?.getAttribute('transform')??'';const m=/translate\(([-.\d]+)[ ,]([-.\d]+)\)\s*scale\(([-.\d]+)\)/.exec(raw);return m?{x:+m[1],y:+m[2],z:+m[3]}:{x:0,y:0,z:1}};
 function rr(c:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,r:number){c.beginPath();c.roundRect(x,y,w,h,r)}
 
-function background(c:CanvasRenderingContext2D){
-  if(bg.complete&&bg.naturalWidth)c.drawImage(bg,0,0,480,640);
-  else{const g=c.createLinearGradient(0,0,480,640);g.addColorStop(0,'#536b3d');g.addColorStop(1,'#263522');c.fillStyle=g;c.fillRect(0,0,480,640)}
-}
 function highlights(c:CanvasRenderingContext2D,svg:SVGSVGElement){
   const defs:any={'move-range':['rgba(50,155,218,.38)','#72ddff'],'attack-range':['rgba(197,63,63,.34)','#ff756d'],'enemy-range':['rgba(169,47,56,.22)','#ff747c'],'enemy-threat':['rgba(206,112,69,.16)','rgba(206,112,69,.3)'],'spell-range':['rgba(123,84,200,.43)','#d7b8ff']};
   for(const [cls,p] of Object.entries(defs) as any)for(const el of svg.querySelectorAll<SVGRectElement>(`.${cls}`)){c.fillStyle=p[0];c.strokeStyle=p[1];c.lineWidth=2;rr(c,n(el,'x'),n(el,'y'),n(el,'width'),n(el,'height'),7);c.fill();c.stroke()}
@@ -52,11 +52,10 @@ function grid(c:CanvasRenderingContext2D){
 function selectedId(){const s=document.querySelector<HTMLElement>('#selected-name')?.textContent??'';if(s.includes('Alden'))return'alden';if(s.includes('Mira'))return'mira';if(s.includes('Goblin Raider')||s.includes('North Raider'))return'raider-1';if(s.includes('Goblin Skirmisher')||s.includes('Hill Raider'))return'raider-2';return''}
 function corners(c:CanvasRenderingContext2D,svg:SVGSVGElement){const id=selectedId(),g=id?svg.querySelector<SVGGElement>(`.unit-token[data-id="${id}"]`):null;if(!g)return;const p=tr(g),x=p.x-40,y=p.y-40,o=6,l=15;c.strokeStyle=g.classList.contains('enemy')?'#ffd8d3':'#e7fbff';c.lineWidth=3;for(const[a,b,sx,sy]of [[x+o,y+o,1,1],[x+80-o,y+o,-1,1],[x+o,y+80-o,1,-1],[x+80-o,y+80-o,-1,-1]] as const){c.beginPath();c.moveTo(a+sx*l,b);c.lineTo(a,b);c.lineTo(a,b+sy*l);c.stroke()}}
 
-const portraitOffset:Record<string,{x:number,y:number,size:number}>={
-  alden:{x:0,y:1,size:50},mira:{x:0,y:1,size:50},'raider-1':{x:2,y:2,size:49},'raider-2':{x:-2,y:2,size:49}
-};
 function drawPortrait(c:CanvasRenderingContext2D,id:string){
-  const im=art[id];if(!im?.complete||!im.naturalWidth)return;const p=portraitOffset[id]??{x:0,y:0,size:50};c.drawImage(im,-p.size/2+p.x,-p.size/2+p.y,p.size,p.size);
+  const im=art[id];if(!im?.complete||!im.naturalWidth)return;
+  // Keep the complete square crop centred rather than zooming or translating it.
+  const size=46;c.drawImage(im,-size/2,-size/2,size,size);
 }
 function actionDots(c:CanvasRenderingContext2D,g:SVGGElement){
   const dots=[...g.querySelectorAll<SVGCircleElement>('.action-dot')];
@@ -75,16 +74,18 @@ let backingW=0,backingH=0;
 function draw(svg:SVGSVGElement){
   const r=frame.getBoundingClientRect();if(r.width<2||r.height<2)return;const dpr=Math.min(devicePixelRatio||1,3),w=Math.round(r.width*dpr),h=Math.round(r.height*dpr);
   if(w!==backingW||h!==backingH){backingW=w;backingH=h;canvas.width=w;canvas.height=h}
-  const c=canvas.getContext('2d')!;c.setTransform(dpr,0,0,dpr,0,0);c.fillStyle='#000';c.fillRect(0,0,r.width,r.height);
-  const s=Math.min(r.width/480,r.height/640),ox=(r.width-480*s)/2,cam=camera(svg);c.save();c.translate(ox+cam.x*s,cam.y*s);c.scale(s*cam.z,s*cam.z);background(c);highlights(c,svg);grid(c);corners(c,svg);for(const g of svg.querySelectorAll<SVGGElement>('.obstacle'))obstacle(c,g);for(const g of svg.querySelectorAll<SVGGElement>('.unit-token[data-id]'))token(c,g);c.restore();
+  const s=Math.min(r.width/480,r.height/640),ox=(r.width-480*s)/2,cam=camera(svg);
+  mapArt.style.left=`${ox}px`;mapArt.style.top='0px';mapArt.style.width=`${480*s}px`;mapArt.style.height=`${640*s}px`;mapArt.style.transform=`translate(${cam.x*s}px,${cam.y*s}px) scale(${cam.z})`;
+  const c=canvas.getContext('2d')!;c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,r.width,r.height);
+  c.save();c.translate(ox+cam.x*s,cam.y*s);c.scale(s*cam.z,s*cam.z);highlights(c,svg);grid(c);corners(c,svg);for(const g of svg.querySelectorAll<SVGGElement>('.obstacle'))obstacle(c,g);for(const g of svg.querySelectorAll<SVGGElement>('.unit-token[data-id]'))token(c,g);c.restore();
 }
 
 let lastTactical:SVGSVGElement|undefined;
 function loop(){
   const svg=latest();
-  if(svg&&svg.viewBox.baseVal.width===480&&svg.viewBox.baseVal.height===640){lastTactical=svg;canvas.style.display='block';draw(svg)}
-  else if(!svg&&lastTactical){canvas.style.display='block'}
-  else if(svg){lastTactical=undefined;canvas.style.display='none'}
+  if(svg&&svg.viewBox.baseVal.width===480&&svg.viewBox.baseVal.height===640){lastTactical=svg;mapArt.style.display='block';canvas.style.display='block';draw(svg)}
+  else if(!svg&&lastTactical){mapArt.style.display='block';canvas.style.display='block'}
+  else if(svg){lastTactical=undefined;mapArt.style.display='none';canvas.style.display='none'}
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
