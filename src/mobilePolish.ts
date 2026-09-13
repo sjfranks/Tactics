@@ -9,7 +9,6 @@ type LooseScene = Phaser.Scene & {
   baseZoom: number;
   cols: number;
   rows: number;
-  mode: string;
   gameMode: string;
   tokens: Map<string, Phaser.GameObjects.Container>;
   units: Array<{ id: string; team: 'player' | 'enemy' }>;
@@ -26,16 +25,18 @@ const CELL = 80;
 const rail = document.querySelector<HTMLElement>('#initiative-rail');
 const battlefield = document.querySelector<HTMLElement>('#battlefield');
 
+let nativeGestureActive = false;
+let activeTouchCount = 0;
+let lastMid: Point | undefined;
+let lastDistance = 0;
+let restoreTimer = 0;
+
 function getScene(): LooseScene | undefined {
   const registry = (Phaser as unknown as { GAMES?: Phaser.Game[] }).GAMES ?? [];
   const game = registry.find(Boolean);
   if (!game) return undefined;
   const candidate = game.scene.getScene('tactics') as LooseScene | undefined;
   return candidate?.scene?.isActive() ? candidate : undefined;
-}
-
-function downPointers(scene: LooseScene) {
-  return scene.input.manager.pointers.filter(pointer => pointer.isDown);
 }
 
 function setPieceDragging(scene: LooseScene, enabled: boolean) {
@@ -48,23 +49,39 @@ function setPieceDragging(scene: LooseScene, enabled: boolean) {
   if (party) scene.input.setDraggable(party, enabled);
 }
 
+function enterGesture(scene: LooseScene) {
+  window.clearTimeout(restoreTimer);
+  nativeGestureActive = true;
+  scene.gestureActive = true;
+  scene.suppressInputUntil = Number.POSITIVE_INFINITY;
+  scene.cancelPieceDragForGesture();
+  setPieceDragging(scene, false);
+}
+
+function leaveGesture(scene: LooseScene) {
+  nativeGestureActive = false;
+  lastMid = undefined;
+  lastDistance = 0;
+  scene.gestureActive = false;
+  scene.gestureDistance = 0;
+  scene.gestureMid = undefined;
+  scene.suppressInputUntil = performance.now() + 450;
+  scene.cancelPieceDragForGesture();
+  window.clearTimeout(restoreTimer);
+  restoreTimer = window.setTimeout(() => setPieceDragging(scene, true), 450);
+}
+
 function installSceneFixes(scene: LooseScene) {
-  const patched = scene as LooseScene & {
-    __mobilePolishInstalled?: boolean;
-    __gestureLock?: boolean;
-    __lastGestureMid?: Point;
-    __lastGestureDistance?: number;
-  };
+  const patched = scene as LooseScene & { __mobilePolishInstalled?: boolean };
   if (patched.__mobilePolishInstalled) return;
   patched.__mobilePolishInstalled = true;
 
-  patched.twoFingersDown = () => downPointers(patched).length >= 2;
-  patched.inputSuppressed = () => Boolean(
-    patched.__gestureLock ||
-    patched.gestureActive ||
-    downPointers(patched).length >= 2 ||
-    performance.now() < patched.suppressInputUntil
-  );
+  // Native touch handlers below own all two-finger camera gestures. Phaser's
+  // original handler is deliberately disabled so it cannot fight the camera.
+  patched.handleTwoFingerGesture = () => {};
+  patched.twoFingersDown = () => nativeGestureActive || activeTouchCount >= 2;
+  patched.inputSuppressed = () =>
+    nativeGestureActive || activeTouchCount >= 2 || performance.now() < patched.suppressInputUntil;
 
   patched.setLooseCameraBounds = () => {
     patched.cameras.main.setBounds(-100000, -100000, 200000, 200000);
@@ -78,79 +95,7 @@ function installSceneFixes(scene: LooseScene) {
     cam.scrollY = patched.rows * CELL / 2 - cam.height / (2 * cam.zoom);
   };
 
-  patched.handleTwoFingerGesture = () => {
-    const pointers = downPointers(patched);
-    if (pointers.length < 2) return;
-
-    if (!patched.__gestureLock) {
-      patched.__gestureLock = true;
-      patched.gestureActive = true;
-      patched.cancelPieceDragForGesture();
-      setPieceDragging(patched, false);
-      patched.__lastGestureMid = undefined;
-      patched.__lastGestureDistance = undefined;
-    }
-
-    const [p1, p2] = pointers;
-    const distance = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
-    const midpoint = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
-    const cam = patched.cameras.main;
-
-    if (patched.__lastGestureDistance && patched.__lastGestureDistance > 0) {
-      const worldBefore = cam.getWorldPoint(midpoint.x, midpoint.y);
-      const min = patched.gameMode === 'combat' ? patched.baseZoom * 0.45 : 0.22;
-      const max = patched.gameMode === 'combat' ? patched.baseZoom * 3.5 : 3.5;
-      cam.setZoom(Phaser.Math.Clamp(cam.zoom * (distance / patched.__lastGestureDistance), min, max));
-      const worldAfter = cam.getWorldPoint(midpoint.x, midpoint.y);
-      cam.scrollX += worldBefore.x - worldAfter.x;
-      cam.scrollY += worldBefore.y - worldAfter.y;
-    }
-
-    if (patched.__lastGestureMid) {
-      cam.scrollX -= (midpoint.x - patched.__lastGestureMid.x) / cam.zoom;
-      cam.scrollY -= (midpoint.y - patched.__lastGestureMid.y) / cam.zoom;
-    }
-
-    patched.__lastGestureDistance = distance;
-    patched.__lastGestureMid = midpoint;
-    patched.gestureDistance = distance;
-    patched.gestureMid = midpoint;
-    patched.suppressInputUntil = Number.POSITIVE_INFINITY;
-  };
-
-  patched.input.on('pointerdown', () => {
-    if (downPointers(patched).length < 2) return;
-    patched.__gestureLock = true;
-    patched.gestureActive = true;
-    patched.suppressInputUntil = Number.POSITIVE_INFINITY;
-    patched.cancelPieceDragForGesture();
-    setPieceDragging(patched, false);
-  });
-
-  patched.input.on('pointerup', () => {
-    patched.time.delayedCall(0, () => {
-      const remaining = downPointers(patched).length;
-      if (patched.__gestureLock && remaining > 0) {
-        patched.gestureActive = true;
-        patched.suppressInputUntil = Number.POSITIVE_INFINITY;
-        return;
-      }
-      if (!patched.__gestureLock) return;
-
-      patched.__gestureLock = false;
-      patched.gestureActive = false;
-      patched.gestureDistance = 0;
-      patched.gestureMid = undefined;
-      patched.__lastGestureDistance = undefined;
-      patched.__lastGestureMid = undefined;
-      patched.suppressInputUntil = performance.now() + 500;
-      patched.cancelPieceDragForGesture();
-      setPieceDragging(patched, true);
-    });
-  });
-
   patched.setLooseCameraBounds();
-  if (patched.gameMode === 'combat') patched.fitTactical();
 }
 
 function waitForScene() {
@@ -163,16 +108,103 @@ function waitForScene() {
 }
 waitForScene();
 
-battlefield?.addEventListener('touchstart', event => {
-  if (event.touches.length >= 2) event.preventDefault();
-}, { passive: false, capture: true });
-battlefield?.addEventListener('touchmove', event => {
-  if (event.touches.length >= 2) event.preventDefault();
-}, { passive: false, capture: true });
+function touchPoint(touch: Touch, rect: DOMRect): Point {
+  return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+}
+
+function beginOrUpdateGesture(event: TouchEvent) {
+  activeTouchCount = event.touches.length;
+  if (event.touches.length < 2) return;
+
+  const scene = getScene();
+  if (!scene || !battlefield) return;
+  event.preventDefault();
+
+  if (!nativeGestureActive) enterGesture(scene);
+
+  const rect = battlefield.getBoundingClientRect();
+  const p1 = touchPoint(event.touches[0], rect);
+  const p2 = touchPoint(event.touches[1], rect);
+  const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+  const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+  const cam = scene.cameras.main;
+
+  // Pinch around the midpoint, keeping the world point under the fingers fixed.
+  if (lastDistance > 0) {
+    const before = cam.getWorldPoint(mid.x, mid.y);
+    const min = scene.gameMode === 'combat' ? scene.baseZoom * 0.45 : 0.22;
+    const max = scene.gameMode === 'combat' ? scene.baseZoom * 3.5 : 3.5;
+    cam.setZoom(Phaser.Math.Clamp(cam.zoom * (distance / lastDistance), min, max));
+    const after = cam.getWorldPoint(mid.x, mid.y);
+    cam.scrollX += before.x - after.x;
+    cam.scrollY += before.y - after.y;
+  }
+
+  // Two-finger translation pans freely, even when the whole board is visible.
+  if (lastMid) {
+    cam.scrollX -= (mid.x - lastMid.x) / cam.zoom;
+    cam.scrollY -= (mid.y - lastMid.y) / cam.zoom;
+  }
+
+  lastMid = mid;
+  lastDistance = distance;
+  scene.gestureDistance = distance;
+  scene.gestureMid = mid;
+}
+
+function endGesture(event: TouchEvent) {
+  activeTouchCount = event.touches.length;
+  const scene = getScene();
+  if (!scene) return;
+
+  // Keep the lock while even one finger from a two-finger gesture remains.
+  if (nativeGestureActive && event.touches.length > 0) {
+    event.preventDefault();
+    scene.gestureActive = true;
+    scene.suppressInputUntil = Number.POSITIVE_INFINITY;
+    return;
+  }
+
+  if (nativeGestureActive) {
+    event.preventDefault();
+    leaveGesture(scene);
+  }
+}
+
+battlefield?.addEventListener('touchstart', beginOrUpdateGesture, { passive: false, capture: true });
+battlefield?.addEventListener('touchmove', beginOrUpdateGesture, { passive: false, capture: true });
+battlefield?.addEventListener('touchend', endGesture, { passive: false, capture: true });
+battlefield?.addEventListener('touchcancel', endGesture, { passive: false, capture: true });
+
+// Add names beneath the initiative portraits and give the enlarged active token
+// enough vertical room to remain fully visible.
+const style = document.createElement('style');
+style.textContent = `
+  .initiative-dock{height:104px!important;overflow:visible!important}
+  .initiative-rail{padding-top:24px!important;padding-bottom:12px!important;overflow-y:visible!important}
+  .initiative-token{overflow:visible!important;margin-bottom:18px!important}
+  .initiative-name{position:absolute;left:50%;top:calc(100% + 5px);transform:translateX(-50%);max-width:74px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(255,255,255,.86);font:700 10px/1.1 Inter,system-ui,sans-serif;text-shadow:0 1px 3px #000;pointer-events:none}
+  .initiative-token.active .initiative-name{color:#fff;font-weight:900}
+`;
+document.head.appendChild(style);
+
+function decorateRail() {
+  if (!rail) return;
+  rail.querySelectorAll<HTMLButtonElement>('.initiative-token').forEach(token => {
+    if (token.querySelector('.initiative-name')) return;
+    const aria = token.getAttribute('aria-label') ?? '';
+    const name = aria.replace(/,?\s*current turn\s*$/i, '').trim();
+    const label = document.createElement('span');
+    label.className = 'initiative-name';
+    label.textContent = name;
+    token.appendChild(label);
+  });
+}
 
 let lastActiveLabel = '';
 function centreActivePortrait() {
   if (!rail) return;
+  decorateRail();
   const active = rail.querySelector<HTMLButtonElement>('.initiative-token.active');
   if (!active) return;
   const label = active.getAttribute('aria-label') ?? '';
@@ -183,7 +215,12 @@ function centreActivePortrait() {
     rail.scrollTo({ left, behavior: 'smooth' });
   });
 }
+
 if (rail) {
-  new MutationObserver(centreActivePortrait).observe(rail, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+  new MutationObserver(() => {
+    decorateRail();
+    centreActivePortrait();
+  }).observe(rail, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+  decorateRail();
   centreActivePortrait();
 }
