@@ -6,7 +6,7 @@ const dragRoutePolish = {
   transform(code: string, id: string) {
     if (id.endsWith('/src/phaser.css')) {
       return {
-        code: code + `\n.drag-ghost{opacity:.42;filter:drop-shadow(0 0 7px rgba(109,224,255,.95))}.route-line{pointer-events:none;fill:none;stroke-linecap:round;stroke-linejoin:round}.route-outline{stroke:#f4fbff;stroke-width:24;filter:drop-shadow(0 0 5px rgba(63,197,255,.85))}.route-core{stroke:#41bfff;stroke-width:15}.route-outline.enemy{stroke:#fff0f0}.route-core.enemy{stroke:#ee5361}.route-head{fill:#41bfff;stroke:#f4fbff;stroke-width:6;stroke-linejoin:round;filter:drop-shadow(0 0 5px rgba(63,197,255,.85));pointer-events:none}.route-head.enemy{fill:#ee5361;stroke:#fff0f0}.hud-left,.hud-right{transform:translateZ(0);will-change:transform;contain:layout paint}.game-board{overscroll-behavior:none;-webkit-user-select:none}.unit-token{touch-action:none}\n`,
+        code: code + `\nhtml,body,.game-shell,.battlefield-viewport{overscroll-behavior:none;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.piece-dragging,.piece-dragging body{overflow:hidden!important;overscroll-behavior:none!important;touch-action:none!important}.drag-ghost{opacity:.42;filter:drop-shadow(0 0 7px rgba(109,224,255,.95))}.route-line{pointer-events:none;fill:none;stroke-linecap:round;stroke-linejoin:round}.route-outline{stroke:#f4fbff;stroke-width:24;filter:drop-shadow(0 0 5px rgba(63,197,255,.85))}.route-core{stroke:#41bfff;stroke-width:15}.route-outline.enemy{stroke:#fff0f0}.route-core.enemy{stroke:#ee5361}.route-head{fill:#41bfff;stroke:#f4fbff;stroke-width:6;stroke-linejoin:round;filter:drop-shadow(0 0 5px rgba(63,197,255,.85));pointer-events:none}.route-head.enemy{fill:#ee5361;stroke:#fff0f0}.hud-left,.hud-right{transform:translate3d(0,0,0);backface-visibility:hidden;will-change:transform;contain:layout paint}.game-board{overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-user-drag:none}.unit-token{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-user-drag:none}\n`,
         map: null
       };
     }
@@ -17,8 +17,11 @@ const dragRoutePolish = {
     const newBeginDrag = `  beginDrag(e:PointerEvent,u:Unit,g:SVGGElement){
     if(!this.isActivePlayer(u)||!this.hasAction(u)||this.busy)return;
     e.preventDefault();e.stopPropagation();g.setPointerCapture(e.pointerId);
+    document.documentElement.classList.add('piece-dragging');
+    const blockNativeDrag=(te:TouchEvent)=>te.preventDefault();document.addEventListener('touchmove',blockNativeDrag,{passive:false});
     this.drag={id:u.id,pointerId:e.pointerId,origin:{x:u.x,y:u.y},token:g};this.selectedId=u.id;
     const ghost=g.cloneNode(true) as SVGGElement;ghost.removeAttribute('data-id');ghost.classList.add('drag-ghost');ghost.style.pointerEvents='none';this.tokenLayer?.appendChild(ghost);
+    const cleanup=()=>{document.removeEventListener('touchmove',blockNativeDrag);document.documentElement.classList.remove('piece-dragging');};
     const move=(ev:PointerEvent)=>{
       if(!this.drag||ev.pointerId!==this.drag.pointerId)return;ev.preventDefault();ev.stopPropagation();
       const p=this.svgPoint(ev.clientX,ev.clientY),d={x:Math.floor(p.x/CELL),y:Math.floor(p.y/CELL)};
@@ -27,12 +30,12 @@ const dragRoutePolish = {
     };
     const finish=(ev:PointerEvent)=>{
       ev.preventDefault();ev.stopPropagation();
-      g.removeEventListener('pointermove',move);g.removeEventListener('pointerup',finish);g.removeEventListener('pointercancel',cancel);ghost.remove();
+      g.removeEventListener('pointermove',move);g.removeEventListener('pointerup',finish);g.removeEventListener('pointercancel',cancel);ghost.remove();cleanup();
       const p=this.svgPoint(ev.clientX,ev.clientY),d={x:Math.floor(p.x/CELL),y:Math.floor(p.y/CELL)},target=this.at(d.x,d.y);this.drag=undefined;
       if(target?.team==='enemy'&&this.canAttack(u,target)){this.previewAttack(u,target);return;}
       const r=this.findRoute(u,d,u.id);if(r.length>1&&r.length-1<=MOVE&&!target)void this.moveActive(u,r);else this.render();
     };
-    const cancel=()=>{g.removeEventListener('pointermove',move);g.removeEventListener('pointerup',finish);g.removeEventListener('pointercancel',cancel);ghost.remove();this.drag=undefined;this.render();};
+    const cancel=()=>{g.removeEventListener('pointermove',move);g.removeEventListener('pointerup',finish);g.removeEventListener('pointercancel',cancel);ghost.remove();cleanup();this.drag=undefined;this.render();};
     g.addEventListener('pointermove',move);g.addEventListener('pointerup',finish);g.addEventListener('pointercancel',cancel);
   }`;
 
