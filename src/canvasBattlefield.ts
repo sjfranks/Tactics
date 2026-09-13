@@ -11,11 +11,15 @@ frame.prepend(canvas);
 const style=document.createElement('style');
 style.textContent=`
 #battlefield-frame{position:relative;background:#000!important;overflow:hidden}
-#battlefield{position:relative;z-index:1;background:transparent!important}
-.battlefield-canvas{position:absolute;z-index:0;pointer-events:none;background:#000}
-.game-board{position:relative;z-index:1;background:transparent!important}
-.game-board.canvas-rendered .tiles>*,.game-board.canvas-rendered .highlights>*,.game-board.canvas-rendered .props>*,.game-board.canvas-rendered .tokens>*{opacity:0!important}
-.game-board.canvas-rendered .tokens>.drag-ghost{opacity:.42!important}
+#battlefield{position:absolute!important;inset:0;z-index:2;background:transparent!important}
+.battlefield-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;background:#000}
+.game-board{position:absolute!important;inset:0;z-index:2;background:transparent!important;width:100%!important;height:100%!important}
+/* Tactical SVG is interaction-only. Keep its route/drag overlay, but never let its painted tiles or tokens cover Canvas. */
+.game-board[aria-label="6 by 8 tactical battlefield"] .tiles>*,
+.game-board[aria-label="6 by 8 tactical battlefield"] .highlights>*,
+.game-board[aria-label="6 by 8 tactical battlefield"] .props>*,
+.game-board[aria-label="6 by 8 tactical battlefield"] .tokens>*{opacity:0!important}
+.game-board[aria-label="6 by 8 tactical battlefield"] .tokens>.drag-ghost{opacity:.42!important}
 `;
 document.head.appendChild(style);
 
@@ -33,19 +37,14 @@ function rr(c:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,r:num
 
 function background(c:CanvasRenderingContext2D){
   if(bg.complete&&bg.naturalWidth)c.drawImage(bg,0,0,480,640);
-  else{
-    const g=c.createLinearGradient(0,0,480,640);g.addColorStop(0,'#536b3d');g.addColorStop(1,'#263522');c.fillStyle=g;c.fillRect(0,0,480,640);
-  }
+  else{const g=c.createLinearGradient(0,0,480,640);g.addColorStop(0,'#536b3d');g.addColorStop(1,'#263522');c.fillStyle=g;c.fillRect(0,0,480,640)}
 }
 function highlights(c:CanvasRenderingContext2D,svg:SVGSVGElement){
   const defs:any={'move-range':['rgba(50,155,218,.38)','#72ddff'],'attack-range':['rgba(197,63,63,.34)','#ff756d'],'enemy-range':['rgba(169,47,56,.22)','#ff747c'],'enemy-threat':['rgba(206,112,69,.16)','rgba(206,112,69,.3)'],'spell-range':['rgba(123,84,200,.43)','#d7b8ff']};
-  for(const [cls,p] of Object.entries(defs) as any)for(const el of svg.querySelectorAll<SVGRectElement>(`.${cls}`)){
-    c.fillStyle=p[0];c.strokeStyle=p[1];c.lineWidth=2;rr(c,n(el,'x'),n(el,'y'),n(el,'width'),n(el,'height'),7);c.fill();c.stroke();
-  }
+  for(const [cls,p] of Object.entries(defs) as any)for(const el of svg.querySelectorAll<SVGRectElement>(`.${cls}`)){c.fillStyle=p[0];c.strokeStyle=p[1];c.lineWidth=2;rr(c,n(el,'x'),n(el,'y'),n(el,'width'),n(el,'height'),7);c.fill();c.stroke()}
 }
 function grid(c:CanvasRenderingContext2D){
-  // The grid is always UI, drawn independently over the map artwork.
-  c.save();c.strokeStyle='rgba(12,17,10,.58)';c.lineWidth=1.25;
+  c.save();c.strokeStyle='rgba(12,17,10,.62)';c.lineWidth=1.35;
   for(let x=0;x<=480;x+=CELL){c.beginPath();c.moveTo(x,0);c.lineTo(x,640);c.stroke()}
   for(let y=0;y<=640;y+=CELL){c.beginPath();c.moveTo(0,y);c.lineTo(480,y);c.stroke()}
   c.restore();
@@ -53,42 +52,39 @@ function grid(c:CanvasRenderingContext2D){
 function selectedId(){const s=document.querySelector<HTMLElement>('#selected-name')?.textContent??'';if(s.includes('Alden'))return'alden';if(s.includes('Mira'))return'mira';if(s.includes('Goblin Raider')||s.includes('North Raider'))return'raider-1';if(s.includes('Goblin Skirmisher')||s.includes('Hill Raider'))return'raider-2';return''}
 function corners(c:CanvasRenderingContext2D,svg:SVGSVGElement){const id=selectedId(),g=id?svg.querySelector<SVGGElement>(`.unit-token[data-id="${id}"]`):null;if(!g)return;const p=tr(g),x=p.x-40,y=p.y-40,o=6,l=15;c.strokeStyle=g.classList.contains('enemy')?'#ffd8d3':'#e7fbff';c.lineWidth=3;for(const[a,b,sx,sy]of [[x+o,y+o,1,1],[x+80-o,y+o,-1,1],[x+o,y+80-o,1,-1],[x+80-o,y+80-o,-1,-1]] as const){c.beginPath();c.moveTo(a+sx*l,b);c.lineTo(a,b);c.lineTo(a,b+sy*l);c.stroke()}}
 
+const portraitOffset:Record<string,{x:number,y:number,size:number}>={
+  alden:{x:0,y:1,size:50},mira:{x:0,y:1,size:50},'raider-1':{x:2,y:2,size:49},'raider-2':{x:-2,y:2,size:49}
+};
 function drawPortrait(c:CanvasRenderingContext2D,id:string){
-  const im=art[id];if(!im?.complete||!im.naturalWidth)return;
-  // Fit slightly inside the circular mask instead of over-zooming the source crop.
-  const size=52;c.drawImage(im,-size/2,-size/2,size,size);
+  const im=art[id];if(!im?.complete||!im.naturalWidth)return;const p=portraitOffset[id]??{x:0,y:0,size:50};c.drawImage(im,-p.size/2+p.x,-p.size/2+p.y,p.size,p.size);
 }
 function actionDots(c:CanvasRenderingContext2D,g:SVGGElement){
   const dots=[...g.querySelectorAll<SVGCircleElement>('.action-dot')];
-  for(const d of dots){c.beginPath();c.arc(n(d,'cx'),n(d,'cy'),4.25,0,Math.PI*2);c.fillStyle=d.classList.contains('spent')?'rgba(255,255,255,.22)':'#8bdfff';c.fill();if(!d.classList.contains('spent')){c.strokeStyle='rgba(240,253,255,.9)';c.lineWidth=1;c.stroke();}}
+  for(const d of dots){c.beginPath();c.arc(n(d,'cx'),n(d,'cy'),4.5,0,Math.PI*2);c.fillStyle=d.classList.contains('spent')?'rgba(255,255,255,.2)':'#77d8ff';c.fill();c.strokeStyle=d.classList.contains('spent')?'rgba(255,255,255,.25)':'#effcff';c.lineWidth=1.25;c.stroke()}
 }
 function token(c:CanvasRenderingContext2D,g:SVGGElement){
   if(g.classList.contains('drag-ghost'))return;const id=g.dataset.id??'';if(!art[id])return;const p=tr(g),enemy=g.classList.contains('enemy'),active=g.classList.contains('active');
   c.save();c.translate(p.x,p.y);c.beginPath();c.arc(0,0,28,0,Math.PI*2);c.fillStyle=enemy?'#46151b':'#112942';c.fill();c.lineWidth=active?5:3;c.strokeStyle=active?'#e8fbff':enemy?'#ff5550':'#8ddcff';c.stroke();
   c.save();c.beginPath();c.arc(0,0,23,0,Math.PI*2);c.clip();drawPortrait(c,id);c.restore();
-  const hp=g.querySelector<SVGRectElement>('.hp-fill');c.fillStyle='rgba(0,0,0,.7)';rr(c,-22,25,44,7,3);c.fill();c.fillStyle='#7ee28d';rr(c,-20,27,hp?n(hp,'width',40):40,3,1.5);c.fill();
-  actionDots(c,g);
-  if(g.querySelector('.shield-mark')){c.fillStyle='#b9dcff';c.font='15px system-ui';c.textAlign='center';c.textBaseline='middle';c.fillText('◆',24,-20)}
-  c.restore();
+  const hp=g.querySelector<SVGRectElement>('.hp-fill');c.fillStyle='rgba(0,0,0,.7)';rr(c,-22,25,44,7,3);c.fill();c.fillStyle='#7ee28d';rr(c,-20,27,hp?n(hp,'width',40):40,3,1.5);c.fill();actionDots(c,g);
+  if(g.querySelector('.shield-mark')){c.fillStyle='#b9dcff';c.font='15px system-ui';c.textAlign='center';c.textBaseline='middle';c.fillText('◆',24,-20)}c.restore();
 }
 function obstacle(c:CanvasRenderingContext2D,g:SVGGElement){const p=tr(g),im=art.campfire;if(im.complete&&im.naturalWidth)c.drawImage(im,p.x-31,p.y-31,62,62)}
 
+let backingW=0,backingH=0;
 function draw(svg:SVGSVGElement){
-  const r=svg.getBoundingClientRect(),fr=frame.getBoundingClientRect();if(r.width<2||r.height<2)return;
-  const dpr=Math.min(devicePixelRatio||1,3),w=Math.round(r.width*dpr),h=Math.round(r.height*dpr);
-  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
-  canvas.style.left=`${r.left-fr.left}px`;canvas.style.top=`${r.top-fr.top}px`;canvas.style.width=`${r.width}px`;canvas.style.height=`${r.height}px`;
-  const c=canvas.getContext('2d')!;c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,r.width,r.height);c.fillStyle='#000';c.fillRect(0,0,r.width,r.height);
-  const s=Math.min(r.width/480,r.height/640),ox=(r.width-480*s)/2,cam=camera(svg);
-  c.save();c.translate(ox+cam.x*s,cam.y*s);c.scale(s*cam.z,s*cam.z);background(c);highlights(c,svg);grid(c);corners(c,svg);for(const g of svg.querySelectorAll<SVGGElement>('.obstacle'))obstacle(c,g);for(const g of svg.querySelectorAll<SVGGElement>('.unit-token[data-id]'))token(c,g);c.restore();
+  const r=frame.getBoundingClientRect();if(r.width<2||r.height<2)return;const dpr=Math.min(devicePixelRatio||1,3),w=Math.round(r.width*dpr),h=Math.round(r.height*dpr);
+  if(w!==backingW||h!==backingH){backingW=w;backingH=h;canvas.width=w;canvas.height=h}
+  const c=canvas.getContext('2d')!;c.setTransform(dpr,0,0,dpr,0,0);c.fillStyle='#000';c.fillRect(0,0,r.width,r.height);
+  const s=Math.min(r.width/480,r.height/640),ox=(r.width-480*s)/2,cam=camera(svg);c.save();c.translate(ox+cam.x*s,cam.y*s);c.scale(s*cam.z,s*cam.z);background(c);highlights(c,svg);grid(c);corners(c,svg);for(const g of svg.querySelectorAll<SVGGElement>('.obstacle'))obstacle(c,g);for(const g of svg.querySelectorAll<SVGGElement>('.unit-token[data-id]'))token(c,g);c.restore();
 }
 
-let hadTacticalBoard=false;
+let lastTactical:SVGSVGElement|undefined;
 function loop(){
   const svg=latest();
-  if(svg&&svg.viewBox.baseVal.width===480&&svg.viewBox.baseVal.height===640){hadTacticalBoard=true;svg.classList.add('canvas-rendered');canvas.style.display='block';draw(svg)}
-  else if(svg){hadTacticalBoard=false;canvas.style.display='none'}
-  else if(hadTacticalBoard){canvas.style.display='block'} // keep the last complete frame while the SVG interaction layer is being rebuilt
+  if(svg&&svg.viewBox.baseVal.width===480&&svg.viewBox.baseVal.height===640){lastTactical=svg;canvas.style.display='block';draw(svg)}
+  else if(!svg&&lastTactical){canvas.style.display='block'}
+  else if(svg){lastTactical=undefined;canvas.style.display='none'}
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
