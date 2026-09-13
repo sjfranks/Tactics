@@ -27,7 +27,8 @@ const rail = document.querySelector<HTMLElement>('#initiative-rail');
 const battlefield = document.querySelector<HTMLElement>('#battlefield');
 
 function getScene(): LooseScene | undefined {
-  const game = Phaser.GAMES.find(Boolean);
+  const registry = (Phaser as unknown as { GAMES?: Phaser.Game[] }).GAMES ?? [];
+  const game = registry.find(Boolean);
   if (!game) return undefined;
   const candidate = game.scene.getScene('tactics') as LooseScene | undefined;
   return candidate?.scene?.isActive() ? candidate : undefined;
@@ -127,8 +128,6 @@ function installSceneFixes(scene: LooseScene) {
   });
 
   patched.input.on('pointerup', () => {
-    // Run after the scene's original pointer-up handler and restore the correct
-    // gesture state using all Phaser pointers, not just pointer1/pointer2.
     patched.time.delayedCall(0, () => {
       const remaining = downPointers(patched).length;
       if (patched.__gestureLock && remaining > 0) {
@@ -164,7 +163,6 @@ function waitForScene() {
 }
 waitForScene();
 
-// Stop browser gesture defaults before Phaser sees the touch stream.
 battlefield?.addEventListener('touchstart', event => {
   if (event.touches.length >= 2) event.preventDefault();
 }, { passive: false, capture: true });
@@ -172,8 +170,6 @@ battlefield?.addEventListener('touchmove', event => {
   if (event.touches.length >= 2) event.preventDefault();
 }, { passive: false, capture: true });
 
-// The rail is rebuilt as combat state changes. Only re-centre when the active
-// combatant itself changes, so manual rail scrolling remains usable mid-turn.
 let lastActiveLabel = '';
 function centreActivePortrait() {
   if (!rail) return;
