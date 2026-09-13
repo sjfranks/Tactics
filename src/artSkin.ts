@@ -1,5 +1,5 @@
 const PORTRAIT_SHEET=`${import.meta.env.BASE_URL}assets/portrait-sheet.webp`;
-const PORTRAIT_POSITIONS:Record<string,string>={alden:'0% 0%',mira:'25% 0%','raider-1':'25% 100%','raider-2':'25% 100%'};
+const PORTRAIT_POSITIONS:Record<string,string>={alden:'0% 0%',mira:'25.3% 0%','raider-1':'25.3% 92%','raider-2':'25.3% 92%'};
 
 const style=document.createElement('style');
 style.textContent=`
