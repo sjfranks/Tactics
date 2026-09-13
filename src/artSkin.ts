@@ -1,13 +1,13 @@
 import { ART } from './generatedAssets';
+import { BATTLEFIELD_BACKGROUND } from './background';
 
 const NS='http://www.w3.org/2000/svg';
 const XHTML='http://www.w3.org/1999/xhtml';
-const TACTICAL_BACKGROUND=`${import.meta.env.BASE_URL}assets/tactical-background.jpg`;
 const styled=new WeakSet<Element>();
 
 const style=document.createElement('style');
 style.textContent=`
-.battlefield{background:#26341f center top/100% auto no-repeat}.game-board{background:transparent}.terrain-background{pointer-events:none}.terrain-background>div{width:100%;height:100%;background-position:center;background-size:cover;background-repeat:no-repeat}.game-board.screenshot-terrain .tile{fill:transparent!important;stroke:rgba(12,17,10,.52)!important;stroke-width:1.15!important;vector-effect:non-scaling-stroke}.game-board.screenshot-terrain .grass-speck{display:none}
+.battlefield{background:#000!important;background-image:none!important}.game-board{background:#000!important}.terrain-background{pointer-events:none}.terrain-background>div{width:100%;height:100%;background-position:center;background-size:100% 100%;background-repeat:no-repeat}.game-board.screenshot-terrain .tile{fill:transparent!important;stroke:rgba(12,17,10,.52)!important;stroke-width:1.15!important;vector-effect:non-scaling-stroke}.game-board.screenshot-terrain .grass-speck{display:none}
 .move-range{fill:#329bda!important;fill-opacity:.38!important;stroke:#72ddff!important;stroke-width:2.6!important;filter:drop-shadow(0 0 3px rgba(50,185,255,.5))}.attack-range{fill:#c53f3f!important;fill-opacity:.34!important;stroke:#ff756d!important}.enemy-range{fill:#a92f38!important;fill-opacity:.22!important}.enemy-threat{fill:#ce7045!important;fill-opacity:.16!important}
 .unit-token .token-inner{fill:#101722;stroke:#d7c9ae;stroke-opacity:.62}.unit-token.player .token-outer{fill:#112942;stroke:#8ddcff}.unit-token.enemy .token-outer{fill:#46151b;stroke:#ff5550}.unit-token.active .token-outer{stroke:#e8fbff;stroke-width:5;filter:drop-shadow(0 0 7px #2abaff)}.token-art{pointer-events:none}.obstacle-art{pointer-events:none;filter:drop-shadow(0 4px 5px rgba(0,0,0,.55))}.obstacle>circle,.obstacle>text{display:none}
 .initiative-token{background:#111923;overflow:hidden}.initiative-token>span{position:absolute;inset:0;border-radius:50%;overflow:hidden;display:grid;place-items:center}.initiative-token img{width:112%;height:112%;display:block;object-fit:cover;object-position:50% 48%;transform:translate(-6%,-6%);pointer-events:none}.initiative-token.active img{filter:drop-shadow(0 0 5px rgba(50,188,255,.7))}
@@ -20,16 +20,14 @@ function addSvgImage(parent:Element,href:string,x:number,y:number,width:number,h
   const im=document.createElementNS(NS,'image');im.setAttribute('href',href);im.setAttribute('x',String(x));im.setAttribute('y',String(y));im.setAttribute('width',String(width));im.setAttribute('height',String(height));im.setAttribute('class',cls);im.setAttribute('preserveAspectRatio',fit);parent.appendChild(im);return im;
 }
 
-function skinBoard(){
-  const board=document.querySelector<HTMLElement>('.battlefield');
-  const svg=document.querySelector<SVGSVGElement>('.game-board');if(!svg)return;
+function skinOneBoard(svg:SVGSVGElement){
   const vb=svg.viewBox.baseVal,tactical=vb.width===480&&vb.height===640;
-  if(tactical&&board)board.style.backgroundImage=`url("${TACTICAL_BACKGROUND}")`;else if(board)board.style.backgroundImage='none';
+  if(!tactical)return;
   const tiles=svg.querySelector<SVGGElement>('.tiles');
-  if(tactical&&tiles&&!styled.has(tiles)){
+  if(tiles&&!styled.has(tiles)){
     svg.classList.add('screenshot-terrain');
     const fo=document.createElementNS(NS,'foreignObject');fo.setAttribute('x','0');fo.setAttribute('y','0');fo.setAttribute('width','480');fo.setAttribute('height','640');fo.setAttribute('class','terrain-background');
-    const div=document.createElementNS(XHTML,'div');(div as HTMLElement).style.backgroundImage=`url("${TACTICAL_BACKGROUND}")`;fo.appendChild(div);tiles.insertBefore(fo,tiles.firstChild);styled.add(tiles);
+    const div=document.createElementNS(XHTML,'div');(div as HTMLElement).style.backgroundImage=`url("${BATTLEFIELD_BACKGROUND}")`;fo.appendChild(div);tiles.insertBefore(fo,tiles.firstChild);styled.add(tiles);
   }
   for(const token of svg.querySelectorAll<SVGGElement>('.unit-token[data-id]')){
     if(styled.has(token))continue;const id=token.dataset.id??'';if(id==='party')continue;
@@ -38,6 +36,7 @@ function skinBoard(){
   for(const obstacle of svg.querySelectorAll<SVGGElement>('.obstacle')){if(styled.has(obstacle))continue;addSvgImage(obstacle,ART.campfire,-31,-31,62,62,'obstacle-art');styled.add(obstacle);}
 }
 
+function skinBoard(){document.querySelectorAll<SVGSVGElement>('.game-board').forEach(skinOneBoard);}
 function replaceNames(){
   const swaps:[string,string][]=[['North Raider','Goblin Raider'],['Hill Raider','Goblin Skirmisher']];
   for(const el of document.querySelectorAll<HTMLElement>('#selected-name,.initiative-token small,.log-entry span')){let text=el.textContent??'';for(const[a,b]of swaps)text=text.replaceAll(a,b);if(el.textContent!==text)el.textContent=text;}
@@ -47,9 +46,8 @@ function replaceNames(){
     const span=b.querySelector('span');if(src&&span){span.textContent='';const img=document.createElement('img');img.src=src;img.alt='';span.appendChild(img);}
   }
 }
-
 function drawSelectionCorners(){
-  const svg=document.querySelector<SVGSVGElement>('.game-board'),layer=svg?.querySelector<SVGGElement>('.highlights');if(!svg||!layer)return;
+  const boards=[...document.querySelectorAll<SVGSVGElement>('.game-board')];const svg=boards[boards.length-1],layer=svg?.querySelector<SVGGElement>('.highlights');if(!svg||!layer)return;
   layer.querySelector('.selection-corners')?.remove();const name=document.querySelector<HTMLElement>('#selected-name')?.textContent??'';
   const id=name.includes('Alden')?'alden':name.includes('Mira')?'mira':name.includes('Goblin Raider')?'raider-1':name.includes('Goblin Skirmisher')?'raider-2':'';
   const token=id?svg.querySelector<SVGGElement>(`.unit-token[data-id="${id}"]`):null;if(!token)return;
