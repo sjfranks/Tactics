@@ -4,9 +4,9 @@ const style=document.createElement('style');
 style.textContent=`
 .initiative-token{background:#111923;overflow:visible}
 .initiative-token>span{position:absolute;inset:0;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:#111923}
-.initiative-token img{width:88%;height:88%;display:block;object-fit:contain;object-position:50% 50%;transform:none;pointer-events:none;margin:auto}
+.initiative-token img{width:72%;height:72%;display:block;object-fit:contain;object-position:50% 50%;transform:none;pointer-events:none;margin:auto}
 .initiative-token.active img{filter:drop-shadow(0 0 5px rgba(50,188,255,.7))}
-#portrait{background-position:50% 50%;background-size:contain;background-repeat:no-repeat;background-color:#111923;color:transparent;overflow:hidden}
+#portrait{background-position:50% 50%;background-size:72% 72%;background-repeat:no-repeat;background-color:#111923;color:transparent;overflow:hidden}
 `;
 document.head.appendChild(style);
 
