@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 
 type Point = { x: number; y: number };
-type RailUnit = { id: string; team: 'player' | 'enemy'; x?: number; y?: number };
+type RailUnit = { id: string; team: 'player' | 'enemy'; x?: number; y?: number; defending?: boolean };
 type LooseScene = Phaser.Scene & {
   gestureActive: boolean;
   gestureDistance: number;
@@ -20,7 +20,12 @@ type LooseScene = Phaser.Scene & {
   handleTwoFingerGesture: () => void;
   setLooseCameraBounds: () => void;
   fitTactical: () => void;
+  centerOn: (point: Point) => void;
+  moveActive: (unit: RailUnit, route: Point[]) => Promise<void>;
   moveEnemy: (enemy: RailUnit, route: Point[]) => Promise<void>;
+  defendSelected: () => void;
+  finishActiveTurn: () => void;
+  activeUnit: () => RailUnit | undefined;
 };
 
 const CELL = 80;
@@ -73,8 +78,22 @@ function leaveGesture(scene: LooseScene) {
   restoreTimer = window.setTimeout(() => setPieceDragging(scene, true), 450);
 }
 
+function cameraNeedsFollow(scene: LooseScene) {
+  if (scene.gameMode !== 'combat') return true;
+  const cam = scene.cameras.main;
+  const visibleWorldWidth = cam.width / cam.zoom;
+  const visibleWorldHeight = cam.height / cam.zoom;
+  return scene.cols * CELL > visibleWorldWidth + 2 || scene.rows * CELL > visibleWorldHeight + 2;
+}
+
+function centreCameraOnToken(scene: LooseScene, token: Phaser.GameObjects.Container) {
+  const cam = scene.cameras.main;
+  cam.scrollX = token.x - cam.width / (2 * cam.zoom);
+  cam.scrollY = token.y - cam.height / (2 * cam.zoom);
+}
+
 function installSceneFixes(scene: LooseScene) {
-  const patched = scene as LooseScene & { __mobilePolishInstalled?: boolean; __enemyFollowInstalled?: boolean };
+  const patched = scene as LooseScene & { __mobilePolishInstalled?: boolean };
   if (patched.__mobilePolishInstalled) return;
   patched.__mobilePolishInstalled = true;
 
@@ -89,6 +108,9 @@ function installSceneFixes(scene: LooseScene) {
     patched.cameras.main.setBounds(-100000, -100000, 200000, 200000);
   };
 
+  // Default tactical view: show the entire 6x8 board, centred and as large as
+  // possible without cropping. UI may overlay it, but the camera itself does
+  // not zoom or pan away from this view until the user zooms in.
   patched.fitTactical = () => {
     const cam = patched.cameras.main;
     patched.baseZoom = Math.min(cam.width / (patched.cols * CELL), cam.height / (patched.rows * CELL));
@@ -97,27 +119,62 @@ function installSceneFixes(scene: LooseScene) {
     cam.scrollY = patched.rows * CELL / 2 - cam.height / (2 * cam.zoom);
   };
 
-  // Follow an enemy token for the duration of each movement action. The
-  // original movement routine still owns path drawing, state updates and token
-  // rebuilding; this wrapper only controls the camera.
-  if (!patched.__enemyFollowInstalled) {
-    patched.__enemyFollowInstalled = true;
-    const originalMoveEnemy = patched.moveEnemy.bind(patched);
-    patched.moveEnemy = async (enemy: RailUnit, route: Point[]) => {
-      const token = patched.tokens.get(enemy.id);
-      const cam = patched.cameras.main;
-      if (token) cam.startFollow(token, true, 0.16, 0.16);
-      try {
-        await originalMoveEnemy(enemy, route);
-      } finally {
+  // Main game code calls centerOn at turn changes and when inspecting units.
+  // At the full-board default zoom that would unnecessarily pull the board off
+  // centre, so only honour it when the current zoom actually requires panning.
+  const originalCenterOn = patched.centerOn.bind(patched);
+  patched.centerOn = (point: Point) => {
+    if (patched.gameMode === 'combat' && !cameraNeedsFollow(patched)) return;
+    originalCenterOn(point);
+  };
+
+  const followMovement = async (
+    unit: RailUnit,
+    route: Point[],
+    original: (unit: RailUnit, route: Point[]) => Promise<void>
+  ) => {
+    const cam = patched.cameras.main;
+    const token = patched.tokens.get(unit.id);
+    const follow = Boolean(token && cameraNeedsFollow(patched));
+
+    if (follow && token) {
+      // Exact follow in both axes keeps the moving token centred while its
+      // movement tween runs. At full-board zoom this branch is skipped.
+      cam.startFollow(token, true, 1, 1);
+      centreCameraOnToken(patched, token);
+    }
+
+    try {
+      await original(unit, route);
+    } finally {
+      if (follow) {
         cam.stopFollow();
-        const current = patched.units.find(unit => unit.id === enemy.id);
-        if (current?.x != null && current?.y != null) {
-          cam.pan(current.x * CELL + CELL / 2, current.y * CELL + CELL / 2, 120, 'Sine.easeOut');
-        }
+        const current = patched.tokens.get(unit.id);
+        if (current) centreCameraOnToken(patched, current);
       }
-    };
-  }
+    }
+  };
+
+  const originalMoveActive = patched.moveActive.bind(patched);
+  patched.moveActive = (unit: RailUnit, route: Point[]) =>
+    followMovement(unit, route, originalMoveActive);
+
+  const originalMoveEnemy = patched.moveEnemy.bind(patched);
+  patched.moveEnemy = (unit: RailUnit, route: Point[]) =>
+    followMovement(unit, route, originalMoveEnemy);
+
+  // Defend still consumes an action and applies its one-hit shield, but it now
+  // immediately ends that player's turn regardless of unused actions.
+  const originalDefend = patched.defendSelected.bind(patched);
+  patched.defendSelected = () => {
+    const before = patched.activeUnit();
+    const wasDefending = Boolean(before?.defending);
+    originalDefend();
+    const after = patched.activeUnit();
+    if (before && after?.id === before.id && !wasDefending && Boolean(after.defending)) {
+      patched.finishActiveTurn();
+    }
+  };
 
   patched.setLooseCameraBounds();
 }
@@ -153,7 +210,6 @@ function beginOrUpdateGesture(event: TouchEvent) {
   const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
   const cam = scene.cameras.main;
 
-  // Pinch around the midpoint, keeping the world point under the fingers fixed.
   if (lastDistance > 0) {
     const before = cam.getWorldPoint(mid.x, mid.y);
     const min = scene.gameMode === 'combat' ? scene.baseZoom * 0.45 : 0.22;
@@ -164,7 +220,6 @@ function beginOrUpdateGesture(event: TouchEvent) {
     cam.scrollY += before.y - after.y;
   }
 
-  // Two-finger translation pans freely, even when the whole board is visible.
   if (lastMid) {
     cam.scrollX -= (mid.x - lastMid.x) / cam.zoom;
     cam.scrollY -= (mid.y - lastMid.y) / cam.zoom;
@@ -181,7 +236,6 @@ function endGesture(event: TouchEvent) {
   const scene = getScene();
   if (!scene) return;
 
-  // Keep the lock while even one finger from a two-finger gesture remains.
   if (nativeGestureActive && event.touches.length > 0) {
     event.preventDefault();
     scene.gestureActive = true;
@@ -200,8 +254,6 @@ battlefield?.addEventListener('touchmove', beginOrUpdateGesture, { passive: fals
 battlefield?.addEventListener('touchend', endGesture, { passive: false, capture: true });
 battlefield?.addEventListener('touchcancel', endGesture, { passive: false, capture: true });
 
-// Add names beneath the initiative portraits. Keep the scaled active token
-// inside the horizontal scroll box so Safari cannot clip its top edge.
 const style = document.createElement('style');
 style.textContent = `
   .initiative-dock{height:122px!important;overflow:visible!important;align-items:flex-end!important}
