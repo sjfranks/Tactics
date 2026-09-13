@@ -11,15 +11,23 @@ type PendingAttack={actorId:string;targetId:string};
 
 type Prototype={cols:number;rows:number;obstacles:Point[];units:Array<Omit<Unit,'initiativeScore'|'actionsUsed'|'defending'>>};
 
-const CELL=80,MOVE=2,ACTIONS=3,HEAL=2,ENCOUNTER_DISTANCE=4;
+const CELL=80,MOVE=5,ACTIONS=3,HEAL=2,ENCOUNTER_DISTANCE=4;
 const NS='http://www.w3.org/2000/svg';
 const START_PARTY={x:15,y:24};
+const RIVER_TERRAIN:Point[]=[];
+for(let y=0;y<32;y++){
+  if(y>=14&&y<=16)continue;
+  const bank=y<14?22:y<21?20:y<25?19:y<28?17:15;
+  for(let x=bank;x<24;x++)RIVER_TERRAIN.push({x,y});
+}
 const PROTOTYPES:Record<Mode,Prototype>={
-  tactical:{cols:6,rows:8,obstacles:[{x:2,y:4}],units:[
-    {id:'alden',name:'Alden',team:'player',x:1,y:6,hp:5,maxHp:5,damage:2,initiativeMod:2},
-    {id:'mira',name:'Mira',team:'player',x:4,y:6,hp:4,maxHp:4,damage:2,initiativeMod:4},
-    {id:'raider-1',name:'North Raider',team:'enemy',x:1,y:1,hp:3,maxHp:3,damage:1,initiativeMod:1},
-    {id:'raider-2',name:'Hill Raider',team:'enemy',x:4,y:2,hp:3,maxHp:3,damage:1,initiativeMod:0}
+  tactical:{cols:24,rows:32,obstacles:RIVER_TERRAIN,units:[
+    {id:'alden',name:'Alden',team:'player',x:23,y:15,hp:5,maxHp:5,damage:2,initiativeMod:2},
+    {id:'mira',name:'Mira',team:'player',x:23,y:16,hp:4,maxHp:4,damage:2,initiativeMod:4},
+    {id:'raider-1',name:'Goblin Raider',team:'enemy',x:7,y:5,hp:3,maxHp:3,damage:1,initiativeMod:1},
+    {id:'raider-2',name:'Goblin Skirmisher',team:'enemy',x:13,y:9,hp:3,maxHp:3,damage:1,initiativeMod:0},
+    {id:'raider-3',name:'Goblin Archer',team:'enemy',x:9,y:18,hp:3,maxHp:3,damage:1,initiativeMod:3},
+    {id:'raider-4',name:'Goblin Brute',team:'enemy',x:5,y:24,hp:4,maxHp:4,damage:2,initiativeMod:-1}
   ]},
   exploration:{cols:30,rows:30,obstacles:[{x:15,y:18}],units:[
     {id:'alden',name:'Alden',team:'player',x:14,y:20,hp:5,maxHp:5,damage:2,initiativeMod:2},
@@ -104,7 +112,7 @@ class Game{
 
   render(){
     const w=this.cols*CELL,h=this.rows*CELL;ui.battlefield.innerHTML='';
-    const s=svg('svg',{class:'game-board',viewBox:`0 0 ${w} ${h}`,preserveAspectRatio:'xMidYMin meet','aria-label':this.gameMode==='combat'?'6 by 8 tactical battlefield':'exploration map'});s.style.aspectRatio=`${this.cols} / ${this.rows}`;
+    const s=svg('svg',{class:'game-board',viewBox:`0 0 ${w} ${h}`,preserveAspectRatio:'xMidYMin meet','aria-label':this.gameMode==='combat'?`${this.cols} by ${this.rows} tactical battlefield`:'exploration map'});s.style.aspectRatio=`${this.cols} / ${this.rows}`;
     const defs=svg('defs');const marker=svg('marker',{id:'route-arrow',markerWidth:12,markerHeight:12,refX:9,refY:6,orient:'auto',markerUnits:'strokeWidth'});marker.appendChild(svg('path',{d:'M 0 0 L 12 6 L 0 12 z',fill:'#78e5ff'}));defs.appendChild(marker);s.appendChild(defs);
     const world=svg('g',{class:'world'}),tiles=svg('g',{class:'tiles'}),highlights=svg('g',{class:'highlights'}),props=svg('g',{class:'props'}),route=svg('g',{class:'routes'}),tokens=svg('g',{class:'tokens'});world.append(tiles,highlights,props,route,tokens);s.appendChild(world);ui.battlefield.appendChild(s);this.svg=s;this.world=world;this.routeLayer=route;this.tokenLayer=tokens;
     for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++){

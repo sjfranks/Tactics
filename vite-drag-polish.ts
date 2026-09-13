@@ -10,7 +10,24 @@ export const dragPolish={
     swap(oldBegin,newBegin,'drag');
 
     const oldDraw=`  drawRoute(r:Point[],enemy=false){if(!this.routeLayer)return;this.routeLayer.innerHTML='';if(r.length<2)return;const points=r.map(p=>\`${'${p.x*CELL+CELL/2},${p.y*CELL+CELL/2}'}\`).join(' ');this.routeLayer.appendChild(svg('polyline',{points,class:\`route-line ${'${enemy?\'enemy\':\'\'}'}\`,'marker-end':'url(#route-arrow)'}));}`;
-    const newDraw=`  drawRoute(r:Point[],enemy=false){if(!this.routeLayer)return;this.routeLayer.innerHTML='';if(r.length<2)return;const centres=r.map(p=>({x:p.x*CELL+CELL/2,y:p.y*CELL+CELL/2}));const first=centres[0],second=centres[1],last=centres[centres.length-1],prev=centres[centres.length-2];const sl=Math.hypot(second.x-first.x,second.y-first.y)||1;const start={x:first.x+(second.x-first.x)/sl*31,y:first.y+(second.y-first.y)/sl*31};const dx=last.x-prev.x,dy=last.y-prev.y,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,px=-uy,py=ux;const shaftEnd={x:last.x-ux*14,y:last.y-uy*14};const pts=[start,...centres.slice(1,-1),shaftEnd];const points=pts.map(p=>\`${'${p.x},${p.y}'}\`).join(' ');this.routeLayer.appendChild(svg('polyline',{points,class:\`route-line route-outline ${'${enemy?\'enemy\':\'\'}'}\`}));this.routeLayer.appendChild(svg('polyline',{points,class:\`route-line route-core ${'${enemy?\'enemy\':\'\'}'}\`}));const outerTip={x:last.x+ux*7,y:last.y+uy*7},outerBase={x:last.x-ux*24,y:last.y-uy*24};const outerPoints=\`${'${outerTip.x},${outerTip.y} ${outerBase.x+px*16},${outerBase.y+py*16} ${outerBase.x-px*16},${outerBase.y-py*16}'}\`;this.routeLayer.appendChild(svg('polygon',{points:outerPoints,class:\`route-head-outline ${'${enemy?\'enemy\':\'\'}'}\`}));const innerTip={x:last.x+ux*3,y:last.y+uy*3},innerBase={x:last.x-ux*20,y:last.y-uy*20};const innerPoints=\`${'${innerTip.x},${innerTip.y} ${innerBase.x+px*11.5},${innerBase.y+py*11.5} ${innerBase.x-px*11.5},${innerBase.y-py*11.5}'}\`;this.routeLayer.appendChild(svg('polygon',{points:innerPoints,class:\`route-head-core ${'${enemy?\'enemy\':\'\'}'}\`}));}`;
+    const newDraw=`  drawRoute(r:Point[],enemy=false){
+    if(!this.routeLayer)return;this.routeLayer.innerHTML='';if(r.length<2)return;
+    const centres=r.map(p=>({x:p.x*CELL+CELL/2,y:p.y*CELL+CELL/2}));
+    const first=centres[0],second=centres[1],last=centres[centres.length-1],prev=centres[centres.length-2];
+    const sl=Math.hypot(second.x-first.x,second.y-first.y)||1;
+    const start={x:first.x+(second.x-first.x)/sl*31,y:first.y+(second.y-first.y)/sl*31};
+    const dx=last.x-prev.x,dy=last.y-prev.y,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,px=-uy,py=ux;
+    const shaftEnd={x:last.x+ux*2,y:last.y+uy*2};
+    const pts=[start,...centres.slice(1,-1),shaftEnd],points=pts.map(p=>\`${'${p.x},${p.y}'}\`).join(' ');
+    const outerTip={x:last.x+ux*7,y:last.y+uy*7},outerBase={x:last.x-ux*24,y:last.y-uy*24};
+    const outerPoints=\`${'${outerTip.x},${outerTip.y} ${outerBase.x+px*16},${outerBase.y+py*16} ${outerBase.x-px*16},${outerBase.y-py*16}'}\`;
+    const innerTip={x:last.x+ux*3,y:last.y+uy*3},innerBase={x:last.x-ux*20,y:last.y-uy*20};
+    const innerPoints=\`${'${innerTip.x},${innerTip.y} ${innerBase.x+px*11.5},${innerBase.y+py*11.5} ${innerBase.x-px*11.5},${innerBase.y-py*11.5}'}\`;
+    this.routeLayer.appendChild(svg('polyline',{points,class:\`route-line route-outline ${'${enemy?\'enemy\':\'\'}'}\`}));
+    this.routeLayer.appendChild(svg('polygon',{points:outerPoints,class:\`route-head-outline ${'${enemy?\'enemy\':\'\'}'}\`}));
+    this.routeLayer.appendChild(svg('polyline',{points,class:\`route-line route-core ${'${enemy?\'enemy\':\'\'}'}\`}));
+    this.routeLayer.appendChild(svg('polygon',{points:innerPoints,class:\`route-head-core ${'${enemy?\'enemy\':\'\'}'}\`}));
+  }`;
     swap(oldDraw,newDraw,'route');
     return {code:next,map:null};
   }
