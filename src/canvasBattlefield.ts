@@ -7,7 +7,7 @@ mapArt.className='battlefield-map-art';
 mapArt.setAttribute('aria-hidden','true');
 mapArt.alt='';
 mapArt.decoding='async';
-mapArt.src=`${import.meta.env.BASE_URL}assets/tactical-background-hi.jpg`;
+mapArt.src=`${import.meta.env.BASE_URL}assets/battlefield.jpg`;
 const canvas=document.createElement('canvas');
 canvas.className='battlefield-canvas';
 canvas.setAttribute('aria-hidden','true');
