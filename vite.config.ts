@@ -1,4 +1,7 @@
 import { defineConfig } from 'vite';
+import { layoutPolish } from './vite-layout-polish';
+import { combatPolish } from './vite-combat-polish';
+import { dragPolish } from './vite-drag-polish';
 
 const gestureGuard = {
   name: 'gesture-guard',
@@ -27,7 +30,7 @@ const gestureGuard = {
     );
 
     const oldBind=`  bindSvgGestures(){if(!this.svg)return;const s=this.svg;s.onpointerdown=e=>{if((e.target as Element).closest('.unit-token'))return;this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});s.setPointerCapture(e.pointerId);if(this.pointers.size===2)this.beginGesture();};s.onpointermove=e=>{if(!this.pointers.has(e.pointerId))return;this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(this.pointers.size===2)this.updateGesture();};const end=(e:PointerEvent)=>{this.pointers.delete(e.pointerId);if(this.pointers.size<2)this.gestureStart=undefined;};s.onpointerup=end;s.onpointercancel=end;}`;
-    const newBind=`  bindSvgGestures(){if(!this.svg)return;const s=this.svg;s.onpointerdown=e=>{this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});try{s.setPointerCapture(e.pointerId);}catch{}if(this.pointers.size===2){this.gestureActive=true;this.gestureSuppressUntil=performance.now()+450;if(this.drag){this.drag=undefined;this.render();return;}this.beginGesture();}};s.onpointermove=e=>{if(!this.pointers.has(e.pointerId))return;this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(this.pointers.size===2){this.gestureActive=true;this.gestureSuppressUntil=performance.now()+450;this.updateGesture();}};const end=(e:PointerEvent)=>{this.pointers.delete(e.pointerId);if(this.pointers.size<2){if(this.gestureActive)this.gestureSuppressUntil=performance.now()+450;this.gestureActive=false;this.gestureStart=undefined;}};s.onpointerup=end;s.onpointercancel=end;}`;
+    const newBind=`  bindSvgGestures(){if(!this.svg)return;const s=this.svg;s.onpointerdown=e=>{if((e.target as Element).closest('.unit-token'))return;this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});try{s.setPointerCapture(e.pointerId);}catch{}if(this.pointers.size===2){this.gestureActive=true;this.gestureSuppressUntil=performance.now()+500;this.beginGesture();}};s.onpointermove=e=>{if(!this.pointers.has(e.pointerId))return;this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(this.pointers.size===2){this.gestureActive=true;this.gestureSuppressUntil=performance.now()+500;this.updateGesture();}};const end=(e:PointerEvent)=>{this.pointers.delete(e.pointerId);if(this.pointers.size<2){if(this.gestureActive)this.gestureSuppressUntil=performance.now()+500;this.gestureActive=false;this.gestureStart=undefined;}};s.onpointerup=end;s.onpointercancel=end;}`;
     swap(oldBind,newBind,'gesture binding');
     return {code:next,map:null};
   }
@@ -35,6 +38,6 @@ const gestureGuard = {
 
 export default defineConfig({
   base: '/Tactics/',
-  plugins: [gestureGuard],
+  plugins: [gestureGuard, combatPolish, dragPolish, layoutPolish],
   build: { outDir: 'build', emptyOutDir: true }
 });
