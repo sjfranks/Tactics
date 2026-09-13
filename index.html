@@ -12,11 +12,6 @@
       <section class="battlefield-viewport">
         <div id="battlefield-frame" class="battlefield-frame"><div id="battlefield" class="battlefield" aria-label="Tactical battlefield"></div></div>
 
-        <div class="round-banner" aria-live="polite">
-          <strong>Round <span id="round-number">1</span></strong>
-          <span id="turn-label">Rolling initiative…</span>
-        </div>
-
         <div id="combat-forecast" class="combat-forecast" role="button" tabindex="-1" hidden>
           <strong>ATTACK</strong><span id="forecast-matchup"></span><b id="forecast-result"></b>
         </div>
@@ -25,6 +20,11 @@
           <div class="ability-menu-title">Actions</div>
           <button id="heal-action" type="button"><span class="ability-icon">✚</span><span><strong>Heal</strong><small>Restore 2 HP</small></span><b>1</b></button>
           <button id="defend-action" type="button"><span class="ability-icon shield">◆</span><span><strong>Defend</strong><small>-1 damage from next attack</small></span><b>1</b></button>
+        </div>
+
+        <div id="combat-log-panel" class="combat-log-panel" hidden>
+          <div class="combat-log-heading"><strong>Combat Log</strong><button id="log-close" type="button" aria-label="Close combat log">×</button></div>
+          <div id="combat-log-list" class="combat-log-list"></div>
         </div>
 
         <div id="result-overlay" class="result-overlay" hidden>
@@ -47,6 +47,7 @@
         </div>
 
         <div class="hud-right">
+          <button id="log-toggle" class="hud-circle" type="button" aria-label="Open combat log" aria-expanded="false" title="Combat log">≡</button>
           <button id="ability-menu-toggle" class="hud-circle" type="button" aria-label="Open actions" aria-expanded="false" title="Actions">✦</button>
           <button id="stats-toggle" class="hud-circle" type="button" aria-label="Show selected unit stats" aria-expanded="false" title="Stats">☷</button>
         </div>
@@ -55,7 +56,6 @@
           <div id="initiative-rail" class="initiative-rail" role="list"></div>
         </div>
       </section>
-
       <p class="sr-only" id="instruction" aria-live="polite"></p>
     </main>
 
