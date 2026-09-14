@@ -13,7 +13,7 @@ export const dragPolish={
     const newDraw=`  drawRoute(r:Point[],enemy=false,target?:Point){
     if(!this.routeLayer)return;this.routeLayer.innerHTML='';if(r.length<2)return;
     const centres=r.map(p=>({x:p.x*CELL+CELL/2,y:p.y*CELL+CELL/2}));
-    const first=centres[0],second=centres[1],lastRoute=centres[centres.length-1],targetCentre=target?{x:(target.x+.5)*CELL,y:(target.y+.5)*CELL}:undefined,aimDx=targetCentre?targetCentre.x-lastRoute.x:0,aimDy=targetCentre?targetCentre.y-lastRoute.y:0,aimLen=Math.hypot(aimDx,aimDy)||1,aimUx=aimDx/aimLen,aimUy=aimDy/aimLen,end=targetCentre?{x:targetCentre.x-aimUx*(CELL/2+4),y:targetCentre.y-aimUy*(CELL/2+4)}:lastRoute,prev=target?lastRoute:centres[centres.length-2];
+    const first=centres[0],second=centres[1],lastRoute=centres[centres.length-1],targetCentre=target?{x:(target.x+.5)*CELL,y:(target.y+.5)*CELL}:undefined,aimDx=targetCentre?targetCentre.x-lastRoute.x:0,aimDy=targetCentre?targetCentre.y-lastRoute.y:0,aimLen=Math.hypot(aimDx,aimDy)||1,aimUx=aimDx/aimLen,aimUy=aimDy/aimLen,end=targetCentre?{x:lastRoute.x+aimUx*(CELL/2-7),y:lastRoute.y+aimUy*(CELL/2-7)}:lastRoute,prev=target?lastRoute:centres[centres.length-2];
     const sl=Math.hypot(second.x-first.x,second.y-first.y)||1,start={x:first.x+(second.x-first.x)/sl*5,y:first.y+(second.y-first.y)/sl*5};
     const dx=end.x-prev.x,dy=end.y-prev.y,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,px=-uy,py=ux,shaftEnd={x:end.x-ux*3,y:end.y-uy*3};
     const pathPoints=target?[start,...centres.slice(1),shaftEnd]:[start,...centres.slice(1,-1),shaftEnd],radius=4;
