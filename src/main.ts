@@ -16,14 +16,14 @@ const NS='http://www.w3.org/2000/svg';
 const START_PARTY={x:15,y:24};
 const RIVER_TERRAIN:Point[]=[];
 for(let y=0;y<32;y++){
-  if(y>=14&&y<=16)continue;
-  const bank=y<14?22:y<21?20:y<25?19:y<28?17:15;
+  if(y>=13&&y<=14)continue;
+  const bank=y<13?19:y<21?21:y<24?20:y<27?18:y<30?15:12;
   for(let x=bank;x<24;x++)RIVER_TERRAIN.push({x,y});
 }
 const PROTOTYPES:Record<Mode,Prototype>={
   tactical:{cols:24,rows:32,obstacles:RIVER_TERRAIN,units:[
-    {id:'alden',name:'Alden',team:'player',x:23,y:15,hp:5,maxHp:5,damage:2,initiativeMod:2},
-    {id:'mira',name:'Mira',team:'player',x:23,y:16,hp:4,maxHp:4,damage:2,initiativeMod:4},
+    {id:'alden',name:'Alden',team:'player',x:23,y:13,hp:5,maxHp:5,damage:2,initiativeMod:2},
+    {id:'mira',name:'Mira',team:'player',x:23,y:14,hp:4,maxHp:4,damage:2,initiativeMod:4},
     {id:'raider-1',name:'Goblin Raider',team:'enemy',x:7,y:5,hp:3,maxHp:3,damage:1,initiativeMod:1},
     {id:'raider-2',name:'Goblin Skirmisher',team:'enemy',x:13,y:9,hp:3,maxHp:3,damage:1,initiativeMod:0},
     {id:'raider-3',name:'Goblin Archer',team:'enemy',x:9,y:18,hp:3,maxHp:3,damage:1,initiativeMod:3},
@@ -78,6 +78,7 @@ class Game{
 
   bindGlobal(){
     ui.forecast.addEventListener('pointerup',e=>{e.preventDefault();e.stopPropagation();void this.confirmAttack();});
+    ui.forecast.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();void this.confirmAttack();}});
     ui.undo.addEventListener('click',()=>this.undo());
     ui.utilityToggle.addEventListener('click',()=>{const open=ui.utilityPanel.hidden;ui.utilityPanel.hidden=!open;ui.utilityToggle.setAttribute('aria-expanded',String(open));ui.utilityToggle.classList.toggle('open',open);});
     ui.actionToggle.addEventListener('click',()=>{const open=ui.actionPanel.hidden;ui.actionPanel.hidden=!open;ui.actionToggle.setAttribute('aria-expanded',String(open));});
@@ -124,6 +125,7 @@ class Game{
     this.paintHighlights(highlights);
     for(const o of this.obstacles){const g=svg('g',{transform:`translate(${o.x*CELL+CELL/2} ${o.y*CELL+CELL/2})`,class:'obstacle'});g.append(svg('circle',{r:24}),svg('circle',{r:14,class:'obstacle-core'}));const t=svg('text',{x:0,y:7,'text-anchor':'middle'});t.textContent='✦';g.appendChild(t);props.appendChild(g);}
     if(this.gameMode==='combat')this.living().forEach(u=>tokens.appendChild(this.makeToken(u)));else tokens.appendChild(this.makePartyToken());
+    this.paintAttackIntent();
     this.applyCamera();this.syncUI();this.layout();this.bindSvgGestures();
   }
 
@@ -154,6 +156,14 @@ class Game{
     if(!this.isActivePlayer(s)||!this.hasAction(s))return;this.reachable(s,MOVE).forEach(p=>{if(p.x!==s.x||p.y!==s.y)add(p,'move-range');});this.living('enemy').forEach(e=>{if(this.canAttack(s,e))add(e,'attack-range');});
   }
 
+  paintAttackIntent(){
+    if(!this.routeLayer||!this.pendingAttack)return;const a=this.unit(this.pendingAttack.actorId),t=this.unit(this.pendingAttack.targetId);if(!a||!t)return;
+    const from={x:(a.x+.5)*CELL,y:(a.y+.5)*CELL},to={x:(t.x+.5)*CELL,y:(t.y+.5)*CELL},dx=to.x-from.x,dy=to.y-from.y,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,px=-uy,py=ux;
+    const start={x:from.x+ux*30,y:from.y+uy*30},tip={x:to.x-ux*31,y:to.y-uy*31},base={x:tip.x-ux*18,y:tip.y-uy*18};
+    this.routeLayer.append(svg('line',{x1:start.x,y1:start.y,x2:base.x+ux*3,y2:base.y+uy*3,class:'attack-intent-outline'}),svg('polygon',{points:`${tip.x},${tip.y} ${base.x+px*11},${base.y+py*11} ${base.x-px*11},${base.y-py*11}`,class:'attack-intent-head-outline'}),svg('line',{x1:start.x,y1:start.y,x2:base.x+ux*3,y2:base.y+uy*3,class:'attack-intent-core'}),svg('polygon',{points:`${tip.x-ux*3},${tip.y-uy*3} ${base.x+px*7},${base.y+py*7} ${base.x-px*7},${base.y-py*7}`,class:'attack-intent-head-core'}),svg('circle',{cx:to.x,cy:to.y,r:34,class:'attack-target-ring'}));
+    const damage=Math.max(0,a.damage-(t.defending?1:0)),badge=svg('g',{transform:`translate(${to.x+24} ${to.y-27})`,class:'attack-damage-badge'});badge.append(svg('rect',{x:-20,y:-13,width:40,height:26,rx:13}),svg('text',{x:0,y:6,'text-anchor':'middle'}));(badge.lastChild as SVGTextElement).textContent=`−${damage}`;this.routeLayer.appendChild(badge);
+  }
+
   beginDrag(e:PointerEvent,u:Unit,g:SVGGElement){if(!this.isActivePlayer(u)||!this.hasAction(u)||this.busy)return;e.stopPropagation();g.setPointerCapture(e.pointerId);this.drag={id:u.id,pointerId:e.pointerId,origin:{x:u.x,y:u.y},token:g};this.selectedId=u.id;g.classList.add('dragging');const move=(ev:PointerEvent)=>{if(!this.drag||ev.pointerId!==this.drag.pointerId)return;const p=this.svgPoint(ev.clientX,ev.clientY);g.setAttribute('transform',`translate(${p.x} ${p.y})`);const d={x:Math.floor(p.x/CELL),y:Math.floor(p.y/CELL)};const r=this.findRoute(u,d,u.id);this.drawRoute(r.length>1&&r.length-1<=MOVE?r:[]);};const up=(ev:PointerEvent)=>{g.removeEventListener('pointermove',move);g.removeEventListener('pointerup',up);g.classList.remove('dragging');const p=this.svgPoint(ev.clientX,ev.clientY),d={x:Math.floor(p.x/CELL),y:Math.floor(p.y/CELL)},target=this.at(d.x,d.y);this.drag=undefined;if(target?.team==='enemy'&&this.canAttack(u,target)){this.previewAttack(u,target);return;}const r=this.findRoute(u,d,u.id);if(r.length>1&&r.length-1<=MOVE&&!target)void this.moveActive(u,r);else this.render();};g.addEventListener('pointermove',move);g.addEventListener('pointerup',up);}
 
   beginPartyDrag(e:PointerEvent,g:SVGGElement){e.stopPropagation();g.setPointerCapture(e.pointerId);this.drag={id:'party',pointerId:e.pointerId,origin:{...this.party},token:g};const move=(ev:PointerEvent)=>{if(!this.drag||ev.pointerId!==this.drag.pointerId)return;const p=this.svgPoint(ev.clientX,ev.clientY);g.setAttribute('transform',`translate(${p.x} ${p.y})`);};const up=(ev:PointerEvent)=>{g.removeEventListener('pointermove',move);g.removeEventListener('pointerup',up);const p=this.svgPoint(ev.clientX,ev.clientY),d={x:Math.floor(p.x/CELL),y:Math.floor(p.y/CELL)};this.drag=undefined;void this.moveParty(d);};g.addEventListener('pointermove',move);g.addEventListener('pointerup',up);}
@@ -175,7 +185,7 @@ class Game{
   handleUnit(id:string){if(this.busy||this.gameOver||this.gameMode!=='combat')return;const t=this.unit(id);if(!t)return;const a=this.active();if(this.pendingAttack&&id===this.pendingAttack.targetId){void this.confirmAttack();return;}if(a?.team==='player'&&t.team==='enemy'&&this.canAttack(a,t)){this.previewAttack(a,t);return;}this.pendingAttack=undefined;this.hideForecast();this.selectedId=id;this.render();}
 
   canAttack(a:Unit,t:Unit){return this.hasAction(a)&&a.team!==t.team&&this.distance(a,t)===1;}
-  previewAttack(a:Unit,t:Unit){if(!this.canAttack(a,t))return;this.pendingAttack={actorId:a.id,targetId:t.id};this.selectedId=t.id;const dmg=Math.max(0,a.damage-(t.defending?1:0));ui.matchup.textContent=`${a.name} → ${t.name}`;ui.forecastResult.textContent=`${dmg} damage · tap here or target to attack`;ui.forecast.hidden=false;this.render();}
+  previewAttack(a:Unit,t:Unit){if(!this.canAttack(a,t))return;this.pendingAttack={actorId:a.id,targetId:t.id};this.selectedId=t.id;const dmg=Math.max(0,a.damage-(t.defending?1:0));ui.matchup.textContent=`${a.name} → ${t.name}`;ui.forecastResult.textContent=`${dmg} DMG · TAP TO CONFIRM`;ui.forecast.hidden=false;this.render();}
   hideForecast(){ui.forecast.hidden=true;}
   async confirmAttack(){const p=this.pendingAttack;if(!p||this.busy)return;const a=this.unit(p.actorId),t=this.unit(p.targetId);if(!a||!t)return;this.pendingAttack=undefined;this.hideForecast();await this.attack(a,t);}
 
