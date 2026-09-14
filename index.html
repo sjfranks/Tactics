@@ -46,11 +46,14 @@
           <button id="utility-toggle" class="hud-circle utility-toggle" type="button" aria-label="Show game controls" aria-expanded="false" title="Controls">⌃</button>
         </div>
 
-        <div id="action-bar" class="action-bar" role="toolbar" aria-label="Actions for the active character" hidden>
-          <button id="melee-action" class="action-choice" type="button" aria-pressed="false"><span aria-hidden="true">⚔</span><b>Melee</b></button>
-          <button id="ranged-action" class="action-choice" type="button" aria-pressed="false"><span aria-hidden="true">➳</span><b>Ranged</b></button>
-          <button id="heal-action" class="action-choice" type="button" aria-pressed="false"><span aria-hidden="true">✚</span><b>Heal</b></button>
-          <button id="defend-action" class="action-choice" type="button"><span aria-hidden="true">⬟</span><b>Defend</b></button>
+        <div class="hud-right">
+          <div id="action-bar" class="action-bar" role="toolbar" aria-label="Actions for the active character" hidden>
+            <button id="melee-action" class="action-choice" type="button" aria-pressed="false"><span aria-hidden="true">⚔</span><b>Melee</b></button>
+            <button id="ranged-action" class="action-choice" type="button" aria-pressed="false"><span aria-hidden="true">➳</span><b>Ranged</b></button>
+            <button id="heal-action" class="action-choice" type="button" aria-pressed="false"><span aria-hidden="true">✚</span><b>Heal</b></button>
+            <button id="defend-action" class="action-choice" type="button"><span aria-hidden="true">⬟</span><b>Defend</b></button>
+          </div>
+          <button id="action-toggle" class="hud-circle action-toggle" type="button" aria-label="Show character actions" aria-expanded="false" title="Actions">⚔</button>
         </div>
 
         <div class="initiative-dock" aria-label="Initiative order">
@@ -76,6 +79,5 @@
 
     <script type="module" src="/src/main.ts"></script>
     <script type="module" src="/src/canvasBattlefield.ts"></script>
-    <script type="module" src="/src/artSkin.ts"></script>
   </body>
 </html>
