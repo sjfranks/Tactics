@@ -21,12 +21,12 @@ export const dragPolish={
     for(let i=1;i<pathPoints.length-1;i++){const before=pathPoints[i-1],corner=pathPoints[i],after=pathPoints[i+1],aLen=Math.hypot(corner.x-before.x,corner.y-before.y)||1,bLen=Math.hypot(after.x-corner.x,after.y-corner.y)||1,r=Math.min(radius,aLen/2,bLen/2),enter={x:corner.x-(corner.x-before.x)/aLen*r,y:corner.y-(corner.y-before.y)/aLen*r},exit={x:corner.x+(after.x-corner.x)/bLen*r,y:corner.y+(after.y-corner.y)/bLen*r};path+=' L '+enter.x+' '+enter.y+' Q '+corner.x+' '+corner.y+' '+exit.x+' '+exit.y;}
     path+=' L '+shaftEnd.x+' '+shaftEnd.y;
     const outerTip={x:last.x+ux*4,y:last.y+uy*4},outerBase={x:last.x-ux*6,y:last.y-uy*6},innerTip={x:last.x+ux*2.8,y:last.y+uy*2.8},innerBase={x:last.x-ux*5.4,y:last.y-uy*5.4};
-    const outerPoints=`${'${outerTip.x}'},${'${outerTip.y}'} ${'${outerBase.x+px*5}'},${'${outerBase.y+py*5}'} ${'${outerBase.x-px*5}'},${'${outerBase.y-py*5}'}`,innerPoints=`${'${innerTip.x}'},${'${innerTip.y}'} ${'${innerBase.x+px*3.5}'},${'${innerBase.y+py*3.5}'} ${'${innerBase.x-px*3.5}'},${'${innerBase.y-py*3.5}'}`;
-    this.routeLayer.appendChild(svg('path',{d:path,class:`route-line route-outline ${'${enemy?\'enemy\':\'\'}'}`}));
-    this.routeLayer.appendChild(svg('polygon',{points:outerPoints,class:`route-head-outline ${'${enemy?\'enemy\':\'\'}'}`}));
-    this.routeLayer.appendChild(svg('path',{d:path,class:`route-line route-core ${'${enemy?\'enemy\':\'\'}'}`}));
-    this.routeLayer.appendChild(svg('polygon',{points:innerPoints,class:`route-head-core ${'${enemy?\'enemy\':\'\'}'}`}));
-    this.routeLayer.appendChild(svg('path',{d:path,class:`route-line route-shine ${'${enemy?\'enemy\':\'\'}'}`}));
+    const outerPoints=outerTip.x+','+outerTip.y+' '+(outerBase.x+px*5)+','+(outerBase.y+py*5)+' '+(outerBase.x-px*5)+','+(outerBase.y-py*5),innerPoints=innerTip.x+','+innerTip.y+' '+(innerBase.x+px*3.5)+','+(innerBase.y+py*3.5)+' '+(innerBase.x-px*3.5)+','+(innerBase.y-py*3.5);
+    this.routeLayer.appendChild(svg('path',{d:path,class:'route-line route-outline '+(enemy?'enemy':'')}));
+    this.routeLayer.appendChild(svg('polygon',{points:outerPoints,class:'route-head-outline '+(enemy?'enemy':'')}));
+    this.routeLayer.appendChild(svg('path',{d:path,class:'route-line route-core '+(enemy?'enemy':'')}));
+    this.routeLayer.appendChild(svg('polygon',{points:innerPoints,class:'route-head-core '+(enemy?'enemy':'')}));
+    this.routeLayer.appendChild(svg('path',{d:path,class:'route-line route-shine '+(enemy?'enemy':'')}));
   }`;
     swap(oldDraw,newDraw,'route');
     return {code:next,map:null};
