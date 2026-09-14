@@ -9,10 +9,11 @@ const tiles=Array.from({length:TACTICAL_ROWS},(_,y)=>
 
 const paint=(tile:number,points:MapPoint[])=>points.forEach(({x,y})=>{tiles[y][x]=tile;});
 
-// A north-gate ruin, central flagstone yard, and south approach. Tiles 8–15 are solid scenery.
-paint(5,Array.from({length:16},(_,y)=>({x:5,y})));
-paint(5,Array.from({length:16},(_,y)=>({x:6,y})));
-paint(7,Array.from({length:4},(_,dy)=>Array.from({length:6},(_,dx)=>({x:3+dx,y:6+dy}))).flat());
+// A north-gate ruin, central flagstone yard, and south approach. Only tiles 0–3
+// are used for walkable ground; tiles 8–15 are unambiguously solid scenery.
+paint(2,Array.from({length:16},(_,y)=>({x:5,y})));
+paint(2,Array.from({length:16},(_,y)=>({x:6,y})));
+paint(3,Array.from({length:4},(_,dy)=>Array.from({length:6},(_,dx)=>({x:3+dx,y:6+dy}))).flat());
 paint(8,[2,3,4,7,8,9].map(x=>({x,y:2})));
 paint(9,[{x:2,y:3},{x:9,y:3}]);
 paint(10,[{x:2,y:4},{x:9,y:4},{x:3,y:11},{x:8,y:11}]);
