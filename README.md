@@ -28,7 +28,7 @@ Vite writes the production site to `build/`. GitHub Actions builds and deploys i
 - `index.html` — application shell and HTML HUD
 - `vite.config.ts` / `tsconfig.json` — web build and type checking
 
-The 6×8 tactical battle is the default mode. SVG owns the battlefield, keeping grid geometry resolution-independent and allowing future PNG/WebP pixel art or painterly character artwork to be embedded without changing the renderer. The 30×30 exploration prototype remains available from Settings and transitions into tactical combat when enemies are encountered.
+The 12×16 tactical battle is the default mode. SVG owns the battlefield, keeping grid geometry resolution-independent while a painterly WebP map and portrait tokens are drawn beneath it. The 30×30 exploration prototype remains available from Settings and transitions into tactical combat when enemies are encountered.
 
 ## iOS path
 

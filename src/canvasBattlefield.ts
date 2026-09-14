@@ -3,7 +3,7 @@ const frame=document.querySelector<HTMLElement>('#battlefield-frame')!;
 const mapArt=document.createElement('img');
 mapArt.className='battlefield-map-art';
 mapArt.setAttribute('aria-hidden','true');mapArt.alt='';mapArt.decoding='async';
-mapArt.src=`${import.meta.env.BASE_URL}assets/battlefield.webp`;
+mapArt.src=`${import.meta.env.BASE_URL}assets/battlefield-12x16.webp`;
 const canvas=document.createElement('canvas');canvas.className='battlefield-canvas';canvas.setAttribute('aria-hidden','true');
 frame.prepend(canvas);frame.prepend(mapArt);
 
