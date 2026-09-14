@@ -14,13 +14,7 @@
         <div id="battlefield-frame" class="battlefield-frame"><div id="battlefield" class="battlefield" aria-label="Tactical battlefield"></div></div>
 
         <div id="combat-forecast" class="combat-forecast" role="button" tabindex="0" aria-label="Confirm attack" hidden>
-          <strong aria-hidden="true">⚔</strong><span id="forecast-matchup"></span><b id="forecast-result"></b>
-        </div>
-
-        <div id="ability-menu-panel" class="ability-menu-panel" hidden>
-          <div class="ability-menu-title">Actions</div>
-          <button id="heal-action" type="button"><span class="ability-icon">✚</span><span><strong>Heal</strong><small>Restore 2 HP</small></span><b>1</b></button>
-          <button id="defend-action" type="button"><span class="ability-icon shield">◆</span><span><strong>Defend</strong><small>-1 damage from next attack</small></span><b>1</b></button>
+          <strong id="forecast-icon" aria-hidden="true">⚔</strong><span id="forecast-matchup"></span><b id="forecast-result"></b>
         </div>
 
         <div id="combat-log-panel" class="combat-log-panel" hidden>
@@ -52,8 +46,11 @@
           <button id="utility-toggle" class="hud-circle utility-toggle" type="button" aria-label="Show game controls" aria-expanded="false" title="Controls">⌃</button>
         </div>
 
-        <div class="hud-right">
-          <button id="ability-menu-toggle" class="hud-circle" type="button" aria-label="Open actions" aria-expanded="false" title="Actions">✦</button>
+        <div id="action-bar" class="action-bar" role="toolbar" aria-label="Character actions" hidden>
+          <button id="melee-action" class="action-choice" type="button" aria-pressed="false"><span aria-hidden="true">⚔</span><b>Melee</b></button>
+          <button id="ranged-action" class="action-choice" type="button" aria-pressed="false"><span aria-hidden="true">➳</span><b>Ranged</b></button>
+          <button id="heal-action" class="action-choice" type="button" aria-pressed="false"><span aria-hidden="true">✚</span><b>Heal</b></button>
+          <button id="defend-action" class="action-choice" type="button"><span aria-hidden="true">⬟</span><b>Defend</b></button>
         </div>
 
         <div class="initiative-dock" aria-label="Initiative order">

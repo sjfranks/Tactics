@@ -50,10 +50,12 @@ function highlights(c:CanvasRenderingContext2D,svg:SVGSVGElement){
  playerThreat(c,svg);
  const defs:Record<string,[string,string,'corners'|'dashed'|'fill']>={
   'move-range':['rgba(35,132,184,.11)','rgba(108,211,255,.64)','corners'],
+  'weapon-range':['rgba(92,43,12,.12)','rgba(244,170,87,.56)','corners'],
   'attack-range':['rgba(69,6,14,.38)','rgba(239,72,80,.76)','corners'],
   'enemy-range':['rgba(68,7,16,.28)','rgba(226,72,82,.62)','corners'],
   'enemy-threat':['rgba(91,35,17,.13)','rgba(211,111,67,.24)','fill'],
-  'spell-range':['rgba(88,52,145,.14)','rgba(199,163,244,.62)','dashed']
+  'spell-range':['rgba(88,52,145,.14)','rgba(199,163,244,.62)','dashed'],
+  'heal-target':['rgba(25,105,53,.28)','rgba(123,235,151,.76)','corners']
  };
  for(const [cls,p] of Object.entries(defs))for(const el of svg.querySelectorAll<SVGRectElement>(`.${cls}`))rangeCell(c,n(el,'x'),n(el,'y'),n(el,'width'),n(el,'height'),p[0],p[1],p[2]);
 }
