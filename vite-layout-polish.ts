@@ -72,6 +72,13 @@ html:not([data-skin="classic"]) .combat-float{font-family:Georgia,serif!importan
 .route-head-core{fill:rgba(50,196,235,.86)!important}
 .route-outline.enemy{stroke:rgba(255,235,232,.96)!important}.route-core.enemy{stroke:rgba(230,70,82,.82)!important}.route-shine.enemy{stroke:rgba(255,232,226,.72)}.route-head-outline.enemy{fill:rgba(255,235,232,.98)!important}.route-head-core.enemy{fill:rgba(230,70,82,.9)!important}
 
+/* Single translucent route ribbon: isolated v2 classes avoid legacy vector artefacts. */
+.route-border-v2,.route-ribbon-v2{fill:none;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.route-border-v2{stroke:rgba(18,73,132,.42);stroke-width:5.5;filter:drop-shadow(0 0 1.5px rgba(30,188,229,.42))}
+.route-ribbon-v2{stroke:rgba(51,196,232,.64);stroke-width:4}
+.route-head-v2{fill:rgba(51,196,232,.68);stroke:rgba(191,246,255,.72);stroke-width:.65;stroke-linejoin:round;pointer-events:none;filter:drop-shadow(0 0 1px rgba(30,188,229,.4))}
+.route-border-v2.enemy{stroke:rgba(116,33,53,.38)}.route-ribbon-v2.enemy{stroke:rgba(225,70,84,.6)}.route-head-v2.enemy{fill:rgba(225,70,84,.66);stroke:rgba(255,213,207,.65)}
+
 `,map:null};
   }
 };

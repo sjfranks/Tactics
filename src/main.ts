@@ -8,7 +8,7 @@ type CameraMode='clean'|'follow';
 type TargetingMode='attack'|'heal';
 type Point={x:number;y:number};
 type Unit=Point&{id:string;name:string;team:Team;hp:number;maxHp:number;damage:number;initiativeMod:number;initiativeScore:number;actionsUsed:number;defending:boolean};
-type Snapshot={units:Unit[];selectedId:string;round:number;activeIndex:number};
+type Snapshot={units:Unit[];selectedId:string;round:number;activeIndex:number;logEntries:string[]};
 type PendingAttack={actorId:string;targetId:string;kind:'melee'|'ranged'};
 
 type Prototype={cols:number;rows:number;obstacles:Point[];units:Array<Omit<Unit,'initiativeScore'|'actionsUsed'|'defending'>>};
@@ -106,17 +106,16 @@ class Game{
     if(this.gameOver||this.gameMode!=='combat')return;
     while(this.activeIndex<this.turnOrder.length&&!this.unit(this.turnOrder[this.activeIndex]))this.activeIndex++;
     if(this.activeIndex>=this.turnOrder.length){this.round++;this.activeIndex=0;this.living().forEach(u=>u.actionsUsed=0);this.log(`Round ${this.round} begins.`);while(this.activeIndex<this.turnOrder.length&&!this.unit(this.turnOrder[this.activeIndex]))this.activeIndex++;}
-    const a=this.active();if(!a)return;a.actionsUsed=0;this.selectedId=a.id;this.pendingAttack=undefined;this.targetingMode=undefined;this.history=[];this.actionsOpen=false;this.hideForecast();if(this.cameraMode==='follow')this.centerCamera((a.x+.5)*CELL,(a.y+.5)*CELL);this.render();this.message(`${a.name}'s turn.`);
+    const a=this.active();if(!a)return;a.actionsUsed=0;this.selectedId=a.id;this.pendingAttack=undefined;this.targetingMode=undefined;this.actionsOpen=false;this.hideForecast();if(this.cameraMode==='follow')this.centerCamera((a.x+.5)*CELL,(a.y+.5)*CELL);this.render();this.message(`${a.name}'s turn.`);
     if(a.team==='enemy')this.schedule(420,()=>void this.runEnemy());
   }
 
-  finishTurn(){if(this.gameOver)return;this.clearTimers();this.pendingAttack=undefined;this.targetingMode=undefined;this.actionsOpen=false;this.hideForecast();this.activeIndex++;this.history=[];this.schedule(220,()=>this.beginTurn());}
+  finishTurn(){if(this.gameOver)return;this.clearTimers();this.pendingAttack=undefined;this.targetingMode=undefined;this.actionsOpen=false;this.hideForecast();this.activeIndex++;this.schedule(220,()=>this.beginTurn());}
   maybeFinish(u:Unit){if(u.actionsUsed>=ACTIONS)this.schedule(320,()=>this.finishTurn());}
 
   render(){
     const w=this.cols*CELL,h=this.rows*CELL;ui.battlefield.innerHTML='';
     const s=svg('svg',{class:'game-board',viewBox:`0 0 ${w} ${h}`,preserveAspectRatio:'xMidYMin meet','aria-label':this.gameMode==='combat'?`${this.cols} by ${this.rows} tactical battlefield`:'exploration map'});s.style.aspectRatio=`${this.cols} / ${this.rows}`;
-    const defs=svg('defs');const marker=svg('marker',{id:'route-arrow',markerWidth:12,markerHeight:12,refX:9,refY:6,orient:'auto',markerUnits:'strokeWidth'});marker.appendChild(svg('path',{d:'M 0 0 L 12 6 L 0 12 z',fill:'#78e5ff'}));defs.appendChild(marker);s.appendChild(defs);
     const world=svg('g',{class:'world'}),tiles=svg('g',{class:'tiles'}),highlights=svg('g',{class:'highlights'}),props=svg('g',{class:'props'}),route=svg('g',{class:'routes'}),tokens=svg('g',{class:'tokens'});world.append(tiles,highlights,props,route,tokens);s.appendChild(world);ui.battlefield.appendChild(s);this.svg=s;this.world=world;this.routeLayer=route;this.tokenLayer=tokens;
     for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++){
       const r=svg('rect',{x:x*CELL,y:y*CELL,width:CELL,height:CELL,class:`tile tile-${(x+y)%3}`,'data-x':x,'data-y':y});r.addEventListener('pointerup',e=>{if(this.gestureActive||performance.now()<this.gestureSuppressUntil)return;if((e.target as Element).closest('.unit-token'))return;void this.handleCell(x,y);});tiles.appendChild(r);
@@ -200,16 +199,16 @@ class Game{
   hideForecast(){ui.forecast.hidden=true;}
   async confirmAttack(){const p=this.pendingAttack;if(!p||this.busy)return;const a=this.unit(p.actorId),t=this.unit(p.targetId);if(!a||!t)return;this.pendingAttack=undefined;this.hideForecast();await this.attack(a,t,p.kind);}
 
-  record(){const a=this.active();if(a?.team==='player')this.history.push({units:this.units.map(u=>({...u})),selectedId:this.selectedId,round:this.round,activeIndex:this.activeIndex});}
-  undo(){const a=this.active();if(!a||a.team!=='player'||!this.history.length||this.busy)return;const s=this.history.pop()!;this.units=s.units.map(u=>({...u}));this.selectedId=s.selectedId;this.round=s.round;this.activeIndex=s.activeIndex;this.pendingAttack=undefined;this.targetingMode=undefined;this.hideForecast();this.render();this.message('Undid one action.');}
+  record(){const a=this.active();if(a?.team!=='player')return;const last=this.history[this.history.length-1];if(last?.round===this.round&&last.activeIndex===this.activeIndex)return;this.history.push({units:this.units.map(u=>({...u})),selectedId:this.selectedId,round:this.round,activeIndex:this.activeIndex,logEntries:[...this.logEntries]});if(this.history.length>20)this.history.shift();}
+  undo(){const a=this.active();if(!a||a.team!=='player'||!this.history.length||this.busy)return;this.clearTimers();const s=this.history.pop()!;this.units=s.units.map(u=>({...u}));this.selectedId=s.selectedId;this.round=s.round;this.activeIndex=s.activeIndex;this.logEntries=[...s.logEntries];this.pendingAttack=undefined;this.targetingMode=undefined;this.actionsOpen=false;this.busy=false;this.gameOver=false;ui.resultOverlay.hidden=true;this.hideForecast();this.renderLog();this.render();this.message(`Rewound to ${this.active()?.name??'the hero'}'s last decision.`);}
 
-  async moveActive(u:Unit,r:Point[]){if(!this.isActivePlayer(u)||!this.hasAction(u)||this.busy)return;this.record();this.busy=true;this.drawRoute(r);const g=this.tokenElement(u.id);if(g)await this.animateRoute(g,r,150);const d=r[r.length-1];u.x=d.x;u.y=d.y;u.actionsUsed=1;this.busy=false;this.actionsOpen=true;this.render();this.message('Choose an action.');}
-  async moveEnemy(u:Unit,r:Point[]){this.busy=true;this.drawRoute(r,true);const g=this.tokenElement(u.id);if(g)await this.animateRoute(g,r,145);const d=r[r.length-1];u.x=d.x;u.y=d.y;u.actionsUsed=1;this.busy=false;this.render();}
+  async moveActive(u:Unit,r:Point[]){if(!this.isActivePlayer(u)||!this.hasAction(u)||this.busy)return;this.record();u.defending=false;this.busy=true;this.drawRoute(r);const g=this.tokenElement(u.id);g?.querySelector('.shield-mark')?.remove();if(g)await this.animateRoute(g,r,150);const d=r[r.length-1];u.x=d.x;u.y=d.y;u.actionsUsed=1;this.busy=false;this.actionsOpen=true;this.render();this.message('Choose an action.');}
+  async moveEnemy(u:Unit,r:Point[]){u.defending=false;this.busy=true;this.drawRoute(r,true);const g=this.tokenElement(u.id);g?.querySelector('.shield-mark')?.remove();if(g)await this.animateRoute(g,r,145);const d=r[r.length-1];u.x=d.x;u.y=d.y;u.actionsUsed=1;this.busy=false;this.render();}
   animateRoute(g:SVGGElement,r:Point[],stepMs:number){return (async()=>{for(const p of r.slice(1)){const start=this.tokenTranslation(g),end={x:p.x*CELL+CELL/2,y:p.y*CELL+CELL/2};await this.tween(stepMs,t=>{const e=.5-.5*Math.cos(Math.PI*t),x=start.x+(end.x-start.x)*e,y=start.y+(end.y-start.y)*e;g.setAttribute('transform',`translate(${x} ${y})`);this.followToken(x,y);});}})();}
   tokenTranslation(g:SVGGElement){const tr=g.getAttribute('transform')||'';const m=/translate\(([-.\d]+)[ ,]([-.\d]+)\)/.exec(tr);return{x:m?Number(m[1]):0,y:m?Number(m[2]):0};}
   tween(ms:number,update:(t:number)=>void){return new Promise<void>(resolve=>{const start=performance.now();const frame=(now:number)=>{const t=Math.min(1,(now-start)/ms);update(t);if(t<1)requestAnimationFrame(frame);else resolve();};requestAnimationFrame(frame);});}
 
-  async attack(a:Unit,t:Unit,kind:'melee'|'ranged'='melee'){if(!this.canAttack(a,t,kind)||this.busy)return;if(a.team==='player')this.record();this.busy=true;const g=this.tokenElement(a.id);if(g){const start=this.tokenTranslation(g),target={x:t.x*CELL+CELL/2,y:t.y*CELL+CELL/2},dx=target.x-start.x,dy=target.y-start.y,len=Math.hypot(dx,dy)||1,lunge={x:start.x+dx/len*(kind==='ranged'?8:18),y:start.y+dy/len*(kind==='ranged'?8:18)};await this.tween(80,q=>g.setAttribute('transform',`translate(${start.x+(lunge.x-start.x)*q} ${start.y+(lunge.y-start.y)*q})`));await this.tween(90,q=>g.setAttribute('transform',`translate(${lunge.x+(start.x-lunge.x)*q} ${lunge.y+(start.y-lunge.y)*q})`));}
+  async attack(a:Unit,t:Unit,kind:'melee'|'ranged'='melee'){if(!this.canAttack(a,t,kind)||this.busy)return;if(a.team==='player')this.record();a.defending=false;this.busy=true;const g=this.tokenElement(a.id);g?.querySelector('.shield-mark')?.remove();if(g){const start=this.tokenTranslation(g),target={x:t.x*CELL+CELL/2,y:t.y*CELL+CELL/2},dx=target.x-start.x,dy=target.y-start.y,len=Math.hypot(dx,dy)||1,lunge={x:start.x+dx/len*(kind==='ranged'?8:18),y:start.y+dy/len*(kind==='ranged'?8:18)};await this.tween(80,q=>g.setAttribute('transform',`translate(${start.x+(lunge.x-start.x)*q} ${start.y+(lunge.y-start.y)*q})`));await this.tween(90,q=>g.setAttribute('transform',`translate(${lunge.x+(start.x-lunge.x)*q} ${lunge.y+(start.y-lunge.y)*q})`));}
     const targetRect=this.tokenElement(t.id)?.getBoundingClientRect();a.actionsUsed=2;const dmg=this.attackDamage(a,t,kind);if(t.defending)t.defending=false;t.hp=Math.max(0,t.hp-dmg);this.log(`${a.name} uses ${kind} against ${t.name}: ${dmg} damage${t.hp<=0?' — defeated':''}.`);this.selectedId=a.id;this.targetingMode=undefined;this.actionsOpen=false;this.busy=false;this.checkGameOver();this.render();this.showFloatingNumber(t,`−${dmg}`,'damage',targetRect);if(!this.gameOver)this.maybeFinish(a);
   }
 
