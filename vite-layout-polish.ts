@@ -52,6 +52,16 @@ html:not([data-skin="classic"]) .combat-float{font-family:Georgia,serif!importan
 .battlefield-canvas,.game-board{image-rendering:auto!important}
 .drag-attack-cue circle{fill:#fff8e2;stroke:#183664;stroke-width:1.5}.drag-attack-cue text{fill:#b81f3e;font:700 6px/1 Georgia,serif}.drag-attack-cue.penalty circle{fill:#ffd59a;stroke:#8b3e27}.drag-attack-cue .penalty-note{fill:#fff;font:700 4px/1 system-ui,sans-serif;paint-order:stroke;stroke:#8b1f2c;stroke-width:2px}
 
+.battlefield-frame{border:0!important;box-shadow:none!important}
+.battlefield-viewport:after{content:'';position:absolute;z-index:20;left:0;right:0;bottom:0;height:104px;pointer-events:none;background:linear-gradient(180deg,rgba(6,14,28,.16) 0,rgba(5,13,28,.88) 22%,#030a17 100%);border-top:1px solid rgba(151,187,226,.32);box-shadow:0 -10px 24px rgba(1,7,17,.28)}
+.initiative-dock,html:not([data-skin="classic"]) .initiative-dock{top:auto!important;bottom:0!important;left:70px!important;right:70px!important;height:96px!important;border:0!important;background:transparent!important;box-shadow:none!important}
+.initiative-rail,html:not([data-skin="classic"]) .initiative-rail{height:96px!important;padding:16px calc(50% - 27px) 7px!important;gap:7px}
+.initiative-token,html:not([data-skin="classic"]) .initiative-token{margin-bottom:18px}
+.hud-left,.hud-right,html:not([data-skin="classic"]) .hud-left,html:not([data-skin="classic"]) .hud-right{bottom:max(13px,env(safe-area-inset-bottom))!important}
+.action-dot{display:none!important}.action-bar[data-team="enemy"] .action-choice{opacity:.72}.action-bar[data-team="enemy"] .action-choice:not(:disabled){opacity:1}
+.zoom-reset:disabled{opacity:.34}.zoom-reset:not(:disabled){opacity:1;filter:drop-shadow(0 0 5px rgba(82,196,255,.5))}
+@media (orientation:portrait){.battlefield-frame{border:0!important}.initiative-dock,html:not([data-skin="classic"]) .initiative-dock{left:70px!important;right:70px!important;height:96px!important}}
+
 `,map:null};
   }
 };
