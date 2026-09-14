@@ -6,7 +6,6 @@ type Mode='tactical'|'exploration';
 type GameMode='combat'|'explore';
 type CameraMode='clean'|'follow';
 type TargetingMode='ranged'|'heal';
-type Skin='emblem'|'classic';
 type Point={x:number;y:number};
 type Unit=Point&{id:string;name:string;team:Team;hp:number;maxHp:number;damage:number;initiativeMod:number;initiativeScore:number;actionsUsed:number;defending:boolean};
 type Snapshot={units:Unit[];selectedId:string;round:number;activeIndex:number};
@@ -14,12 +13,12 @@ type PendingAttack={actorId:string;targetId:string;kind:'melee'|'ranged'};
 
 type Prototype={cols:number;rows:number;obstacles:Point[];units:Array<Omit<Unit,'initiativeScore'|'actionsUsed'|'defending'>>};
 
-const CELL=16,MOVE=3,ACTIONS=2,HEAL=2,RANGED_RANGE=3,HEAL_RANGE=1,ENCOUNTER_DISTANCE=4,DEFAULT_TILES_WIDE=6,MIN_SCALE=1;
+const CELL=16,MOVE=3,ACTIONS=2,HEAL=2,RANGED_RANGE=2,HEAL_RANGE=1,ENCOUNTER_DISTANCE=4,DEFAULT_TILES_WIDE=6,MIN_SCALE=1;
 const NS='http://www.w3.org/2000/svg';
 const START_PARTY={x:15,y:24};
 const PROTOTYPES:Record<Mode,Prototype>={
   tactical:{cols:TACTICAL_COLS,rows:TACTICAL_ROWS,obstacles:TACTICAL_OBSTACLES,units:[
-    {id:'alden',name:'Alden',team:'player',x:2,y:7,hp:5,maxHp:5,damage:2,initiativeMod:2},
+    {id:'alden',name:'Aldren',team:'player',x:2,y:7,hp:5,maxHp:5,damage:2,initiativeMod:2},
     {id:'mira',name:'Mira',team:'player',x:3,y:7,hp:4,maxHp:4,damage:2,initiativeMod:4},
     {id:'raider-1',name:'Goblin Raider',team:'enemy',x:1,y:1,hp:3,maxHp:3,damage:1,initiativeMod:1},
     {id:'raider-2',name:'Goblin Skirmisher',team:'enemy',x:4,y:1,hp:3,maxHp:3,damage:1,initiativeMod:0},
@@ -27,7 +26,7 @@ const PROTOTYPES:Record<Mode,Prototype>={
     {id:'raider-4',name:'Goblin Brute',team:'enemy',x:4,y:4,hp:4,maxHp:4,damage:2,initiativeMod:-1}
   ]},
   exploration:{cols:30,rows:30,obstacles:[{x:15,y:18}],units:[
-    {id:'alden',name:'Alden',team:'player',x:14,y:20,hp:5,maxHp:5,damage:2,initiativeMod:2},
+    {id:'alden',name:'Aldren',team:'player',x:14,y:20,hp:5,maxHp:5,damage:2,initiativeMod:2},
     {id:'mira',name:'Mira',team:'player',x:16,y:21,hp:4,maxHp:4,damage:2,initiativeMod:4},
     {id:'raider-1',name:'Goblin Raider',team:'enemy',x:14,y:15,hp:3,maxHp:3,damage:1,initiativeMod:1},
     {id:'raider-2',name:'Goblin Skirmisher',team:'enemy',x:17,y:17,hp:3,maxHp:3,damage:1,initiativeMod:0}
@@ -40,7 +39,7 @@ const ui={
   undo:$('#undo-action') as HTMLButtonElement,utilityToggle:$('#utility-toggle') as HTMLButtonElement,utilityPanel:$('#utility-panel'),
   actionBar:$('#action-bar'),actionToggle:$('#action-toggle') as HTMLButtonElement,zoomReset:$('#zoom-reset') as HTMLButtonElement,ranged:$('#ranged-action') as HTMLButtonElement,heal:$('#heal-action') as HTMLButtonElement,defend:$('#defend-action') as HTMLButtonElement,
   statsToggle:$('#stats-toggle') as HTMLButtonElement,logToggle:$('#log-toggle') as HTMLButtonElement,logPanel:$('#combat-log-panel'),logList:$('#combat-log-list'),logClose:$('#log-close') as HTMLButtonElement,
-  restart:$('#restart') as HTMLButtonElement,restartOverlay:$('#restart-overlay') as HTMLButtonElement,tactical:$('#tactical-mode') as HTMLButtonElement,exploration:$('#exploration-mode') as HTMLButtonElement,skinEmblem:$('#skin-emblem') as HTMLButtonElement,skinClassic:$('#skin-classic') as HTMLButtonElement,settings:$('#settings-menu') as HTMLDetailsElement,
+  restart:$('#restart') as HTMLButtonElement,restartOverlay:$('#restart-overlay') as HTMLButtonElement,tactical:$('#tactical-mode') as HTMLButtonElement,exploration:$('#exploration-mode') as HTMLButtonElement,settings:$('#settings-menu') as HTMLDetailsElement,
   drawer:$('#unit-drawer'),selectedName:$('#selected-name'),selectedTeam:$('#selected-team'),health:$('#health-text'),attack:$('#attack-stat'),movement:$('#movement-stat'),initiative:$('#initiative-stat'),actions:$('#actions-stat'),portrait:$('#portrait'),
   resultOverlay:$('#result-overlay'),resultTitle:$('#result-title'),resultCopy:$('#result-copy'),forecast:$('#combat-forecast'),forecastIcon:$('#forecast-icon'),matchup:$('#forecast-matchup'),forecastResult:$('#forecast-result')
 };
@@ -52,7 +51,7 @@ function svg<K extends keyof SVGElementTagNameMap>(tag:K,attrs:Record<string,str
 }
 
 class Game{
-  mode:Mode='tactical';gameMode:GameMode='combat';cameraMode:CameraMode='clean';skin:Skin=(localStorage.getItem('tactics-skin')==='classic'?'classic':'emblem');
+  mode:Mode='tactical';gameMode:GameMode='combat';cameraMode:CameraMode='clean';
   cols=6;rows=8;obstacles:Point[]=[];units:Unit[]=[];party={...START_PARTY};
   selectedId='alden';round=1;turnOrder:string[]=[];activeIndex=0;gameOver=false;
   pendingAttack?:PendingAttack;targetingMode?:TargetingMode;history:Snapshot[]=[];logEntries:Array<{round:number;text:string}>=[];
@@ -61,7 +60,7 @@ class Game{
   drag?:{id:string;pointerId:number;origin:Point;token:SVGGElement};
   timerIds:number[]=[];busy=false;gestureActive=false;gestureSuppressUntil=0;actionsOpen=false;
 
-  constructor(){document.documentElement.dataset.skin=this.skin;this.reset('tactical');this.bindGlobal();}
+  constructor(){this.reset('tactical');this.bindGlobal();}
 
   reset(mode=this.mode){
     this.clearTimers();this.mode=mode;this.gameMode=mode==='exploration'?'explore':'combat';this.cameraMode=mode==='tactical'?'clean':'follow';this.scale=1;this.tx=0;this.ty=0;
@@ -82,11 +81,10 @@ class Game{
     ui.statsToggle.addEventListener('click',()=>{const open=ui.drawer.classList.toggle('open');ui.statsToggle.setAttribute('aria-expanded',String(open));});
     ui.logToggle.addEventListener('click',()=>{const open=ui.logPanel.hidden;ui.logPanel.hidden=!open;ui.logToggle.setAttribute('aria-expanded',String(open));this.renderLog();});ui.logClose.addEventListener('click',()=>this.closeLog());
     ui.restart.addEventListener('click',()=>{this.reset();ui.settings.open=false;});ui.restartOverlay.addEventListener('click',()=>this.reset());
-    ui.tactical.addEventListener('click',()=>{this.reset('tactical');ui.settings.open=false;});ui.exploration.addEventListener('click',()=>{this.reset('exploration');ui.settings.open=false;});ui.skinEmblem.addEventListener('click',()=>this.setSkin('emblem'));ui.skinClassic.addEventListener('click',()=>this.setSkin('classic'));
+    ui.tactical.addEventListener('click',()=>{this.reset('tactical');ui.settings.open=false;});ui.exploration.addEventListener('click',()=>{this.reset('exploration');ui.settings.open=false;});
     window.addEventListener('resize',()=>this.layout());
   }
 
-  setSkin(skin:Skin){this.skin=skin;document.documentElement.dataset.skin=skin;localStorage.setItem('tactics-skin',skin);this.render();}
   resetCamera(){this.scale=1;this.tx=0;this.ty=0;this.cameraMode='clean';this.applyCamera();this.syncUI();}
 
   rollInitiative(){
@@ -165,7 +163,7 @@ class Game{
     const from={x:(a.x+.5)*CELL,y:(a.y+.5)*CELL},to={x:(t.x+.5)*CELL,y:(t.y+.5)*CELL},dx=to.x-from.x,dy=to.y-from.y,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,px=-uy,py=ux;
     const start={x:from.x+ux*30,y:from.y+uy*30},tip={x:to.x-ux*31,y:to.y-uy*31},base={x:tip.x-ux*18,y:tip.y-uy*18};
     this.routeLayer.append(svg('line',{x1:start.x,y1:start.y,x2:base.x+ux*3,y2:base.y+uy*3,class:'attack-intent-outline'}),svg('polygon',{points:`${tip.x},${tip.y} ${base.x+px*11},${base.y+py*11} ${base.x-px*11},${base.y-py*11}`,class:'attack-intent-head-outline'}),svg('line',{x1:start.x,y1:start.y,x2:base.x+ux*3,y2:base.y+uy*3,class:'attack-intent-core'}),svg('polygon',{points:`${tip.x-ux*3},${tip.y-uy*3} ${base.x+px*7},${base.y+py*7} ${base.x-px*7},${base.y-py*7}`,class:'attack-intent-head-core'}),svg('circle',{cx:to.x,cy:to.y,r:34,class:'attack-target-ring'}));
-    const damage=Math.max(0,a.damage-(t.defending?1:0)),badge=svg('g',{transform:`translate(${to.x+24} ${to.y-27})`,class:'attack-damage-badge'});badge.append(svg('rect',{x:-20,y:-13,width:40,height:26,rx:13}),svg('text',{x:0,y:6,'text-anchor':'middle'}));(badge.lastChild as SVGTextElement).textContent=`−${damage}`;this.routeLayer.appendChild(badge);
+    const damage=this.attackDamage(a,t,this.pendingAttack.kind),badge=svg('g',{transform:`translate(${to.x+24} ${to.y-27})`,class:'attack-damage-badge'});badge.append(svg('rect',{x:-20,y:-13,width:40,height:26,rx:13}),svg('text',{x:0,y:6,'text-anchor':'middle'}));(badge.lastChild as SVGTextElement).textContent=`−${damage}`;this.routeLayer.appendChild(badge);
   }
 
   beginDrag(e:PointerEvent,u:Unit,g:SVGGElement){if(!this.isActivePlayer(u)||!this.hasAction(u)||this.busy)return;e.stopPropagation();g.setPointerCapture(e.pointerId);this.drag={id:u.id,pointerId:e.pointerId,origin:{x:u.x,y:u.y},token:g};this.selectedId=u.id;g.classList.add('dragging');const move=(ev:PointerEvent)=>{if(!this.drag||ev.pointerId!==this.drag.pointerId)return;const p=this.svgPoint(ev.clientX,ev.clientY);g.setAttribute('transform',`translate(${p.x} ${p.y})`);const d={x:Math.floor(p.x/CELL),y:Math.floor(p.y/CELL)};const r=this.findRoute(u,d,u.id);this.drawRoute(r.length>1&&r.length-1<=MOVE?r:[]);};const up=(ev:PointerEvent)=>{g.removeEventListener('pointermove',move);g.removeEventListener('pointerup',up);g.classList.remove('dragging');const p=this.svgPoint(ev.clientX,ev.clientY),d={x:Math.floor(p.x/CELL),y:Math.floor(p.y/CELL)},target=this.at(d.x,d.y);this.drag=undefined;if(target?.team==='enemy'&&this.canAttack(u,target)){this.previewAttack(u,target);return;}const r=this.findRoute(u,d,u.id);if(r.length>1&&r.length-1<=MOVE&&!target)void this.moveActive(u,r);else this.render();};g.addEventListener('pointermove',move);g.addEventListener('pointerup',up);}
@@ -193,8 +191,9 @@ class Game{
   handleUnit(id:string){if(this.busy||this.gameOver||this.gameMode!=='combat')return;const t=this.unit(id);if(!t)return;const a=this.active();if(this.targetingMode&&a?.team==='player'){if(this.targetingMode==='heal'){if(t.team==='player'&&this.distance(a,t)<=HEAL_RANGE&&t.hp<t.maxHp)this.healTarget(t);else this.message(`Choose an injured hero within ${HEAL_RANGE} square.`);return;}if(t.team==='enemy'&&this.canAttack(a,t,this.targetingMode)){void this.attack(a,t,this.targetingMode);return;}this.message(this.targetingMode==='ranged'?`Choose an enemy within ${RANGED_RANGE} squares.`:'Choose an adjacent enemy.');return;}this.pendingAttack=undefined;this.hideForecast();this.selectedId=id;this.render();}
 
   beginTargeting(kind:TargetingMode){const a=this.active();if(!a||a.team!=='player'||!this.hasAction(a)||this.busy)return;if(kind==='ranged'&&a.id!=='alden'||kind==='heal'&&a.id!=='mira')return;if(this.targetingMode===kind){this.targetingMode=undefined;this.pendingAttack=undefined;this.hideForecast();this.render();this.message('Action cancelled.');return;}this.targetingMode=kind;this.actionsOpen=false;this.pendingAttack=undefined;this.hideForecast();this.selectedId=a.id;this.render();this.message(kind==='heal'?`Choose an injured hero within ${HEAL_RANGE} square.`:kind==='ranged'?`Choose an enemy within ${RANGED_RANGE} squares.`:'Choose an adjacent enemy.');}
-  canAttack(a:Unit,t:Unit,kind:'melee'|'ranged'='melee'){return this.hasAction(a)&&a.team!==t.team&&(kind==='ranged'?a.id==='alden'&&this.distance(a,t)<=RANGED_RANGE&&this.distance(a,t)>0:this.distance(a,t)===1);}
-  previewAttack(a:Unit,t:Unit,kind:'melee'|'ranged'='melee'){if(!this.canAttack(a,t,kind))return;this.pendingAttack={actorId:a.id,targetId:t.id,kind};this.targetingMode=undefined;this.selectedId=a.id;const dmg=Math.max(0,a.damage-(t.defending?1:0));ui.forecastIcon.textContent=kind==='ranged'?'➳':'⚔';ui.matchup.textContent=`${a.name} → ${t.name}`;ui.forecastResult.textContent=`${kind.toUpperCase()} · ${dmg} DMG · TAP TO CONFIRM`;ui.forecast.hidden=false;this.render();}
+  canAttack(a:Unit,t:Unit,kind:'melee'|'ranged'='melee'){const d=this.distance(a,t);return this.hasAction(a)&&a.team!==t.team&&(kind==='ranged'?a.id==='alden'&&d>0&&d<=RANGED_RANGE:d===1);}
+  attackDamage(a:Unit,t:Unit,kind:'melee'|'ranged'){return Math.max(0,a.damage-(kind==='ranged'&&this.distance(a,t)===1?1:0)-(t.defending?1:0));}
+  previewAttack(a:Unit,t:Unit,kind:'melee'|'ranged'='melee'){if(!this.canAttack(a,t,kind))return;this.pendingAttack={actorId:a.id,targetId:t.id,kind};this.targetingMode=undefined;this.selectedId=a.id;const dmg=this.attackDamage(a,t,kind);ui.forecastIcon.textContent=kind==='ranged'?'➳':'⚔';ui.matchup.textContent=`${a.name} → ${t.name}`;ui.forecastResult.textContent=`${kind.toUpperCase()} · ${dmg} DMG · TAP TO CONFIRM`;ui.forecast.hidden=false;this.render();}
   hideForecast(){ui.forecast.hidden=true;}
   async confirmAttack(){const p=this.pendingAttack;if(!p||this.busy)return;const a=this.unit(p.actorId),t=this.unit(p.targetId);if(!a||!t)return;this.pendingAttack=undefined;this.hideForecast();await this.attack(a,t,p.kind);}
 
@@ -208,7 +207,7 @@ class Game{
   tween(ms:number,update:(t:number)=>void){return new Promise<void>(resolve=>{const start=performance.now();const frame=(now:number)=>{const t=Math.min(1,(now-start)/ms);update(t);if(t<1)requestAnimationFrame(frame);else resolve();};requestAnimationFrame(frame);});}
 
   async attack(a:Unit,t:Unit,kind:'melee'|'ranged'='melee'){if(!this.canAttack(a,t,kind)||this.busy)return;if(a.team==='player')this.record();this.busy=true;const g=this.tokenElement(a.id);if(g){const start=this.tokenTranslation(g),target={x:t.x*CELL+CELL/2,y:t.y*CELL+CELL/2},dx=target.x-start.x,dy=target.y-start.y,len=Math.hypot(dx,dy)||1,lunge={x:start.x+dx/len*(kind==='ranged'?8:18),y:start.y+dy/len*(kind==='ranged'?8:18)};await this.tween(80,q=>g.setAttribute('transform',`translate(${start.x+(lunge.x-start.x)*q} ${start.y+(lunge.y-start.y)*q})`));await this.tween(90,q=>g.setAttribute('transform',`translate(${lunge.x+(start.x-lunge.x)*q} ${lunge.y+(start.y-lunge.y)*q})`));}
-    const targetRect=this.tokenElement(t.id)?.getBoundingClientRect();a.actionsUsed++;let dmg=a.damage;if(t.defending){dmg=Math.max(0,dmg-1);t.defending=false;}t.hp=Math.max(0,t.hp-dmg);this.log(`${a.name} uses ${kind} against ${t.name}: ${dmg} damage${t.hp<=0?' — defeated':''}.`);this.selectedId=a.id;this.targetingMode=undefined;this.busy=false;this.checkGameOver();this.render();this.showFloatingNumber(t,`−${dmg}`,'damage',targetRect);if(!this.gameOver&&a.team==='player')this.maybeFinish(a);
+    const targetRect=this.tokenElement(t.id)?.getBoundingClientRect();a.actionsUsed++;const adjacentPenalty=kind==='ranged'&&this.distance(a,t)===1;const dmg=this.attackDamage(a,t,kind);if(t.defending)t.defending=false;t.hp=Math.max(0,t.hp-dmg);this.log(`${a.name} uses ${kind} against ${t.name}: ${dmg} damage${adjacentPenalty?' (adjacent penalty)':''}${t.hp<=0?' — defeated':''}.`);this.selectedId=a.id;this.targetingMode=undefined;this.busy=false;this.checkGameOver();this.render();this.showFloatingNumber(t,`−${dmg}`,'damage',targetRect);if(!this.gameOver&&a.team==='player')this.maybeFinish(a);
   }
 
   healTarget(t:Unit){const u=this.active();if(!u||u.id!=='mira'||t.team!=='player'||!this.hasAction(u)||this.distance(u,t)>HEAL_RANGE||t.hp>=t.maxHp||this.busy)return;this.record();const n=Math.min(HEAL,t.maxHp-t.hp);t.hp+=n;u.actionsUsed++;this.targetingMode=undefined;this.log(`${u.name} heals ${t.name}: +${n} HP.`);this.selectedId=t.id;this.render();this.showFloatingNumber(t,`+${n}`,'healing');this.maybeFinish(u);}
@@ -229,7 +228,7 @@ class Game{
   neighbors(p:Point){return[{x:p.x+1,y:p.y},{x:p.x-1,y:p.y},{x:p.x,y:p.y+1},{x:p.x,y:p.y-1}].filter(n=>n.x>=0&&n.y>=0&&n.x<this.cols&&n.y<this.rows);}
 
   checkGameOver(){const h=this.living('player'),e=this.living('enemy');if(h.length&&e.length)return;this.gameOver=true;this.clearTimers();ui.resultOverlay.hidden=false;ui.resultTitle.textContent=h.length?'Victory':'Defeat';ui.resultCopy.textContent=h.length?'The pass is secure.':'The party has fallen.';this.log(h.length?'Victory.':'Defeat.');}
-  syncUI(){const a=this.active(),playerTurn=!!a&&a.team==='player'&&!this.gameOver;ui.undo.disabled=!a||a.team!=='player'||!this.history.length;ui.actionToggle.hidden=!playerTurn;ui.actionToggle.setAttribute('aria-expanded',String(this.actionsOpen));ui.actionBar.hidden=!playerTurn||!this.actionsOpen;ui.zoomReset.disabled=this.cameraMode==='clean'&&this.scale===1&&this.tx===0&&this.ty===0;ui.ranged.hidden=a?.id!=='alden';ui.ranged.disabled=!playerTurn||!this.hasAction(a!);ui.heal.hidden=a?.id!=='mira';ui.heal.disabled=!playerTurn||!this.hasAction(a!)||!this.living('player').some(u=>this.distance(a!,u)<=HEAL_RANGE&&u.hp<u.maxHp);ui.defend.disabled=!playerTurn||!this.hasAction(a!)||!!a?.defending;ui.skinEmblem.setAttribute('aria-pressed',String(this.skin==='emblem'));ui.skinClassic.setAttribute('aria-pressed',String(this.skin==='classic'));ui.ranged.setAttribute('aria-pressed',String(this.targetingMode==='ranged'));ui.heal.setAttribute('aria-pressed',String(this.targetingMode==='heal'));ui.tactical.setAttribute('aria-pressed',String(this.mode==='tactical'));ui.exploration.setAttribute('aria-pressed',String(this.mode==='exploration'));
+  syncUI(){const a=this.active(),playerTurn=!!a&&a.team==='player'&&!this.gameOver;ui.undo.disabled=!a||a.team!=='player'||!this.history.length;ui.actionToggle.hidden=!playerTurn;ui.actionToggle.setAttribute('aria-expanded',String(this.actionsOpen));ui.actionBar.hidden=!playerTurn||!this.actionsOpen;ui.zoomReset.disabled=this.cameraMode==='clean'&&this.scale===1&&this.tx===0&&this.ty===0;ui.ranged.hidden=a?.id!=='alden';ui.ranged.disabled=!playerTurn||!this.hasAction(a!);ui.heal.hidden=a?.id!=='mira';ui.heal.disabled=!playerTurn||!this.hasAction(a!)||!this.living('player').some(u=>this.distance(a!,u)<=HEAL_RANGE&&u.hp<u.maxHp);ui.defend.disabled=!playerTurn||!this.hasAction(a!)||!!a?.defending;ui.ranged.setAttribute('aria-pressed',String(this.targetingMode==='ranged'));ui.heal.setAttribute('aria-pressed',String(this.targetingMode==='heal'));ui.tactical.setAttribute('aria-pressed',String(this.mode==='tactical'));ui.exploration.setAttribute('aria-pressed',String(this.mode==='exploration'));
     const s=this.selected()??a??this.living()[0];if(s){ui.selectedName.textContent=s.name;ui.selectedTeam.textContent=s.team==='player'?'Hero':'Enemy';ui.health.textContent=`${s.hp} / ${s.maxHp}`;ui.attack.textContent=String(s.damage);ui.movement.textContent=String(MOVE);ui.initiative.textContent=`${s.initiativeMod>=0?'+':''}${s.initiativeMod} (${s.initiativeScore})`;ui.actions.textContent=a?.id===s.id?`${ACTIONS-s.actionsUsed} / ${ACTIONS}`:'—';ui.portrait.textContent='';ui.portrait.dataset.id=s.id;}
     ui.rail.innerHTML='';for(const [i,id] of this.turnOrder.entries()){const u=this.unit(id);if(!u)continue;const b=document.createElement('button');b.type='button';b.className=`initiative-token ${u.team}${i===this.activeIndex?' active':''}`;b.dataset.id=u.id;b.setAttribute('aria-label',`${u.name}${i===this.activeIndex?', current turn':''}`);b.innerHTML=`<span class="rail-sprite"></span><small>${u.name}</small>`;b.addEventListener('click',()=>{this.targetingMode=undefined;this.pendingAttack=undefined;this.hideForecast();this.selectedId=u.id;this.scale=1;this.tx=0;this.ty=0;this.cameraMode='clean';this.render();});ui.rail.appendChild(b);}const active=ui.rail.querySelector<HTMLElement>('.active');if(active)requestAnimationFrame(()=>active.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'}));}
   showFloatingNumber(u:Unit,text:string,kind:'damage'|'healing',anchorRect?:DOMRect){requestAnimationFrame(()=>{const token=this.tokenElement(u.id),tr=anchorRect??token?.getBoundingClientRect();if(!tr)return;const vr=ui.viewport.getBoundingClientRect(),el=document.createElement('span');el.className=`combat-float ${kind}`;el.textContent=text;el.style.left=`${tr.left-vr.left+tr.width/2}px`;el.style.top=`${tr.top-vr.top-2}px`;ui.viewport.appendChild(el);window.setTimeout(()=>el.remove(),900);});}

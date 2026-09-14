@@ -49,6 +49,9 @@ html:not([data-skin="classic"]) .unit-drawer{width:min(252px,calc(100vw - 20px))
 html:not([data-skin="classic"]) .combat-float{font-family:Georgia,serif!important;font-size:25px;font-weight:900;text-shadow:0 2px 0 #000,2px 0 0 #000}html:not([data-skin="classic"]) .combat-forecast{border:2px solid #f2daa0;border-radius:18px;background:linear-gradient(#a83449,#651a31);box-shadow:0 4px 0 #351021}html:not([data-skin="classic"]) .combat-forecast>span,html:not([data-skin="classic"]) .combat-forecast>b{font-family:Georgia,serif!important;font-size:13px}
 @media (orientation:portrait){html:not([data-skin="classic"]) .battlefield-frame{border-left:0;border-right:0}html:not([data-skin="classic"]) .initiative-dock{left:68px;right:68px;height:104px}}
 
+.battlefield-canvas,.game-board{image-rendering:auto!important}
+.drag-attack-cue circle{fill:#fff8e2;stroke:#183664;stroke-width:1.5}.drag-attack-cue text{fill:#b81f3e;font:700 6px/1 Georgia,serif}.drag-attack-cue.penalty circle{fill:#ffd59a;stroke:#8b3e27}.drag-attack-cue .penalty-note{fill:#fff;font:700 4px/1 system-ui,sans-serif;paint-order:stroke;stroke:#8b1f2c;stroke-width:2px}
+
 `,map:null};
   }
 };

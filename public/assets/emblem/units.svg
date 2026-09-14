@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="100" viewBox="0 0 600 100">
+<defs>
+ <linearGradient id="blue" x2="0" y2="1"><stop stop-color="#62a9eb"/><stop offset="1" stop-color="#1f4f9b"/></linearGradient>
+ <linearGradient id="steel" x2="0" y2="1"><stop stop-color="#f4f5f0"/><stop offset="1" stop-color="#7d91aa"/></linearGradient>
+ <linearGradient id="white" x2="0" y2="1"><stop stop-color="#fffdf2"/><stop offset="1" stop-color="#c9d9ec"/></linearGradient>
+ <linearGradient id="goblin" x2="0" y2="1"><stop stop-color="#b5d35b"/><stop offset="1" stop-color="#668c38"/></linearGradient>
+ <filter id="s"><feDropShadow dx="0" dy="3" stdDeviation="2" flood-opacity=".45"/></filter>
+</defs>
+<!-- Aldren -->
+<g transform="translate(0)" stroke="#263044" stroke-width="3" stroke-linejoin="round" filter="url(#s)">
+ <ellipse cx="50" cy="86" rx="23" ry="7" fill="#263044" opacity=".35" stroke="none"/><path d="M32 82l3-28 15-9 16 9 3 28-19 8z" fill="url(#blue)"/><path d="M31 57l-10 17m49-17 8 17" fill="none" stroke="url(#steel)" stroke-width="10"/><circle cx="50" cy="35" r="18" fill="#efbd94"/><path d="M33 35q1-23 18-23 18 4 18 22l-8-8-9 5-12-6z" fill="#3c2d2e"/><path d="M38 43q12 8 24 0" fill="none" stroke="#8c513c" stroke-width="2"/><path d="M78 22q15 27 0 58M77 22q-19 29 1 58" fill="none" stroke="#8a5836" stroke-width="4"/><path d="M78 25v51" stroke="#ead7a0" stroke-width="1.5"/><path d="M35 58l15 8 14-8" fill="none" stroke="#f2d875" stroke-width="4"/>
+</g>
+<!-- Mira -->
+<g transform="translate(100)" stroke="#32405c" stroke-width="3" stroke-linejoin="round" filter="url(#s)">
+ <ellipse cx="50" cy="87" rx="22" ry="6" fill="#263044" opacity=".3" stroke="none"/><path d="M27 84l8-33 15-7 15 7 8 33-23 6z" fill="url(#white)"/><path d="M31 62h38M43 49v37" fill="none" stroke="#4d88cf" stroke-width="5"/><circle cx="50" cy="34" r="18" fill="#f0bea0"/><path d="M31 41q0-31 19-31 22 1 20 33l-9-17-10-8-9 13-5 17z" fill="#e8edf2"/><path d="M67 65l13-46" stroke="#805532" stroke-width="5"/><circle cx="81" cy="17" r="8" fill="#74d9e8"/><circle cx="81" cy="17" r="3" fill="#fffbd1" stroke="none"/>
+</g>
+<!-- Raider -->
+<g transform="translate(200)" stroke="#35402c" stroke-width="3" stroke-linejoin="round" filter="url(#s)">
+ <ellipse cx="50" cy="87" rx="23" ry="7" fill="#18251b" opacity=".38" stroke="none"/><path d="M29 83l5-29 16-9 17 10 5 28-22 7z" fill="#a3443d"/><path d="M28 61l-12 18m53-17 13 14" stroke="#72452f" stroke-width="9"/><circle cx="50" cy="34" r="18" fill="url(#goblin)"/><path d="M33 31L20 24l13 17m34-10 13-7-13 17" fill="url(#goblin)"/><path d="M38 37h5m14 0h5" stroke="#9c2534" stroke-width="4"/><path d="M39 47q11 7 22 0" fill="none"/><path d="M17 73l-6-25 8-3 9 25z" fill="url(#steel)"/>
+</g>
+<!-- Archer -->
+<g transform="translate(300)" stroke="#35402c" stroke-width="3" stroke-linejoin="round" filter="url(#s)">
+ <ellipse cx="50" cy="87" rx="23" ry="7" fill="#18251b" opacity=".38" stroke="none"/><path d="M29 83l5-30 16-8 17 9 5 29-22 7z" fill="#365b48"/><circle cx="50" cy="35" r="18" fill="url(#goblin)"/><path d="M31 33L18 27l14 16m36-10 13-6-14 16" fill="url(#goblin)"/><path d="M29 33q4-23 21-23 18 2 22 24L59 25l-15-4z" fill="#29483e"/><path d="M75 22q16 28 0 58M75 22q-20 29 0 58" fill="none" stroke="#8a5836" stroke-width="4"/><path d="M75 25v52" stroke="#e7d39b" stroke-width="1.5"/>
+</g>
+<!-- Brute -->
+<g transform="translate(400)" stroke="#3d402b" stroke-width="3" stroke-linejoin="round" filter="url(#s)">
+ <ellipse cx="50" cy="88" rx="27" ry="7" fill="#18251b" opacity=".4" stroke="none"/><path d="M25 84l6-31 19-9 20 10 6 30-26 7z" fill="#bf7b32"/><path d="M26 61L14 78m60-17 12 17" stroke="#789640" stroke-width="12"/><circle cx="50" cy="33" r="20" fill="url(#goblin)"/><path d="M31 30L16 22l15 20m38-12 15-8-15 20" fill="url(#goblin)"/><path d="M35 37h6m18 0h6" stroke="#9c2534" stroke-width="4"/><path d="M17 77L9 35l12-3 10 42z" fill="#6f4a31"/>
+</g>
+<!-- Shaman -->
+<g transform="translate(500)" stroke="#3b3048" stroke-width="3" stroke-linejoin="round" filter="url(#s)">
+ <ellipse cx="50" cy="87" rx="23" ry="7" fill="#18251b" opacity=".38" stroke="none"/><path d="M27 84l7-32 16-8 17 9 6 31-23 7z" fill="#6e4594"/><circle cx="50" cy="36" r="17" fill="url(#goblin)"/><path d="M33 34L20 27l13 16m34-9 13-7-13 16" fill="url(#goblin)"/><path d="M29 35q5-27 22-27 17 3 21 28L60 24l-16-4z" fill="#513876"/><path d="M70 67l12-48" stroke="#755135" stroke-width="5"/><path d="M76 20l9-8 6 7-9 8z" fill="#e3d891"/>
+</g>
+</svg>
