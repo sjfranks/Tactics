@@ -62,6 +62,16 @@ html:not([data-skin="classic"]) .combat-float{font-family:Georgia,serif!importan
 .zoom-reset:disabled{opacity:.34}.zoom-reset:not(:disabled){opacity:1;filter:drop-shadow(0 0 5px rgba(82,196,255,.5))}
 @media (orientation:portrait){.battlefield-frame{border:0!important}.initiative-dock,html:not([data-skin="classic"]) .initiative-dock{left:70px!important;right:70px!important;height:96px!important}}
 
+/* FE-style board feedback: quiet selection frame and one continuous route ribbon. */
+.action-bar .action-choice[hidden]{display:none!important}
+.route-line{fill:none;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.route-outline{stroke:#12345f!important;stroke-width:5.6!important;filter:drop-shadow(0 1px 1.5px rgba(7,24,49,.65))!important}
+.route-core{stroke:#48bff2!important;stroke-width:3.7!important}
+.route-shine{stroke:rgba(230,252,255,.78);stroke-width:.75;fill:none;pointer-events:none}
+.route-head-outline{fill:#12345f!important;filter:drop-shadow(0 1px 1.5px rgba(7,24,49,.65))!important}
+.route-head-core{fill:#48bff2!important}
+.route-outline.enemy{stroke:#641f32!important}.route-core.enemy{stroke:#ef5966!important}.route-shine.enemy{stroke:rgba(255,232,226,.72)}.route-head-outline.enemy{fill:#641f32!important}.route-head-core.enemy{fill:#ef5966!important}
+
 `,map:null};
   }
 };

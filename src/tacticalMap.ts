@@ -3,21 +3,18 @@ export type MapPoint={x:number;y:number};
 export const TACTICAL_COLS=6;
 export const TACTICAL_ROWS=8;
 
-const tiles=Array.from({length:TACTICAL_ROWS},(_,y)=>
-  Array.from({length:TACTICAL_COLS},(_,x)=>(x*7+y*5+(x*y)%3)%4)
-);
-
-const paint=(tile:number,points:MapPoint[])=>points.forEach(({x,y})=>{tiles[y][x]=tile;});
-
-// A compact woodland ruin: four quiet walkable surfaces and unmistakable solid scenery.
-paint(2,Array.from({length:8},(_,y)=>({x:2,y})));
-paint(2,Array.from({length:8},(_,y)=>({x:3,y})));
-paint(3,[{x:1,y:3},{x:2,y:3},{x:3,y:3},{x:4,y:3},{x:1,y:4},{x:2,y:4},{x:3,y:4},{x:4,y:4}]);
-paint(8,[{x:0,y:0},{x:5,y:0},{x:0,y:7},{x:5,y:7}]);
-paint(9,[{x:0,y:3},{x:5,y:4}]);
-paint(10,[{x:1,y:2},{x:4,y:5}]);
-paint(11,[{x:4,y:2},{x:1,y:5}]);
-paint(13,[{x:0,y:5},{x:5,y:2}]);
+// Quiet meadow variants dominate the board. Earth and moss are contained patches,
+// not edge-to-edge roads, so the painterly surface reads as one continuous field.
+const tiles:number[][]=[
+  [8,0,1,0,2,8],
+  [1,0,4,1,0,2],
+  [13,2,0,5,1,10],
+  [0,1,9,0,2,1],
+  [2,0,1,6,0,3],
+  [12,1,0,2,1,14],
+  [0,11,2,0,13,1],
+  [1,0,2,3,0,1]
+];
 
 export const TACTICAL_TILES=tiles;
 export const TACTICAL_OBSTACLES:MapPoint[]=[];
