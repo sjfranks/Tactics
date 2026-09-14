@@ -6,10 +6,10 @@ export const statusArrowFix={
     let next=code;
 
     // The drag-polish transform supplies a rounded route and a terminal head.
-    // Stop the shaft at the head base, including target-directed attack arrows.
+    // Extend the shaft beneath the head so anti-aliasing cannot create a gap.
     const shaftPattern=/shaftEnd=\{x:end\.x-ux\*(?:3|6),y:end\.y-uy\*(?:3|6)\};/;
     if(!shaftPattern.test(next))throw new Error('status-arrow-fix: route shaft pattern not found');
-    next=next.replace(shaftPattern,"shaftEnd={x:end.x-ux*6,y:end.y-uy*6};");
+    next=next.replace(shaftPattern,"shaftEnd={x:end.x-ux*2,y:end.y-uy*2};");
 
     // Composite the shaft and head in one translucent group. This prevents
     // overlap seams and avoids introducing a separate highlight line.
