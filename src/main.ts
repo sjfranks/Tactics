@@ -155,7 +155,7 @@ class Game{
       const kind=this.weaponKind(a);for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++){if(this.inWeaponRange(a,{x,y},kind))add({x,y},'weapon-range');}this.living('enemy').filter(u=>this.canAttack(a,u,kind)).forEach(u=>add(u,'attack-range'));return;
     }
     if(this.pendingAttack&&a?.team==='player')return;
-    if(s.team==='enemy'){this.reachable(s,MOVE).forEach(p=>add(p,'enemy-range'));const threat=new Set<string>(),kind=this.weaponKind(s);this.reachable(s,MOVE).forEach(p=>{for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++)if(this.inWeaponRange(p,{x,y},kind))threat.add(`${x},${y}`);});threat.forEach(k=>{const[x,y]=k.split(',').map(Number);add({x,y},'enemy-threat');});return;}
+    if(s.team==='enemy'){this.reachable(s,MOVE).forEach(p=>add(p,'enemy-range'));return;}
     if(!this.isActivePlayer(s)||!this.canMove(s))return;this.reachable(s,MOVE).forEach(p=>{if(p.x!==s.x||p.y!==s.y)add(p,'move-range');});
   }
 
