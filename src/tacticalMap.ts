@@ -3,19 +3,14 @@ export type MapPoint={x:number;y:number};
 export const TACTICAL_COLS=6;
 export const TACTICAL_ROWS=8;
 
-// Quiet meadow variants dominate the board. Earth and moss are contained patches,
-// not edge-to-edge roads, so the painterly surface reads as one continuous field.
-const tiles:number[][]=[
-  [8,0,1,0,2,8],
-  [1,0,4,1,0,2],
-  [13,2,0,5,1,10],
-  [0,1,9,0,2,1],
-  [2,0,1,6,0,3],
-  [12,1,0,2,1,14],
-  [0,11,2,0,13,1],
-  [1,0,2,3,0,1]
+// Collision mask for the single illustrated battle-map background.
+// Coordinates are zero-based: x 0–5 from left to right, y 0–7 from top to bottom.
+// Every entry corresponds to a complete, visibly impassable 10-foot square.
+export const TACTICAL_OBSTACLES:MapPoint[]=[
+  {x:0,y:0},{x:5,y:0},
+  {x:0,y:2},{x:5,y:2},
+  {x:2,y:3},{x:3,y:3},
+  {x:0,y:5},{x:5,y:5},
+  {x:0,y:6},{x:1,y:6},{x:4,y:6},{x:5,y:6},
+  {x:0,y:7},{x:5,y:7}
 ];
-
-export const TACTICAL_TILES=tiles;
-export const TACTICAL_OBSTACLES:MapPoint[]=[];
-for(let y=0;y<TACTICAL_ROWS;y++)for(let x=0;x<TACTICAL_COLS;x++)if(tiles[y][x]>=8)TACTICAL_OBSTACLES.push({x,y});

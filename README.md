@@ -28,7 +28,7 @@ Vite writes the production site to `build/`. GitHub Actions builds and deploys i
 - `index.html` — application shell and HTML HUD
 - `vite.config.ts` / `tsconfig.json` — web build and type checking
 
-The 6×8 tactical battle is the default mode. Its map is assembled from reusable 16×16 terrain tiles in `src/tacticalMap.ts`. The presentation uses original painterly terrain and contained character sprites with a portrait-led blue-and-gold mobile tactical-RPG interface. A turn consists of one move and one relevant action: weapon attacks may be completed by dragging onto a target, while moving alone opens the contextual Attack, Heal, or Defend menu. SVG owns interaction geometry, routes and camera transforms; a canvas layer renders the artwork. The 30×30 exploration prototype remains available from Settings and transitions into tactical combat when enemies are encountered.
+The 6×8 tactical battle is the default mode. It uses one continuous illustrated battlefield behind a live 6×8 grid; `src/tacticalMap.ts` defines the matching full-cell collision mask, with each square representing roughly 10 feet. The presentation uses original painterly terrain and contained character sprites with a portrait-led blue-and-gold mobile tactical-RPG interface. A turn consists of one move and one relevant action: weapon attacks may be completed by dragging onto a target, while moving alone opens the contextual Attack, Heal, or Defend menu. SVG owns interaction geometry, routes and camera transforms; a canvas layer renders the artwork. The 30×30 exploration prototype remains available from Settings and transitions into tactical combat when enemies are encountered.
 
 
 ## iOS path
