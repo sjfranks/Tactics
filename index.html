@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-skin="emblem">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
@@ -36,6 +36,11 @@
                   <button id="tactical-mode" class="mode-option" type="button" aria-pressed="true">Tactical battle</button>
                   <button id="exploration-mode" class="mode-option" type="button" aria-pressed="false">Exploration demo</button>
                 </div>
+                <span class="settings-label">Visual style</span>
+                <div class="mode-options skin-options" role="group" aria-label="Visual style">
+                  <button id="skin-emblem" class="mode-option" type="button" aria-pressed="true">Emblem</button>
+                  <button id="skin-classic" class="mode-option" type="button" aria-pressed="false">IBM Classic</button>
+                </div>
                 <button id="restart" type="button">Restart battle</button>
               </div>
             </details>
@@ -44,11 +49,11 @@
             <button id="undo-action" class="hud-circle" type="button" aria-label="Undo last action" title="Undo">↶</button>
           </div>
           <button id="utility-toggle" class="hud-circle utility-toggle" type="button" aria-label="Show game controls" aria-expanded="false" title="Controls">⌃</button>
+          <button id="zoom-reset" class="hud-circle zoom-reset" type="button" aria-label="Show the whole map" title="Show whole map"><span class="zoom-out-icon" aria-hidden="true">−</span></button>
         </div>
 
         <div class="hud-right">
           <div id="action-bar" class="action-bar" role="toolbar" aria-label="Actions for the active character" hidden>
-            <button id="melee-action" class="action-choice" type="button" aria-pressed="false"><span aria-hidden="true">⚔</span><b>Melee</b></button>
             <button id="ranged-action" class="action-choice" type="button" aria-pressed="false"><span aria-hidden="true">➳</span><b>Ranged</b></button>
             <button id="heal-action" class="action-choice" type="button" aria-pressed="false"><span aria-hidden="true">✚</span><b>Heal</b></button>
             <button id="defend-action" class="action-choice" type="button"><span aria-hidden="true">⬟</span><b>Defend</b></button>

@@ -28,7 +28,7 @@ Vite writes the production site to `build/`. GitHub Actions builds and deploys i
 - `index.html` — application shell and HTML HUD
 - `vite.config.ts` / `tsconfig.json` — web build and type checking
 
-The 12×16 tactical battle is the default mode. Its map is assembled from reusable 16×16 terrain tiles in `src/tacticalMap.ts`. The generated early-PC-style terrain atlas leaves generous black negative space, while 24×24 character sprites overhang their one-tile tactical footprints. All art is rendered with nearest-neighbour scaling. SVG owns interaction geometry, routes and camera transforms. The 30×30 exploration prototype remains available from Settings and transitions into tactical combat when enemies are encountered.
+The 6×8 tactical battle is the default mode. Its map is assembled from reusable 16×16 terrain tiles in `src/tacticalMap.ts`. The default presentation uses a brighter GBA-era tactical-RPG treatment; the generated black-backed early-PC atlas remains available as the “IBM Classic” skin in Settings. All art is rendered with nearest-neighbour scaling. SVG owns interaction geometry, routes and camera transforms. The 30×30 exploration prototype remains available from Settings and transitions into tactical combat when enemies are encountered.
 
 The bundled Web437 IBM CGA webfont is from [The Ultimate Oldschool PC Font Pack](https://int10h.org/oldschool-pc-fonts/) by VileR and is licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 
