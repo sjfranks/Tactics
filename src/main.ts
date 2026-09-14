@@ -11,7 +11,7 @@ type PendingAttack={actorId:string;targetId:string};
 
 type Prototype={cols:number;rows:number;obstacles:Point[];units:Array<Omit<Unit,'initiativeScore'|'actionsUsed'|'defending'>>};
 
-const CELL=80,MOVE=5,ACTIONS=3,HEAL=2,ENCOUNTER_DISTANCE=4;
+const CELL=80,MOVE=5,ACTIONS=3,HEAL=2,ENCOUNTER_DISTANCE=4,DEFAULT_TILES_WIDE=8,MIN_SCALE=.55;
 const NS='http://www.w3.org/2000/svg';
 const START_PARTY={x:15,y:24};
 const RIVER_TERRAIN:Point[]=[];
@@ -40,7 +40,7 @@ const PROTOTYPES:Record<Mode,Prototype>={
 const $=<T extends HTMLElement>(s:string)=>document.querySelector<T>(s)!;
 const ui={
   battlefield:$('#battlefield'),frame:$('#battlefield-frame'),rail:$('#initiative-rail'),instruction:$('#instruction'),
-  undo:$('#undo-action') as HTMLButtonElement,reset:$('#reset-view') as HTMLButtonElement,
+  undo:$('#undo-action') as HTMLButtonElement,utilityToggle:$('#utility-toggle') as HTMLButtonElement,utilityPanel:$('#utility-panel'),
   actionToggle:$('#ability-menu-toggle') as HTMLButtonElement,actionPanel:$('#ability-menu-panel'),heal:$('#heal-action') as HTMLButtonElement,defend:$('#defend-action') as HTMLButtonElement,
   statsToggle:$('#stats-toggle') as HTMLButtonElement,logToggle:$('#log-toggle') as HTMLButtonElement,logPanel:$('#combat-log-panel'),logList:$('#combat-log-list'),logClose:$('#log-close') as HTMLButtonElement,
   restart:$('#restart') as HTMLButtonElement,restartOverlay:$('#restart-overlay') as HTMLButtonElement,tactical:$('#tactical-mode') as HTMLButtonElement,exploration:$('#exploration-mode') as HTMLButtonElement,settings:$('#settings-menu') as HTMLDetailsElement,
@@ -55,21 +55,22 @@ function svg<K extends keyof SVGElementTagNameMap>(tag:K,attrs:Record<string,str
 }
 
 class Game{
-  mode:Mode='tactical';gameMode:GameMode='combat';cameraMode:CameraMode='clean';
+  mode:Mode='tactical';gameMode:GameMode='combat';cameraMode:CameraMode='follow';
   cols=6;rows=8;obstacles:Point[]=[];units:Unit[]=[];party={...START_PARTY};
   selectedId='alden';round=1;turnOrder:string[]=[];activeIndex=0;gameOver=false;
   pendingAttack?:PendingAttack;history:Snapshot[]=[];logEntries:Array<{round:number;text:string}>=[];
   svg?:SVGSVGElement;world?:SVGGElement;routeLayer?:SVGGElement;tokenLayer?:SVGGElement;
-  scale=1;tx=0;ty=0;pointers=new Map<number,{x:number;y:number}>();gestureStart?:{distance:number;mid:Point;scale:number;tx:number;ty:number};
+  scale=1;tx=0;ty=0;pointers=new Map<number,{x:number;y:number}>();gestureStart?:{distance:number;scale:number;anchor:Point};
   drag?:{id:string;pointerId:number;origin:Point;token:SVGGElement};
-  timerIds:number[]=[];busy=false;
+  timerIds:number[]=[];busy=false;gestureActive=false;gestureSuppressUntil=0;
 
   constructor(){this.reset('tactical');this.bindGlobal();}
 
   reset(mode=this.mode){
-    this.clearTimers();this.mode=mode;this.gameMode=mode==='exploration'?'explore':'combat';this.cameraMode='clean';this.scale=1;this.tx=0;this.ty=0;
+    this.clearTimers();this.mode=mode;this.gameMode=mode==='exploration'?'explore':'combat';this.cameraMode='follow';this.scale=1;this.tx=0;this.ty=0;
     const p=PROTOTYPES[mode];this.cols=p.cols;this.rows=p.rows;this.obstacles=p.obstacles.map(o=>({...o}));this.units=p.units.map(u=>({...u,initiativeScore:0,actionsUsed:0,defending:false}));this.party={...START_PARTY};
     this.selectedId='alden';this.round=1;this.activeIndex=0;this.gameOver=false;this.pendingAttack=undefined;this.history=[];this.logEntries=[];this.busy=false;
+    if(this.gameMode==='combat'){const heroes=this.living('player');this.scale=this.cols/DEFAULT_TILES_WIDE;const x=heroes.reduce((n,u)=>n+(u.x+.5)*CELL,0)/heroes.length,y=heroes.reduce((n,u)=>n+(u.y+.5)*CELL,0)/heroes.length;this.centerCamera(x,y);}
     if(this.gameMode==='combat'){this.rollInitiative();this.log('Round 1 begins.');}
     this.render();if(this.gameMode==='combat')this.beginTurn();
     ui.resultOverlay.hidden=true;this.closeActionMenu();this.closeLog();
@@ -77,7 +78,8 @@ class Game{
 
   bindGlobal(){
     ui.forecast.addEventListener('pointerup',e=>{e.preventDefault();e.stopPropagation();void this.confirmAttack();});
-    ui.undo.addEventListener('click',()=>this.undo());ui.reset.addEventListener('click',()=>this.resetView());
+    ui.undo.addEventListener('click',()=>this.undo());
+    ui.utilityToggle.addEventListener('click',()=>{const open=ui.utilityPanel.hidden;ui.utilityPanel.hidden=!open;ui.utilityToggle.setAttribute('aria-expanded',String(open));ui.utilityToggle.classList.toggle('open',open);});
     ui.actionToggle.addEventListener('click',()=>{const open=ui.actionPanel.hidden;ui.actionPanel.hidden=!open;ui.actionToggle.setAttribute('aria-expanded',String(open));});
     ui.heal.addEventListener('click',()=>this.healSelected());ui.defend.addEventListener('click',()=>this.defendSelected());
     ui.statsToggle.addEventListener('click',()=>{const open=ui.drawer.classList.toggle('open');ui.statsToggle.setAttribute('aria-expanded',String(open));});
@@ -116,7 +118,7 @@ class Game{
     const defs=svg('defs');const marker=svg('marker',{id:'route-arrow',markerWidth:12,markerHeight:12,refX:9,refY:6,orient:'auto',markerUnits:'strokeWidth'});marker.appendChild(svg('path',{d:'M 0 0 L 12 6 L 0 12 z',fill:'#78e5ff'}));defs.appendChild(marker);s.appendChild(defs);
     const world=svg('g',{class:'world'}),tiles=svg('g',{class:'tiles'}),highlights=svg('g',{class:'highlights'}),props=svg('g',{class:'props'}),route=svg('g',{class:'routes'}),tokens=svg('g',{class:'tokens'});world.append(tiles,highlights,props,route,tokens);s.appendChild(world);ui.battlefield.appendChild(s);this.svg=s;this.world=world;this.routeLayer=route;this.tokenLayer=tokens;
     for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++){
-      const r=svg('rect',{x:x*CELL,y:y*CELL,width:CELL,height:CELL,class:`tile tile-${(x+y)%3}`,'data-x':x,'data-y':y});r.addEventListener('pointerup',e=>{if((e.target as Element).closest('.unit-token'))return;void this.handleCell(x,y);});tiles.appendChild(r);
+      const r=svg('rect',{x:x*CELL,y:y*CELL,width:CELL,height:CELL,class:`tile tile-${(x+y)%3}`,'data-x':x,'data-y':y});r.addEventListener('pointerup',e=>{if(this.gestureActive||performance.now()<this.gestureSuppressUntil)return;if((e.target as Element).closest('.unit-token'))return;void this.handleCell(x,y);});tiles.appendChild(r);
       for(let i=0;i<6;i++){const seed=(x*97+y*53+i*31)%997;tiles.appendChild(svg('circle',{cx:x*CELL+8+(seed%64),cy:y*CELL+8+((seed*7)%64),r:1+(seed%2),class:'grass-speck'}));}
     }
     this.paintHighlights(highlights);
@@ -136,7 +138,7 @@ class Game{
     const hpBack=svg('rect',{x:-22,y:25,width:44,height:7,rx:3,class:'hp-back'}),hp=svg('rect',{x:-20,y:27,width:40*(u.hp/u.maxHp),height:3,rx:1.5,class:'hp-fill'});g.append(hpBack,hp);
     if(u.defending){const shield=svg('text',{x:24,y:-20,'text-anchor':'middle',class:'shield-mark'});shield.textContent='◆';g.appendChild(shield);}
     if(this.active()?.id===u.id){for(let i=0;i<ACTIONS;i++)g.appendChild(svg('circle',{cx:(i-1)*12,cy:38,r:4,class:i>=u.actionsUsed?'action-dot':'action-dot spent'}));}
-    g.addEventListener('pointerup',e=>{e.stopPropagation();if(this.drag&&this.drag.id===u.id)return;this.handleUnit(u.id);});
+    g.addEventListener('pointerup',e=>{e.stopPropagation();if(this.gestureActive||performance.now()<this.gestureSuppressUntil)return;if(this.drag&&this.drag.id===u.id)return;this.handleUnit(u.id);});
     if(u.team==='player')g.addEventListener('pointerdown',e=>this.beginDrag(e,u,g));
     return g;
   }
@@ -156,13 +158,16 @@ class Game{
 
   beginPartyDrag(e:PointerEvent,g:SVGGElement){e.stopPropagation();g.setPointerCapture(e.pointerId);this.drag={id:'party',pointerId:e.pointerId,origin:{...this.party},token:g};const move=(ev:PointerEvent)=>{if(!this.drag||ev.pointerId!==this.drag.pointerId)return;const p=this.svgPoint(ev.clientX,ev.clientY);g.setAttribute('transform',`translate(${p.x} ${p.y})`);};const up=(ev:PointerEvent)=>{g.removeEventListener('pointermove',move);g.removeEventListener('pointerup',up);const p=this.svgPoint(ev.clientX,ev.clientY),d={x:Math.floor(p.x/CELL),y:Math.floor(p.y/CELL)};this.drag=undefined;void this.moveParty(d);};g.addEventListener('pointermove',move);g.addEventListener('pointerup',up);}
 
-  bindSvgGestures(){if(!this.svg)return;const s=this.svg;s.onpointerdown=e=>{if((e.target as Element).closest('.unit-token'))return;this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});s.setPointerCapture(e.pointerId);if(this.pointers.size===2)this.beginGesture();};s.onpointermove=e=>{if(!this.pointers.has(e.pointerId))return;this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(this.pointers.size===2)this.updateGesture();};const end=(e:PointerEvent)=>{this.pointers.delete(e.pointerId);if(this.pointers.size<2)this.gestureStart=undefined;};s.onpointerup=end;s.onpointercancel=end;}
+  bindSvgGestures(){if(!this.svg)return;const s=this.svg;s.onpointerdown=e=>{if((e.target as Element).closest('.unit-token'))return;this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});try{s.setPointerCapture(e.pointerId);}catch{}if(this.pointers.size===2){this.gestureActive=true;this.gestureSuppressUntil=performance.now()+500;this.beginGesture();}};s.onpointermove=e=>{if(!this.pointers.has(e.pointerId))return;this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(this.pointers.size===2)this.updateGesture();};const end=(e:PointerEvent)=>{this.pointers.delete(e.pointerId);if(this.pointers.size<2){this.gestureStart=undefined;this.gestureActive=false;this.gestureSuppressUntil=performance.now()+500;}};s.onpointerup=end;s.onpointercancel=end;}
 
-  beginGesture(){const pts=[...this.pointers.values()];const mid={x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2};this.gestureStart={distance:Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y),mid,scale:this.scale,tx:this.tx,ty:this.ty};this.cameraMode='follow';}
-  updateGesture(){if(!this.gestureStart||!this.svg)return;const pts=[...this.pointers.values()];const mid={x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2},dist=Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y);const rect=this.svg.getBoundingClientRect(),sx=this.cols*CELL/rect.width,sy=this.rows*CELL/rect.height;const nextScale=Math.max(.55,Math.min(3.2,this.gestureStart.scale*(dist/this.gestureStart.distance)));const dx=(mid.x-this.gestureStart.mid.x)*sx,dy=(mid.y-this.gestureStart.mid.y)*sy;this.scale=nextScale;this.tx=this.gestureStart.tx+dx;this.ty=this.gestureStart.ty+dy;this.applyCamera();}
+  rootPoint(clientX:number,clientY:number){if(!this.svg)return{x:0,y:0};const p=this.svg.createSVGPoint();p.x=clientX;p.y=clientY;const ctm=this.svg.getScreenCTM();if(!ctm)return{x:0,y:0};const q=p.matrixTransform(ctm.inverse());return{x:q.x,y:q.y};}
+  maxScale(){return this.cols/3;}
+  clampCamera(){const w=this.cols*CELL,h=this.rows*CELL,clamp=(offset:number,worldSize:number)=>{const scaled=worldSize*this.scale;if(scaled<=worldSize)return(worldSize-scaled)/2;return Math.min(0,Math.max(worldSize-scaled,offset));};this.tx=clamp(this.tx,w);this.ty=clamp(this.ty,h);}
+  centerCamera(x:number,y:number,scale=this.scale){this.scale=Math.max(MIN_SCALE,Math.min(this.maxScale(),scale));const w=this.cols*CELL,h=this.rows*CELL;this.tx=w/2-x*this.scale;this.ty=h/2-y*this.scale;this.clampCamera();}
+  beginGesture(){const pts=[...this.pointers.values()];if(pts.length<2)return;const midpoint=this.rootPoint((pts[0].x+pts[1].x)/2,(pts[0].y+pts[1].y)/2);this.gestureStart={distance:Math.max(1,Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y)),scale:this.scale,anchor:{x:(midpoint.x-this.tx)/this.scale,y:(midpoint.y-this.ty)/this.scale}};}
+  updateGesture(){if(!this.gestureStart)return;const pts=[...this.pointers.values()];if(pts.length<2)return;const midpoint=this.rootPoint((pts[0].x+pts[1].x)/2,(pts[0].y+pts[1].y)/2),distance=Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y),nextScale=Math.max(MIN_SCALE,Math.min(this.maxScale(),this.gestureStart.scale*distance/this.gestureStart.distance));this.scale=nextScale;this.tx=midpoint.x-this.gestureStart.anchor.x*nextScale;this.ty=midpoint.y-this.gestureStart.anchor.y*nextScale;this.clampCamera();this.applyCamera();}
   applyCamera(){this.world?.setAttribute('transform',`translate(${this.tx} ${this.ty}) scale(${this.scale})`);}
-  resetView(){this.cameraMode='clean';this.scale=1;this.tx=0;this.ty=0;this.applyCamera();}
-  followToken(x:number,y:number){if(this.cameraMode!=='follow')return;const w=this.cols*CELL,h=this.rows*CELL;this.tx=w/2-x*this.scale;this.ty=h/2-y*this.scale;this.applyCamera();}
+  followToken(x:number,y:number){this.centerCamera(x,y);this.applyCamera();}
 
   svgPoint(clientX:number,clientY:number){if(!this.svg)return{x:0,y:0};const p=this.svg.createSVGPoint();p.x=clientX;p.y=clientY;const ctm=this.world?.getScreenCTM();if(!ctm)return{x:0,y:0};const q=p.matrixTransform(ctm.inverse());return{x:q.x,y:q.y};}
 
@@ -207,7 +212,7 @@ class Game{
   checkGameOver(){const h=this.living('player'),e=this.living('enemy');if(h.length&&e.length)return;this.gameOver=true;this.clearTimers();ui.resultOverlay.hidden=false;ui.resultTitle.textContent=h.length?'Victory':'Defeat';ui.resultCopy.textContent=h.length?'The pass is secure.':'The party has fallen.';this.log(h.length?'Victory.':'Defeat.');}
   syncUI(){const a=this.active();ui.undo.disabled=!a||a.team!=='player'||!this.history.length;ui.actionToggle.disabled=!a||a.team!=='player'||!this.hasAction(a)||this.gameOver;ui.heal.disabled=!a||a.team!=='player'||!this.hasAction(a)||a.hp>=a.maxHp;ui.defend.disabled=!a||a.team!=='player'||!this.hasAction(a)||a.defending;ui.tactical.setAttribute('aria-pressed',String(this.mode==='tactical'));ui.exploration.setAttribute('aria-pressed',String(this.mode==='exploration'));
     const s=this.selected()??a??this.living()[0];if(s){ui.selectedName.textContent=s.name;ui.selectedTeam.textContent=s.team==='player'?'Hero':'Enemy';ui.health.textContent=`${s.hp} / ${s.maxHp}`;ui.attack.textContent=String(s.damage);ui.movement.textContent=String(MOVE);ui.initiative.textContent=`${s.initiativeMod>=0?'+':''}${s.initiativeMod} (${s.initiativeScore})`;ui.actions.textContent=a?.id===s.id?`${ACTIONS-s.actionsUsed} / ${ACTIONS}`:'—';ui.portrait.textContent=this.glyph(s);}
-    ui.rail.innerHTML='';for(const [i,id] of this.turnOrder.entries()){const u=this.unit(id);if(!u)continue;const b=document.createElement('button');b.type='button';b.className=`initiative-token ${u.team}${i===this.activeIndex?' active':''}`;b.setAttribute('aria-label',`${u.name}${i===this.activeIndex?', current turn':''}`);b.innerHTML=`<span>${this.glyph(u)}</span><small>${u.name}</small>`;b.addEventListener('click',()=>{this.selectedId=u.id;this.render();});ui.rail.appendChild(b);}const active=ui.rail.querySelector<HTMLElement>('.active');if(active)requestAnimationFrame(()=>active.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'}));}
+    ui.rail.innerHTML='';for(const [i,id] of this.turnOrder.entries()){const u=this.unit(id);if(!u)continue;const b=document.createElement('button');b.type='button';b.className=`initiative-token ${u.team}${i===this.activeIndex?' active':''}`;b.setAttribute('aria-label',`${u.name}${i===this.activeIndex?', current turn':''}`);b.innerHTML=`<span>${this.glyph(u)}</span><small>${u.name}</small>`;b.addEventListener('click',()=>{this.selectedId=u.id;this.centerCamera((u.x+.5)*CELL,(u.y+.5)*CELL,this.cols/DEFAULT_TILES_WIDE);this.render();});ui.rail.appendChild(b);}const active=ui.rail.querySelector<HTMLElement>('.active');if(active)requestAnimationFrame(()=>active.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'}));}
   log(text:string){this.logEntries.push({round:this.round,text});this.renderLog();}
   renderLog(){ui.logList.innerHTML='';for(const e of this.logEntries){const row=document.createElement('div');row.className='log-entry';row.innerHTML=`<b>R${e.round}</b><span>${e.text}</span>`;ui.logList.appendChild(row);}ui.logList.scrollTop=ui.logList.scrollHeight;}
   closeActionMenu(){ui.actionPanel.hidden=true;ui.actionToggle.setAttribute('aria-expanded','false');}

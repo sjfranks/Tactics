@@ -29,21 +29,33 @@ const n=(el:Element,a:string,d=0)=>{const v=Number(el.getAttribute(a));return Nu
 const tr=(el:Element)=>{const m=/translate\(([-.\d]+)[ ,]([-.\d]+)\)/.exec(el.getAttribute('transform')??'');return m?{x:+m[1],y:+m[2]}:{x:0,y:0}};
 const camera=(svg:SVGSVGElement)=>{const raw=svg.querySelector('.world')?.getAttribute('transform')??'';const m=/translate\(([-.\d]+)[ ,]([-.\d]+)\)\s*scale\(([-.\d]+)\)/.exec(raw);return m?{x:+m[1],y:+m[2],z:+m[3]}:{x:0,y:0,z:1}};
 function rr(c:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,r:number){c.beginPath();c.roundRect(x,y,w,h,r)}
-function box(c:CanvasRenderingContext2D,x:number,y:number,fill:string,stroke:string,line=2){c.save();c.fillStyle=fill;c.strokeStyle=stroke;c.lineWidth=line;c.shadowColor=stroke;c.shadowBlur=5;rr(c,x+3,y+3,CELL-6,CELL-6,7);c.fill();c.stroke();c.restore()}
+function rangeCell(c:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,fill:string,stroke:string,mode:'corners'|'dashed'|'fill'='corners'){
+ c.save();c.fillStyle=fill;rr(c,x,y,w,h,7);c.fill();c.strokeStyle=stroke;c.lineWidth=1.8;
+ if(mode==='dashed'){c.setLineDash([7,7]);c.stroke()}
+ else if(mode==='corners'){const o=4,l=11;for(const[a,b,sx,sy]of [[x+o,y+o,1,1],[x+w-o,y+o,-1,1],[x+o,y+h-o,1,-1],[x+w-o,y+h-o,-1,-1]] as const){c.beginPath();c.moveTo(a+sx*l,b);c.lineTo(a,b);c.lineTo(a,b+sy*l);c.stroke()}}
+ c.restore();
+}
 
 function playerThreat(c:CanvasRenderingContext2D,svg:SVGSVGElement){
- const cells=new Set<string>();
+ const move=new Set<string>(),cells=new Set<string>();
  for(const el of svg.querySelectorAll<SVGRectElement>('.move-range')){
   const x=Math.round((n(el,'x')-3)/CELL),y=Math.round((n(el,'y')-3)/CELL);
+  move.add(`${x},${y}`);
   const cols=svg.viewBox.baseVal.width/CELL,rows=svg.viewBox.baseVal.height/CELL;
   for(const [dx,dy] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(nx>=0&&nx<cols&&ny>=0&&ny<rows)cells.add(`${nx},${ny}`)}
  }
- for(const k of cells){const[x,y]=k.split(',').map(Number);box(c,x*CELL,y*CELL,'rgba(210,76,82,.12)','rgba(255,112,118,.22)',1.5)}
+ for(const k of cells)if(!move.has(k)){const[x,y]=k.split(',').map(Number);rangeCell(c,x*CELL+4,y*CELL+4,CELL-8,CELL-8,'rgba(72,8,16,.28)','rgba(224,67,76,.58)')}
 }
 function highlights(c:CanvasRenderingContext2D,svg:SVGSVGElement){
  playerThreat(c,svg);
- const defs:any={'move-range':['rgba(50,155,218,.30)','#72ddff'],'attack-range':['rgba(197,63,63,.34)','#ff756d'],'enemy-range':['rgba(169,47,56,.22)','#ff747c'],'enemy-threat':['rgba(206,112,69,.16)','rgba(206,112,69,.3)'],'spell-range':['rgba(123,84,200,.43)','#d7b8ff']};
- for(const [cls,p] of Object.entries(defs) as any)for(const el of svg.querySelectorAll<SVGRectElement>(`.${cls}`)){c.save();c.fillStyle=p[0];c.strokeStyle=p[1];c.lineWidth=2;c.shadowColor=p[1];c.shadowBlur=5;rr(c,n(el,'x'),n(el,'y'),n(el,'width'),n(el,'height'),7);c.fill();c.stroke();c.restore()}
+ const defs:Record<string,[string,string,'corners'|'dashed'|'fill']>={
+  'move-range':['rgba(35,132,184,.11)','rgba(108,211,255,.64)','corners'],
+  'attack-range':['rgba(69,6,14,.38)','rgba(239,72,80,.76)','corners'],
+  'enemy-range':['rgba(68,7,16,.28)','rgba(226,72,82,.62)','corners'],
+  'enemy-threat':['rgba(91,35,17,.13)','rgba(211,111,67,.24)','fill'],
+  'spell-range':['rgba(88,52,145,.14)','rgba(199,163,244,.62)','dashed']
+ };
+ for(const [cls,p] of Object.entries(defs))for(const el of svg.querySelectorAll<SVGRectElement>(`.${cls}`))rangeCell(c,n(el,'x'),n(el,'y'),n(el,'width'),n(el,'height'),p[0],p[1],p[2]);
 }
 function grid(c:CanvasRenderingContext2D,w:number,h:number){c.save();c.strokeStyle='rgba(12,17,10,.52)';c.lineWidth=1.25;for(let x=0;x<=w;x+=CELL){c.beginPath();c.moveTo(x,0);c.lineTo(x,h);c.stroke()}for(let y=0;y<=h;y+=CELL){c.beginPath();c.moveTo(0,y);c.lineTo(w,y);c.stroke()}c.restore()}
 function selectedId(){const s=document.querySelector<HTMLElement>('#selected-name')?.textContent??'';if(s.includes('Alden'))return'alden';if(s.includes('Mira'))return'mira';if(s.includes('Goblin Raider'))return'raider-1';if(s.includes('Goblin Skirmisher'))return'raider-2';if(s.includes('Goblin Archer'))return'raider-3';if(s.includes('Goblin Brute'))return'raider-4';return''}

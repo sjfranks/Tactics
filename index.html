@@ -33,25 +33,27 @@
         </div>
 
         <div class="hud-left">
-          <details class="settings-menu" id="settings-menu">
-            <summary class="hud-circle" aria-label="Settings" title="Settings">⚙</summary>
-            <div class="settings-popover">
-              <span class="settings-label">Prototype mode</span>
-              <div class="mode-options" role="group" aria-label="Prototype mode">
-                <button id="tactical-mode" class="mode-option" type="button" aria-pressed="true">Tactical battle</button>
-                <button id="exploration-mode" class="mode-option" type="button" aria-pressed="false">Exploration demo</button>
+          <div id="utility-panel" class="utility-panel" hidden>
+            <details class="settings-menu" id="settings-menu">
+              <summary class="hud-circle" aria-label="Settings" title="Settings">⚙</summary>
+              <div class="settings-popover">
+                <span class="settings-label">Prototype mode</span>
+                <div class="mode-options" role="group" aria-label="Prototype mode">
+                  <button id="tactical-mode" class="mode-option" type="button" aria-pressed="true">Tactical battle</button>
+                  <button id="exploration-mode" class="mode-option" type="button" aria-pressed="false">Exploration demo</button>
+                </div>
+                <button id="restart" type="button">Restart battle</button>
               </div>
-              <button id="restart" type="button">Restart battle</button>
-            </div>
-          </details>
-          <button id="reset-view" class="hud-circle" type="button" aria-label="Reset battlefield view" title="Reset view">⌗</button>
-          <button id="undo-action" class="hud-circle" type="button" aria-label="Undo last action" title="Undo">↶</button>
+            </details>
+            <button id="stats-toggle" class="hud-circle" type="button" aria-label="Show selected unit stats" aria-expanded="false" title="Stats">☷</button>
+            <button id="log-toggle" class="hud-circle" type="button" aria-label="Open combat log" aria-expanded="false" title="Combat log"><span class="speech-icon" aria-hidden="true"></span></button>
+            <button id="undo-action" class="hud-circle" type="button" aria-label="Undo last action" title="Undo">↶</button>
+          </div>
+          <button id="utility-toggle" class="hud-circle utility-toggle" type="button" aria-label="Show game controls" aria-expanded="false" title="Controls">⌃</button>
         </div>
 
         <div class="hud-right">
-          <button id="log-toggle" class="hud-circle" type="button" aria-label="Open combat log" aria-expanded="false" title="Combat log">≡</button>
           <button id="ability-menu-toggle" class="hud-circle" type="button" aria-label="Open actions" aria-expanded="false" title="Actions">✦</button>
-          <button id="stats-toggle" class="hud-circle" type="button" aria-label="Show selected unit stats" aria-expanded="false" title="Stats">☷</button>
         </div>
 
         <div class="initiative-dock" aria-label="Initiative order">

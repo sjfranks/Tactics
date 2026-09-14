@@ -17,7 +17,7 @@ export const dragPolish={
     const sl=Math.hypot(second.x-first.x,second.y-first.y)||1;
     const start={x:first.x+(second.x-first.x)/sl*31,y:first.y+(second.y-first.y)/sl*31};
     const dx=last.x-prev.x,dy=last.y-prev.y,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,px=-uy,py=ux;
-    const shaftEnd={x:last.x+ux*2,y:last.y+uy*2};
+    const shaftEnd={x:last.x-ux*18,y:last.y-uy*18};
     const pts=[start,...centres.slice(1,-1),shaftEnd],points=pts.map(p=>\`${'${p.x},${p.y}'}\`).join(' ');
     const outerTip={x:last.x+ux*7,y:last.y+uy*7},outerBase={x:last.x-ux*24,y:last.y-uy*24};
     const outerPoints=\`${'${outerTip.x},${outerTip.y} ${outerBase.x+px*16},${outerBase.y+py*16} ${outerBase.x-px*16},${outerBase.y-py*16}'}\`;
