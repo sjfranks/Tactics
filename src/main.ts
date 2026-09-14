@@ -156,7 +156,10 @@ class Game{
     }
     if(this.pendingAttack&&a?.team==='player')return;
     if(s.team==='enemy'){this.reachable(s,MOVE).forEach(p=>add(p,'enemy-range'));return;}
-    if(!this.isActivePlayer(s)||!this.canMove(s))return;this.reachable(s,MOVE).forEach(p=>{if(p.x!==s.x||p.y!==s.y)add(p,'move-range');});
+    if(!this.isActivePlayer(s)||!this.canMove(s))return;
+    const blocked=(p:Point)=>{add(p,'blocked-range');const x=p.x*CELL,y=p.y*CELL;for(let offset=-CELL+8;offset<CELL;offset+=10){const x1=offset<0?x:x+offset,y1=offset<0?y+CELL+offset:y+CELL,x2=offset<0?x+CELL+offset:x+CELL,y2=offset<0?y:y+offset;layer.appendChild(svg('line',{x1,y1,x2,y2,class:'blocked-hatch'}));}};
+    for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++)if(this.isObstacle(x,y))blocked({x,y});
+    this.reachable(s,MOVE).forEach(p=>{if(p.x!==s.x||p.y!==s.y)add(p,'move-range');});
   }
 
   paintAttackIntent(){
