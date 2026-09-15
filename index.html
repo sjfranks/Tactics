@@ -3,62 +3,72 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="A portrait-first, touch-friendly tactical battle prototype." />
-    <title>Tactics — First Battle</title>
-    <style>.game-board marker path{transform:scale(.32);transform-origin:center;transform-box:fill-box}</style>
+    <meta name="theme-color" content="#071426" />
+    <meta name="description" content="Build and play a touch-friendly fantasy tactics encounter." />
+    <title>Tactics — Encounter Builder</title>
   </head>
   <body>
-    <main class="game-shell" aria-label="Tactics battle">
+    <section id="title-screen" class="title-screen" aria-label="Encounter setup">
+      <div class="title-backdrop"></div>
+      <form id="encounter-form" class="encounter-card">
+        <p class="title-kicker">FIELD COMMAND</p>
+        <h1>Tactics</h1>
+        <p class="title-copy">Assemble your company and shape the battlefield.</p>
+        <label class="setup-field">
+          <span>Battlefield</span>
+          <select id="map-size">
+            <option value="6x8">6 × 8 · Meadow</option>
+            <option value="12x16">12 × 16 · Desert</option>
+            <option value="20x20">20 × 20 · Snowfield</option>
+            <option value="30x30">30 × 30 · Highlands</option>
+          </select>
+        </label>
+        <div class="setup-grid">
+          <label class="setup-field"><span>Move speed</span><input id="move-speed" type="number" min="2" max="8" value="3" inputmode="numeric" /></label>
+          <label class="setup-field"><span>Enemies</span><input id="enemy-count" type="number" min="1" max="16" value="4" inputmode="numeric" /></label>
+          <label class="setup-field"><span>Heroes</span><input id="player-count" type="number" min="1" max="6" value="2" inputmode="numeric" /></label>
+        </div>
+        <div class="roster-preview" aria-label="Available heroes">
+          <span class="preview-hero sprite-alden" title="Aldren, Archer"></span>
+          <span class="preview-hero sprite-mira" title="Mira, Healer"></span>
+          <span class="preview-hero sprite-lyra" title="Lyra, Wizard"></span>
+          <span class="preview-hero sprite-nox" title="Nox, Thief"></span>
+          <span class="preview-hero sprite-seraphine" title="Seraphine, Paladin"></span>
+          <span class="preview-hero sprite-garrick" title="Garrick, Fighter"></span>
+        </div>
+        <button class="new-encounter-button" type="submit">New Encounter</button>
+      </form>
+    </section>
+
+    <main id="game-shell" class="game-shell" aria-label="Tactics battle" hidden>
       <section class="battlefield-viewport">
         <div id="battlefield-frame" class="battlefield-frame"><div id="battlefield" class="battlefield" aria-label="Tactical battlefield"></div></div>
-
-        <div id="combat-forecast" class="combat-forecast" role="button" tabindex="0" aria-label="Confirm attack" hidden>
-          <strong id="forecast-icon" aria-hidden="true">⚔</strong><span id="forecast-matchup"></span><b id="forecast-result"></b>
-        </div>
-
         <div id="combat-log-panel" class="combat-log-panel" hidden>
           <div class="combat-log-heading"><strong>Combat Log</strong><button id="log-close" type="button" aria-label="Close combat log">×</button></div>
           <div id="combat-log-list" class="combat-log-list"></div>
         </div>
-
         <div id="result-overlay" class="result-overlay" hidden>
-          <p class="eyebrow">BATTLE COMPLETE</p><h2 id="result-title">Victory</h2><p id="result-copy">The pass is secure.</p><button id="restart-overlay" class="primary-button" type="button">Play again</button>
+          <p class="eyebrow">BATTLE COMPLETE</p><h2 id="result-title">Victory</h2><p id="result-copy">The field is secure.</p>
+          <button id="restart-overlay" class="primary-button" type="button">Play again</button>
+          <button id="setup-overlay" class="secondary-button" type="button">New setup</button>
         </div>
-
         <div class="hud-left">
           <div id="utility-panel" class="utility-panel" hidden>
-            <details class="settings-menu" id="settings-menu">
-              <summary class="hud-circle" aria-label="Settings" title="Settings">⚙</summary>
-              <div class="settings-popover">
-                <span class="settings-label">Prototype mode</span>
-                <div class="mode-options" role="group" aria-label="Prototype mode">
-                  <button id="tactical-mode" class="mode-option" type="button" aria-pressed="true">Tactical battle</button>
-                  <button id="exploration-mode" class="mode-option" type="button" aria-pressed="false">Exploration demo</button>
-                </div>
-                <button id="restart" type="button">Restart battle</button>
-              </div>
-            </details>
+            <button id="setup-action" class="hud-circle" type="button" aria-label="Return to encounter setup" title="Encounter setup">⚙</button>
             <button id="stats-toggle" class="hud-circle" type="button" aria-label="Show selected unit stats" aria-expanded="false" title="Character sheet"><svg class="hud-icon sheet-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8" cy="9" r="2"></circle><path d="M5.5 15c.8-2 4.2-2 5 0M13 8h5M13 12h5M13 16h4"></path></svg></button>
             <button id="log-toggle" class="hud-circle" type="button" aria-label="Open combat log" aria-expanded="false" title="Combat log"><span class="speech-icon" aria-hidden="true"></span></button>
-            <button id="undo-action" class="hud-circle" type="button" aria-label="Undo last action" title="Undo">↶</button>
-            <button id="zoom-reset" class="hud-circle zoom-reset" type="button" aria-label="Show the whole map" title="Show whole map"><span class="zoom-out-icon" aria-hidden="true">−</span></button>
+            <button id="undo-action" class="hud-circle" type="button" aria-label="Undo last player decision" title="Undo">↶</button>
+            <button id="zoom-reset" class="hud-circle zoom-reset" type="button" aria-label="Return to default zoom" title="Default zoom"><span class="zoom-out-icon" aria-hidden="true">−</span></button>
           </div>
-          <button id="utility-toggle" class="hud-circle utility-toggle" type="button" aria-label="Show game controls" aria-expanded="false" title="Controls"><span class="chevron-icon" aria-hidden="true">⌃</span></button>
+          <button id="utility-toggle" class="hud-circle utility-toggle" type="button" aria-label="Show game controls" aria-expanded="false" title="Controls"><svg class="chevron-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 14.5 5.5-5 5.5 5"></path></svg></button>
         </div>
-
-        <div class="hud-right">
-          <div id="action-bar" class="action-bar" role="toolbar" aria-label="Actions for the active character" hidden>
-            <button id="attack-action" class="action-choice" type="button" aria-pressed="false"><span class="action-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><g transform="rotate(-43 12 12)"><path d="M10.8 3h2.4l-.35 10.1h-1.7L10.8 3Z"></path><path d="M8.4 13h7.2v1.8H8.4zM11 14.5h2v4.1h-2z"></path><circle cx="12" cy="19.4" r="1.25"></circle></g><g transform="rotate(43 12 12)"><path d="M10.8 3h2.4l-.35 10.1h-1.7L10.8 3Z"></path><path d="M8.4 13h7.2v1.8H8.4zM11 14.5h2v4.1h-2z"></path><circle cx="12" cy="19.4" r="1.25"></circle></g></svg></span><b>Attack</b></button>
-            <button id="heal-action" class="action-choice" type="button" aria-pressed="false"><span class="action-symbol" aria-hidden="true">+</span><b>Heal</b></button>
-            <button id="defend-action" class="action-choice" type="button"><span class="action-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 19 6v5c0 4.8-2.8 8.2-7 10-4.2-1.8-7-5.2-7-10V6l7-3Z"></path></svg></span><b>Defend</b></button>
-          </div>
-          <button id="action-toggle" class="hud-circle action-toggle" type="button" aria-label="Show character actions" aria-expanded="false" title="Actions"><svg class="hud-icon menu-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="4" cy="6" r="1.3"></circle><circle cx="4" cy="12" r="1.3"></circle><circle cx="4" cy="18" r="1.3"></circle><path d="M8 6h12M8 12h12M8 18h12"></path></svg></button>
-        </div>
-
-        <div class="initiative-dock" aria-label="Initiative order">
+        <aside id="initiative-drawer" class="initiative-drawer" aria-label="Initiative order" aria-hidden="true">
           <div id="initiative-rail" class="initiative-rail" role="list"></div>
+        </aside>
+        <div class="hud-right">
+          <button id="rail-toggle" class="hud-circle rail-toggle" type="button" aria-label="Show initiative order" aria-expanded="false" title="Initiative order"><svg class="hud-icon roster-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"></circle><circle cx="16" cy="8" r="3"></circle><path d="M3 19c.5-4 3-6 5-6s4.5 2 5 6M11 19c.5-4 3-6 5-6s4.5 2 5 6"></path></svg></button>
         </div>
+        <div id="action-hotbar" class="action-hotbar" role="toolbar" aria-label="Actions for the active hero"></div>
       </section>
       <p class="sr-only" id="instruction" aria-live="polite"></p>
     </main>
@@ -66,16 +76,15 @@
     <aside class="unit-drawer" id="unit-drawer" aria-label="Selected unit stats">
       <div class="drawer-content">
         <span class="label" id="selected-team">Hero</span>
-        <div class="drawer-heading"><div class="portrait" id="portrait" aria-hidden="true">A</div><strong id="selected-name">Alden</strong></div>
+        <div class="drawer-heading"><div class="portrait" id="portrait" aria-hidden="true"></div><div><strong id="selected-name">Aldren</strong><small id="selected-class">Archer</small></div></div>
         <dl class="stat-list">
           <div><dt>HP</dt><dd id="health-text">5 / 5</dd></div>
           <div><dt>Attack</dt><dd id="attack-stat">2</dd></div>
-          <div><dt>Move</dt><dd id="movement-stat">2</dd></div>
+          <div><dt>Move</dt><dd id="movement-stat">3</dd></div>
           <div><dt>Initiative</dt><dd id="initiative-stat">+2</dd></div>
         </dl>
       </div>
     </aside>
-
     <script type="module" src="/src/main.ts"></script>
     <script type="module" src="/src/canvasBattlefield.ts"></script>
   </body>
