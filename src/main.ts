@@ -473,7 +473,7 @@ class Game{
     const shards=Math.min(targets.length,this.actionsRemaining(u),3);u.abilityUsed.push('magic');u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+shards);this.targetingMode=undefined;this.magicTargets.clear();
     const results=targets.slice(0,shards).map(t=>{const roll=this.rollDie(4),damage=roll+1;t.hp=Math.max(0,t.hp-damage);return{t,roll,damage};});
     this.log(u.name+' casts Magic Missile / Force Barrage ('+shards+' action'+(shards===1?'':'s')+'): '+results.map(({t,roll,damage})=>t.name+' takes 1d4+1 ['+roll+'] + 1 = '+damage+' force damage'+(t.hp<=0?' and is defeated':'')).join(' · ')+'.');
-    this.checkGameOver();this.render();results.forEach(({t,damage})=>this.showFloating(t,'−'+damage,'damage',rects.get(t.id)));if(!this.gameOver)this.maybeFinish(u);
+    this.checkGameOver();this.render();results.forEach(({t,damage})=>this.showFloating(t,'−'+damage,'damage',rects.get(t.id)));if(!this.gameOver){this.message(this.actionsRemaining(u)+' actions remaining.');this.maybeFinish(u);}
   }
 
   fireballArea(center:Point){
@@ -486,7 +486,7 @@ class Game{
     const results=targets.map(t=>{const natural=this.rollDie(20),saveTotal=natural+t.reflex,degree=this.degreeFor(saveTotal,spellDC,natural),damage=degree===3?0:degree===2?Math.floor(rolled.total/2):degree===1?rolled.total:rolled.total*2;t.hp=Math.max(0,t.hp-damage);return{t,natural,saveTotal,degree,damage};});
     this.log(u.name+' casts Fireball: 6d6 ['+rolled.rolls.join(', ')+'] = '+rolled.total+' fire damage; basic Reflex DC '+spellDC+'.');
     for(const result of results)this.log(result.t.name+' Reflex: d20 '+result.natural+' '+signed(result.t.reflex)+' = '+result.saveTotal+' — '+this.degreeName(result.degree)+', '+result.damage+' damage'+(result.t.hp<=0?' and defeated':'')+'.');
-    this.checkGameOver();this.render();for(const {t,damage} of results)this.showFloating(t,damage?'−'+damage:'0',damage?'damage':'miss',rects.get(t.id));if(!this.gameOver)this.maybeFinish(u);
+    this.checkGameOver();this.render();for(const {t,damage} of results)this.showFloating(t,damage?'−'+damage:'0',damage?'damage':'miss',rects.get(t.id));if(!this.gameOver){this.message(this.actionsRemaining(u)+' actions remaining.');this.maybeFinish(u);}
   }
 
   routeToRange(u:Unit,t:Unit,kind:Weapon){
