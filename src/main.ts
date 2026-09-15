@@ -3,7 +3,7 @@ import './phaser.css';
 type Team='player'|'enemy';
 type Weapon='melee'|'ranged';
 type TargetingMode='attack'|'heal'|'magic';
-type MapKey='6x8'|'12x16'|'20x20'|'30x30';
+type MapKey='6x8'|'8x10'|'12x16'|'20x20'|'30x30';
 type Point={x:number;y:number};
 type Obstacle=Point&{kind:number};
 type Unit=Point&{
@@ -26,6 +26,7 @@ const DEFAULT_TILES_WIDE=6;
 const NS='http://www.w3.org/2000/svg';
 const MAPS:Record<MapKey,{cols:number;rows:number;background:string;obstacleKinds:number[]}>={
   '6x8':{cols:6,rows:8,background:'meadow-6x8.webp',obstacleKinds:[0,1,2,3]},
+  '8x10':{cols:8,rows:10,background:'meadow-6x8.webp',obstacleKinds:[0,1,2,3]},
   '12x16':{cols:12,rows:16,background:'desert-12x16.webp',obstacleKinds:[4,5]},
   '20x20':{cols:20,rows:20,background:'snow-20x20.webp',obstacleKinds:[6,7]},
   '30x30':{cols:30,rows:30,background:'highland-30x30.webp',obstacleKinds:[0,1,2,3]}
@@ -203,7 +204,8 @@ class Game{
   moveRange(u:Unit){return this.config.move*(u.charged?2:1);}
   weaponKind(u:Unit){return u.weapon;}
   isActivePlayer(u:Unit){return !this.gameOver&&this.active()?.id===u.id&&u.team==='player';}
-  defaultScale(){return Math.max(1,this.cols/DEFAULT_TILES_WIDE);}
+  defaultTilesWide(){return this.mapKey==='8x10'?8:DEFAULT_TILES_WIDE;}
+  defaultScale(){return Math.max(1,this.cols/this.defaultTilesWide());}
   maxScale(){return Math.max(this.defaultScale(),this.cols/3);}
 
   beginTurn(){
@@ -242,8 +244,8 @@ class Game{
   layout(){
     const vr=ui.viewport.getBoundingClientRect(),hotbar=ui.hotbar.getBoundingClientRect();
     const available=Math.max(240,vr.height-Math.max(98,hotbar.height));
-    const height=Math.min(available,vr.width*4/3);
-    ui.frame.style.width=Math.min(vr.width,height*3/4)+'px';ui.frame.style.height=height+'px';
+    const aspect=this.mapKey==='8x10'?8/10:3/4,height=Math.min(available,vr.width/aspect);
+    ui.frame.style.width=Math.min(vr.width,height*aspect)+'px';ui.frame.style.height=height+'px';
   }
 
   makeToken(u:Unit){

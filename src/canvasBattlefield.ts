@@ -6,6 +6,7 @@ const asset=(path:string)=>import.meta.env.BASE_URL+'assets/'+path;
 const load=(path:string)=>{const image=new Image();image.decoding='async';image.src=asset(path);return image;};
 const backgrounds:Record<string,HTMLImageElement>={
   '6x8':load('encounters/meadow-6x8.webp'),
+  '8x10':load('encounters/meadow-6x8.webp'),
   '12x16':load('encounters/desert-12x16.webp'),
   '20x20':load('encounters/snow-20x20.webp'),
   '30x30':load('encounters/highland-30x30.webp')
