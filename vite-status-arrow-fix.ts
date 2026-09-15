@@ -18,6 +18,15 @@ export const statusArrowFix={
     if(!next.includes(oldRouteRender))throw new Error('status-arrow-fix: route render pattern not found');
     next=next.replace(oldRouteRender,newRouteRender);
 
+    // Attack intent is carried by a separate sword/bow bubble. The route
+    // remains a pure movement path and ends at the unit's destination.
+    const attackRoute='this.drawRoute(plan.route,false,target)';
+    if(next.split(attackRoute).length-1!==2)throw new Error('status-arrow-fix: attack route calls not found');
+    next=next.split(attackRoute).join('this.drawRoute(plan.route)');
+    const oldCue=`const q={x:target.x*CELL+CELL/2,y:target.y*CELL+CELL/2},cue=svg('g',{transform:'translate('+(q.x+6)+' '+(q.y-8)+')',class:'drag-attack-cue'});cue.append(svg('circle',{cx:0,cy:0,r:5}),svg('text',{x:0,y:2,'text-anchor':'middle'}));(cue.lastChild as SVGTextElement).textContent=plan.kind==='ranged'?'➶':'⚔';this.routeLayer!.appendChild(cue);`;
+    if(!next.includes(oldCue))throw new Error('status-arrow-fix: player attack cue not found');
+    next=next.replace(oldCue,'this.drawAttackCue(target,plan.kind);');
+
     return {code:next,map:null};
   }
 };
