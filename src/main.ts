@@ -50,7 +50,8 @@ const ICONS={
   heal:'<svg viewBox="0 0 24 24"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6V3Z"/></svg>',
   magic:'<svg viewBox="0 0 24 24"><path d="m13 2-2 7 5-2-7 15 2-9-5 2L13 2Z"/><path d="m18 3 .6 1.7L20 5l-1.4.5L18 7l-.5-1.5L16 5l1.5-.3L18 3Z"/></svg>',
   hide:'<svg viewBox="0 0 24 24"><path d="M4 8c2.5-3 13.5-3 16 0l-2 10c-2 2.5-4 3.5-6 3.5S8 20.5 6 18L4 8Z"/><path d="M7 12c1.2-1 2.7-1 4 0-1 2-3 2-4 0Zm6 0c1.3-1 2.8-1 4 0-1 2-3 2-4 0Z" class="cutout"/></svg>',
-  charge:'<svg viewBox="0 0 24 24"><path d="M13 2 4 13h6l-1 9 10-13h-6V2Z"/></svg>'
+  charge:'<svg viewBox="0 0 24 24"><path d="M13 2 4 13h6l-1 9 10-13h-6V2Z"/></svg>',
+  pass:'<svg viewBox="0 0 24 24"><path d="M5 3h14v3c0 3-2.2 5-4.8 6 2.6 1 4.8 3 4.8 6v3H5v-3c0-3 2.2-5 4.8-6C7.2 11 5 9 5 6V3Zm3 3c0 2 1.8 3.2 4 4 2.2-.8 4-2 4-4H8Zm4 8c-2.2.8-4 2-4 4h8c0-2-1.8-3.2-4-4Z"/></svg>'
 };
 
 const $=<T extends HTMLElement>(s:string)=>document.querySelector<T>(s)!;
@@ -122,12 +123,12 @@ class Game{
     this.round=1;this.activeIndex=0;this.gameOver=false;this.targetingMode=undefined;this.magicTargets.clear();this.history=[];this.logEntries=[];this.busy=false;this.railOpen=false;
     this.rollInitiative();this.selectedId=this.turnOrder[0]||this.units[0]?.id||'';
     this.scale=this.defaultScale();this.cameraMode=this.scale>1.01?'follow':'clean';this.tx=0;this.ty=0;this.cameraDirty=false;
-    ui.title.hidden=true;ui.shell.hidden=false;ui.resultOverlay.hidden=true;ui.drawer.classList.remove('open');ui.railDrawer.classList.remove('open');ui.railDrawer.setAttribute('aria-hidden','true');ui.railToggle.setAttribute('aria-expanded','false');this.closeLog();
+    ui.title.hidden=true;ui.shell.hidden=false;ui.drawer.hidden=false;ui.resultOverlay.hidden=true;ui.drawer.classList.remove('open');ui.railDrawer.classList.remove('open');ui.railDrawer.setAttribute('aria-hidden','true');ui.railToggle.setAttribute('aria-expanded','false');this.closeLog();
     this.log('Round 1 begins.');this.render();this.beginTurn();
   }
 
   showSetup(){
-    this.clearTimers();this.busy=false;ui.shell.hidden=true;ui.title.hidden=false;ui.drawer.classList.remove('open');ui.resultOverlay.hidden=true;
+    this.clearTimers();this.busy=false;ui.shell.hidden=true;ui.drawer.classList.remove('open');ui.drawer.hidden=true;ui.statsToggle.setAttribute('aria-expanded','false');ui.title.hidden=false;ui.resultOverlay.hidden=true;
   }
 
   makeUnits(playerCount:number,enemyCount:number){
@@ -212,7 +213,7 @@ class Game{
       this.round++;this.activeIndex=0;this.living().forEach(u=>u.actionsUsed=0);this.log('Round '+this.round+' begins.');
       while(this.activeIndex<this.turnOrder.length&&!this.unit(this.turnOrder[this.activeIndex]))this.activeIndex++;
     }
-    const a=this.active();if(!a)return;a.actionsUsed=0;a.charged=false;this.selectedId=a.id;this.targetingMode=undefined;this.magicTargets.clear();
+    const a=this.active();if(!a)return;a.actionsUsed=0;a.charged=false;a.defending=false;this.selectedId=a.id;this.targetingMode=undefined;this.magicTargets.clear();
     this.centerCamera((a.x+.5)*CELL,(a.y+.5)*CELL,this.scale);this.render();this.message(a.name+'\'s turn.');
     if(a.team==='enemy')this.schedule(440,()=>void this.runEnemy());
   }
@@ -401,6 +402,7 @@ class Game{
   }
   defendSelected(){const u=this.active();if(u?.team==='player'&&this.hasAction(u)&&!u.defending&&!this.busy)this.defendUnit(u,true);}
   defendUnit(u:Unit,save=false){if(save)this.record();u.defending=true;u.actionsUsed=2;this.targetingMode=undefined;this.log(u.name+' uses Defend.');this.render();this.maybeFinish(u);}
+  passTurn(){const u=this.active();if(!u||u.team!=='player'||this.busy)return;this.record();u.actionsUsed=ACTIONS;this.targetingMode=undefined;this.magicTargets.clear();this.log(u.name+' passes.');this.render();this.maybeFinish(u);}
 
   hideSelected(){
     const u=this.active();if(!u||u.id!=='nox'||!this.hasAction(u)||this.busy)return;this.record();const success=Math.random()<.75;u.actionsUsed=2;u.defending=false;u.hiding=success;this.log(u.name+(success?' slips into hiding.':' fails to hide.'));this.render();this.showFloating(u,success?'SUCCESS':'FAIL',success?'success':'failure');this.maybeFinish(u);
@@ -476,6 +478,7 @@ class Game{
     if(a.id==='lyra'&&!a.abilityUsed.includes('magic'))button('magic','Magic Missile'+(this.magicTargets.size?' '+this.magicTargets.size+'/3':''),ICONS.magic,()=>this.beginTargeting('magic'),!canAct,this.targetingMode==='magic');
     if(a.id==='nox'&&!a.hiding)button('hide','Hide',ICONS.hide,()=>this.hideSelected(),!canAct);
     if(a.id==='garrick'&&!a.abilityUsed.includes('charge'))button('charge',a.charged?'Charged':'Charge',ICONS.charge,()=>this.chargeSelected(),!this.canMove(a),a.charged);
+    button('pass','Pass',ICONS.pass,()=>this.passTurn(),this.busy);
   }
   syncUI(){
     const a=this.active(),selected=this.selected()??a??this.living()[0];ui.undo.disabled=!a||a.team!=='player'||!this.history.length;ui.zoomReset.disabled=!this.cameraDirty;
