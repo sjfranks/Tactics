@@ -40,7 +40,10 @@ function highlights(context:CanvasRenderingContext2D,svg:SVGSVGElement){
     'spell-range':['rgba(126,78,198,.29)','rgba(220,187,255,.88)'],
     'heal-target':['rgba(55,176,105,.4)','rgba(195,255,210,.92)'],
     'magic-target':['rgba(132,82,205,.42)','rgba(229,201,255,.92)'],
-    'magic-selected':['rgba(190,123,246,.62)','rgba(255,239,177,.96)']
+    'magic-selected':['rgba(190,123,246,.62)','rgba(255,239,177,.96)'],
+    'fireball-range':['rgba(221,106,40,.18)','rgba(255,192,102,.64)'],
+    'fireball-area':['rgba(240,77,40,.50)','rgba(255,211,123,.92)'],
+    'fireball-center':['rgba(255,179,38,.72)','rgba(255,241,169,.98)']
   };
   for(const [className,palette] of Object.entries(definitions))for(const element of svg.querySelectorAll<SVGRectElement>('.'+className)){const x=Math.round((numberAttr(element,'x')-2)/CELL)*CELL,y=Math.round((numberAttr(element,'y')-2)/CELL)*CELL;rangeCell(context,x,y,palette[0],palette[1]);}
 }

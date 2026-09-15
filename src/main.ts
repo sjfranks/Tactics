@@ -2,26 +2,35 @@ import './phaser.css';
 
 type Team='player'|'enemy';
 type Weapon='melee'|'ranged';
-type TargetingMode='attack'|'heal'|'magic';
+type TargetingMode='attack'|'heal'|'magic'|'fireball';
 type MapKey='6x8'|'8x10'|'12x16'|'20x20'|'30x30';
 type Point={x:number;y:number};
 type Obstacle=Point&{kind:number};
+type Abilities={str:number;dex:number;con:number;int:number;wis:number;cha:number};
 type Unit=Point&{
   id:string;name:string;role:string;team:Team;art:string;weapon:Weapon;
-  hp:number;maxHp:number;damage:number;initiativeMod:number;initiativeScore:number;
-  actionsUsed:number;defending:boolean;hiding:boolean;charged:boolean;
+  level:number;hp:number;maxHp:number;ac:number;abilities:Abilities;
+  fort:number;reflex:number;will:number;attackBonus:number;weaponName:string;
+  damageDice:number;damageDie:number;damageMod:number;weaponRange:number;damageType:string;
+  spellDC?:number;initiativeMod:number;initiativeScore:number;
+  actionsUsed:number;attacksMade:number;defending:boolean;hiding:boolean;charged:boolean;
   abilityUsed:string[];
 };
 type LogEntry={round:number;text:string};
 type Snapshot={units:Unit[];selectedId:string;round:number;activeIndex:number;logEntries:LogEntry[]};
 type EncounterConfig={map:MapKey;move:number;enemies:number;heroes:string[]};
-type HeroTemplate=Omit<Unit,keyof Point|'initiativeScore'|'actionsUsed'|'defending'|'hiding'|'charged'|'abilityUsed'>;
+type UnitTemplate=Omit<Unit,keyof Point|'initiativeScore'|'actionsUsed'|'attacksMade'|'defending'|'hiding'|'charged'|'abilityUsed'>;
 
 const CELL=16;
 const ACTIONS=3;
-const HEAL=2;
+const HEAL_DICE=2;
+const HEAL_DIE=8;
+const HEAL_MOD=4;
 const HEAL_RANGE=1;
-const RANGED_RANGE=2;
+const FORCE_BARRAGE_RANGE=12;
+const FIREBALL_RANGE=50;
+const FIREBALL_RADIUS=2;
+const FIREBALL_ACTIONS=2;
 const DEFAULT_TILES_WIDE=6;
 const NS='http://www.w3.org/2000/svg';
 const MAPS:Record<MapKey,{cols:number;rows:number;background:string;obstacleKinds:number[]}>={
@@ -31,25 +40,26 @@ const MAPS:Record<MapKey,{cols:number;rows:number;background:string;obstacleKind
   '20x20':{cols:20,rows:20,background:'snow-20x20.webp',obstacleKinds:[6,7]},
   '30x30':{cols:30,rows:30,background:'highland-30x30.webp',obstacleKinds:[0,1,2,3]}
 };
-const HEROES:HeroTemplate[]=[
-  {id:'alden',name:'Aldren',role:'Archer',team:'player',art:'alden',weapon:'ranged',hp:5,maxHp:5,damage:2,initiativeMod:2},
-  {id:'mira',name:'Mira',role:'Healer',team:'player',art:'mira',weapon:'melee',hp:4,maxHp:4,damage:2,initiativeMod:4},
-  {id:'lyra',name:'Lyra',role:'Wizard',team:'player',art:'lyra',weapon:'ranged',hp:4,maxHp:4,damage:2,initiativeMod:3},
-  {id:'nox',name:'Nox',role:'Thief',team:'player',art:'nox',weapon:'melee',hp:4,maxHp:4,damage:2,initiativeMod:5},
-  {id:'seraphine',name:'Seraphine',role:'Paladin',team:'player',art:'seraphine',weapon:'melee',hp:7,maxHp:7,damage:2,initiativeMod:0},
-  {id:'garrick',name:'Garrick',role:'Fighter',team:'player',art:'garrick',weapon:'melee',hp:6,maxHp:6,damage:3,initiativeMod:1}
+const HEROES:UnitTemplate[]=[
+  {id:'alden',name:'Aldren',role:'Archer',team:'player',art:'alden',weapon:'ranged',level:5,hp:68,maxHp:68,ac:22,abilities:{str:14,dex:18,con:14,int:10,wis:16,cha:10},fort:12,reflex:13,will:10,attackBonus:13,weaponName:'Striking shortbow',damageDice:2,damageDie:6,damageMod:0,weaponRange:6,damageType:'piercing',initiativeMod:13},
+  {id:'mira',name:'Mira',role:'Cleric',team:'player',art:'mira',weapon:'melee',level:5,hp:58,maxHp:58,ac:21,abilities:{str:14,dex:12,con:14,int:10,wis:18,cha:12},fort:12,reflex:9,will:13,attackBonus:11,weaponName:'Striking mace',damageDice:2,damageDie:6,damageMod:2,weaponRange:1,damageType:'bludgeoning',spellDC:21,initiativeMod:13},
+  {id:'lyra',name:'Lyra',role:'Wizard',team:'player',art:'lyra',weapon:'ranged',level:5,hp:46,maxHp:46,ac:20,abilities:{str:10,dex:16,con:14,int:19,wis:14,cha:10},fort:10,reflex:12,will:13,attackBonus:10,weaponName:'Sling',damageDice:1,damageDie:6,damageMod:0,weaponRange:5,damageType:'bludgeoning',spellDC:21,initiativeMod:12},
+  {id:'nox',name:'Nox',role:'Rogue',team:'player',art:'nox',weapon:'melee',level:5,hp:58,maxHp:58,ac:22,abilities:{str:12,dex:19,con:14,int:14,wis:12,cha:14},fort:10,reflex:14,will:10,attackBonus:13,weaponName:'Striking rapier',damageDice:2,damageDie:6,damageMod:4,weaponRange:1,damageType:'piercing',initiativeMod:14},
+  {id:'seraphine',name:'Seraphine',role:'Champion',team:'player',art:'seraphine',weapon:'melee',level:5,hp:68,maxHp:68,ac:23,abilities:{str:18,dex:12,con:16,int:10,wis:14,cha:16},fort:13,reflex:9,will:12,attackBonus:12,weaponName:'Striking longsword',damageDice:2,damageDie:8,damageMod:4,weaponRange:1,damageType:'slashing',initiativeMod:12},
+  {id:'garrick',name:'Garrick',role:'Fighter',team:'player',art:'garrick',weapon:'melee',level:5,hp:73,maxHp:73,ac:22,abilities:{str:19,dex:14,con:16,int:10,wis:12,cha:10},fort:14,reflex:11,will:10,attackBonus:14,weaponName:'Striking greatsword',damageDice:2,damageDie:12,damageMod:4,weaponRange:1,damageType:'slashing',initiativeMod:11}
 ];
-const ENEMIES=[
-  {name:'Goblin Raider',role:'Raider',art:'raider-1',weapon:'melee' as Weapon,hp:3,damage:1,initiativeMod:1},
-  {name:'Goblin Skirmisher',role:'Skirmisher',art:'raider-2',weapon:'melee' as Weapon,hp:3,damage:1,initiativeMod:2},
-  {name:'Goblin Archer',role:'Archer',art:'raider-3',weapon:'ranged' as Weapon,hp:3,damage:1,initiativeMod:3},
-  {name:'Goblin Brute',role:'Brute',art:'raider-4',weapon:'melee' as Weapon,hp:5,damage:2,initiativeMod:-1}
+const ENEMIES:Omit<UnitTemplate,'id'>[]=[
+  {name:'Goblin Raider',role:'Raider',team:'enemy',art:'raider-1',weapon:'melee',level:2,hp:28,maxHp:28,ac:18,abilities:{str:14,dex:18,con:12,int:10,wis:8,cha:12},fort:7,reflex:10,will:5,attackBonus:10,weaponName:'Dogslicer',damageDice:1,damageDie:6,damageMod:2,weaponRange:1,damageType:'slashing',initiativeMod:10},
+  {name:'Goblin Skirmisher',role:'Skirmisher',team:'enemy',art:'raider-2',weapon:'melee',level:2,hp:24,maxHp:24,ac:19,abilities:{str:12,dex:18,con:12,int:12,wis:10,cha:10},fort:6,reflex:11,will:6,attackBonus:11,weaponName:'Shortsword',damageDice:1,damageDie:6,damageMod:1,weaponRange:1,damageType:'piercing',initiativeMod:11},
+  {name:'Goblin Archer',role:'Archer',team:'enemy',art:'raider-3',weapon:'ranged',level:2,hp:22,maxHp:22,ac:18,abilities:{str:10,dex:18,con:12,int:10,wis:12,cha:10},fort:6,reflex:11,will:7,attackBonus:11,weaponName:'Shortbow',damageDice:1,damageDie:6,damageMod:0,weaponRange:6,damageType:'piercing',initiativeMod:11},
+  {name:'Goblin Brute',role:'Brute',team:'enemy',art:'raider-4',weapon:'melee',level:3,hp:45,maxHp:45,ac:20,abilities:{str:18,dex:14,con:16,int:8,wis:10,cha:10},fort:11,reflex:8,will:7,attackBonus:12,weaponName:'Horsechopper',damageDice:1,damageDie:8,damageMod:4,weaponRange:1,damageType:'slashing',initiativeMod:8}
 ];
 const ICONS={
   attack:'<svg viewBox="0 0 24 24"><g transform="rotate(-43 12 12)"><path d="M10.8 3h2.4l-.35 10.1h-1.7L10.8 3Z"/><path d="M8.4 13h7.2v1.8H8.4zM11 14.5h2v4.1h-2z"/><circle cx="12" cy="19.4" r="1.25"/></g><g transform="rotate(43 12 12)"><path d="M10.8 3h2.4l-.35 10.1h-1.7L10.8 3Z"/><path d="M8.4 13h7.2v1.8H8.4zM11 14.5h2v4.1h-2z"/><circle cx="12" cy="19.4" r="1.25"/></g></svg>',
   defend:'<svg viewBox="0 0 24 24"><path d="M12 2.5 19 5.6v5.2c0 5-2.8 8.5-7 10.7-4.2-2.2-7-5.7-7-10.7V5.6L12 2.5Z"/></svg>',
   heal:'<svg viewBox="0 0 24 24"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6V3Z"/></svg>',
   magic:'<svg viewBox="0 0 24 24"><path d="m13 2-2 7 5-2-7 15 2-9-5 2L13 2Z"/><path d="m18 3 .6 1.7L20 5l-1.4.5L18 7l-.5-1.5L16 5l1.5-.3L18 3Z"/></svg>',
+  fireball:'<svg viewBox="0 0 24 24"><path d="M13.2 2.2c.5 3-1.1 4.2-2.2 5.6-1.1 1.4-1 2.7-.1 3.8.1-2.1 1.5-3.2 3.1-4.6 2.9 2.4 4.6 5 4.6 8.1a6.6 6.6 0 0 1-13.2 0c0-3.2 1.8-5.8 4.4-8.2-.1 2.1.4 2.9 1 3.5.3-3.8 1.7-5.2 2.4-8.2Z"/></svg>',
   hide:'<svg viewBox="0 0 24 24"><path d="M4 8c2.5-3 13.5-3 16 0l-2 10c-2 2.5-4 3.5-6 3.5S8 20.5 6 18L4 8Z"/><path d="M7 12c1.2-1 2.7-1 4 0-1 2-3 2-4 0Zm6 0c1.3-1 2.8-1 4 0-1 2-3 2-4 0Z" class="cutout"/></svg>',
   charge:'<svg viewBox="0 0 24 24"><path d="M13 2 4 13h6l-1 9 10-13h-6V2Z"/></svg>',
   pass:'<svg viewBox="0 0 24 24"><path d="M5 3h14v3c0 3-2.2 5-4.8 6 2.6 1 4.8 3 4.8 6v3H5v-3c0-3 2.2-5 4.8-6C7.2 11 5 9 5 6V3Zm3 3c0 2 1.8 3.2 4 4 2.2-.8 4-2 4-4H8Zm4 8c-2.2.8-4 2-4 4h8c0-2-1.8-3.2-4-4Z"/></svg>'
@@ -67,7 +77,9 @@ const ui={
   logToggle:$('#log-toggle') as HTMLButtonElement,logPanel:$('#combat-log-panel'),logList:$('#combat-log-list'),logClose:$('#log-close') as HTMLButtonElement,
   setup:$('#setup-action') as HTMLButtonElement,restartOverlay:$('#restart-overlay') as HTMLButtonElement,setupOverlay:$('#setup-overlay') as HTMLButtonElement,
   drawer:$('#unit-drawer'),selectedName:$('#selected-name'),selectedClass:$('#selected-class'),selectedTeam:$('#selected-team'),
-  health:$('#health-text'),attack:$('#attack-stat'),movement:$('#movement-stat'),initiative:$('#initiative-stat'),portrait:$('#portrait'),
+  level:$('#level-stat'),health:$('#health-text'),ac:$('#ac-stat'),attack:$('#attack-stat'),damage:$('#damage-stat'),movement:$('#movement-stat'),initiative:$('#initiative-stat'),portrait:$('#portrait'),
+  str:$('#str-stat'),dex:$('#dex-stat'),con:$('#con-stat'),int:$('#int-stat'),wis:$('#wis-stat'),cha:$('#cha-stat'),fort:$('#fort-stat'),reflex:$('#reflex-stat'),will:$('#will-stat'),spellRow:$('#spell-row'),spellDC:$('#spell-dc-stat'),
+  spellConfirm:$('#spell-confirm'),spellConfirmAction:$('#spell-confirm-action') as HTMLButtonElement,spellCancel:$('#spell-cancel') as HTMLButtonElement,
   resultOverlay:$('#result-overlay'),resultTitle:$('#result-title'),resultCopy:$('#result-copy')
 };
 
@@ -78,13 +90,15 @@ function svg<K extends keyof SVGElementTagNameMap>(tag:K,attrs:Record<string,str
 }
 function clamp(value:number,min:number,max:number){return Math.max(min,Math.min(max,value));}
 function pointKey(p:Point){return p.x+','+p.y;}
-function copyUnit(u:Unit):Unit{return {...u,abilityUsed:[...u.abilityUsed]};}
+function copyUnit(u:Unit):Unit{return {...u,abilities:{...u.abilities},abilityUsed:[...u.abilityUsed]};}
+function signed(value:number){return(value>=0?'+':'')+value;}
+function abilityModifier(score:number){return Math.floor((score-10)/2);}
 
 class Game{
   config:EncounterConfig={map:'6x8',move:3,enemies:8,heroes:['alden','mira','lyra','nox']};
   cols=6;rows=8;mapKey:MapKey='6x8';obstacles:Obstacle[]=[];units:Unit[]=[];
   selectedId='alden';round=1;turnOrder:string[]=[];activeIndex=0;gameOver=false;
-  targetingMode?:TargetingMode;magicTargets=new Set<string>();history:Snapshot[]=[];logEntries:LogEntry[]=[];
+  targetingMode?:TargetingMode;magicTargets=new Set<string>();fireballCenter?:Point;history:Snapshot[]=[];logEntries:LogEntry[]=[];
   svg?:SVGSVGElement;world?:SVGGElement;routeLayer?:SVGGElement;tokenLayer?:SVGGElement;
   scale=1;tx=0;ty=0;cameraMode:'clean'|'follow'='clean';
   pointers=new Map<number,{x:number;y:number}>();
@@ -107,6 +121,8 @@ class Game{
     ui.setup.addEventListener('click',()=>this.showSetup());
     ui.setupOverlay.addEventListener('click',()=>this.showSetup());
     ui.restartOverlay.addEventListener('click',()=>this.startEncounter(this.config));
+    ui.spellConfirmAction.addEventListener('click',()=>void this.castFireball());
+    ui.spellCancel.addEventListener('click',()=>this.cancelTargeting());
     ui.roster.forEach(button=>button.addEventListener('click',()=>this.toggleHero(button)));
     window.addEventListener('resize',()=>this.layout());
   }
@@ -131,7 +147,7 @@ class Game{
     const map=MAPS[this.mapKey];this.cols=map.cols;this.rows=map.rows;
     this.units=this.makeUnits(config.heroes,config.enemies);
     this.obstacles=this.makeObstacles();
-    this.round=1;this.activeIndex=0;this.gameOver=false;this.targetingMode=undefined;this.magicTargets.clear();this.history=[];this.logEntries=[];this.busy=false;this.railOpen=false;
+    this.round=1;this.activeIndex=0;this.gameOver=false;this.targetingMode=undefined;this.magicTargets.clear();this.fireballCenter=undefined;this.history=[];this.logEntries=[];this.busy=false;this.railOpen=false;
     this.rollInitiative();this.selectedId=this.turnOrder[0]||this.units[0]?.id||'';
     this.scale=this.defaultScale();this.cameraMode=this.scale>1.01?'follow':'clean';this.tx=0;this.ty=0;this.cameraDirty=false;
     ui.title.hidden=true;ui.shell.hidden=false;ui.drawer.hidden=false;ui.resultOverlay.hidden=true;ui.drawer.classList.remove('open');ui.railDrawer.classList.remove('open');ui.railDrawer.setAttribute('aria-hidden','true');ui.railToggle.setAttribute('aria-expanded','false');this.closeLog();
@@ -145,10 +161,10 @@ class Game{
   makeUnits(heroIds:string[],enemyCount:number){
     const out:Unit[]=[];
     const playerSpots=this.spawnCells(false);
-    const selectedHeroes=heroIds.map(id=>HEROES.find(hero=>hero.id===id)).filter((hero):hero is HeroTemplate=>Boolean(hero)).slice(0,6);
+    const selectedHeroes=heroIds.map(id=>HEROES.find(hero=>hero.id===id)).filter((hero):hero is UnitTemplate=>Boolean(hero)).slice(0,6);
     for(let i=0;i<selectedHeroes.length;i++){
       const h=selectedHeroes[i],p=playerSpots[i];
-      out.push({...h,...p,initiativeScore:0,actionsUsed:0,defending:false,hiding:false,charged:false,abilityUsed:[]});
+      out.push({...h,abilities:{...h.abilities},...p,initiativeScore:0,actionsUsed:0,attacksMade:0,defending:false,hiding:false,charged:false,abilityUsed:[]});
     }
     const occupied=new Set(out.map(pointKey));
     const enemySpots=this.spawnCells(true).filter(p=>!occupied.has(pointKey(p)));
@@ -156,7 +172,7 @@ class Game{
       let p=enemySpots.splice(Math.floor(Math.random()*enemySpots.length),1)[0];
       if(!p)p=this.randomFreeCell(occupied);
       occupied.add(pointKey(p));const e=ENEMIES[Math.floor(Math.random()*ENEMIES.length)];
-      out.push({id:'enemy-'+(i+1),name:e.name+' '+(i+1),role:e.role,team:'enemy',art:e.art,weapon:e.weapon,x:p.x,y:p.y,hp:e.hp,maxHp:e.hp,damage:e.damage,initiativeMod:e.initiativeMod,initiativeScore:0,actionsUsed:0,defending:false,hiding:false,charged:false,abilityUsed:[]});
+      out.push({...e,abilities:{...e.abilities},id:'enemy-'+(i+1),name:e.name+' '+(i+1),x:p.x,y:p.y,initiativeScore:0,actionsUsed:0,attacksMade:0,defending:false,hiding:false,charged:false,abilityUsed:[]});
     }
     return out;
   }
@@ -200,10 +216,22 @@ class Game{
 
   rollInitiative(){
     const rolls:string[]=[];
-    for(const u of this.living()){const die=Math.floor(Math.random()*20)+1;u.initiativeScore=die+u.initiativeMod;rolls.push(u.name+': '+u.initiativeScore);}
+    for(const u of this.living()){const die=this.rollDie(20);u.initiativeScore=die+u.initiativeMod;rolls.push(u.name+': d20 '+die+' '+signed(u.initiativeMod)+' = '+u.initiativeScore);}
     this.turnOrder=[...this.living()].sort((a,b)=>b.initiativeScore-a.initiativeScore||b.initiativeMod-a.initiativeMod).map(u=>u.id);
     this.log('Initiative — '+rolls.join(' · '));
   }
+
+  rollDie(sides:number){return Math.floor(Math.random()*sides)+1;}
+  rollDice(count:number,sides:number){const rolls=Array.from({length:count},()=>this.rollDie(sides));return{rolls,total:rolls.reduce((sum,value)=>sum+value,0)};}
+  damageNotation(u:Unit){return u.damageDice+'d'+u.damageDie+(u.damageMod?signed(u.damageMod):'');}
+  effectiveAC(u:Unit){return u.ac+(u.defending?2:0);}
+  shiftDegree(degree:number,steps:number){return clamp(degree+steps,0,3);}
+  degreeFor(total:number,dc:number,natural:number){
+    let degree=total>=dc+10?3:total>=dc?2:total<=dc-10?0:1;
+    if(natural===20)degree=this.shiftDegree(degree,1);else if(natural===1)degree=this.shiftDegree(degree,-1);
+    return degree;
+  }
+  degreeName(degree:number){return['CRITICAL FAILURE','FAILURE','SUCCESS','CRITICAL SUCCESS'][degree];}
 
   active(){return this.unit(this.turnOrder[this.activeIndex]);}
   unit(id?:string){return id?this.units.find(u=>u.id===id&&u.hp>0):undefined;}
@@ -227,14 +255,14 @@ class Game{
       this.round++;this.activeIndex=0;this.living().forEach(u=>u.actionsUsed=0);this.log('Round '+this.round+' begins.');
       while(this.activeIndex<this.turnOrder.length&&!this.unit(this.turnOrder[this.activeIndex]))this.activeIndex++;
     }
-    const a=this.active();if(!a)return;a.actionsUsed=0;a.charged=false;a.defending=false;this.selectedId=a.id;this.targetingMode=undefined;this.magicTargets.clear();
+    const a=this.active();if(!a)return;a.actionsUsed=0;a.attacksMade=0;a.charged=false;a.defending=false;this.selectedId=a.id;this.targetingMode=undefined;this.magicTargets.clear();this.fireballCenter=undefined;
     this.centerCamera((a.x+.5)*CELL,(a.y+.5)*CELL,this.scale);this.render();this.message(a.name+'\'s turn.');
     if(a.team==='enemy')this.schedule(440,()=>void this.runEnemy());
   }
 
   finishTurn(){
     if(this.gameOver)return;const a=this.active();if(a)a.charged=false;
-    this.clearTimers();this.targetingMode=undefined;this.magicTargets.clear();this.activeIndex++;this.schedule(220,()=>this.beginTurn());
+    this.clearTimers();this.targetingMode=undefined;this.magicTargets.clear();this.fireballCenter=undefined;this.activeIndex++;this.schedule(220,()=>this.beginTurn());
   }
   maybeFinish(u:Unit){if(u.actionsUsed>=ACTIONS)this.schedule(360,()=>this.finishTurn());}
 
@@ -277,8 +305,13 @@ class Game{
     const add=(p:Point,cls:string)=>layer.appendChild(svg('rect',{x:p.x*CELL+2,y:p.y*CELL+2,width:CELL-4,height:CELL-4,rx:2,class:cls}));
     if(this.targetingMode&&a?.team==='player'){
       if(this.targetingMode==='heal'){for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++)if(this.distance(a,{x,y})<=HEAL_RANGE)add({x,y},'spell-range');this.living('player').filter(u=>this.distance(a,u)<=HEAL_RANGE&&u.hp<u.maxHp).forEach(u=>add(u,'heal-target'));return;}
-      if(this.targetingMode==='magic'){this.living('enemy').forEach(u=>add(u,this.magicTargets.has(u.id)?'magic-selected':'magic-target'));return;}
-      const kind=this.weaponKind(a);for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++)if(this.inWeaponRange(a,{x,y},kind))add({x,y},'weapon-range');
+      if(this.targetingMode==='magic'){this.living('enemy').filter(u=>this.distance(a,u)<=FORCE_BARRAGE_RANGE).forEach(u=>add(u,this.magicTargets.has(u.id)?'magic-selected':'magic-target'));return;}
+      if(this.targetingMode==='fireball'){
+        if(this.fireballCenter){for(const p of this.fireballArea(this.fireballCenter))add(p,p.x===this.fireballCenter.x&&p.y===this.fireballCenter.y?'fireball-center':'fireball-area');}
+        else for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++)if(this.distance(a,{x,y})<=FIREBALL_RANGE)add({x,y},'fireball-range');
+        return;
+      }
+      const kind=this.weaponKind(a);for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++)if(this.inWeaponRange(a,{x,y},kind,a.weaponRange))add({x,y},'weapon-range');
       this.living('enemy').filter(u=>this.canAttack(a,u,kind)).forEach(u=>add(u,'attack-range'));return;
     }
     if(s.team==='enemy'){const inspectingOnPlayerTurn=a?.team==='player',openingEnemyTurn=a?.id===s.id&&s.actionsUsed===0;if(inspectingOnPlayerTurn||openingEnemyTurn)this.reachable(s,this.moveRange(s)).forEach(p=>add(p,'enemy-range'));return;}
@@ -338,13 +371,13 @@ class Game{
     const cleanup=()=>{document.removeEventListener('touchmove',block);document.documentElement.classList.remove('piece-dragging');};
     const routeFor=(d:Point)=>{const r=this.findRoute(u,d,u.id);return r.length>1&&r.length-1<=this.moveRange(u)?r:[];};
     const planFor=(target:Unit,entry:Point=approach)=>{
-      const kind=this.weaponKind(u),range=kind==='ranged'?RANGED_RANGE:1;if(this.canAttack(u,target,kind))return{route:[{x:u.x,y:u.y}],kind};
+      const kind=this.weaponKind(u),range=kind==='ranged'?Math.min(2,u.weaponRange):1;if(this.canAttack(u,target,kind))return{route:[{x:u.x,y:u.y}],kind};
       if(this.actionsRemaining(u)<2)return undefined;
       let dx=entry.x-target.x,dy=entry.y-target.y;if(dx===0&&dy===0){dx=u.x-target.x;dy=u.y-target.y;}
       const dir=Math.abs(dx)>Math.abs(dy)?{x:Math.sign(dx)||1,y:0}:{x:0,y:Math.sign(dy)||1},preferred={x:target.x+dir.x*range,y:target.y+dir.y*range};
       const preferredRoute=this.validDestination(preferred,u.id)?this.findRoute(u,preferred,u.id):[];
       if(preferredRoute.length>1&&preferredRoute.length-1<=this.moveRange(u))return{route:preferredRoute,kind};
-      let best:Point[]=[];for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++){const spot={x,y};if(!this.inWeaponRange(spot,target,kind)||!this.validDestination(spot,u.id))continue;const r=this.findRoute(u,spot,u.id);if(r.length>1&&r.length-1<=this.moveRange(u)&&(!best.length||r.length<best.length))best=r;}
+      let best:Point[]=[];for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++){const spot={x,y};if(!this.inWeaponRange(spot,target,kind,u.weaponRange)||!this.validDestination(spot,u.id))continue;const r=this.findRoute(u,spot,u.id);if(r.length>1&&r.length-1<=this.moveRange(u)&&(!best.length||r.length<best.length))best=r;}
       return best.length?{route:best,kind}:undefined;
     };
     const move=(event:PointerEvent)=>{if(!this.drag||event.pointerId!==this.drag.pointerId)return;event.preventDefault();const p=this.svgPoint(event.clientX,event.clientY),d={x:Math.floor(p.x/CELL),y:Math.floor(p.y/CELL)},target=this.at(d.x,d.y);if(target?.team!=='enemy'&&this.inBounds(d))approach=d;ghost.setAttribute('transform','translate('+p.x+' '+p.y+')');const plan=target?.team==='enemy'?planFor(target,approach):undefined;if(target?.team==='enemy'&&plan){this.drawRoute(plan.route);this.drawAttackCue(target,plan.kind);}else this.drawRoute(routeFor(d));};
@@ -360,7 +393,11 @@ class Game{
 
   async handleCell(x:number,y:number){
     if(this.busy||this.gameOver)return;
-    if(this.targetingMode){this.targetingMode=undefined;this.magicTargets.clear();this.render();this.message('Action cancelled.');return;}
+    if(this.targetingMode==='fireball'){
+      const a=this.active();if(!a||a.team!=='player'||this.distance(a,{x,y})>FIREBALL_RANGE)return;
+      this.fireballCenter={x,y};this.render();this.message('Fireball area selected. Confirm or cancel at the lower right.');return;
+    }
+    if(this.targetingMode){this.cancelTargeting();return;}
     const a=this.active();if(!a||a.team!=='player'||!this.canMove(a))return;const target=this.at(x,y);if(target)return;const r=this.findRoute(a,{x,y},a.id);if(r.length>1&&r.length-1<=this.moveRange(a))await this.moveActive(a,r);
   }
 
@@ -368,22 +405,23 @@ class Game{
     if(this.busy||this.gameOver)return;const t=this.unit(id);if(!t)return;const a=this.active();
     if(this.targetingMode&&a?.team==='player'){
       if(this.targetingMode==='heal'){if(t.team==='player'&&this.distance(a,t)<=HEAL_RANGE&&t.hp<t.maxHp)this.healTarget(t);else this.message('Choose an injured hero within one square.');return;}
-      if(this.targetingMode==='magic'){if(t.team!=='enemy')return;if(this.magicTargets.has(t.id))this.magicTargets.delete(t.id);else if(this.magicTargets.size<3)this.magicTargets.add(t.id);if(this.magicTargets.size===3)void this.castMagicMissile();else{this.render();this.message('Choose up to three enemies, then tap Magic Missile again.');}return;}
-      const kind=this.weaponKind(a);if(t.team==='enemy'&&this.canAttack(a,t,kind)){void this.attack(a,t,kind);return;}this.message(kind==='ranged'?'Choose an enemy two squares away in a straight line.':'Choose an adjacent enemy.');return;
+      if(this.targetingMode==='magic'){if(t.team!=='enemy'||this.distance(a,t)>FORCE_BARRAGE_RANGE)return;if(this.magicTargets.has(t.id))this.magicTargets.delete(t.id);else if(this.magicTargets.size<Math.min(3,this.actionsRemaining(a)))this.magicTargets.add(t.id);if(this.magicTargets.size===Math.min(3,this.actionsRemaining(a)))void this.castMagicMissile();else{this.render();this.message('Choose up to '+Math.min(3,this.actionsRemaining(a))+' enemies, then tap Force Barrage again.');}return;}
+      if(this.targetingMode==='fireball'){if(this.distance(a,t)>FIREBALL_RANGE)return;this.fireballCenter={x:t.x,y:t.y};this.render();this.message('Fireball area selected. Confirm or cancel at the lower right.');return;}
+      const kind=this.weaponKind(a);if(t.team==='enemy'&&this.canAttack(a,t,kind)){void this.attack(a,t,kind);return;}this.message(kind==='ranged'?'Choose an enemy in a straight line, at least one tile away.':'Choose an adjacent enemy.');return;
     }
-    this.targetingMode=undefined;this.magicTargets.clear();this.selectedId=id;this.render();
+    this.targetingMode=undefined;this.magicTargets.clear();this.fireballCenter=undefined;this.selectedId=id;this.render();
   }
 
   beginTargeting(kind:TargetingMode){
     const a=this.active();if(!a||a.team!=='player'||!this.hasAction(a)||this.busy)return;
-    if(this.targetingMode===kind){if(kind==='magic'&&this.magicTargets.size){void this.castMagicMissile();return;}this.targetingMode=undefined;this.magicTargets.clear();this.render();this.message('Action cancelled.');return;}
-    this.targetingMode=kind;this.magicTargets.clear();this.selectedId=a.id;this.render();
-    this.message(kind==='heal'?'Choose an injured hero within one square.':kind==='magic'?'Choose up to three enemies, then tap Magic Missile again.':this.weaponKind(a)==='ranged'?'Choose an enemy two squares away in a straight line.':'Choose an adjacent enemy.');
+    if(this.targetingMode===kind){if(kind==='magic'&&this.magicTargets.size){void this.castMagicMissile();return;}this.cancelTargeting();return;}
+    this.targetingMode=kind;this.magicTargets.clear();this.fireballCenter=undefined;this.selectedId=a.id;this.render();
+    this.message(kind==='heal'?'Choose an injured hero within one square.':kind==='magic'?'Choose up to '+Math.min(3,this.actionsRemaining(a))+' enemies, then tap Force Barrage again.':kind==='fireball'?'Choose the centre of the Fireball area.':this.weaponKind(a)==='ranged'?'Choose an enemy in a straight line, at least one tile away.':'Choose an adjacent enemy.');
   }
 
-  inWeaponRange(a:Point,b:Point,kind:Weapon){const dx=Math.abs(a.x-b.x),dy=Math.abs(a.y-b.y);return kind==='ranged'?((dx===RANGED_RANGE&&dy===0)||(dy===RANGED_RANGE&&dx===0)):dx+dy===1;}
-  canAttack(a:Unit,t:Unit,kind:Weapon=this.weaponKind(a)){return this.hasAction(a)&&a.team!==t.team&&this.inWeaponRange(a,t,kind);}
-  attackDamage(a:Unit,t:Unit){const hiddenBonus=a.hiding?2:1;return Math.max(0,a.damage*hiddenBonus-(t.defending?1:0));}
+  cancelTargeting(){this.targetingMode=undefined;this.magicTargets.clear();this.fireballCenter=undefined;this.render();this.message('Action cancelled.');}
+  inWeaponRange(a:Point,b:Point,kind:Weapon,range=1){const dx=Math.abs(a.x-b.x),dy=Math.abs(a.y-b.y),distance=dx+dy;return kind==='ranged'?((dx===0||dy===0)&&distance>=2&&distance<=range):distance===1;}
+  canAttack(a:Unit,t:Unit,kind:Weapon=this.weaponKind(a)){return this.hasAction(a)&&a.team!==t.team&&this.inWeaponRange(a,t,kind,a.weaponRange);}
 
   record(){
     const a=this.active();if(a?.team!=='player')return;const last=this.history[this.history.length-1];if(last?.round===this.round&&last.activeIndex===this.activeIndex)return;
@@ -391,7 +429,7 @@ class Game{
   }
   undo(){
     const a=this.active();if(!a||a.team!=='player'||!this.history.length||this.busy)return;this.clearTimers();const snap=this.history.pop()!;
-    this.units=snap.units.map(copyUnit);this.selectedId=snap.selectedId;this.round=snap.round;this.activeIndex=snap.activeIndex;this.logEntries=snap.logEntries.map(e=>({...e}));this.targetingMode=undefined;this.magicTargets.clear();this.busy=false;this.gameOver=false;ui.resultOverlay.hidden=true;this.renderLog();this.render();this.message('Rewound to '+(this.active()?.name||'the hero')+'\'s last decision.');
+    this.units=snap.units.map(copyUnit);this.selectedId=snap.selectedId;this.round=snap.round;this.activeIndex=snap.activeIndex;this.logEntries=snap.logEntries.map(e=>({...e}));this.targetingMode=undefined;this.magicTargets.clear();this.fireballCenter=undefined;this.busy=false;this.gameOver=false;ui.resultOverlay.hidden=true;this.renderLog();this.render();this.message('Rewound to '+(this.active()?.name||'the hero')+'\'s last decision.');
   }
 
   async moveActive(u:Unit,route:Point[]){
@@ -407,17 +445,21 @@ class Game{
   async attack(a:Unit,t:Unit,kind:Weapon=this.weaponKind(a)){
     if(!this.canAttack(a,t,kind)||this.busy)return;if(a.team==='player')this.record();const wasHidden=a.hiding;a.defending=false;a.hiding=false;this.busy=true;
     const token=this.tokenElement(a.id);if(token){const start=this.tokenTranslation(token),target={x:t.x*CELL+CELL/2,y:t.y*CELL+CELL/2},dx=target.x-start.x,dy=target.y-start.y,len=Math.hypot(dx,dy)||1,lunge={x:start.x+dx/len*(kind==='ranged'?3:6),y:start.y+dy/len*(kind==='ranged'?3:6)};await this.tween(80,q=>token.setAttribute('transform','translate('+(start.x+(lunge.x-start.x)*q)+' '+(start.y+(lunge.y-start.y)*q)+')'));await this.tween(90,q=>token.setAttribute('transform','translate('+(lunge.x+(start.x-lunge.x)*q)+' '+(lunge.y+(start.y-lunge.y)*q)+')'));}
-    const rect=this.tokenElement(t.id)?.getBoundingClientRect();a.actionsUsed=Math.min(ACTIONS,a.actionsUsed+1);const dmg=Math.max(0,a.damage*(wasHidden?2:1)-(t.defending?1:0));t.defending=false;t.hp=Math.max(0,t.hp-dmg);
-    this.log(a.name+' attacks '+t.name+' for '+dmg+' damage'+(wasHidden?' from hiding':'')+(t.hp<=0?' — defeated':'')+'.');this.selectedId=a.id;this.targetingMode=undefined;this.busy=false;this.checkGameOver();this.render();this.showFloating(t,'−'+dmg,'damage',rect);if(!this.gameOver){if(a.team==='enemy')this.schedule(360,()=>this.finishTurn());else this.maybeFinish(a);}
+    const rect=this.tokenElement(t.id)?.getBoundingClientRect(),natural=this.rollDie(20),mapPenalty=a.attacksMade===0?0:a.attacksMade===1?-5:-10,bonus=a.attackBonus+mapPenalty,total=natural+bonus,ac=this.effectiveAC(t),degree=this.degreeFor(total,ac,natural);
+    a.actionsUsed=Math.min(ACTIONS,a.actionsUsed+1);a.attacksMade++;let damage=0,damageText='';
+    if(degree>=2){const rolled=this.rollDice(a.damageDice,a.damageDie),base=Math.max(0,rolled.total+a.damageMod),multiplier=(degree===3?2:1)*(wasHidden?2:1);damage=base*multiplier;t.hp=Math.max(0,t.hp-damage);damageText=' Damage '+this.damageNotation(a)+': ['+rolled.rolls.join(', ')+']'+(a.damageMod?' '+signed(a.damageMod):'')+' = '+base+(multiplier>1?' × '+multiplier+' = '+damage:'')+' '+a.damageType+'.';}
+    const mapText=mapPenalty?' (base '+signed(a.attackBonus)+', MAP '+mapPenalty+')':'';this.log(a.name+' attacks '+t.name+' with '+a.weaponName+': d20 '+natural+' '+signed(bonus)+' = '+total+mapText+' vs AC '+ac+' — '+this.degreeName(degree)+'.'+damageText+(t.hp<=0?' '+t.name+' is defeated.':'')+(wasHidden?' Hidden strike damage doubled.':''));
+    this.selectedId=a.id;this.targetingMode=undefined;this.busy=false;this.checkGameOver();this.render();if(damage)this.showFloating(t,'−'+damage,'damage',rect);else this.showFloating(t,'MISS','miss',rect);
+    if(!this.gameOver){if(a.team==='enemy')this.schedule(330,()=>void this.runEnemy());else this.maybeFinish(a);}
   }
 
   healTarget(t:Unit){
     const u=this.active();if(!u||u.id!=='mira'||t.team!=='player'||!this.hasAction(u)||this.distance(u,t)>HEAL_RANGE||t.hp>=t.maxHp||this.busy)return;
-    this.record();const amount=Math.min(HEAL,t.maxHp-t.hp);t.hp+=amount;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.targetingMode=undefined;this.log(u.name+' heals '+t.name+' for '+amount+' HP.');this.selectedId=t.id;this.render();this.showFloating(t,'+'+amount,'healing');this.maybeFinish(u);
+    this.record();const rolled=this.rollDice(HEAL_DICE,HEAL_DIE),rolledAmount=rolled.total+HEAL_MOD,amount=Math.min(rolledAmount,t.maxHp-t.hp);t.hp+=amount;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.targetingMode=undefined;this.log(u.name+' heals '+t.name+': '+HEAL_DICE+'d'+HEAL_DIE+signed(HEAL_MOD)+' ['+rolled.rolls.join(', ')+'] = '+rolledAmount+'; '+amount+' HP restored.');this.selectedId=t.id;this.render();this.showFloating(t,'+'+amount,'healing');this.maybeFinish(u);
   }
   defendSelected(){const u=this.active();if(u?.team==='player'&&this.hasAction(u)&&!u.defending&&!this.busy)this.defendUnit(u,true);}
-  defendUnit(u:Unit,save=false){if(save)this.record();u.defending=true;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.targetingMode=undefined;this.log(u.name+' uses Defend.');this.render();this.maybeFinish(u);}
-  passTurn(){const u=this.active();if(!u||u.team!=='player'||this.busy)return;this.record();u.actionsUsed=ACTIONS;this.targetingMode=undefined;this.magicTargets.clear();this.log(u.name+' passes.');this.render();this.maybeFinish(u);}
+  defendUnit(u:Unit,save=false){if(save)this.record();u.defending=true;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.targetingMode=undefined;this.log(u.name+' uses Defend and gains +2 AC until the start of their next turn.');this.render();this.maybeFinish(u);}
+  passTurn(){const u=this.active();if(!u||u.team!=='player'||this.busy)return;this.record();u.actionsUsed=ACTIONS;this.targetingMode=undefined;this.magicTargets.clear();this.fireballCenter=undefined;this.log(u.name+' passes.');this.render();this.maybeFinish(u);}
 
   hideSelected(){
     const u=this.active();if(!u||u.id!=='nox'||!this.hasAction(u)||this.busy)return;this.record();const success=Math.random()<.75;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);u.defending=false;u.hiding=success;this.log(u.name+(success?' slips into hiding.':' fails to hide.'));this.render();this.showFloating(u,success?'SUCCESS':'FAIL',success?'success':'failure');this.maybeFinish(u);
@@ -428,23 +470,38 @@ class Game{
   async castMagicMissile(){
     const u=this.active();if(!u||u.id!=='lyra'||u.abilityUsed.includes('magic')||!this.hasAction(u)||!this.magicTargets.size||this.busy)return;
     this.record();const targets=[...this.magicTargets].map(id=>this.unit(id)).filter(Boolean) as Unit[],rects=new Map(targets.map(t=>[t.id,this.tokenElement(t.id)?.getBoundingClientRect()]));
-    u.abilityUsed.push('magic');u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.targetingMode=undefined;this.magicTargets.clear();
-    for(const t of targets){t.defending=false;t.hp=Math.max(0,t.hp-2);}
-    this.log(u.name+' casts Magic Missile at '+targets.map(t=>t.name).join(', ')+'.');this.checkGameOver();this.render();targets.forEach(t=>this.showFloating(t,'−2','damage',rects.get(t.id)));if(!this.gameOver)this.maybeFinish(u);
+    const shards=Math.min(targets.length,this.actionsRemaining(u),3);u.abilityUsed.push('magic');u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+shards);this.targetingMode=undefined;this.magicTargets.clear();
+    const results=targets.slice(0,shards).map(t=>{const roll=this.rollDie(4),damage=roll+1;t.hp=Math.max(0,t.hp-damage);return{t,roll,damage};});
+    this.log(u.name+' casts Magic Missile / Force Barrage ('+shards+' action'+(shards===1?'':'s')+'): '+results.map(({t,roll,damage})=>t.name+' takes 1d4+1 ['+roll+'] + 1 = '+damage+' force damage'+(t.hp<=0?' and is defeated':'')).join(' · ')+'.');
+    this.checkGameOver();this.render();results.forEach(({t,damage})=>this.showFloating(t,'−'+damage,'damage',rects.get(t.id)));if(!this.gameOver)this.maybeFinish(u);
+  }
+
+  fireballArea(center:Point){
+    const out:Point[]=[];for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++)if(this.distance(center,{x,y})<=FIREBALL_RADIUS)out.push({x,y});return out;
+  }
+  async castFireball(){
+    const u=this.active(),center=this.fireballCenter;if(!u||u.id!=='lyra'||!center||u.abilityUsed.includes('fireball')||this.actionsRemaining(u)<FIREBALL_ACTIONS||this.busy)return;
+    this.record();const area=new Set(this.fireballArea(center).map(pointKey)),targets=this.living().filter(t=>area.has(pointKey(t))),rects=new Map(targets.map(t=>[t.id,this.tokenElement(t.id)?.getBoundingClientRect()])),rolled=this.rollDice(6,6),spellDC=u.spellDC??21;
+    u.abilityUsed.push('fireball');u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+FIREBALL_ACTIONS);this.targetingMode=undefined;this.fireballCenter=undefined;
+    const results=targets.map(t=>{const natural=this.rollDie(20),saveTotal=natural+t.reflex,degree=this.degreeFor(saveTotal,spellDC,natural),damage=degree===3?0:degree===2?Math.floor(rolled.total/2):degree===1?rolled.total:rolled.total*2;t.hp=Math.max(0,t.hp-damage);return{t,natural,saveTotal,degree,damage};});
+    this.log(u.name+' casts Fireball: 6d6 ['+rolled.rolls.join(', ')+'] = '+rolled.total+' fire damage; basic Reflex DC '+spellDC+'.');
+    for(const result of results)this.log(result.t.name+' Reflex: d20 '+result.natural+' '+signed(result.t.reflex)+' = '+result.saveTotal+' — '+this.degreeName(result.degree)+', '+result.damage+' damage'+(result.t.hp<=0?' and defeated':'')+'.');
+    this.checkGameOver();this.render();for(const {t,damage} of results)this.showFloating(t,damage?'−'+damage:'0',damage?'damage':'miss',rects.get(t.id));if(!this.gameOver)this.maybeFinish(u);
   }
 
   routeToRange(u:Unit,t:Unit,kind:Weapon){
-    let best:Point[]=[];for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++){const p={x,y};if(!this.inWeaponRange(p,t,kind)||!this.validDestination(p,u.id))continue;const route=this.findRoute(u,p,u.id);if(route.length&&(!best.length||route.length<best.length))best=route;}return best;
+    let best:Point[]=[];for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++){const p={x,y};if(!this.inWeaponRange(p,t,kind,u.weaponRange)||!this.validDestination(p,u.id))continue;const route=this.findRoute(u,p,u.id);if(route.length&&(!best.length||route.length<best.length))best=route;}return best;
   }
   async runEnemy(){
     const enemy=this.active();if(!enemy||enemy.team!=='enemy'||this.gameOver||this.busy)return;this.selectedId=enemy.id;this.render();
-    const candidates=this.visibleHeroes();if(!candidates.length){this.schedule(280,()=>this.finishTurn());return;}
+    if(!this.hasAction(enemy)){this.schedule(280,()=>this.finishTurn());return;}
+    const candidates=this.visibleHeroes();if(!candidates.length){enemy.actionsUsed=ACTIONS;this.render();this.schedule(280,()=>this.finishTurn());return;}
     const kind=this.weaponKind(enemy);let target:Unit|undefined,best:Point[]=[];
     for(const hero of candidates){const route=this.routeToRange(enemy,hero,kind);if(route.length&&(!best.length||route.length<best.length)){target=hero;best=route;}}
-    target??=[...candidates].sort((a,b)=>this.distance(enemy,a)-this.distance(enemy,b))[0];if(!target){this.finishTurn();return;}
+    if(!target){enemy.actionsUsed=ACTIONS;this.log(enemy.name+' cannot find a path to a visible hero and ends its turn.');this.render();this.schedule(280,()=>this.finishTurn());return;}
     if(this.canAttack(enemy,target,kind)){this.showEnemyAttack(target,kind,()=>void this.attack(enemy,target!,kind));return;}
-    if(best.length>1){await this.moveEnemy(enemy,best.slice(0,Math.min(best.length,this.moveRange(enemy)+1)));}
-    const live=this.unit(target.id);if(live&&this.canAttack(enemy,live,kind))this.showEnemyAttack(live,kind,()=>void this.attack(enemy,live,kind));else this.schedule(300,()=>this.finishTurn());
+    if(best.length>1){await this.moveEnemy(enemy,best.slice(0,Math.min(best.length,this.moveRange(enemy)+1)));this.schedule(300,()=>void this.runEnemy());return;}
+    enemy.actionsUsed=ACTIONS;this.render();this.schedule(280,()=>this.finishTurn());
   }
 
   drawRoute(route:Point[],enemy=false){
@@ -490,23 +547,29 @@ class Game{
     button('attack','Attack',ICONS.attack,()=>this.beginTargeting('attack'),!canAct||!hasTarget,this.targetingMode==='attack');
     button('defend','Defend',ICONS.defend,()=>this.defendSelected(),!canAct||a.defending);
     if(a.id==='mira')button('heal','Heal',ICONS.heal,()=>this.beginTargeting('heal'),!canAct||!this.living('player').some(u=>this.distance(a,u)<=HEAL_RANGE&&u.hp<u.maxHp),this.targetingMode==='heal');
-    if(a.id==='lyra'&&!a.abilityUsed.includes('magic'))button('magic','Magic Missile'+(this.magicTargets.size?' '+this.magicTargets.size+'/3':''),ICONS.magic,()=>this.beginTargeting('magic'),!canAct,this.targetingMode==='magic');
+    if(a.id==='lyra'&&!a.abilityUsed.includes('magic'))button('magic','Magic Missile'+(this.magicTargets.size?' '+this.magicTargets.size+'/'+Math.min(3,this.actionsRemaining(a)):''),ICONS.magic,()=>this.beginTargeting('magic'),!canAct||!this.living('enemy').some(u=>this.distance(a,u)<=FORCE_BARRAGE_RANGE),this.targetingMode==='magic');
+    if(a.id==='lyra'&&!a.abilityUsed.includes('fireball'))button('fireball','Fireball',ICONS.fireball,()=>this.beginTargeting('fireball'),this.actionsRemaining(a)<FIREBALL_ACTIONS,this.targetingMode==='fireball');
     if(a.id==='nox'&&!a.hiding)button('hide','Hide',ICONS.hide,()=>this.hideSelected(),!canAct);
     if(a.id==='garrick'&&!a.abilityUsed.includes('charge'))button('charge',a.charged?'Charged':'Charge',ICONS.charge,()=>this.chargeSelected(),this.actionsRemaining(a)<2,a.charged);
     button('pass','Pass',ICONS.pass,()=>this.passTurn(),this.busy);
   }
   syncUI(){
     const a=this.active(),selected=this.selected()??a??this.living()[0];ui.undo.disabled=!a||a.team!=='player'||!this.history.length;ui.zoomReset.disabled=!this.cameraDirty;
-    if(selected){ui.drawer.dataset.team=selected.team;ui.selectedName.textContent=selected.name;ui.selectedClass.textContent=selected.role;ui.selectedTeam.textContent=selected.team==='player'?'Hero':'Enemy';ui.health.textContent=selected.hp+' / '+selected.maxHp;ui.attack.textContent=String(selected.damage);ui.movement.textContent=String(this.moveRange(selected));ui.initiative.textContent=(selected.initiativeMod>=0?'+':'')+selected.initiativeMod+' ('+selected.initiativeScore+')';ui.portrait.className='portrait '+this.spriteClass(selected.art);ui.portrait.dataset.id=selected.id;}
+    ui.spellConfirm.hidden=!(this.targetingMode==='fireball'&&this.fireballCenter&&a?.team==='player');
+    if(selected){
+      ui.drawer.dataset.team=selected.team;ui.selectedName.textContent=selected.name;ui.selectedClass.textContent=selected.role;ui.selectedTeam.textContent=selected.team==='player'?'Hero':'Enemy';ui.level.textContent=String(selected.level);ui.health.textContent=selected.hp+' / '+selected.maxHp;ui.ac.textContent=selected.ac+(selected.defending?' + 2 shield':'');ui.attack.textContent=selected.weaponName+' '+signed(selected.attackBonus);ui.damage.textContent=this.damageNotation(selected)+' '+selected.damageType;ui.movement.textContent=String(this.moveRange(selected));ui.initiative.textContent=signed(selected.initiativeMod)+' ('+selected.initiativeScore+')';
+      for(const [key,element] of [['str',ui.str],['dex',ui.dex],['con',ui.con],['int',ui.int],['wis',ui.wis],['cha',ui.cha]] as const){const score=selected.abilities[key];element.textContent=score+' ('+signed(abilityModifier(score))+')';}
+      ui.fort.textContent=signed(selected.fort);ui.reflex.textContent=signed(selected.reflex);ui.will.textContent=signed(selected.will);ui.spellRow.hidden=selected.spellDC===undefined;ui.spellDC.textContent=selected.spellDC===undefined?'—':String(selected.spellDC);ui.portrait.className='portrait '+this.spriteClass(selected.art);ui.portrait.dataset.id=selected.id;
+    }
     ui.rail.innerHTML='';
-    for(const [index,id] of this.turnOrder.entries()){const u=this.unit(id);if(!u)continue;const b=document.createElement('button');b.type='button';b.className='initiative-token '+u.team+(index===this.activeIndex?' active':'')+(u.id===this.selectedId?' selected':'');b.dataset.id=u.id;b.setAttribute('aria-label',u.name+(index===this.activeIndex?', current turn':''));b.innerHTML='<span class="rail-sprite '+this.spriteClass(u.art)+'"></span><small>'+u.name+'</small>';b.addEventListener('click',()=>{this.targetingMode=undefined;this.magicTargets.clear();this.selectedId=u.id;this.cameraMode=this.defaultScale()>1.01?'follow':'clean';this.centerCamera((u.x+.5)*CELL,(u.y+.5)*CELL,this.defaultScale());this.cameraDirty=false;this.render();});ui.rail.appendChild(b);}
+    for(const [index,id] of this.turnOrder.entries()){const u=this.unit(id);if(!u)continue;const b=document.createElement('button');b.type='button';b.className='initiative-token '+u.team+(index===this.activeIndex?' active':'')+(u.id===this.selectedId?' selected':'');b.dataset.id=u.id;b.setAttribute('aria-label',u.name+(index===this.activeIndex?', current turn':''));b.innerHTML='<span class="rail-sprite '+this.spriteClass(u.art)+'"></span><small>'+u.name+'</small>';b.addEventListener('click',()=>{this.targetingMode=undefined;this.magicTargets.clear();this.fireballCenter=undefined;this.selectedId=u.id;this.cameraMode=this.defaultScale()>1.01?'follow':'clean';this.centerCamera((u.x+.5)*CELL,(u.y+.5)*CELL,this.defaultScale());this.cameraDirty=false;this.render();});ui.rail.appendChild(b);}
     const current=ui.rail.querySelector<HTMLElement>('.active');if(current&&this.railOpen)requestAnimationFrame(()=>current.scrollIntoView({behavior:'smooth',block:'center'}));this.renderHotbar();
   }
 
   checkGameOver(){
     const heroes=this.living('player'),enemies=this.living('enemy');if(heroes.length&&enemies.length)return;this.gameOver=true;this.clearTimers();ui.resultOverlay.hidden=false;ui.resultTitle.textContent=heroes.length?'Victory':'Defeat';ui.resultCopy.textContent=heroes.length?'The field is secure.':'The company has fallen.';this.log(heroes.length?'Victory.':'Defeat.');
   }
-  showFloating(u:Unit,text:string,kind:'damage'|'healing'|'success'|'failure',anchor?:DOMRect){
+  showFloating(u:Unit,text:string,kind:'damage'|'healing'|'success'|'failure'|'miss',anchor?:DOMRect){
     requestAnimationFrame(()=>{const rect=anchor??this.tokenElement(u.id)?.getBoundingClientRect();if(!rect)return;const vr=ui.viewport.getBoundingClientRect(),el=document.createElement('span');el.className='combat-float '+kind;el.textContent=text;el.style.left=rect.left-vr.left+rect.width/2+'px';el.style.top=rect.top-vr.top-2+'px';ui.viewport.appendChild(el);window.setTimeout(()=>el.remove(),1000);});
   }
   log(text:string){this.logEntries.push({round:this.round,text});this.renderLog();}

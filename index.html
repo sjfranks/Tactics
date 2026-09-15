@@ -70,6 +70,10 @@
           <button id="rail-toggle" class="hud-circle rail-toggle" type="button" aria-label="Show initiative order" aria-expanded="false" title="Initiative order"><svg class="hud-icon roster-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="5" r="2"></circle><circle cx="5" cy="12" r="2"></circle><circle cx="5" cy="19" r="2"></circle><path d="M9 5h10M9 12h10M9 19h10"></path></svg></button>
         </div>
         <div id="action-hotbar" class="action-hotbar" role="toolbar" aria-label="Actions for the active hero"></div>
+        <div id="spell-confirm" class="spell-confirm" role="group" aria-label="Confirm Fireball target" hidden>
+          <button id="spell-cancel" class="spell-decision cancel" type="button" aria-label="Cancel Fireball">×</button>
+          <button id="spell-confirm-action" class="spell-decision confirm" type="button" aria-label="Cast Fireball">✓</button>
+        </div>
       </section>
       <p class="sr-only" id="instruction" aria-live="polite"></p>
     </main>
@@ -79,10 +83,25 @@
         <span class="label" id="selected-team">Hero</span>
         <div class="drawer-heading"><div class="portrait" id="portrait" aria-hidden="true"></div><div><strong id="selected-name">Aldren</strong><small id="selected-class">Archer</small></div></div>
         <dl class="stat-list">
-          <div><dt>HP</dt><dd id="health-text">5 / 5</dd></div>
-          <div><dt>Attack</dt><dd id="attack-stat">2</dd></div>
+          <div><dt>Level</dt><dd id="level-stat">5</dd></div>
+          <div><dt>HP</dt><dd id="health-text">68 / 68</dd></div>
+          <div><dt>AC</dt><dd id="ac-stat">22</dd></div>
+          <div><dt>Weapon</dt><dd id="attack-stat">Striking shortbow +13</dd></div>
+          <div><dt>Damage</dt><dd id="damage-stat">2d6 piercing</dd></div>
           <div><dt>Move</dt><dd id="movement-stat">3</dd></div>
           <div><dt>Initiative</dt><dd id="initiative-stat">+2</dd></div>
+          <div class="stat-section"><dt>Abilities</dt><dd></dd></div>
+          <div><dt>Strength</dt><dd id="str-stat">14 (+2)</dd></div>
+          <div><dt>Dexterity</dt><dd id="dex-stat">18 (+4)</dd></div>
+          <div><dt>Constitution</dt><dd id="con-stat">14 (+2)</dd></div>
+          <div><dt>Intelligence</dt><dd id="int-stat">10 (+0)</dd></div>
+          <div><dt>Wisdom</dt><dd id="wis-stat">16 (+3)</dd></div>
+          <div><dt>Charisma</dt><dd id="cha-stat">10 (+0)</dd></div>
+          <div class="stat-section"><dt>Saves</dt><dd></dd></div>
+          <div><dt>Fortitude</dt><dd id="fort-stat">+12</dd></div>
+          <div><dt>Reflex</dt><dd id="reflex-stat">+13</dd></div>
+          <div><dt>Will</dt><dd id="will-stat">+10</dd></div>
+          <div id="spell-row" hidden><dt>Spell DC</dt><dd id="spell-dc-stat">—</dd></div>
         </dl>
       </div>
     </aside>
