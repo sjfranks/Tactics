@@ -221,7 +221,7 @@ class Game{
 
   routeToRange(u:Unit,t:Unit,kind:'melee'|'ranged'){let best:Point[]=[];for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++){const p={x,y};if(!this.inWeaponRange(p,t,kind))continue;const occupant=this.at(x,y);if(occupant&&occupant.id!==u.id)continue;const r=this.findRoute(u,p,u.id);if(r.length&&(!best.length||r.length<best.length))best=r;}return best;}
   drawAttackCue(t:Unit,kind:'melee'|'ranged'){
-    if(!this.routeLayer)return;const q={x:t.x*CELL+CELL/2+5,y:t.y*CELL+CELL/2-8},cue=svg('g',{transform:`translate(${q.x} ${q.y})`,class:`attack-action-cue ${kind}`}),icon=svg('g',{class:'attack-cue-icon'});cue.appendChild(svg('circle',{cx:0,cy:0,r:6}));
+    if(!this.routeLayer)return;const q={x:t.x*CELL+CELL/2+5,y:t.y*CELL+CELL/2-8},cue=svg('g',{transform:`translate(${q.x} ${q.y})`,class:`attack-action-cue ${kind}`}),icon=svg('g',{class:'attack-cue-icon'});cue.appendChild(svg('circle',{cx:0,cy:0,r:4.7}));
     if(kind==='melee'){for(const angle of[-43,43]){const sword=svg('g',{transform:`rotate(${angle})`});sword.append(svg('path',{d:'M 0 -4.6 L 1 -3.45 L .65 1.15 L -.65 1.15 L -1 -3.45 Z'}),svg('rect',{x:-1.8,y:1,width:3.6,height:.8,rx:.25}),svg('rect',{x:-.55,y:1.65,width:1.1,height:2.25,rx:.35}),svg('circle',{cx:0,cy:4,r:.65}));icon.appendChild(sword);}}
     else icon.appendChild(svg('path',{d:'M -.62 4.1 L .62 4.1 L .62 -1.15 L 2.35 -1.15 L 0 -4.25 L -2.35 -1.15 L -.62 -1.15 Z',transform:'rotate(42)'}));
     cue.appendChild(icon);this.routeLayer.appendChild(cue);
