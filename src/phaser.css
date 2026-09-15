@@ -13,9 +13,11 @@ button{-webkit-tap-highlight-color:transparent}
 .title-copy{margin:7px auto 22px;color:#d9e8fa;font-size:14px}
 .setup-field{display:grid;gap:7px;text-align:left}.setup-field>span{color:#ffe6a7;font:800 11px/1 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase}
 .setup-field input,.setup-field select{width:100%;height:48px;padding:0 12px;border:2px solid #9db7d5;border-radius:10px;color:#fff;background:#173d6a;box-shadow:inset 0 2px 5px rgba(0,0,0,.34);font-size:16px;font-weight:700}
-.setup-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
-.roster-preview{display:flex;justify-content:center;gap:5px;margin:20px 0 18px}
-.preview-hero{width:46px;height:46px;border:2px solid #64cdf6;border-radius:50%;background-color:#142d4e;background-repeat:no-repeat;box-shadow:0 3px 0 #061428,inset 0 0 0 2px rgba(255,255,255,.22)}
+.setup-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}
+.roster-heading{display:flex;align-items:end;justify-content:space-between;margin:19px 2px 8px;color:#ffe6a7;font:800 11px/1 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase}.roster-heading small{color:#b9d8f4;font-size:10px;letter-spacing:0;text-transform:none}
+.roster-preview{display:flex;justify-content:center;gap:7px;margin:0 0 18px}
+.preview-hero{position:relative;width:48px;height:48px;padding:0;border:2px solid #526d8b;border-radius:50%;opacity:.5;filter:saturate(.35);background-color:#142d4e;background-repeat:no-repeat;box-shadow:0 3px 0 #061428,inset 0 0 0 2px rgba(255,255,255,.16);transition:opacity .15s,filter .15s,transform .15s,border-color .15s}
+.preview-hero[aria-pressed="true"]{opacity:1;filter:none;border-color:#64cdf6;box-shadow:0 0 0 2px rgba(93,207,249,.24),0 3px 0 #061428,inset 0 0 0 2px rgba(255,255,255,.24)}.preview-hero[aria-pressed="true"]:after{content:"✓";position:absolute;right:-3px;bottom:-3px;width:17px;height:17px;display:grid;place-items:center;border:1px solid #dff7ff;border-radius:50%;color:#071426;background:#69d5f7;font:1000 11px/1 system-ui,sans-serif}.preview-hero:active{transform:scale(.94)}
 .new-encounter-button{width:100%;height:56px;border:2px solid #fff0b6;border-radius:13px;color:#17243a;background:linear-gradient(#fff1a9,#d4a84e);box-shadow:0 5px 0 #77551c;font-size:19px;font-weight:900}
 .new-encounter-button:active{transform:translateY(3px);box-shadow:0 2px 0 #77551c}
 

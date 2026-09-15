@@ -14,11 +14,11 @@ type Unit=Point&{
 };
 type LogEntry={round:number;text:string};
 type Snapshot={units:Unit[];selectedId:string;round:number;activeIndex:number;logEntries:LogEntry[]};
-type EncounterConfig={map:MapKey;move:number;enemies:number;players:number};
+type EncounterConfig={map:MapKey;move:number;enemies:number;heroes:string[]};
 type HeroTemplate=Omit<Unit,keyof Point|'initiativeScore'|'actionsUsed'|'defending'|'hiding'|'charged'|'abilityUsed'>;
 
 const CELL=16;
-const ACTIONS=2;
+const ACTIONS=3;
 const HEAL=2;
 const HEAL_RANGE=1;
 const RANGED_RANGE=2;
@@ -58,7 +58,8 @@ const ICONS={
 const $=<T extends HTMLElement>(s:string)=>document.querySelector<T>(s)!;
 const ui={
   title:$('#title-screen'),form:$('#encounter-form') as HTMLFormElement,map:$('#map-size') as HTMLSelectElement,
-  move:$('#move-speed') as HTMLInputElement,enemies:$('#enemy-count') as HTMLInputElement,players:$('#player-count') as HTMLInputElement,
+  move:$('#move-speed') as HTMLInputElement,enemies:$('#enemy-count') as HTMLInputElement,
+  roster:document.querySelectorAll<HTMLButtonElement>('.preview-hero'),rosterCount:$('#roster-count'),
   shell:$('#game-shell'),viewport:$('.battlefield-viewport'),battlefield:$('#battlefield'),frame:$('#battlefield-frame'),
   railDrawer:$('#initiative-drawer'),rail:$('#initiative-rail'),railToggle:$('#rail-toggle') as HTMLButtonElement,hotbar:$('#action-hotbar'),
   instruction:$('#instruction'),undo:$('#undo-action') as HTMLButtonElement,utilityToggle:$('#utility-toggle') as HTMLButtonElement,
@@ -80,7 +81,7 @@ function pointKey(p:Point){return p.x+','+p.y;}
 function copyUnit(u:Unit):Unit{return {...u,abilityUsed:[...u.abilityUsed]};}
 
 class Game{
-  config:EncounterConfig={map:'6x8',move:3,enemies:4,players:2};
+  config:EncounterConfig={map:'6x8',move:3,enemies:8,heroes:['alden','mira','lyra','nox']};
   cols=6;rows=8;mapKey:MapKey='6x8';obstacles:Obstacle[]=[];units:Unit[]=[];
   selectedId='alden';round=1;turnOrder:string[]=[];activeIndex=0;gameOver=false;
   targetingMode?:TargetingMode;magicTargets=new Set<string>();history:Snapshot[]=[];logEntries:LogEntry[]=[];
@@ -92,7 +93,7 @@ class Game{
   timerIds:number[]=[];busy=false;gestureActive=false;gestureSuppressUntil=0;railOpen=false;
   cameraDirty=false;
 
-  constructor(){this.bindGlobal();}
+  constructor(){this.bindGlobal();this.updateRosterCount();}
 
   bindGlobal(){
     ui.form.addEventListener('submit',event=>{event.preventDefault();this.startFromForm();});
@@ -106,20 +107,29 @@ class Game{
     ui.setup.addEventListener('click',()=>this.showSetup());
     ui.setupOverlay.addEventListener('click',()=>this.showSetup());
     ui.restartOverlay.addEventListener('click',()=>this.startEncounter(this.config));
+    ui.roster.forEach(button=>button.addEventListener('click',()=>this.toggleHero(button)));
     window.addEventListener('resize',()=>this.layout());
   }
 
+  toggleHero(button:HTMLButtonElement){
+    const selected=button.getAttribute('aria-pressed')==='true',count=[...ui.roster].filter(item=>item.getAttribute('aria-pressed')==='true').length;
+    if(selected&&count===1){ui.rosterCount.textContent='Choose at least 1';return;}
+    button.setAttribute('aria-pressed',String(!selected));this.updateRosterCount();
+  }
+  updateRosterCount(){const count=[...ui.roster].filter(button=>button.getAttribute('aria-pressed')==='true').length;ui.rosterCount.textContent=count+' selected';}
+
   startFromForm(){
     const map=(ui.map.value in MAPS?ui.map.value:'6x8') as MapKey;
-    this.config={map,move:clamp(Number(ui.move.value)||3,2,8),enemies:clamp(Number(ui.enemies.value)||4,1,16),players:clamp(Number(ui.players.value)||2,1,6)};
-    ui.move.value=String(this.config.move);ui.enemies.value=String(this.config.enemies);ui.players.value=String(this.config.players);
+    const heroes=[...ui.roster].filter(button=>button.getAttribute('aria-pressed')==='true').map(button=>button.dataset.hero!).filter(Boolean);
+    this.config={map,move:clamp(Number(ui.move.value)||3,2,8),enemies:clamp(Number(ui.enemies.value)||8,1,16),heroes:heroes.length?heroes:HEROES.slice(0,4).map(hero=>hero.id)};
+    ui.move.value=String(this.config.move);ui.enemies.value=String(this.config.enemies);
     this.startEncounter(this.config);
   }
 
   startEncounter(config:EncounterConfig){
-    this.clearTimers();this.config={...config};this.mapKey=config.map;
+    this.clearTimers();this.config={...config,heroes:[...config.heroes]};this.mapKey=config.map;
     const map=MAPS[this.mapKey];this.cols=map.cols;this.rows=map.rows;
-    this.units=this.makeUnits(config.players,config.enemies);
+    this.units=this.makeUnits(config.heroes,config.enemies);
     this.obstacles=this.makeObstacles();
     this.round=1;this.activeIndex=0;this.gameOver=false;this.targetingMode=undefined;this.magicTargets.clear();this.history=[];this.logEntries=[];this.busy=false;this.railOpen=false;
     this.rollInitiative();this.selectedId=this.turnOrder[0]||this.units[0]?.id||'';
@@ -132,11 +142,12 @@ class Game{
     this.clearTimers();this.busy=false;ui.shell.hidden=true;ui.drawer.classList.remove('open');ui.drawer.hidden=true;ui.statsToggle.setAttribute('aria-expanded','false');ui.title.hidden=false;ui.resultOverlay.hidden=true;
   }
 
-  makeUnits(playerCount:number,enemyCount:number){
+  makeUnits(heroIds:string[],enemyCount:number){
     const out:Unit[]=[];
     const playerSpots=this.spawnCells(false);
-    for(let i=0;i<playerCount;i++){
-      const h=HEROES[i],p=playerSpots[i];
+    const selectedHeroes=heroIds.map(id=>HEROES.find(hero=>hero.id===id)).filter((hero):hero is HeroTemplate=>Boolean(hero)).slice(0,6);
+    for(let i=0;i<selectedHeroes.length;i++){
+      const h=selectedHeroes[i],p=playerSpots[i];
       out.push({...h,...p,initiativeScore:0,actionsUsed:0,defending:false,hiding:false,charged:false,abilityUsed:[]});
     }
     const occupied=new Set(out.map(pointKey));
@@ -200,7 +211,8 @@ class Game{
   living(team?:Team){return this.units.filter(u=>u.hp>0&&(!team||u.team===team));}
   visibleHeroes(){return this.living('player').filter(u=>!u.hiding);}
   hasAction(u:Unit){return u.actionsUsed<ACTIONS;}
-  canMove(u:Unit){return u.actionsUsed===0;}
+  actionsRemaining(u:Unit){return Math.max(0,ACTIONS-u.actionsUsed);}
+  canMove(u:Unit){return this.hasAction(u);}
   moveRange(u:Unit){return this.config.move*(u.charged?2:1);}
   weaponKind(u:Unit){return u.weapon;}
   isActivePlayer(u:Unit){return !this.gameOver&&this.active()?.id===u.id&&u.team==='player';}
@@ -250,7 +262,7 @@ class Game{
 
   makeToken(u:Unit){
     const classes=['unit-token',u.team,this.active()?.id===u.id?'active':'',u.hiding?'stealthed':''].filter(Boolean).join(' ');
-    const g=svg('g',{class:classes,transform:'translate('+(u.x*CELL+CELL/2)+' '+(u.y*CELL+CELL/2)+')','data-id':u.id,'data-art':u.art});
+    const g=svg('g',{class:classes,transform:'translate('+(u.x*CELL+CELL/2)+' '+(u.y*CELL+CELL/2)+')','data-id':u.id,'data-art':u.art,'data-actions-used':u.actionsUsed,'data-actions-total':ACTIONS});
     g.appendChild(svg('rect',{x:-8,y:-8,width:16,height:16,class:'token-outer'}));
     const hpBack=svg('rect',{x:-7,y:6,width:14,height:3,class:'hp-back'}),hp=svg('rect',{x:-6.5,y:6.5,width:13*(u.hp/u.maxHp),height:2,class:'hp-fill'});g.append(hpBack,hp);
     if(u.defending)g.appendChild(svg('g',{class:'shield-mark'}));
@@ -269,7 +281,7 @@ class Game{
       const kind=this.weaponKind(a);for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++)if(this.inWeaponRange(a,{x,y},kind))add({x,y},'weapon-range');
       this.living('enemy').filter(u=>this.canAttack(a,u,kind)).forEach(u=>add(u,'attack-range'));return;
     }
-    if(s.team==='enemy'){this.reachable(s,this.moveRange(s)).forEach(p=>add(p,'enemy-range'));return;}
+    if(s.team==='enemy'){const inspectingOnPlayerTurn=a?.team==='player',openingEnemyTurn=a?.id===s.id&&s.actionsUsed===0;if(inspectingOnPlayerTurn||openingEnemyTurn)this.reachable(s,this.moveRange(s)).forEach(p=>add(p,'enemy-range'));return;}
     if(!this.isActivePlayer(s)||!this.canMove(s))return;
     for(const o of this.obstacles)add(o,'blocked-range');
     this.reachable(s,this.moveRange(s)).forEach(p=>{if(p.x!==s.x||p.y!==s.y)add(p,'move-range');});
@@ -327,6 +339,7 @@ class Game{
     const routeFor=(d:Point)=>{const r=this.findRoute(u,d,u.id);return r.length>1&&r.length-1<=this.moveRange(u)?r:[];};
     const planFor=(target:Unit,entry:Point=approach)=>{
       const kind=this.weaponKind(u),range=kind==='ranged'?RANGED_RANGE:1;if(this.canAttack(u,target,kind))return{route:[{x:u.x,y:u.y}],kind};
+      if(this.actionsRemaining(u)<2)return undefined;
       let dx=entry.x-target.x,dy=entry.y-target.y;if(dx===0&&dy===0){dx=u.x-target.x;dy=u.y-target.y;}
       const dir=Math.abs(dx)>Math.abs(dy)?{x:Math.sign(dx)||1,y:0}:{x:0,y:Math.sign(dy)||1},preferred={x:target.x+dir.x*range,y:target.y+dir.y*range};
       const preferredRoute=this.validDestination(preferred,u.id)?this.findRoute(u,preferred,u.id):[];
@@ -341,7 +354,7 @@ class Game{
   }
 
   async moveThenAttack(u:Unit,target:Unit,route:Point[],kind:Weapon){
-    if(route.length>1){this.record();u.defending=false;this.busy=true;this.drawRoute(route);const token=this.tokenElement(u.id);if(token)await this.animateRoute(token,route,130);const end=route[route.length-1];u.x=end.x;u.y=end.y;u.actionsUsed=1;this.busy=false;this.render();}
+    if(route.length>1){if(this.actionsRemaining(u)<2)return;this.record();u.defending=false;this.busy=true;this.drawRoute(route);const token=this.tokenElement(u.id);if(token)await this.animateRoute(token,route,130);const end=route[route.length-1];u.x=end.x;u.y=end.y;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.busy=false;this.render();}
     await this.attack(u,target,kind);
   }
 
@@ -382,10 +395,10 @@ class Game{
   }
 
   async moveActive(u:Unit,route:Point[]){
-    if(!this.isActivePlayer(u)||!this.canMove(u)||this.busy)return;this.record();u.defending=false;this.busy=true;this.drawRoute(route);const token=this.tokenElement(u.id);if(token)await this.animateRoute(token,route,130);const end=route[route.length-1];u.x=end.x;u.y=end.y;u.actionsUsed=1;this.busy=false;this.render();this.message('Choose an action.');
+    if(!this.isActivePlayer(u)||!this.canMove(u)||this.busy)return;this.record();u.defending=false;this.busy=true;this.drawRoute(route);const token=this.tokenElement(u.id);if(token)await this.animateRoute(token,route,130);const end=route[route.length-1];u.x=end.x;u.y=end.y;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.busy=false;this.render();this.message(this.actionsRemaining(u)+' actions remaining.');this.maybeFinish(u);
   }
   async moveEnemy(u:Unit,route:Point[]){
-    u.defending=false;this.busy=true;this.drawRoute(route,true);const token=this.tokenElement(u.id);if(token)await this.animateRoute(token,route,125);const end=route[route.length-1];u.x=end.x;u.y=end.y;u.actionsUsed=1;this.busy=false;this.render();
+    u.defending=false;this.busy=true;this.drawRoute(route,true);const token=this.tokenElement(u.id);if(token)await this.animateRoute(token,route,125);const end=route[route.length-1];u.x=end.x;u.y=end.y;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.busy=false;this.render();
   }
   animateRoute(g:SVGGElement,route:Point[],stepMs:number){return(async()=>{for(const p of route.slice(1)){const start=this.tokenTranslation(g),end={x:p.x*CELL+CELL/2,y:p.y*CELL+CELL/2};await this.tween(stepMs,t=>{const eased=.5-.5*Math.cos(Math.PI*t),x=start.x+(end.x-start.x)*eased,y=start.y+(end.y-start.y)*eased;g.setAttribute('transform','translate('+x+' '+y+')');this.followToken(x,y);});}})();}
   tokenTranslation(g:SVGGElement){const match=/translate\(([-.\d]+)[ ,]([-.\d]+)\)/.exec(g.getAttribute('transform')||'');return{x:match?Number(match[1]):0,y:match?Number(match[2]):0};}
@@ -394,28 +407,28 @@ class Game{
   async attack(a:Unit,t:Unit,kind:Weapon=this.weaponKind(a)){
     if(!this.canAttack(a,t,kind)||this.busy)return;if(a.team==='player')this.record();const wasHidden=a.hiding;a.defending=false;a.hiding=false;this.busy=true;
     const token=this.tokenElement(a.id);if(token){const start=this.tokenTranslation(token),target={x:t.x*CELL+CELL/2,y:t.y*CELL+CELL/2},dx=target.x-start.x,dy=target.y-start.y,len=Math.hypot(dx,dy)||1,lunge={x:start.x+dx/len*(kind==='ranged'?3:6),y:start.y+dy/len*(kind==='ranged'?3:6)};await this.tween(80,q=>token.setAttribute('transform','translate('+(start.x+(lunge.x-start.x)*q)+' '+(start.y+(lunge.y-start.y)*q)+')'));await this.tween(90,q=>token.setAttribute('transform','translate('+(lunge.x+(start.x-lunge.x)*q)+' '+(lunge.y+(start.y-lunge.y)*q)+')'));}
-    const rect=this.tokenElement(t.id)?.getBoundingClientRect();a.actionsUsed=2;const dmg=Math.max(0,a.damage*(wasHidden?2:1)-(t.defending?1:0));t.defending=false;t.hp=Math.max(0,t.hp-dmg);
-    this.log(a.name+' attacks '+t.name+' for '+dmg+' damage'+(wasHidden?' from hiding':'')+(t.hp<=0?' — defeated':'')+'.');this.selectedId=a.id;this.targetingMode=undefined;this.busy=false;this.checkGameOver();this.render();this.showFloating(t,'−'+dmg,'damage',rect);if(!this.gameOver)this.maybeFinish(a);
+    const rect=this.tokenElement(t.id)?.getBoundingClientRect();a.actionsUsed=Math.min(ACTIONS,a.actionsUsed+1);const dmg=Math.max(0,a.damage*(wasHidden?2:1)-(t.defending?1:0));t.defending=false;t.hp=Math.max(0,t.hp-dmg);
+    this.log(a.name+' attacks '+t.name+' for '+dmg+' damage'+(wasHidden?' from hiding':'')+(t.hp<=0?' — defeated':'')+'.');this.selectedId=a.id;this.targetingMode=undefined;this.busy=false;this.checkGameOver();this.render();this.showFloating(t,'−'+dmg,'damage',rect);if(!this.gameOver){if(a.team==='enemy')this.schedule(360,()=>this.finishTurn());else this.maybeFinish(a);}
   }
 
   healTarget(t:Unit){
     const u=this.active();if(!u||u.id!=='mira'||t.team!=='player'||!this.hasAction(u)||this.distance(u,t)>HEAL_RANGE||t.hp>=t.maxHp||this.busy)return;
-    this.record();const amount=Math.min(HEAL,t.maxHp-t.hp);t.hp+=amount;u.actionsUsed=2;this.targetingMode=undefined;this.log(u.name+' heals '+t.name+' for '+amount+' HP.');this.selectedId=t.id;this.render();this.showFloating(t,'+'+amount,'healing');this.maybeFinish(u);
+    this.record();const amount=Math.min(HEAL,t.maxHp-t.hp);t.hp+=amount;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.targetingMode=undefined;this.log(u.name+' heals '+t.name+' for '+amount+' HP.');this.selectedId=t.id;this.render();this.showFloating(t,'+'+amount,'healing');this.maybeFinish(u);
   }
   defendSelected(){const u=this.active();if(u?.team==='player'&&this.hasAction(u)&&!u.defending&&!this.busy)this.defendUnit(u,true);}
-  defendUnit(u:Unit,save=false){if(save)this.record();u.defending=true;u.actionsUsed=2;this.targetingMode=undefined;this.log(u.name+' uses Defend.');this.render();this.maybeFinish(u);}
+  defendUnit(u:Unit,save=false){if(save)this.record();u.defending=true;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.targetingMode=undefined;this.log(u.name+' uses Defend.');this.render();this.maybeFinish(u);}
   passTurn(){const u=this.active();if(!u||u.team!=='player'||this.busy)return;this.record();u.actionsUsed=ACTIONS;this.targetingMode=undefined;this.magicTargets.clear();this.log(u.name+' passes.');this.render();this.maybeFinish(u);}
 
   hideSelected(){
-    const u=this.active();if(!u||u.id!=='nox'||!this.hasAction(u)||this.busy)return;this.record();const success=Math.random()<.75;u.actionsUsed=2;u.defending=false;u.hiding=success;this.log(u.name+(success?' slips into hiding.':' fails to hide.'));this.render();this.showFloating(u,success?'SUCCESS':'FAIL',success?'success':'failure');this.maybeFinish(u);
+    const u=this.active();if(!u||u.id!=='nox'||!this.hasAction(u)||this.busy)return;this.record();const success=Math.random()<.75;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);u.defending=false;u.hiding=success;this.log(u.name+(success?' slips into hiding.':' fails to hide.'));this.render();this.showFloating(u,success?'SUCCESS':'FAIL',success?'success':'failure');this.maybeFinish(u);
   }
   chargeSelected(){
-    const u=this.active();if(!u||u.id!=='garrick'||u.abilityUsed.includes('charge')||!this.canMove(u)||this.busy)return;this.record();u.abilityUsed.push('charge');u.charged=true;this.log(u.name+' prepares to Charge.');this.render();this.message('Charge active: movement doubled this turn.');
+    const u=this.active();if(!u||u.id!=='garrick'||u.abilityUsed.includes('charge')||this.actionsRemaining(u)<2||this.busy)return;this.record();u.abilityUsed.push('charge');u.charged=true;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.log(u.name+' prepares to Charge.');this.render();this.message('Charge active: movement doubled this turn.');this.maybeFinish(u);
   }
   async castMagicMissile(){
     const u=this.active();if(!u||u.id!=='lyra'||u.abilityUsed.includes('magic')||!this.hasAction(u)||!this.magicTargets.size||this.busy)return;
     this.record();const targets=[...this.magicTargets].map(id=>this.unit(id)).filter(Boolean) as Unit[],rects=new Map(targets.map(t=>[t.id,this.tokenElement(t.id)?.getBoundingClientRect()]));
-    u.abilityUsed.push('magic');u.actionsUsed=2;this.targetingMode=undefined;this.magicTargets.clear();
+    u.abilityUsed.push('magic');u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.targetingMode=undefined;this.magicTargets.clear();
     for(const t of targets){t.defending=false;t.hp=Math.max(0,t.hp-2);}
     this.log(u.name+' casts Magic Missile at '+targets.map(t=>t.name).join(', ')+'.');this.checkGameOver();this.render();targets.forEach(t=>this.showFloating(t,'−2','damage',rects.get(t.id)));if(!this.gameOver)this.maybeFinish(u);
   }
@@ -425,13 +438,13 @@ class Game{
   }
   async runEnemy(){
     const enemy=this.active();if(!enemy||enemy.team!=='enemy'||this.gameOver||this.busy)return;this.selectedId=enemy.id;this.render();
-    const candidates=this.visibleHeroes();if(!candidates.length){this.schedule(280,()=>this.defendUnit(enemy));return;}
+    const candidates=this.visibleHeroes();if(!candidates.length){this.schedule(280,()=>this.finishTurn());return;}
     const kind=this.weaponKind(enemy);let target:Unit|undefined,best:Point[]=[];
     for(const hero of candidates){const route=this.routeToRange(enemy,hero,kind);if(route.length&&(!best.length||route.length<best.length)){target=hero;best=route;}}
     target??=[...candidates].sort((a,b)=>this.distance(enemy,a)-this.distance(enemy,b))[0];if(!target){this.finishTurn();return;}
     if(this.canAttack(enemy,target,kind)){this.showEnemyAttack(target,kind,()=>void this.attack(enemy,target!,kind));return;}
     if(best.length>1){await this.moveEnemy(enemy,best.slice(0,Math.min(best.length,this.moveRange(enemy)+1)));}
-    const live=this.unit(target.id);if(live&&this.canAttack(enemy,live,kind))this.showEnemyAttack(live,kind,()=>void this.attack(enemy,live,kind));else this.schedule(300,()=>this.defendUnit(enemy));
+    const live=this.unit(target.id);if(live&&this.canAttack(enemy,live,kind))this.showEnemyAttack(live,kind,()=>void this.attack(enemy,live,kind));else this.schedule(300,()=>this.finishTurn());
   }
 
   drawRoute(route:Point[],enemy=false){
@@ -479,7 +492,7 @@ class Game{
     if(a.id==='mira')button('heal','Heal',ICONS.heal,()=>this.beginTargeting('heal'),!canAct||!this.living('player').some(u=>this.distance(a,u)<=HEAL_RANGE&&u.hp<u.maxHp),this.targetingMode==='heal');
     if(a.id==='lyra'&&!a.abilityUsed.includes('magic'))button('magic','Magic Missile'+(this.magicTargets.size?' '+this.magicTargets.size+'/3':''),ICONS.magic,()=>this.beginTargeting('magic'),!canAct,this.targetingMode==='magic');
     if(a.id==='nox'&&!a.hiding)button('hide','Hide',ICONS.hide,()=>this.hideSelected(),!canAct);
-    if(a.id==='garrick'&&!a.abilityUsed.includes('charge'))button('charge',a.charged?'Charged':'Charge',ICONS.charge,()=>this.chargeSelected(),!this.canMove(a),a.charged);
+    if(a.id==='garrick'&&!a.abilityUsed.includes('charge'))button('charge',a.charged?'Charged':'Charge',ICONS.charge,()=>this.chargeSelected(),this.actionsRemaining(a)<2,a.charged);
     button('pass','Pass',ICONS.pass,()=>this.passTurn(),this.busy);
   }
   syncUI(){

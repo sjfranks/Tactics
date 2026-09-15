@@ -26,16 +26,16 @@
         </label>
         <div class="setup-grid">
           <label class="setup-field"><span>Move speed</span><input id="move-speed" type="number" min="2" max="8" value="3" inputmode="numeric" /></label>
-          <label class="setup-field"><span>Enemies</span><input id="enemy-count" type="number" min="1" max="16" value="4" inputmode="numeric" /></label>
-          <label class="setup-field"><span>Heroes</span><input id="player-count" type="number" min="1" max="6" value="2" inputmode="numeric" /></label>
+          <label class="setup-field"><span>Enemies</span><input id="enemy-count" type="number" min="1" max="16" value="8" inputmode="numeric" /></label>
         </div>
-        <div class="roster-preview" aria-label="Available heroes">
-          <span class="preview-hero sprite-alden" title="Aldren, Archer"></span>
-          <span class="preview-hero sprite-mira" title="Mira, Healer"></span>
-          <span class="preview-hero sprite-lyra" title="Lyra, Wizard"></span>
-          <span class="preview-hero sprite-nox" title="Nox, Thief"></span>
-          <span class="preview-hero sprite-seraphine" title="Seraphine, Paladin"></span>
-          <span class="preview-hero sprite-garrick" title="Garrick, Fighter"></span>
+        <div class="roster-heading"><span>Choose heroes</span><small id="roster-count" aria-live="polite">4 selected</small></div>
+        <div class="roster-preview" role="group" aria-label="Choose heroes">
+          <button class="preview-hero sprite-alden" type="button" data-hero="alden" aria-label="Aldren, Archer" aria-pressed="true"></button>
+          <button class="preview-hero sprite-mira" type="button" data-hero="mira" aria-label="Mira, Healer" aria-pressed="true"></button>
+          <button class="preview-hero sprite-lyra" type="button" data-hero="lyra" aria-label="Lyra, Wizard" aria-pressed="true"></button>
+          <button class="preview-hero sprite-nox" type="button" data-hero="nox" aria-label="Nox, Thief" aria-pressed="true"></button>
+          <button class="preview-hero sprite-seraphine" type="button" data-hero="seraphine" aria-label="Seraphine, Paladin" aria-pressed="false"></button>
+          <button class="preview-hero sprite-garrick" type="button" data-hero="garrick" aria-label="Garrick, Fighter" aria-pressed="false"></button>
         </div>
         <button class="new-encounter-button" type="submit">New Encounter</button>
       </form>

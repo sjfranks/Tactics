@@ -80,8 +80,12 @@ function shield(context:CanvasRenderingContext2D,x:number,y:number){
 function hood(context:CanvasRenderingContext2D,x:number,y:number){
   context.save();context.translate(x,y);context.fillStyle='#fff';context.strokeStyle='#111';context.lineWidth=.8;context.beginPath();context.moveTo(0,-3.5);context.quadraticCurveTo(3,-2.2,3,1.3);context.quadraticCurveTo(1.6,3.2,0,3.4);context.quadraticCurveTo(-1.6,3.2,-3,1.3);context.quadraticCurveTo(-3,-2.2,0,-3.5);context.fill();context.stroke();context.fillStyle='#111';context.beginPath();context.ellipse(0,.5,1.6,1.2,0,0,Math.PI*2);context.fill();context.restore();
 }
+function actionPips(context:CanvasRenderingContext2D,element:SVGGElement,x:number,y:number){
+  const used=Math.max(0,Number(element.dataset.actionsUsed)||0),total=Math.max(1,Number(element.dataset.actionsTotal)||3),enemy=element.classList.contains('enemy');
+  context.save();context.lineWidth=.45;for(let i=0;i<total;i++){const px=x+(i-(total-1)/2)*3;context.beginPath();context.arc(px,y,1.05,0,Math.PI*2);context.fillStyle=i<used?'#27313c':enemy?'#f2646d':'#61d4fa';context.strokeStyle=i<used?'#aeb7c0':'#f7fbff';context.fill();context.stroke();}context.restore();
+}
 function statuses(context:CanvasRenderingContext2D,svg:SVGSVGElement){
-  for(const element of svg.querySelectorAll<SVGGElement>('.unit-token[data-id]')){const p=translation(element);if(element.querySelector('.shield-mark'))shield(context,Math.round(p.x)+5,Math.round(p.y)-6);if(element.querySelector('.hide-mark'))hood(context,Math.round(p.x)+5,Math.round(p.y)-6);}
+  for(const element of svg.querySelectorAll<SVGGElement>('.unit-token[data-id]')){if(element.classList.contains('drag-ghost'))continue;const p=translation(element);if(element.classList.contains('active'))actionPips(context,element,Math.round(p.x),Math.round(p.y)+4);if(element.querySelector('.shield-mark'))shield(context,Math.round(p.x)+5,Math.round(p.y)-6);if(element.querySelector('.hide-mark'))hood(context,Math.round(p.x)+5,Math.round(p.y)-6);}
 }
 function sword(context:CanvasRenderingContext2D,angle:number){context.save();context.rotate(angle*Math.PI/180);context.beginPath();context.moveTo(0,-4.6);context.lineTo(1,-3.45);context.lineTo(.65,1.15);context.lineTo(-.65,1.15);context.lineTo(-1,-3.45);context.closePath();context.fill();context.fillRect(-1.8,1,3.6,.8);context.fillRect(-.55,1.65,1.1,2.25);context.beginPath();context.arc(0,4,.65,0,Math.PI*2);context.fill();context.restore();}
 function attackCues(context:CanvasRenderingContext2D,svg:SVGSVGElement){
