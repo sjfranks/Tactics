@@ -244,7 +244,7 @@ class Game{
   layout(){
     const vr=ui.viewport.getBoundingClientRect(),hotbar=ui.hotbar.getBoundingClientRect();
     const available=Math.max(240,vr.height-Math.max(98,hotbar.height));
-    const aspect=this.mapKey==='8x10'?8/10:3/4,height=Math.min(available,vr.width/aspect);
+    const aspect=this.mapKey==='8x10'?8/10:3/4,height=Math.min(available,vr.width/aspect);ui.frame.style.setProperty('--frame-aspect',String(aspect));
     ui.frame.style.width=Math.min(vr.width,height*aspect)+'px';ui.frame.style.height=height+'px';
   }
 
