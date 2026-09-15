@@ -5,7 +5,7 @@ button,input,select{font:inherit}
 button{-webkit-tap-highlight-color:transparent}
 [hidden]{display:none!important}
 
-.title-screen{position:fixed;inset:0;display:grid;place-items:center;padding:max(22px,env(safe-area-inset-top)) 18px max(22px,env(safe-area-inset-bottom));overflow:auto;background:#071426}
+.title-screen{position:fixed;z-index:100;inset:0;display:grid;place-items:center;padding:max(22px,env(safe-area-inset-top)) 18px max(22px,env(safe-area-inset-bottom));overflow:auto;background:#071426}
 .title-backdrop{position:absolute;inset:0;background:linear-gradient(rgba(4,14,28,.38),rgba(3,10,23,.93)),url("/Tactics/assets/encounters/meadow-6x8.webp") center/cover;filter:saturate(.78)}
 .encounter-card{position:relative;width:min(430px,100%);padding:28px 24px 24px;border:2px solid #e5cf91;border-radius:22px;background:linear-gradient(180deg,rgba(34,69,111,.97),rgba(9,27,54,.985));box-shadow:0 16px 42px rgba(0,0,0,.62),inset 0 0 0 3px rgba(111,157,202,.55);text-align:center}
 .title-kicker{margin:0;color:#ffe9a9;font:800 11px/1.2 system-ui,sans-serif;letter-spacing:.18em}

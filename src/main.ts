@@ -98,7 +98,7 @@ class Game{
     ui.railToggle.addEventListener('click',()=>this.toggleRail());
     ui.undo.addEventListener('click',()=>this.undo());
     ui.zoomReset.addEventListener('click',()=>this.resetCamera());
-    ui.statsToggle.addEventListener('click',()=>{const open=ui.drawer.classList.toggle('open');ui.statsToggle.setAttribute('aria-expanded',String(open));});
+    ui.statsToggle.addEventListener('click',()=>{if(ui.shell.hidden||!ui.title.hidden)return;const open=ui.drawer.classList.toggle('open');ui.statsToggle.setAttribute('aria-expanded',String(open));});
     ui.logToggle.addEventListener('click',()=>{const open=ui.logPanel.hidden;ui.logPanel.hidden=!open;ui.logToggle.setAttribute('aria-expanded',String(open));this.renderLog();});
     ui.logClose.addEventListener('click',()=>this.closeLog());
     ui.setup.addEventListener('click',()=>this.showSetup());
