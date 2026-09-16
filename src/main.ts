@@ -653,8 +653,11 @@ class Game{
   }
 
   async confirmMove(preview:Preview){
-    const source=this.active();if(!source||!preview.route)return;
-    this.busy=true;await this.animateUnitRoute(source,preview.route,true);source.moved=true;this.busy=false;
+    const source=this.active();if(!source)return;
+    const route=preview.route?.length?preview.route:(preview.point?this.findRoute(source,preview.point,source.id,this.moveAllowance(source)).path:[]);
+    if(route.length<2){this.message('That movement route is no longer available.');this.render();return;}
+    this.busy=true;await this.animateUnitRoute(source,route,true);source.moved=true;this.busy=false;
+    this.log(source.name+' moves '+(route.length-1)+' square'+(route.length===2?'':'s')+'.');
     this.cancelTargeting(false);this.checkGameOver();this.render();this.afterPlayerDecision(source);
   }
 
@@ -913,7 +916,9 @@ class Game{
     if(enemy.role==='Controller'){
       const hazard=this.terrain.filter(t=>t.kind==='hazard').sort((a,b)=>chebyshev(a,target)-chebyshev(b,target))[0];
       if(hazard)this.forceTowardPoint(target,hazard,1);else this.pullToward(enemy,target,1);
+      if(roll.tier===2&&target.hp>0){target.conditions.Slowed=1;this.log(target.name+' is Slowed by the Shadow Hook.');}
     }
+    if(enemy.role==='Guardian'&&roll.tier===2&&target.hp>0){target.conditions.Rooted=1;this.log(target.name+' is Rooted by the Grave Pike.');}
   }
 
   async enemySlide(enemy:Unit,target:Unit){
