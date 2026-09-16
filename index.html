@@ -4,107 +4,148 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#071426" />
-    <meta name="description" content="Build and play a touch-friendly fantasy tactics encounter." />
-    <title>Tactics — Encounter Builder</title>
+    <meta name="description" content="Tactics 48 — a compact, positioning-first fantasy tactics prototype." />
+    <title>Tactics 48</title>
   </head>
   <body>
-    <section id="title-screen" class="title-screen" aria-label="Encounter setup">
+    <section id="title-screen" class="title-screen" aria-label="Tactics 48 setup">
       <div class="title-backdrop"></div>
       <form id="encounter-form" class="encounter-card">
-        <p class="title-kicker">FIELD COMMAND</p>
-        <h1>Tactics</h1>
-        <p class="title-copy">Assemble your company and shape the battlefield.</p>
+        <p class="title-kicker">SIX BY EIGHT · NO EMPTY ATTACKS</p>
+        <h1>Tactics <span>48</span></h1>
+        <p class="title-copy">A positioning-first tactical RPG prototype. Every power changes the board.</p>
+
         <label class="setup-field">
-          <span>Battlefield</span>
-          <select id="map-size">
-            <option value="6x8">6 × 8 · Meadow</option>
-            <option value="8x10">8 × 10 · Meadow</option>
-            <option value="12x16">12 × 16 · Desert</option>
-            <option value="20x20">20 × 20 · Snowfield</option>
-            <option value="30x30">30 × 30 · Highlands</option>
+          <span>Mission</span>
+          <select id="scenario-select">
+            <option value="broken-gate">The Broken Gate · Destroy / Boss</option>
+            <option value="ember-shrine">The Ember Shrine · Interrupt / Hold</option>
+            <option value="rescue-run">Rescue at Ash Bridge · Escort / Escape</option>
           </select>
         </label>
-        <div class="setup-grid">
-          <label class="setup-field"><span>Move speed</span><input id="move-speed" type="number" min="2" max="8" value="3" inputmode="numeric" /></label>
-          <label class="setup-field"><span>Enemies</span><input id="enemy-count" type="number" min="1" max="16" value="8" inputmode="numeric" /></label>
+        <p id="scenario-preview" class="scenario-preview">Break the barricades and defeat the Orc War Chief.</p>
+
+        <label class="setup-field compact-field">
+          <span>Enemy force</span>
+          <select id="enemy-count">
+            <option value="4">4 · Quick</option>
+            <option value="5" selected>5 · Standard</option>
+            <option value="6">6 · Pressured</option>
+            <option value="7">7 · Hard</option>
+            <option value="8">8 · Brutal</option>
+          </select>
+        </label>
+
+        <div class="roster-heading"><span>Your company</span><small>Four distinct tactical roles</small></div>
+        <div class="roster-preview fixed-roster" aria-label="Garrick, Nox, Lyra and Mira">
+          <div class="preview-unit"><span class="preview-hero sprite-garrick"></span><b>Fighter</b></div>
+          <div class="preview-unit"><span class="preview-hero sprite-nox"></span><b>Rogue</b></div>
+          <div class="preview-unit"><span class="preview-hero sprite-lyra"></span><b>Wizard</b></div>
+          <div class="preview-unit"><span class="preview-hero sprite-mira"></span><b>Cleric</b></div>
         </div>
-        <div class="roster-heading"><span>Choose heroes</span><small id="roster-count" aria-live="polite">4 selected</small></div>
-        <div class="roster-preview" role="group" aria-label="Choose heroes">
-          <button class="preview-hero sprite-alden" type="button" data-hero="alden" aria-label="Aldren, Archer" aria-pressed="true"></button>
-          <button class="preview-hero sprite-mira" type="button" data-hero="mira" aria-label="Mira, Healer" aria-pressed="true"></button>
-          <button class="preview-hero sprite-lyra" type="button" data-hero="lyra" aria-label="Lyra, Wizard" aria-pressed="true"></button>
-          <button class="preview-hero sprite-nox" type="button" data-hero="nox" aria-label="Nox, Thief" aria-pressed="true"></button>
-          <button class="preview-hero sprite-seraphine" type="button" data-hero="seraphine" aria-label="Seraphine, Paladin" aria-pressed="false"></button>
-          <button class="preview-hero sprite-garrick" type="button" data-hero="garrick" aria-label="Garrick, Fighter" aria-pressed="false"></button>
+
+        <div class="rules-ribbon" aria-label="Core rules">
+          <span><b>Move</b> + Action</span><span><b>2d6</b> · 3 tiers</span><span><b>1</b> Reaction</span>
         </div>
-        <button class="new-encounter-button" type="submit">New Encounter</button>
+        <button class="new-encounter-button" type="submit">Begin Mission</button>
       </form>
     </section>
 
-    <main id="game-shell" class="game-shell" aria-label="Tactics battle" hidden>
+    <main id="game-shell" class="game-shell" aria-label="Tactics 48 battle" hidden>
+      <header class="battle-header">
+        <div class="turn-mark"><small id="side-label">YOUR ACTIVATION</small><strong>Round <span id="round-label">1</span></strong></div>
+        <button id="objective-button" class="objective-chip" type="button" aria-label="Show mission objective">
+          <small id="objective-kicker">DESTROY · BOSS</small><strong id="objective-label">Defeat the War Chief</strong>
+        </button>
+        <div class="momentum-panel" aria-label="Shared Momentum">
+          <small>MOMENTUM</small><div id="momentum-pips" class="momentum-pips"></div>
+        </div>
+      </header>
+
       <section class="battlefield-viewport">
-        <div id="battlefield-frame" class="battlefield-frame"><div id="battlefield" class="battlefield" aria-label="Tactical battlefield"></div></div>
+        <div id="battlefield-frame" class="battlefield-frame"><div id="battlefield" class="battlefield" aria-label="Six by eight tactical battlefield"></div></div>
+
+        <p id="instruction" class="instruction" aria-live="polite">Choose a ready hero.</p>
+
         <div id="combat-log-panel" class="combat-log-panel" hidden>
-          <div class="combat-log-heading"><strong>Combat Log</strong><button id="log-close" type="button" aria-label="Close combat log">×</button></div>
+          <div class="combat-log-heading"><strong>Battle Chronicle</strong><button id="log-close" type="button" aria-label="Close combat log">×</button></div>
           <div id="combat-log-list" class="combat-log-list"></div>
         </div>
-        <div id="result-overlay" class="result-overlay" hidden>
-          <p class="eyebrow">BATTLE COMPLETE</p><h2 id="result-title">Victory</h2><p id="result-copy">The field is secure.</p>
-          <button id="restart-overlay" class="primary-button" type="button">Play again</button>
-          <button id="setup-overlay" class="secondary-button" type="button">New setup</button>
+
+        <div id="decision-panel" class="decision-panel" hidden>
+          <div><small id="decision-kicker">POWER PREVIEW</small><strong id="decision-title">Heavy Strike</strong><p id="decision-copy"></p></div>
+          <button id="decision-cancel" class="decision-button cancel" type="button" aria-label="Cancel power">×</button>
+          <button id="decision-confirm" class="decision-button confirm" type="button" aria-label="Confirm power">✓</button>
         </div>
+
+        <div id="result-overlay" class="result-overlay" hidden>
+          <p class="eyebrow">MISSION COMPLETE</p><h2 id="result-title">Victory</h2><p id="result-copy">The field is secure.</p>
+          <button id="restart-overlay" class="primary-button" type="button">Play again</button>
+          <button id="setup-overlay" class="secondary-button" type="button">Choose mission</button>
+        </div>
+
         <div class="hud-left">
           <div id="utility-panel" class="utility-panel" hidden>
-            <button id="setup-action" class="hud-circle" type="button" aria-label="Return to encounter setup" title="Encounter setup">⚙</button>
-            <button id="stats-toggle" class="hud-circle" type="button" aria-label="Show selected unit stats" aria-expanded="false" title="Character sheet"><svg class="hud-icon sheet-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8" cy="9" r="2"></circle><path d="M5.5 15c.8-2 4.2-2 5 0M13 8h5M13 12h5M13 16h4"></path></svg></button>
-            <button id="log-toggle" class="hud-circle" type="button" aria-label="Open combat log" aria-expanded="false" title="Combat log"><span class="speech-icon" aria-hidden="true"></span></button>
-            <button id="undo-action" class="hud-circle" type="button" aria-label="Undo last player decision" title="Undo">↶</button>
-            <button id="zoom-reset" class="hud-circle zoom-reset" type="button" aria-label="Return to default zoom" title="Default zoom"><span class="zoom-out-icon" aria-hidden="true">−</span></button>
+            <button id="setup-action" class="hud-circle" type="button" aria-label="Return to mission setup" title="Mission setup">⚙</button>
+            <button id="help-toggle" class="hud-circle" type="button" aria-label="Show Tactics 48 rules" title="Rules">?</button>
+            <button id="stats-toggle" class="hud-circle" type="button" aria-label="Show selected unit sheet" aria-expanded="false" title="Unit sheet"><svg class="hud-icon sheet-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8" cy="9" r="2"></circle><path d="M5.5 15c.8-2 4.2-2 5 0M13 8h5M13 12h5M13 16h4"></path></svg></button>
+            <button id="log-toggle" class="hud-circle" type="button" aria-label="Open battle chronicle" aria-expanded="false" title="Battle chronicle"><span class="speech-icon" aria-hidden="true"></span></button>
+            <button id="undo-action" class="hud-circle" type="button" aria-label="Undo this hero activation" title="Undo">↶</button>
+            <button id="zoom-reset" class="hud-circle zoom-reset" type="button" aria-label="Reset battlefield zoom" title="Reset zoom"><span class="zoom-out-icon" aria-hidden="true">−</span></button>
           </div>
           <button id="utility-toggle" class="hud-circle utility-toggle" type="button" aria-label="Show game controls" aria-expanded="false" title="Controls"><svg class="chevron-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 14.5 5.5-5 5.5 5"></path></svg></button>
         </div>
-        <aside id="initiative-drawer" class="initiative-drawer" aria-label="Initiative order" aria-hidden="true">
-          <div id="initiative-rail" class="initiative-rail" role="list"></div>
+
+        <aside id="activation-drawer" class="initiative-drawer" aria-label="Unit readiness" aria-hidden="true">
+          <div class="rail-heading"><small>ROUND <span id="rail-round">1</span></small><b>Ready</b></div>
+          <div id="activation-rail" class="initiative-rail" role="list"></div>
         </aside>
         <div class="hud-right">
-          <button id="rail-toggle" class="hud-circle rail-toggle" type="button" aria-label="Show initiative order" aria-expanded="false" title="Initiative order"><svg class="hud-icon roster-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="5" r="2"></circle><circle cx="5" cy="12" r="2"></circle><circle cx="5" cy="19" r="2"></circle><path d="M9 5h10M9 12h10M9 19h10"></path></svg></button>
+          <button id="rail-toggle" class="hud-circle rail-toggle" type="button" aria-label="Show unit readiness" aria-expanded="false" title="Unit readiness"><svg class="hud-icon roster-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="5" r="2"></circle><circle cx="5" cy="12" r="2"></circle><circle cx="5" cy="19" r="2"></circle><path d="M9 5h10M9 12h10M9 19h10"></path></svg></button>
         </div>
-        <div id="action-hotbar" class="action-hotbar" role="toolbar" aria-label="Actions for the active hero"></div>
-        <div id="spell-confirm" class="spell-confirm" role="group" aria-label="Confirm Fireball target" hidden>
-          <button id="spell-cancel" class="spell-decision cancel" type="button" aria-label="Cancel Fireball">×</button>
-          <button id="spell-confirm-action" class="spell-decision confirm" type="button" aria-label="Cast Fireball">✓</button>
-        </div>
+
+        <div id="action-hotbar" class="action-hotbar" role="toolbar" aria-label="Powers"></div>
       </section>
-      <p class="sr-only" id="instruction" aria-live="polite"></p>
     </main>
 
-    <aside class="unit-drawer" id="unit-drawer" aria-label="Selected unit stats" hidden>
+    <aside class="unit-drawer" id="unit-drawer" aria-label="Selected unit sheet" hidden>
       <div class="drawer-content">
+        <button id="drawer-close" class="drawer-close" type="button" aria-label="Close unit sheet">×</button>
         <span class="label" id="selected-team">Hero</span>
-        <div class="drawer-heading"><div class="portrait" id="portrait" aria-hidden="true"></div><div><strong id="selected-name">Aldren</strong><small id="selected-class">Archer</small></div></div>
+        <div class="drawer-heading"><div class="portrait" id="portrait" aria-hidden="true"></div><div><strong id="selected-name">Garrick</strong><small id="selected-class">Fighter</small></div></div>
+        <div id="status-chips" class="status-chips"></div>
         <dl class="stat-list">
-          <div><dt>Level</dt><dd id="level-stat">5</dd></div>
-          <div><dt>HP</dt><dd id="health-text">68 / 68</dd></div>
-          <div><dt>AC</dt><dd id="ac-stat">22</dd></div>
-          <div><dt>Weapon</dt><dd id="attack-stat">Striking shortbow +13</dd></div>
-          <div><dt>Damage</dt><dd id="damage-stat">2d6 piercing</dd></div>
+          <div><dt>HP</dt><dd id="health-text">24 / 24</dd></div>
+          <div><dt>Defense</dt><dd id="defense-stat">10</dd></div>
           <div><dt>Move</dt><dd id="movement-stat">3</dd></div>
-          <div><dt>Initiative</dt><dd id="initiative-stat">+2</dd></div>
-          <div class="stat-section"><dt>Abilities</dt><dd></dd></div>
-          <div><dt>Strength</dt><dd id="str-stat">14 (+2)</dd></div>
-          <div><dt>Dexterity</dt><dd id="dex-stat">18 (+4)</dd></div>
-          <div><dt>Constitution</dt><dd id="con-stat">14 (+2)</dd></div>
-          <div><dt>Intelligence</dt><dd id="int-stat">10 (+0)</dd></div>
-          <div><dt>Wisdom</dt><dd id="wis-stat">16 (+3)</dd></div>
-          <div><dt>Charisma</dt><dd id="cha-stat">10 (+0)</dd></div>
-          <div class="stat-section"><dt>Saves</dt><dd></dd></div>
-          <div><dt>Fortitude</dt><dd id="fort-stat">+12</dd></div>
-          <div><dt>Reflex</dt><dd id="reflex-stat">+13</dd></div>
-          <div><dt>Will</dt><dd id="will-stat">+10</dd></div>
-          <div id="spell-row" hidden><dt>Spell DC</dt><dd id="spell-dc-stat">—</dd></div>
+          <div class="stat-section"><dt>Power</dt><dd></dd></div>
+          <div><dt>Might</dt><dd id="might-stat">+4</dd></div>
+          <div><dt>Agility</dt><dd id="agility-stat">+1</dd></div>
+          <div><dt>Will</dt><dd id="will-stat">+1</dd></div>
+          <div class="stat-section"><dt>Kit</dt><dd></dd></div>
+          <div class="wide-stat"><dt>Passive</dt><dd id="passive-stat"></dd></div>
+          <div id="reaction-row" class="wide-stat"><dt>Reaction</dt><dd id="reaction-stat"></dd></div>
         </dl>
+        <div id="power-list" class="drawer-power-list"></div>
       </div>
     </aside>
+
+    <section id="help-overlay" class="help-overlay" hidden aria-label="Tactics 48 rules">
+      <div class="help-card">
+        <button id="help-close" class="drawer-close" type="button" aria-label="Close rules">×</button>
+        <p class="title-kicker">QUICK RULES</p><h2>Tactics 48</h2>
+        <div class="help-grid">
+          <article><b>Activation</b><p>Choose any ready hero. Take one Move and one Action in either order. Powers can add extra movement.</p></article>
+          <article><b>No whiffs</b><p>Roll 2d6 + Might, Agility or Will against Defense. Every attack produces a Tier 1, 2 or 3 result.</p></article>
+          <article><b>Position</b><p>Flank from opposite sides for +1. Leaving engagement costs +1 Move. Cover adds +1 Defense against ranged attacks.</p></article>
+          <article><b>Momentum</b><p>Earn it from flanks, defeating enemies, objectives and terrain plays. Spend the shared pool on Heroic powers.</p></article>
+          <article><b>Terrain</b><p>Walls block sight. Difficult ground costs +1. High ground adds 1 range. Fire Burns. Forced movement into a wall deals +2.</p></article>
+          <article><b>Downed</b><p>Heroes at 0 HP are Downed, not dead. Mira can Restore them; any adjacent hero can Rally them.</p></article>
+        </div>
+        <button id="help-done" class="new-encounter-button" type="button">Return to battle</button>
+      </div>
+    </section>
+
     <script type="module" src="/src/main.ts"></script>
     <script type="module" src="/src/canvasBattlefield.ts"></script>
   </body>

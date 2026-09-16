@@ -1,583 +1,1157 @@
 import './phaser.css';
+import {
+  CONDITIONS,ENEMIES,ENEMY_ATTACKS,HEROES,POWERS,SCENARIOS,chebyshev,pointKey,powerById,scenarioById,
+  type Condition,type EnemyRole,type Point,type Power,type Scenario,type ScenarioId,type Stat,type Team,type Terrain,type TerrainKind,type Unit
+} from './tactics48';
 
-type Team='player'|'enemy';
-type Weapon='melee'|'ranged';
-type TargetingMode='attack'|'heal'|'magic'|'fireball';
-type MapKey='6x8'|'8x10'|'12x16'|'20x20'|'30x30';
-type Point={x:number;y:number};
-type Obstacle=Point&{kind:number};
-type Abilities={str:number;dex:number;con:number;int:number;wis:number;cha:number};
-type Unit=Point&{
-  id:string;name:string;role:string;team:Team;art:string;weapon:Weapon;
-  level:number;hp:number;maxHp:number;ac:number;abilities:Abilities;
-  fort:number;reflex:number;will:number;attackBonus:number;weaponName:string;
-  damageDice:number;damageDie:number;damageMod:number;weaponRange:number;damageType:string;
-  spellDC?:number;initiativeMod:number;initiativeScore:number;
-  actionsUsed:number;attacksMade:number;defending:boolean;hiding:boolean;charged:boolean;
-  abilityUsed:string[];
-};
-type LogEntry={round:number;text:string};
-type Snapshot={units:Unit[];selectedId:string;round:number;activeIndex:number;logEntries:LogEntry[]};
-type EncounterConfig={map:MapKey;move:number;enemies:number;heroes:string[]};
-type UnitTemplate=Omit<Unit,keyof Point|'initiativeScore'|'actionsUsed'|'attacksMade'|'defending'|'hiding'|'charged'|'abilityUsed'>;
-
+const COLS=6;
+const ROWS=8;
 const CELL=16;
-const ACTIONS=3;
-const HEAL_DICE=2;
-const HEAL_DIE=8;
-const HEAL_MOD=4;
-const HEAL_RANGE=1;
-const FORCE_BARRAGE_RANGE=12;
-const FIREBALL_RANGE=50;
-const FIREBALL_RADIUS=2;
-const FIREBALL_ACTIONS=2;
-const DEFAULT_TILES_WIDE=6;
 const NS='http://www.w3.org/2000/svg';
-const MAPS:Record<MapKey,{cols:number;rows:number;background:string;obstacleKinds:number[]}>={
-  '6x8':{cols:6,rows:8,background:'meadow-6x8.webp',obstacleKinds:[0,1,2,3]},
-  '8x10':{cols:8,rows:10,background:'meadow-6x8.webp',obstacleKinds:[0,1,2,3]},
-  '12x16':{cols:12,rows:16,background:'desert-12x16.webp',obstacleKinds:[4,5]},
-  '20x20':{cols:20,rows:20,background:'snow-20x20.webp',obstacleKinds:[6,7]},
-  '30x30':{cols:30,rows:30,background:'highland-30x30.webp',obstacleKinds:[0,1,2,3]}
+const MAX_MOMENTUM=5;
+const SUPPORT_DEFENSE=8;
+const TIERS=['TIER 1','TIER 2','TIER 3'] as const;
+
+type LogEntry={round:number;text:string};
+type Zone={id:string;kind:'sanctuary';cells:Point[];ownerId:string;expiresRound:number};
+type ObjectiveState={sigils:number;hold:number;rescued:boolean;carrierId?:string};
+type Targeting={powerId:string;chosenId?:string};
+type Preview={
+  powerId:string;
+  targets:string[];
+  point?:Point;
+  cells?:Point[];
+  route?:Point[];
+  chosenId?:string;
+  title:string;
+  copy:string;
 };
-const HEROES:UnitTemplate[]=[
-  {id:'alden',name:'Aldren',role:'Archer',team:'player',art:'alden',weapon:'ranged',level:5,hp:68,maxHp:68,ac:22,abilities:{str:14,dex:18,con:14,int:10,wis:16,cha:10},fort:12,reflex:13,will:10,attackBonus:13,weaponName:'Striking shortbow',damageDice:2,damageDie:6,damageMod:0,weaponRange:6,damageType:'piercing',initiativeMod:13},
-  {id:'mira',name:'Mira',role:'Cleric',team:'player',art:'mira',weapon:'melee',level:5,hp:58,maxHp:58,ac:21,abilities:{str:14,dex:12,con:14,int:10,wis:18,cha:12},fort:12,reflex:9,will:13,attackBonus:11,weaponName:'Striking mace',damageDice:2,damageDie:6,damageMod:2,weaponRange:1,damageType:'bludgeoning',spellDC:21,initiativeMod:13},
-  {id:'lyra',name:'Lyra',role:'Wizard',team:'player',art:'lyra',weapon:'ranged',level:5,hp:46,maxHp:46,ac:20,abilities:{str:10,dex:16,con:14,int:19,wis:14,cha:10},fort:10,reflex:12,will:13,attackBonus:10,weaponName:'Sling',damageDice:1,damageDie:6,damageMod:0,weaponRange:5,damageType:'bludgeoning',spellDC:21,initiativeMod:12},
-  {id:'nox',name:'Nox',role:'Rogue',team:'player',art:'nox',weapon:'melee',level:5,hp:58,maxHp:58,ac:22,abilities:{str:12,dex:19,con:14,int:14,wis:12,cha:14},fort:10,reflex:14,will:10,attackBonus:13,weaponName:'Striking rapier',damageDice:2,damageDie:6,damageMod:4,weaponRange:1,damageType:'piercing',initiativeMod:14},
-  {id:'seraphine',name:'Seraphine',role:'Champion',team:'player',art:'seraphine',weapon:'melee',level:5,hp:68,maxHp:68,ac:23,abilities:{str:18,dex:12,con:16,int:10,wis:14,cha:16},fort:13,reflex:9,will:12,attackBonus:12,weaponName:'Striking longsword',damageDice:2,damageDie:8,damageMod:4,weaponRange:1,damageType:'slashing',initiativeMod:12},
-  {id:'garrick',name:'Garrick',role:'Fighter',team:'player',art:'garrick',weapon:'melee',level:5,hp:73,maxHp:73,ac:22,abilities:{str:19,dex:14,con:16,int:10,wis:12,cha:10},fort:14,reflex:11,will:10,attackBonus:14,weaponName:'Striking greatsword',damageDice:2,damageDie:12,damageMod:4,weaponRange:1,damageType:'slashing',initiativeMod:11}
-];
-const ENEMIES:Omit<UnitTemplate,'id'>[]=[
-  {name:'Goblin Raider',role:'Raider',team:'enemy',art:'raider-1',weapon:'melee',level:2,hp:28,maxHp:28,ac:18,abilities:{str:14,dex:18,con:12,int:10,wis:8,cha:12},fort:7,reflex:10,will:5,attackBonus:10,weaponName:'Dogslicer',damageDice:1,damageDie:6,damageMod:2,weaponRange:1,damageType:'slashing',initiativeMod:10},
-  {name:'Goblin Skirmisher',role:'Skirmisher',team:'enemy',art:'raider-2',weapon:'melee',level:2,hp:24,maxHp:24,ac:19,abilities:{str:12,dex:18,con:12,int:12,wis:10,cha:10},fort:6,reflex:11,will:6,attackBonus:11,weaponName:'Shortsword',damageDice:1,damageDie:6,damageMod:1,weaponRange:1,damageType:'piercing',initiativeMod:11},
-  {name:'Goblin Archer',role:'Archer',team:'enemy',art:'raider-3',weapon:'ranged',level:2,hp:22,maxHp:22,ac:18,abilities:{str:10,dex:18,con:12,int:10,wis:12,cha:10},fort:6,reflex:11,will:7,attackBonus:11,weaponName:'Shortbow',damageDice:1,damageDie:6,damageMod:0,weaponRange:6,damageType:'piercing',initiativeMod:11},
-  {name:'Goblin Brute',role:'Brute',team:'enemy',art:'raider-4',weapon:'melee',level:3,hp:45,maxHp:45,ac:20,abilities:{str:18,dex:14,con:16,int:8,wis:10,cha:10},fort:11,reflex:8,will:7,attackBonus:12,weaponName:'Horsechopper',damageDice:1,damageDie:8,damageMod:4,weaponRange:1,damageType:'slashing',initiativeMod:8}
-];
-const ICONS={
-  attack:'<svg viewBox="0 0 24 24"><g transform="rotate(-43 12 12)"><path d="M10.8 3h2.4l-.35 10.1h-1.7L10.8 3Z"/><path d="M8.4 13h7.2v1.8H8.4zM11 14.5h2v4.1h-2z"/><circle cx="12" cy="19.4" r="1.25"/></g><g transform="rotate(43 12 12)"><path d="M10.8 3h2.4l-.35 10.1h-1.7L10.8 3Z"/><path d="M8.4 13h7.2v1.8H8.4zM11 14.5h2v4.1h-2z"/><circle cx="12" cy="19.4" r="1.25"/></g></svg>',
-  defend:'<svg viewBox="0 0 24 24"><path d="M12 2.5 19 5.6v5.2c0 5-2.8 8.5-7 10.7-4.2-2.2-7-5.7-7-10.7V5.6L12 2.5Z"/></svg>',
-  heal:'<svg viewBox="0 0 24 24"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6V3Z"/></svg>',
-  magic:'<svg viewBox="0 0 24 24"><path d="m13 2-2 7 5-2-7 15 2-9-5 2L13 2Z"/><path d="m18 3 .6 1.7L20 5l-1.4.5L18 7l-.5-1.5L16 5l1.5-.3L18 3Z"/></svg>',
-  fireball:'<svg viewBox="0 0 24 24"><path d="M13.2 2.2c.5 3-1.1 4.2-2.2 5.6-1.1 1.4-1 2.7-.1 3.8.1-2.1 1.5-3.2 3.1-4.6 2.9 2.4 4.6 5 4.6 8.1a6.6 6.6 0 0 1-13.2 0c0-3.2 1.8-5.8 4.4-8.2-.1 2.1.4 2.9 1 3.5.3-3.8 1.7-5.2 2.4-8.2Z"/></svg>',
-  hide:'<svg viewBox="0 0 24 24"><path d="M4 8c2.5-3 13.5-3 16 0l-2 10c-2 2.5-4 3.5-6 3.5S8 20.5 6 18L4 8Z"/><path d="M7 12c1.2-1 2.7-1 4 0-1 2-3 2-4 0Zm6 0c1.3-1 2.8-1 4 0-1 2-3 2-4 0Z" class="cutout"/></svg>',
-  charge:'<svg viewBox="0 0 24 24"><path d="M13 2 4 13h6l-1 9 10-13h-6V2Z"/></svg>',
-  pass:'<svg viewBox="0 0 24 24"><path d="M5 3h14v3c0 3-2.2 5-4.8 6 2.6 1 4.8 3 4.8 6v3H5v-3c0-3 2.2-5 4.8-6C7.2 11 5 9 5 6V3Zm3 3c0 2 1.8 3.2 4 4 2.2-.8 4-2 4-4H8Zm4 8c-2.2.8-4 2-4 4h8c0-2-1.8-3.2-4-4Z"/></svg>'
+type GameSnapshot={
+  units:Unit[];terrain:Terrain[];zones:Zone[];momentum:number;objective:ObjectiveState;
+  logEntries:LogEntry[];selectedId:string;activeId?:string;round:number;firstRoundFlankAwarded:boolean;
+};
+type RouteResult={path:Point[];cost:number};
+type RollResult={dice:[number,number];bonus:number;total:number;defense:number;tier:0|1|2;modifiers:string[]};
+
+const $=<T extends HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
+const ui={
+  title:$('#title-screen'),form:$('#encounter-form') as HTMLFormElement,scenario:$('#scenario-select') as HTMLSelectElement,
+  enemyCount:$('#enemy-count') as HTMLSelectElement,scenarioPreview:$('#scenario-preview'),
+  shell:$('#game-shell'),viewport:$('.battlefield-viewport'),frame:$('#battlefield-frame'),battlefield:$('#battlefield'),
+  side:$('#side-label'),round:$('#round-label'),railRound:$('#rail-round'),objectiveKicker:$('#objective-kicker'),
+  objectiveLabel:$('#objective-label'),objectiveButton:$('#objective-button') as HTMLButtonElement,momentum:$('#momentum-pips'),
+  instruction:$('#instruction'),hotbar:$('#action-hotbar'),rail:$('#activation-rail'),railDrawer:$('#activation-drawer'),
+  railToggle:$('#rail-toggle') as HTMLButtonElement,utilityToggle:$('#utility-toggle') as HTMLButtonElement,utilityPanel:$('#utility-panel'),
+  setup:$('#setup-action') as HTMLButtonElement,helpToggle:$('#help-toggle') as HTMLButtonElement,
+  help:$('#help-overlay'),helpClose:$('#help-close') as HTMLButtonElement,helpDone:$('#help-done') as HTMLButtonElement,
+  statsToggle:$('#stats-toggle') as HTMLButtonElement,drawer:$('#unit-drawer'),drawerClose:$('#drawer-close') as HTMLButtonElement,
+  selectedTeam:$('#selected-team'),selectedName:$('#selected-name'),selectedClass:$('#selected-class'),portrait:$('#portrait'),
+  health:$('#health-text'),defense:$('#defense-stat'),movement:$('#movement-stat'),might:$('#might-stat'),
+  agility:$('#agility-stat'),will:$('#will-stat'),passive:$('#passive-stat'),reactionRow:$('#reaction-row'),
+  reaction:$('#reaction-stat'),statusChips:$('#status-chips'),powerList:$('#power-list'),
+  logToggle:$('#log-toggle') as HTMLButtonElement,logPanel:$('#combat-log-panel'),logList:$('#combat-log-list'),
+  logClose:$('#log-close') as HTMLButtonElement,undo:$('#undo-action') as HTMLButtonElement,
+  zoomReset:$('#zoom-reset') as HTMLButtonElement,decision:$('#decision-panel'),decisionKicker:$('#decision-kicker'),
+  decisionTitle:$('#decision-title'),decisionCopy:$('#decision-copy'),decisionConfirm:$('#decision-confirm') as HTMLButtonElement,
+  decisionCancel:$('#decision-cancel') as HTMLButtonElement,result:$('#result-overlay'),resultTitle:$('#result-title'),
+  resultCopy:$('#result-copy'),restart:$('#restart-overlay') as HTMLButtonElement,setupOverlay:$('#setup-overlay') as HTMLButtonElement
 };
 
-const $=<T extends HTMLElement>(s:string)=>document.querySelector<T>(s)!;
-const ui={
-  title:$('#title-screen'),form:$('#encounter-form') as HTMLFormElement,map:$('#map-size') as HTMLSelectElement,
-  move:$('#move-speed') as HTMLInputElement,enemies:$('#enemy-count') as HTMLInputElement,
-  roster:document.querySelectorAll<HTMLButtonElement>('.preview-hero'),rosterCount:$('#roster-count'),
-  shell:$('#game-shell'),viewport:$('.battlefield-viewport'),battlefield:$('#battlefield'),frame:$('#battlefield-frame'),
-  railDrawer:$('#initiative-drawer'),rail:$('#initiative-rail'),railToggle:$('#rail-toggle') as HTMLButtonElement,hotbar:$('#action-hotbar'),
-  instruction:$('#instruction'),undo:$('#undo-action') as HTMLButtonElement,utilityToggle:$('#utility-toggle') as HTMLButtonElement,
-  utilityPanel:$('#utility-panel'),zoomReset:$('#zoom-reset') as HTMLButtonElement,statsToggle:$('#stats-toggle') as HTMLButtonElement,
-  logToggle:$('#log-toggle') as HTMLButtonElement,logPanel:$('#combat-log-panel'),logList:$('#combat-log-list'),logClose:$('#log-close') as HTMLButtonElement,
-  setup:$('#setup-action') as HTMLButtonElement,restartOverlay:$('#restart-overlay') as HTMLButtonElement,setupOverlay:$('#setup-overlay') as HTMLButtonElement,
-  drawer:$('#unit-drawer'),selectedName:$('#selected-name'),selectedClass:$('#selected-class'),selectedTeam:$('#selected-team'),
-  level:$('#level-stat'),health:$('#health-text'),ac:$('#ac-stat'),attack:$('#attack-stat'),damage:$('#damage-stat'),movement:$('#movement-stat'),initiative:$('#initiative-stat'),portrait:$('#portrait'),
-  str:$('#str-stat'),dex:$('#dex-stat'),con:$('#con-stat'),int:$('#int-stat'),wis:$('#wis-stat'),cha:$('#cha-stat'),fort:$('#fort-stat'),reflex:$('#reflex-stat'),will:$('#will-stat'),spellRow:$('#spell-row'),spellDC:$('#spell-dc-stat'),
-  spellConfirm:$('#spell-confirm'),spellConfirmAction:$('#spell-confirm-action') as HTMLButtonElement,spellCancel:$('#spell-cancel') as HTMLButtonElement,
-  resultOverlay:$('#result-overlay'),resultTitle:$('#result-title'),resultCopy:$('#result-copy')
+const ICONS:Record<string,string>={
+  'heavy-strike':'⚔','shield-bash':'⬟','come-and-get-me':'⌁',cleave:'⚔',whirlwind:'⟳',
+  backstab:'◆','dashing-strike':'➜',swap:'⇄',vanish:'◌',
+  fireball:'●','force-wave':'≋','ice-wall':'▥',teleport:'✦',vortex:'◎',
+  smite:'✚',restore:'♥',sanctuary:'◇',command:'☝',
+  interact:'✋',rally:'↥',end:'⌛'
 };
 
 function svg<K extends keyof SVGElementTagNameMap>(tag:K,attrs:Record<string,string|number>={}){
-  const el=document.createElementNS(NS,tag) as SVGElementTagNameMap[K];
-  for(const [key,value] of Object.entries(attrs))el.setAttribute(key,String(value));
-  return el;
+  const element=document.createElementNS(NS,tag) as SVGElementTagNameMap[K];
+  for(const [key,value] of Object.entries(attrs))element.setAttribute(key,String(value));
+  return element;
 }
+function cloneUnit(unit:Unit):Unit{return{...unit,conditions:{...unit.conditions},powers:[...unit.powers]};}
 function clamp(value:number,min:number,max:number){return Math.max(min,Math.min(max,value));}
-function pointKey(p:Point){return p.x+','+p.y;}
-function copyUnit(u:Unit):Unit{return {...u,abilities:{...u.abilities},abilityUsed:[...u.abilityUsed]};}
+function sign(value:number){return value===0?0:value>0?1:-1;}
 function signed(value:number){return(value>=0?'+':'')+value;}
-function abilityModifier(score:number){return Math.floor((score-10)/2);}
+function delay(ms:number){return new Promise<void>(resolve=>window.setTimeout(resolve,ms));}
 
 class Game{
-  config:EncounterConfig={map:'6x8',move:3,enemies:8,heroes:['alden','mira','lyra','nox']};
-  cols=6;rows=8;mapKey:MapKey='6x8';obstacles:Obstacle[]=[];units:Unit[]=[];
-  selectedId='alden';round=1;turnOrder:string[]=[];activeIndex=0;gameOver=false;
-  targetingMode?:TargetingMode;magicTargets=new Set<string>();fireballCenter?:Point;history:Snapshot[]=[];logEntries:LogEntry[]=[];
-  svg?:SVGSVGElement;world?:SVGGElement;routeLayer?:SVGGElement;tokenLayer?:SVGGElement;
-  scale=1;tx=0;ty=0;cameraMode:'clean'|'follow'='clean';
-  pointers=new Map<number,{x:number;y:number}>();
-  gestureStart?:{distance:number;scale:number;anchor:Point;startClientMid:Point;lastMid:Point;mode:'undecided'|'pan'|'zoom'};
-  drag?:{id:string;pointerId:number;origin:Point;token:SVGGElement};
-  timerIds:number[]=[];busy=false;gestureActive=false;gestureSuppressUntil=0;railOpen=false;
+  scenario:Scenario=SCENARIOS[0];
+  enemyCount=5;
+  units:Unit[]=[];
+  terrain:Terrain[]=[];
+  zones:Zone[]=[];
+  round=1;
+  activeTeam:Team='player';
+  activeId?:string;
+  selectedId='';
+  momentum=0;
+  objective:ObjectiveState={sigils:0,hold:0,rescued:false};
+  firstRoundFlankAwarded=false;
+  targeting?:Targeting;
+  preview?:Preview;
+  forcedMoverId?:string;
+  forcedMoveRange=0;
+  forcedMoveReason='';
+  snapshot?:GameSnapshot;
+  logEntries:LogEntry[]=[];
+  gameOver=false;
+  busy=false;
+  railOpen=false;
+  svg?:SVGSVGElement;
+  world?:SVGGElement;
+  routeLayer?:SVGGElement;
+  tokenLayer?:SVGGElement;
+  scale=1;
+  tx=0;
+  ty=0;
   cameraDirty=false;
+  pointers=new Map<number,{x:number;y:number}>();
+  gesture?:{distance:number;scale:number;anchor:Point;mid:Point;mode:'wait'|'pan'|'zoom'};
+  gestureActive=false;
+  gestureSuppressUntil=0;
+  drag?:{id:string;pointerId:number;ghost:SVGGElement};
 
-  constructor(){this.bindGlobal();this.updateRosterCount();}
+  constructor(){
+    this.bindGlobal();
+    this.updateScenarioPreview();
+    this.renderMomentum();
+    (window as typeof window&{__TACTICS48__?:unknown}).__TACTICS48__={
+      getState:()=>this.debugState(),
+      start:(scenario:ScenarioId='broken-gate',enemies=5)=>this.startEncounter(scenario,enemies),
+      game:this
+    };
+  }
 
   bindGlobal(){
-    ui.form.addEventListener('submit',event=>{event.preventDefault();this.startFromForm();});
-    ui.utilityToggle.addEventListener('click',()=>{const open=ui.utilityPanel.hidden;ui.utilityPanel.hidden=!open;ui.utilityToggle.setAttribute('aria-expanded',String(open));ui.utilityToggle.classList.toggle('open',open);});
-    ui.railToggle.addEventListener('click',()=>this.toggleRail());
-    ui.undo.addEventListener('click',()=>this.undo());
-    ui.zoomReset.addEventListener('click',()=>this.resetCamera());
-    ui.statsToggle.addEventListener('click',()=>{if(ui.shell.hidden||!ui.title.hidden)return;const open=ui.drawer.classList.toggle('open');ui.statsToggle.setAttribute('aria-expanded',String(open));});
-    ui.logToggle.addEventListener('click',()=>{const open=ui.logPanel.hidden;ui.logPanel.hidden=!open;ui.logToggle.setAttribute('aria-expanded',String(open));this.renderLog();});
-    ui.logClose.addEventListener('click',()=>this.closeLog());
+    ui.scenario.addEventListener('change',()=>this.updateScenarioPreview());
+    ui.form.addEventListener('submit',event=>{
+      event.preventDefault();
+      this.startEncounter(ui.scenario.value as ScenarioId,clamp(Number(ui.enemyCount.value)||5,4,8));
+    });
     ui.setup.addEventListener('click',()=>this.showSetup());
     ui.setupOverlay.addEventListener('click',()=>this.showSetup());
-    ui.restartOverlay.addEventListener('click',()=>this.startEncounter(this.config));
-    ui.spellConfirmAction.addEventListener('click',()=>void this.castFireball());
-    ui.spellCancel.addEventListener('click',()=>this.cancelTargeting());
-    ui.roster.forEach(button=>button.addEventListener('click',()=>this.toggleHero(button)));
+    ui.restart.addEventListener('click',()=>this.startEncounter(this.scenario.id,this.enemyCount));
+    ui.objectiveButton.addEventListener('click',()=>this.showObjective());
+    ui.utilityToggle.addEventListener('click',()=>this.toggleUtility());
+    ui.railToggle.addEventListener('click',()=>this.toggleRail());
+    ui.statsToggle.addEventListener('click',()=>this.toggleDrawer());
+    ui.drawerClose.addEventListener('click',()=>this.closeDrawer());
+    ui.helpToggle.addEventListener('click',()=>this.showHelp(true));
+    ui.helpClose.addEventListener('click',()=>this.showHelp(false));
+    ui.helpDone.addEventListener('click',()=>this.showHelp(false));
+    ui.logToggle.addEventListener('click',()=>this.toggleLog());
+    ui.logClose.addEventListener('click',()=>this.closeLog());
+    ui.undo.addEventListener('click',()=>this.undoActivation());
+    ui.zoomReset.addEventListener('click',()=>this.resetCamera());
+    ui.decisionCancel.addEventListener('click',()=>this.cancelPreview());
+    ui.decisionConfirm.addEventListener('click',()=>void this.confirmPreview());
     window.addEventListener('resize',()=>this.layout());
   }
 
-  toggleHero(button:HTMLButtonElement){
-    const selected=button.getAttribute('aria-pressed')==='true',count=[...ui.roster].filter(item=>item.getAttribute('aria-pressed')==='true').length;
-    if(selected&&count===1){ui.rosterCount.textContent='Choose at least 1';return;}
-    button.setAttribute('aria-pressed',String(!selected));this.updateRosterCount();
-  }
-  updateRosterCount(){const count=[...ui.roster].filter(button=>button.getAttribute('aria-pressed')==='true').length;ui.rosterCount.textContent=count+' selected';}
-
-  startFromForm(){
-    const map=(ui.map.value in MAPS?ui.map.value:'6x8') as MapKey;
-    const heroes=[...ui.roster].filter(button=>button.getAttribute('aria-pressed')==='true').map(button=>button.dataset.hero!).filter(Boolean);
-    this.config={map,move:clamp(Number(ui.move.value)||3,2,8),enemies:clamp(Number(ui.enemies.value)||8,1,16),heroes:heroes.length?heroes:HEROES.slice(0,4).map(hero=>hero.id)};
-    ui.move.value=String(this.config.move);ui.enemies.value=String(this.config.enemies);
-    this.startEncounter(this.config);
+  updateScenarioPreview(){
+    const scenario=scenarioById(ui.scenario.value);
+    ui.scenarioPreview.textContent=scenario.objective;
   }
 
-  startEncounter(config:EncounterConfig){
-    this.clearTimers();this.config={...config,heroes:[...config.heroes]};this.mapKey=config.map;
-    const map=MAPS[this.mapKey];this.cols=map.cols;this.rows=map.rows;
-    this.units=this.makeUnits(config.heroes,config.enemies);
-    this.obstacles=this.makeObstacles();
-    this.round=1;this.activeIndex=0;this.gameOver=false;this.targetingMode=undefined;this.magicTargets.clear();this.fireballCenter=undefined;this.history=[];this.logEntries=[];this.busy=false;this.railOpen=false;
-    this.rollInitiative();this.selectedId=this.turnOrder[0]||this.units[0]?.id||'';
-    this.scale=this.defaultScale();this.cameraMode=this.scale>1.01?'follow':'clean';this.tx=0;this.ty=0;this.cameraDirty=false;
-    ui.title.hidden=true;ui.shell.hidden=false;ui.drawer.hidden=false;ui.resultOverlay.hidden=true;ui.drawer.classList.remove('open');ui.railDrawer.classList.remove('open');ui.railDrawer.setAttribute('aria-hidden','true');ui.railToggle.setAttribute('aria-expanded','false');this.closeLog();
-    this.log('Round 1 begins.');this.render();this.beginTurn();
+  startEncounter(id:ScenarioId,count:number){
+    this.scenario=scenarioById(id);
+    this.enemyCount=count;
+    this.units=[];
+    this.terrain=this.scenario.terrain.map((terrain,index)=>({...terrain,id:'terrain-'+index}));
+    this.zones=[];
+    this.round=1;
+    this.activeTeam='player';
+    this.activeId=undefined;
+    this.momentum=0;
+    this.objective={sigils:0,hold:0,rescued:false};
+    this.firstRoundFlankAwarded=false;
+    this.targeting=undefined;
+    this.preview=undefined;
+    this.forcedMoverId=undefined;
+    this.snapshot=undefined;
+    this.logEntries=[];
+    this.gameOver=false;
+    this.busy=false;
+    this.scale=1;this.tx=0;this.ty=0;this.cameraDirty=false;
+
+    HEROES.forEach((template,index)=>{
+      const p=this.scenario.heroSpawns[index];
+      this.units.push(this.makeUnit(template,'hero-'+template.key,p));
+    });
+    const order=['brute','skirmisher','controller','guardian','archer','skirmisher','archer','guardian'];
+    for(let index=0;index<count;index++){
+      const template=ENEMIES.find(enemy=>enemy.key===order[index])??ENEMIES[index%ENEMIES.length];
+      const unit=this.makeUnit(template,'enemy-'+(index+1),this.scenario.enemySpawns[index]);
+      if(id==='broken-gate'&&index===0){unit.name='Orc War Chief';unit.hp=24;unit.maxHp=24;unit.defense=10;unit.elite=true;}
+      this.units.push(unit);
+    }
+    this.selectedId=this.units[0].id;
+    ui.title.hidden=true;ui.shell.hidden=false;ui.drawer.hidden=false;ui.result.hidden=true;this.closeDrawer();this.closeLog();this.showHelp(false);
+    this.log(this.scenario.name+': '+this.scenario.objective);
+    this.log('Round 1 begins. Choose any ready hero.');
+    this.message('Choose any ready hero to begin.');
+    this.render();
+  }
+
+  makeUnit(template:typeof HEROES[number],id:string,p:Point):Unit{
+    return{
+      ...template,id,x:p.x,y:p.y,maxHp:template.hp,activated:false,moved:false,acted:false,reactionUsed:false,
+      downed:false,conditions:{},bonusMove:0,carriedObjective:false,powers:[...template.powers]
+    };
   }
 
   showSetup(){
-    this.clearTimers();this.busy=false;ui.shell.hidden=true;ui.drawer.classList.remove('open');ui.drawer.hidden=true;ui.statsToggle.setAttribute('aria-expanded','false');ui.title.hidden=false;ui.resultOverlay.hidden=true;
+    this.gameOver=true;this.busy=false;this.activeId=undefined;ui.shell.hidden=true;ui.title.hidden=false;ui.result.hidden=true;this.closeDrawer();this.closeLog();
   }
 
-  makeUnits(heroIds:string[],enemyCount:number){
-    const out:Unit[]=[];
-    const playerSpots=this.spawnCells(false);
-    const selectedHeroes=heroIds.map(id=>HEROES.find(hero=>hero.id===id)).filter((hero):hero is UnitTemplate=>Boolean(hero)).slice(0,6);
-    for(let i=0;i<selectedHeroes.length;i++){
-      const h=selectedHeroes[i],p=playerSpots[i];
-      out.push({...h,abilities:{...h.abilities},...p,initiativeScore:0,actionsUsed:0,attacksMade:0,defending:false,hiding:false,charged:false,abilityUsed:[]});
-    }
-    const occupied=new Set(out.map(pointKey));
-    const enemySpots=this.spawnCells(true).filter(p=>!occupied.has(pointKey(p)));
-    for(let i=0;i<enemyCount;i++){
-      let p=enemySpots.splice(Math.floor(Math.random()*enemySpots.length),1)[0];
-      if(!p)p=this.randomFreeCell(occupied);
-      occupied.add(pointKey(p));const e=ENEMIES[Math.floor(Math.random()*ENEMIES.length)];
-      out.push({...e,abilities:{...e.abilities},id:'enemy-'+(i+1),name:e.name+' '+(i+1),x:p.x,y:p.y,initiativeScore:0,actionsUsed:0,attacksMade:0,defending:false,hiding:false,charged:false,abilityUsed:[]});
-    }
-    return out;
-  }
-
-  spawnCells(enemy:boolean){
-    const cells:Point[]=[];
-    const rows=enemy?Array.from({length:Math.max(2,Math.ceil(this.rows*.42))},(_,i)=>i):Array.from({length:Math.max(2,Math.ceil(this.rows*.28))},(_,i)=>this.rows-1-i);
-    const centre=(this.cols-1)/2;
-    const xs=Array.from({length:this.cols},(_,x)=>x).sort((a,b)=>Math.abs(a-centre)-Math.abs(b-centre));
-    for(const y of rows)for(const x of xs)cells.push({x,y});
-    return cells;
-  }
-
-  randomFreeCell(occupied:Set<string>){
-    const available:Point[]=[];for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++)if(!occupied.has(x+','+y))available.push({x,y});
-    return available[Math.floor(Math.random()*available.length)]||{x:0,y:0};
-  }
-
-  makeObstacles(){
-    const reserved=new Set(this.units.map(pointKey));
-    const obstacles:Obstacle[]=[];
-    const target=Math.min(Math.floor(this.cols*this.rows*.1),Math.max(0,this.cols*this.rows-this.units.length-8));
-    const candidates:Point[]=[];for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++)if(!reserved.has(x+','+y))candidates.push({x,y});
-    for(let i=candidates.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[candidates[i],candidates[j]]=[candidates[j],candidates[i]];}
-    const kinds=MAPS[this.mapKey].obstacleKinds;
-    for(const p of candidates){
-      if(obstacles.length>=target)break;
-      const trial=[...obstacles,{...p,kind:kinds[Math.floor(Math.random()*kinds.length)]}];
-      if(this.walkableConnected(trial))obstacles.splice(0,obstacles.length,...trial);
-    }
-    return obstacles;
-  }
-
-  walkableConnected(obstacles:Obstacle[]){
-    const blocked=new Set(obstacles.map(pointKey));let start:Point|undefined,total=0;
-    for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++)if(!blocked.has(x+','+y)){total++;start??={x,y};}
-    if(!start)return false;const seen=new Set([pointKey(start)]),queue=[start];
-    while(queue.length){const p=queue.shift()!;for(const n of this.neighbors(p))if(!blocked.has(pointKey(n))&&!seen.has(pointKey(n))){seen.add(pointKey(n));queue.push(n);}}
-    return seen.size===total;
-  }
-
-  rollInitiative(){
-    const rolls:string[]=[];
-    for(const u of this.living()){const die=this.rollDie(20);u.initiativeScore=die+u.initiativeMod;rolls.push(u.name+': d20 '+die+' '+signed(u.initiativeMod)+' = '+u.initiativeScore);}
-    this.turnOrder=[...this.living()].sort((a,b)=>b.initiativeScore-a.initiativeScore||b.initiativeMod-a.initiativeMod).map(u=>u.id);
-    this.log('Initiative — '+rolls.join(' · '));
-  }
-
-  rollDie(sides:number){return Math.floor(Math.random()*sides)+1;}
-  rollDice(count:number,sides:number){const rolls=Array.from({length:count},()=>this.rollDie(sides));return{rolls,total:rolls.reduce((sum,value)=>sum+value,0)};}
-  damageNotation(u:Unit){return u.damageDice+'d'+u.damageDie+(u.damageMod?signed(u.damageMod):'');}
-  effectiveAC(u:Unit){return u.ac+(u.defending?2:0);}
-  shiftDegree(degree:number,steps:number){return clamp(degree+steps,0,3);}
-  degreeFor(total:number,dc:number,natural:number){
-    let degree=total>=dc+10?3:total>=dc?2:total<=dc-10?0:1;
-    if(natural===20)degree=this.shiftDegree(degree,1);else if(natural===1)degree=this.shiftDegree(degree,-1);
-    return degree;
-  }
-  degreeName(degree:number){return['CRITICAL FAILURE','FAILURE','SUCCESS','CRITICAL SUCCESS'][degree];}
-
-  active(){return this.unit(this.turnOrder[this.activeIndex]);}
-  unit(id?:string){return id?this.units.find(u=>u.id===id&&u.hp>0):undefined;}
+  active(){return this.activeId?this.unit(this.activeId):undefined;}
+  unit(id?:string){return id?this.units.find(unit=>unit.id===id):undefined;}
   selected(){return this.unit(this.selectedId);}
-  living(team?:Team){return this.units.filter(u=>u.hp>0&&(!team||u.team===team));}
-  visibleHeroes(){return this.living('player').filter(u=>!u.hiding);}
-  hasAction(u:Unit){return u.actionsUsed<ACTIONS;}
-  actionsRemaining(u:Unit){return Math.max(0,ACTIONS-u.actionsUsed);}
-  canMove(u:Unit){return this.hasAction(u);}
-  moveRange(u:Unit){return this.config.move*(u.charged?2:1);}
-  weaponKind(u:Unit){return u.weapon;}
-  isActivePlayer(u:Unit){return !this.gameOver&&this.active()?.id===u.id&&u.team==='player';}
-  defaultTilesWide(){return this.mapKey==='8x10'?8:DEFAULT_TILES_WIDE;}
-  defaultScale(){return Math.max(1,this.cols/this.defaultTilesWide());}
-  maxScale(){return Math.max(this.defaultScale(),this.cols/3);}
+  heroes(includeDowned=false){return this.units.filter(unit=>unit.team==='player'&&(includeDowned||!unit.downed)&&unit.hp>0);}
+  enemies(){return this.units.filter(unit=>unit.team==='enemy'&&unit.hp>0);}
+  combatants(){return this.units.filter(unit=>unit.team==='enemy'?unit.hp>0:true);}
+  ready(team:Team){return this.units.filter(unit=>unit.team===team&&!unit.activated&&unit.hp>0&&!unit.downed);}
+  hasReady(team:Team){return this.ready(team).length>0;}
+  isActiveHero(unit:Unit){return unit.team==='player'&&unit.id===this.activeId&&this.activeTeam==='player'&&!this.gameOver;}
+  terrainAt(p:Point,kind?:TerrainKind){return this.terrain.find(t=>t.x===p.x&&t.y===p.y&&(!kind||t.kind===kind));}
+  unitAt(p:Point,includeDowned=true){return this.units.find(unit=>unit.x===p.x&&unit.y===p.y&&(unit.hp>0||(includeDowned&&unit.team==='player'&&unit.downed)));}
+  inBounds(p:Point){return p.x>=0&&p.y>=0&&p.x<COLS&&p.y<ROWS;}
+  stat(unit:Unit,stat:Stat){return unit[stat];}
+  isBlockingTerrain(terrain?:Terrain){return Boolean(terrain&&['wall','destructible','door','icewall','captive','rune'].includes(terrain.kind));}
+  isBlocked(p:Point,movingId?:string,ignoreUnits=false){
+    if(!this.inBounds(p)||this.isBlockingTerrain(this.terrainAt(p)))return true;
+    if(ignoreUnits)return false;
+    const occupant=this.unitAt(p);
+    return Boolean(occupant&&occupant.id!==movingId&&(occupant.hp>0||occupant.downed));
+  }
+  isHigh(unit:Unit){return Boolean(this.terrainAt(unit,'high'));}
+  moveAllowance(unit:Unit){return Math.max(1,unit.move-(unit.conditions.Slowed?1:0));}
 
-  beginTurn(){
-    if(this.gameOver)return;
-    while(this.activeIndex<this.turnOrder.length&&!this.unit(this.turnOrder[this.activeIndex]))this.activeIndex++;
-    if(this.activeIndex>=this.turnOrder.length){
-      this.round++;this.activeIndex=0;this.living().forEach(u=>u.actionsUsed=0);this.log('Round '+this.round+' begins.');
-      while(this.activeIndex<this.turnOrder.length&&!this.unit(this.turnOrder[this.activeIndex]))this.activeIndex++;
+  activateHero(unit:Unit){
+    if(this.busy||this.gameOver||this.activeTeam!=='player'||unit.team!=='player'||unit.activated||unit.downed||unit.hp<=0)return;
+    const current=this.active();
+    if(current&&(current.moved||current.acted||current.bonusMove>0)){this.message('Finish '+current.name+'’s activation first.');return;}
+    this.activeId=unit.id;this.selectedId=unit.id;unit.moved=false;unit.acted=false;unit.bonusMove=0;
+    this.removeStartEffects(unit);
+    this.snapshot=this.makeSnapshot();
+    this.cancelTargeting(false);
+    this.log(unit.name+' activates.');
+    this.message(unit.name+': Move and take one Action in either order.');
+    this.render();
+  }
+
+  removeStartEffects(unit:Unit){
+    delete unit.conditions.Guarded;
+    if(unit.role==='Wizard')this.terrain=this.terrain.filter(t=>!(t.kind==='icewall'&&t.ownerId===unit.id));
+    if(unit.role==='Cleric')this.zones=this.zones.filter(zone=>zone.ownerId!==unit.id);
+  }
+
+  async finishActivation(){
+    const unit=this.active();if(!unit||this.busy||this.gameOver)return;
+    this.cancelTargeting(false);
+    unit.activated=true;
+    if(unit.conditions.Burning&&unit.hp>0){
+      this.log(unit.name+' burns for 2 damage.');
+      await this.directDamage(unit,2,'Burning');
     }
-    const a=this.active();if(!a)return;a.actionsUsed=0;a.attacksMade=0;a.charged=false;a.defending=false;this.selectedId=a.id;this.targetingMode=undefined;this.magicTargets.clear();this.fireballCenter=undefined;
-    this.centerCamera((a.x+.5)*CELL,(a.y+.5)*CELL,this.scale);this.render();this.message(a.name+'\'s turn.');
-    if(a.team==='enemy')this.schedule(440,()=>void this.runEnemy());
-  }
-
-  finishTurn(){
-    if(this.gameOver)return;const a=this.active();if(a)a.charged=false;
-    this.clearTimers();this.targetingMode=undefined;this.magicTargets.clear();this.fireballCenter=undefined;this.activeIndex++;this.schedule(220,()=>this.beginTurn());
-  }
-  maybeFinish(u:Unit){if(u.actionsUsed>=ACTIONS)this.schedule(360,()=>this.finishTurn());}
-
-  render(){
-    const w=this.cols*CELL,h=this.rows*CELL;ui.battlefield.innerHTML='';
-    const s=svg('svg',{class:'game-board',viewBox:'0 0 '+w+' '+h,preserveAspectRatio:'xMidYMin meet','aria-label':this.cols+' by '+this.rows+' tactical battlefield','data-map':this.mapKey});
-    const world=svg('g',{class:'world'}),tiles=svg('g',{class:'tiles'}),highlights=svg('g',{class:'highlights'}),props=svg('g',{class:'props'}),route=svg('g',{class:'routes'}),tokens=svg('g',{class:'tokens'});
-    world.append(tiles,highlights,props,route,tokens);s.appendChild(world);ui.battlefield.appendChild(s);this.svg=s;this.world=world;this.routeLayer=route;this.tokenLayer=tokens;
-    for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++){
-      const cell=svg('rect',{x:x*CELL,y:y*CELL,width:CELL,height:CELL,class:'tile','data-x':x,'data-y':y});
-      cell.addEventListener('pointerup',event=>{if(this.gestureActive||performance.now()<this.gestureSuppressUntil)return;if((event.target as Element).closest('.unit-token'))return;void this.handleCell(x,y);});tiles.appendChild(cell);
-    }
-    this.paintHighlights(highlights);
-    for(const o of this.obstacles){const g=svg('g',{transform:'translate('+(o.x*CELL+CELL/2)+' '+(o.y*CELL+CELL/2)+')',class:'obstacle','data-kind':o.kind});g.appendChild(svg('rect',{x:-8,y:-8,width:16,height:16}));props.appendChild(g);}
-    this.living().forEach(u=>tokens.appendChild(this.makeToken(u)));
-    this.applyCamera();this.syncUI();this.layout();this.bindSvgGestures();
-  }
-
-  layout(){
-    const vr=ui.viewport.getBoundingClientRect(),hotbar=ui.hotbar.getBoundingClientRect();
-    const available=Math.max(240,vr.height-Math.max(98,hotbar.height));
-    const aspect=this.mapKey==='8x10'?8/10:3/4,height=Math.min(available,vr.width/aspect);ui.frame.style.setProperty('--frame-aspect',String(aspect));
-    ui.frame.style.width=Math.min(vr.width,height*aspect)+'px';ui.frame.style.height=height+'px';
-  }
-
-  makeToken(u:Unit){
-    const classes=['unit-token',u.team,this.active()?.id===u.id?'active':'',u.hiding?'stealthed':''].filter(Boolean).join(' ');
-    const g=svg('g',{class:classes,transform:'translate('+(u.x*CELL+CELL/2)+' '+(u.y*CELL+CELL/2)+')','data-id':u.id,'data-art':u.art,'data-actions-used':u.actionsUsed,'data-actions-total':ACTIONS});
-    g.appendChild(svg('rect',{x:-8,y:-8,width:16,height:16,class:'token-outer'}));
-    const hpBack=svg('rect',{x:-7,y:6,width:14,height:3,class:'hp-back'}),hp=svg('rect',{x:-6.5,y:6.5,width:13*(u.hp/u.maxHp),height:2,class:'hp-fill'});g.append(hpBack,hp);
-    if(u.defending)g.appendChild(svg('g',{class:'shield-mark'}));
-    if(u.hiding)g.appendChild(svg('g',{class:'hide-mark'}));
-    g.addEventListener('pointerup',event=>{event.stopPropagation();if(this.gestureActive||performance.now()<this.gestureSuppressUntil)return;if(this.drag&&this.drag.id===u.id)return;this.handleUnit(u.id);});
-    if(u.team==='player')g.addEventListener('pointerdown',event=>this.beginDrag(event,u,g));
-    return g;
-  }
-
-  paintHighlights(layer:SVGGElement){
-    const s=this.selected(),a=this.active();if(!s)return;
-    const add=(p:Point,cls:string)=>layer.appendChild(svg('rect',{x:p.x*CELL+2,y:p.y*CELL+2,width:CELL-4,height:CELL-4,rx:2,class:cls}));
-    if(this.targetingMode&&a?.team==='player'){
-      if(this.targetingMode==='heal'){for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++)if(this.distance(a,{x,y})<=HEAL_RANGE)add({x,y},'spell-range');this.living('player').filter(u=>this.distance(a,u)<=HEAL_RANGE&&u.hp<u.maxHp).forEach(u=>add(u,'heal-target'));return;}
-      if(this.targetingMode==='magic'){this.living('enemy').filter(u=>this.distance(a,u)<=FORCE_BARRAGE_RANGE).forEach(u=>add(u,this.magicTargets.has(u.id)?'magic-selected':'magic-target'));return;}
-      if(this.targetingMode==='fireball'){
-        if(this.fireballCenter){for(const p of this.fireballArea(this.fireballCenter))add(p,p.x===this.fireballCenter.x&&p.y===this.fireballCenter.y?'fireball-center':'fireball-area');}
-        else for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++)if(this.distance(a,{x,y})<=FIREBALL_RANGE)add({x,y},'fireball-range');
-        return;
+    for(const condition of ['Exposed','Rooted','Slowed'] as Condition[]){
+      if(unit.conditions[condition]){
+        unit.conditions[condition]!--;
+        if((unit.conditions[condition]??0)<=0)delete unit.conditions[condition];
       }
-      const kind=this.weaponKind(a);for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++)if(this.inWeaponRange(a,{x,y},kind,a.weaponRange))add({x,y},'weapon-range');
-      this.living('enemy').filter(u=>this.canAttack(a,u,kind)).forEach(u=>add(u,'attack-range'));return;
     }
-    if(s.team==='enemy'){const inspectingOnPlayerTurn=a?.team==='player',openingEnemyTurn=a?.id===s.id&&s.actionsUsed===0;if(inspectingOnPlayerTurn||openingEnemyTurn)this.reachable(s,this.moveRange(s)).forEach(p=>add(p,'enemy-range'));return;}
-    if(!this.isActivePlayer(s)||!this.canMove(s))return;
-    for(const o of this.obstacles)add(o,'blocked-range');
-    this.reachable(s,this.moveRange(s)).forEach(p=>{if(p.x!==s.x||p.y!==s.y)add(p,'move-range');});
+    unit.bonusMove=0;
+    this.activeId=undefined;
+    this.snapshot=undefined;
+    if(this.checkGameOver())return;
+    if(this.hasReady('enemy')){
+      this.activeTeam='enemy';this.render();this.message('Enemy activation…');await delay(420);await this.runEnemyActivation();
+    }else if(this.hasReady('player')){
+      this.activeTeam='player';this.render();this.message('Choose another ready hero.');
+    }else await this.beginRound();
   }
 
-  bindSvgGestures(){
-    if(!this.svg)return;const s=this.svg;
-    s.onpointerdown=event=>{if((event.target as Element).closest('.unit-token'))return;this.pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});try{s.setPointerCapture(event.pointerId);}catch{}if(this.pointers.size===2){this.gestureActive=true;this.gestureSuppressUntil=performance.now()+500;this.beginGesture();}};
-    s.onpointermove=event=>{if(!this.pointers.has(event.pointerId))return;this.pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});if(this.pointers.size===2)this.updateGesture();};
-    const end=(event:PointerEvent)=>{this.pointers.delete(event.pointerId);if(this.pointers.size<2){this.gestureStart=undefined;this.gestureActive=false;this.gestureSuppressUntil=performance.now()+500;}};
-    s.onpointerup=end;s.onpointercancel=end;
-  }
-
-  rootPoint(clientX:number,clientY:number){
-    if(!this.svg)return{x:0,y:0};const p=this.svg.createSVGPoint();p.x=clientX;p.y=clientY;const ctm=this.svg.getScreenCTM();if(!ctm)return{x:0,y:0};const q=p.matrixTransform(ctm.inverse());return{x:q.x,y:q.y};
-  }
-  clampCamera(){
-    const w=this.cols*CELL,h=this.rows*CELL,rect=ui.frame.getBoundingClientRect(),visibleW=w,visibleH=rect.width>0?rect.height/rect.width*w:h;
-    const limit=(offset:number,size:number,visible:number)=>size*this.scale<=visible?(visible-size*this.scale)/2:Math.min(0,Math.max(visible-size*this.scale,offset));
-    this.tx=limit(this.tx,w,visibleW);this.ty=limit(this.ty,h,visibleH);
-  }
-  centerCamera(x:number,y:number,scale=this.scale){
-    this.scale=clamp(scale,1,this.maxScale());const w=this.cols*CELL,rect=ui.frame.getBoundingClientRect(),visibleH=rect.width>0?rect.height/rect.width*w:this.rows*CELL;this.tx=w/2-x*this.scale;this.ty=visibleH/2-y*this.scale;this.clampCamera();
-  }
-  resetCamera(){
-    const a=this.active()??this.selected();this.cameraMode=this.defaultScale()>1.01?'follow':'clean';
-    if(a)this.centerCamera((a.x+.5)*CELL,(a.y+.5)*CELL,this.defaultScale());else{this.scale=this.defaultScale();this.tx=0;this.ty=0;}
-    this.cameraDirty=false;this.applyCamera();this.syncUI();
-  }
-  beginGesture(){
-    const pts=[...this.pointers.values()];if(pts.length<2)return;
-    const clientMid={x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2},mid=this.rootPoint(clientMid.x,clientMid.y);
-    this.gestureStart={distance:Math.max(1,Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y)),scale:this.scale,anchor:{x:(mid.x-this.tx)/this.scale,y:(mid.y-this.ty)/this.scale},startClientMid:clientMid,lastMid:mid,mode:'undecided'};
-  }
-  updateGesture(){
-    const g=this.gestureStart;if(!g)return;const pts=[...this.pointers.values()];if(pts.length<2)return;
-    const clientMid={x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2},mid=this.rootPoint(clientMid.x,clientMid.y),distance=Math.max(1,Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y)),ratio=distance/g.distance,travel=Math.hypot(clientMid.x-g.startClientMid.x,clientMid.y-g.startClientMid.y);
-    if(g.mode==='undecided'){if(Math.abs(Math.log(ratio))>.045)g.mode='zoom';else if(travel>9)g.mode='pan';else return;this.cameraMode='follow';this.cameraDirty=true;}
-    if(g.mode==='pan'){this.tx+=mid.x-g.lastMid.x;this.ty+=mid.y-g.lastMid.y;g.lastMid=mid;}else{const next=clamp(g.scale*ratio,1,this.maxScale());this.scale=next;this.tx=mid.x-g.anchor.x*next;this.ty=mid.y-g.anchor.y*next;}
-    this.clampCamera();this.applyCamera();this.syncUI();
-  }
-  applyCamera(){this.world?.setAttribute('transform','translate('+this.tx+' '+this.ty+') scale('+this.scale+')');}
-  followToken(x:number,y:number){if(this.cameraMode!=='follow'||this.scale<=1.01)return;this.centerCamera(x,y);this.applyCamera();}
-  svgPoint(clientX:number,clientY:number){
-    if(!this.svg)return{x:0,y:0};const p=this.svg.createSVGPoint();p.x=clientX;p.y=clientY;const ctm=this.world?.getScreenCTM();if(!ctm)return{x:0,y:0};const q=p.matrixTransform(ctm.inverse());return{x:q.x,y:q.y};
-  }
-
-  beginDrag(e:PointerEvent,u:Unit,g:SVGGElement){
-    if(!this.isActivePlayer(u)||!this.canMove(u)||this.busy||this.targetingMode||this.gestureActive)return;
-    e.preventDefault();e.stopPropagation();g.setPointerCapture(e.pointerId);document.documentElement.classList.add('piece-dragging');
-    const block=(event:TouchEvent)=>event.preventDefault();document.addEventListener('touchmove',block,{passive:false});
-    this.drag={id:u.id,pointerId:e.pointerId,origin:{x:u.x,y:u.y},token:g};this.selectedId=u.id;
-    const ghost=g.cloneNode(true) as SVGGElement;ghost.dataset.id=u.id;ghost.classList.add('drag-ghost');ghost.style.pointerEvents='none';this.tokenLayer?.appendChild(ghost);let approach={x:u.x,y:u.y};
-    const cleanup=()=>{document.removeEventListener('touchmove',block);document.documentElement.classList.remove('piece-dragging');};
-    const routeFor=(d:Point)=>{const r=this.findRoute(u,d,u.id);return r.length>1&&r.length-1<=this.moveRange(u)?r:[];};
-    const planFor=(target:Unit,entry:Point=approach)=>{
-      const kind=this.weaponKind(u),range=kind==='ranged'?Math.min(2,u.weaponRange):1;if(this.canAttack(u,target,kind))return{route:[{x:u.x,y:u.y}],kind};
-      if(this.actionsRemaining(u)<2)return undefined;
-      let dx=entry.x-target.x,dy=entry.y-target.y;if(dx===0&&dy===0){dx=u.x-target.x;dy=u.y-target.y;}
-      const dir=Math.abs(dx)>Math.abs(dy)?{x:Math.sign(dx)||1,y:0}:{x:0,y:Math.sign(dy)||1},preferred={x:target.x+dir.x*range,y:target.y+dir.y*range};
-      const preferredRoute=this.validDestination(preferred,u.id)?this.findRoute(u,preferred,u.id):[];
-      if(preferredRoute.length>1&&preferredRoute.length-1<=this.moveRange(u))return{route:preferredRoute,kind};
-      let best:Point[]=[];for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++){const spot={x,y};if(!this.inWeaponRange(spot,target,kind,u.weaponRange)||!this.validDestination(spot,u.id))continue;const r=this.findRoute(u,spot,u.id);if(r.length>1&&r.length-1<=this.moveRange(u)&&(!best.length||r.length<best.length))best=r;}
-      return best.length?{route:best,kind}:undefined;
-    };
-    const move=(event:PointerEvent)=>{if(!this.drag||event.pointerId!==this.drag.pointerId)return;event.preventDefault();const p=this.svgPoint(event.clientX,event.clientY),d={x:Math.floor(p.x/CELL),y:Math.floor(p.y/CELL)},target=this.at(d.x,d.y);if(target?.team!=='enemy'&&this.inBounds(d))approach=d;ghost.setAttribute('transform','translate('+p.x+' '+p.y+')');const plan=target?.team==='enemy'?planFor(target,approach):undefined;if(target?.team==='enemy'&&plan){this.drawRoute(plan.route);this.drawAttackCue(target,plan.kind);}else this.drawRoute(routeFor(d));};
-    const finish=(event:PointerEvent)=>{event.preventDefault();g.removeEventListener('pointermove',move);g.removeEventListener('pointerup',finish);g.removeEventListener('pointercancel',cancel);ghost.remove();cleanup();const p=this.svgPoint(event.clientX,event.clientY),d={x:Math.floor(p.x/CELL),y:Math.floor(p.y/CELL)},target=this.at(d.x,d.y);this.drag=undefined;if(target?.team==='enemy'){const plan=planFor(target,approach);if(plan){void this.moveThenAttack(u,target,plan.route,plan.kind);return;}}const r=this.findRoute(u,d,u.id);if(r.length>1&&r.length-1<=this.moveRange(u)&&!target)void this.moveActive(u,r);else this.render();};
-    const cancel=()=>{g.removeEventListener('pointermove',move);g.removeEventListener('pointerup',finish);g.removeEventListener('pointercancel',cancel);ghost.remove();cleanup();this.drag=undefined;this.render();};
-    g.addEventListener('pointermove',move);g.addEventListener('pointerup',finish);g.addEventListener('pointercancel',cancel);
-  }
-
-  async moveThenAttack(u:Unit,target:Unit,route:Point[],kind:Weapon){
-    if(route.length>1){if(this.actionsRemaining(u)<2)return;this.record();u.defending=false;this.busy=true;this.drawRoute(route);const token=this.tokenElement(u.id);if(token)await this.animateRoute(token,route,130);const end=route[route.length-1];u.x=end.x;u.y=end.y;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.busy=false;this.render();}
-    await this.attack(u,target,kind);
-  }
-
-  async handleCell(x:number,y:number){
-    if(this.busy||this.gameOver)return;
-    if(this.targetingMode==='fireball'){
-      const a=this.active();if(!a||a.team!=='player'||this.distance(a,{x,y})>FIREBALL_RANGE)return;
-      this.fireballCenter={x,y};this.render();this.message('Fireball area selected. Confirm or cancel at the lower right.');return;
+  async completeEnemyActivation(unit:Unit){
+    unit.activated=true;
+    if(unit.conditions.Burning&&unit.hp>0){this.log(unit.name+' burns for 2 damage.');await this.directDamage(unit,2,'Burning');}
+    for(const condition of ['Exposed','Rooted','Slowed'] as Condition[]){
+      if(unit.conditions[condition]){unit.conditions[condition]!--;if((unit.conditions[condition]??0)<=0)delete unit.conditions[condition];}
     }
-    if(this.targetingMode){this.cancelTargeting();return;}
-    const a=this.active();if(!a||a.team!=='player'||!this.canMove(a))return;const target=this.at(x,y);if(target)return;const r=this.findRoute(a,{x,y},a.id);if(r.length>1&&r.length-1<=this.moveRange(a))await this.moveActive(a,r);
+    this.activeId=undefined;
+    if(this.checkGameOver())return;
+    if(this.hasReady('player')){this.activeTeam='player';this.render();this.message('Choose a ready hero.');}
+    else if(this.hasReady('enemy')){this.activeTeam='enemy';this.render();await delay(320);await this.runEnemyActivation();}
+    else await this.beginRound();
   }
 
-  handleUnit(id:string){
-    if(this.busy||this.gameOver)return;const t=this.unit(id);if(!t)return;const a=this.active();
-    if(this.targetingMode&&a?.team==='player'){
-      if(this.targetingMode==='heal'){if(t.team==='player'&&this.distance(a,t)<=HEAL_RANGE&&t.hp<t.maxHp)this.healTarget(t);else this.message('Choose an injured hero within one square.');return;}
-      if(this.targetingMode==='magic'){if(t.team!=='enemy'||this.distance(a,t)>FORCE_BARRAGE_RANGE)return;if(this.magicTargets.has(t.id))this.magicTargets.delete(t.id);else if(this.magicTargets.size<Math.min(3,this.actionsRemaining(a)))this.magicTargets.add(t.id);if(this.magicTargets.size===Math.min(3,this.actionsRemaining(a)))void this.castMagicMissile();else{this.render();this.message('Choose up to '+Math.min(3,this.actionsRemaining(a))+' enemies, then tap Force Barrage again.');}return;}
-      if(this.targetingMode==='fireball'){if(this.distance(a,t)>FIREBALL_RANGE)return;this.fireballCenter={x:t.x,y:t.y};this.render();this.message('Fireball area selected. Confirm or cancel at the lower right.');return;}
-      const kind=this.weaponKind(a);if(t.team==='enemy'&&this.canAttack(a,t,kind)){void this.attack(a,t,kind);return;}this.message(kind==='ranged'?'Choose an enemy in a straight line, at least one tile away.':'Choose an adjacent enemy.');return;
+  async beginRound(){
+    this.scoreEndOfRound();
+    if(this.checkGameOver())return;
+    this.round++;
+    if(this.scenario.roundLimit<99&&this.round>this.scenario.roundLimit){
+      this.endGame(false,'The enemy ritual overwhelms the shrine at the start of round '+this.round+'.');return;
     }
-    this.targetingMode=undefined;this.magicTargets.clear();this.fireballCenter=undefined;this.selectedId=id;this.render();
+    for(const unit of this.units){unit.activated=false;unit.reactionUsed=false;unit.moved=false;unit.acted=false;unit.bonusMove=0;}
+    this.activeTeam='player';this.activeId=undefined;
+    this.log('Round '+this.round+' begins.');
+    this.render();this.message('Round '+this.round+': choose any ready hero.');
   }
 
-  beginTargeting(kind:TargetingMode){
-    const a=this.active();if(!a||a.team!=='player'||!this.hasAction(a)||this.busy)return;
-    if(this.targetingMode===kind){if(kind==='magic'&&this.magicTargets.size){void this.castMagicMissile();return;}this.cancelTargeting();return;}
-    this.targetingMode=kind;this.magicTargets.clear();this.fireballCenter=undefined;this.selectedId=a.id;this.render();
-    this.message(kind==='heal'?'Choose an injured hero within one square.':kind==='magic'?'Choose up to '+Math.min(3,this.actionsRemaining(a))+' enemies, then tap Force Barrage again.':kind==='fireball'?'Choose the centre of the Fireball area.':this.weaponKind(a)==='ranged'?'Choose an enemy in a straight line, at least one tile away.':'Choose an adjacent enemy.');
-  }
-
-  cancelTargeting(){this.targetingMode=undefined;this.magicTargets.clear();this.fireballCenter=undefined;this.render();this.message('Action cancelled.');}
-  inWeaponRange(a:Point,b:Point,kind:Weapon,range=1){const dx=Math.abs(a.x-b.x),dy=Math.abs(a.y-b.y),distance=dx+dy;return kind==='ranged'?((dx===0||dy===0)&&distance>=2&&distance<=range):distance===1;}
-  canAttack(a:Unit,t:Unit,kind:Weapon=this.weaponKind(a)){return this.hasAction(a)&&a.team!==t.team&&this.inWeaponRange(a,t,kind,a.weaponRange);}
-
-  record(){
-    const a=this.active();if(a?.team!=='player')return;const last=this.history[this.history.length-1];if(last?.round===this.round&&last.activeIndex===this.activeIndex)return;
-    this.history.push({units:this.units.map(copyUnit),selectedId:this.selectedId,round:this.round,activeIndex:this.activeIndex,logEntries:this.logEntries.map(e=>({...e}))});if(this.history.length>30)this.history.shift();
-  }
-  undo(){
-    const a=this.active();if(!a||a.team!=='player'||!this.history.length||this.busy)return;this.clearTimers();const snap=this.history.pop()!;
-    this.units=snap.units.map(copyUnit);this.selectedId=snap.selectedId;this.round=snap.round;this.activeIndex=snap.activeIndex;this.logEntries=snap.logEntries.map(e=>({...e}));this.targetingMode=undefined;this.magicTargets.clear();this.fireballCenter=undefined;this.busy=false;this.gameOver=false;ui.resultOverlay.hidden=true;this.renderLog();this.render();this.message('Rewound to '+(this.active()?.name||'the hero')+'\'s last decision.');
-  }
-
-  async moveActive(u:Unit,route:Point[]){
-    if(!this.isActivePlayer(u)||!this.canMove(u)||this.busy)return;this.record();u.defending=false;this.busy=true;this.drawRoute(route);const token=this.tokenElement(u.id);if(token)await this.animateRoute(token,route,130);const end=route[route.length-1];u.x=end.x;u.y=end.y;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.busy=false;this.render();this.message(this.actionsRemaining(u)+' actions remaining.');this.maybeFinish(u);
-  }
-  async moveEnemy(u:Unit,route:Point[]){
-    u.defending=false;this.busy=true;this.drawRoute(route,true);const token=this.tokenElement(u.id);if(token)await this.animateRoute(token,route,125);const end=route[route.length-1];u.x=end.x;u.y=end.y;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.busy=false;this.render();
-  }
-  animateRoute(g:SVGGElement,route:Point[],stepMs:number){return(async()=>{for(const p of route.slice(1)){const start=this.tokenTranslation(g),end={x:p.x*CELL+CELL/2,y:p.y*CELL+CELL/2};await this.tween(stepMs,t=>{const eased=.5-.5*Math.cos(Math.PI*t),x=start.x+(end.x-start.x)*eased,y=start.y+(end.y-start.y)*eased;g.setAttribute('transform','translate('+x+' '+y+')');this.followToken(x,y);});}})();}
-  tokenTranslation(g:SVGGElement){const match=/translate\(([-.\d]+)[ ,]([-.\d]+)\)/.exec(g.getAttribute('transform')||'');return{x:match?Number(match[1]):0,y:match?Number(match[2]):0};}
-  tween(ms:number,update:(t:number)=>void){return new Promise<void>(resolve=>{const start=performance.now();const frame=(now:number)=>{const t=Math.min(1,(now-start)/ms);update(t);if(t<1)requestAnimationFrame(frame);else resolve();};requestAnimationFrame(frame);});}
-
-  async attack(a:Unit,t:Unit,kind:Weapon=this.weaponKind(a)){
-    if(!this.canAttack(a,t,kind)||this.busy)return;if(a.team==='player')this.record();const wasHidden=a.hiding;a.defending=false;a.hiding=false;this.busy=true;
-    const token=this.tokenElement(a.id);if(token){const start=this.tokenTranslation(token),target={x:t.x*CELL+CELL/2,y:t.y*CELL+CELL/2},dx=target.x-start.x,dy=target.y-start.y,len=Math.hypot(dx,dy)||1,lunge={x:start.x+dx/len*(kind==='ranged'?3:6),y:start.y+dy/len*(kind==='ranged'?3:6)};await this.tween(80,q=>token.setAttribute('transform','translate('+(start.x+(lunge.x-start.x)*q)+' '+(start.y+(lunge.y-start.y)*q)+')'));await this.tween(90,q=>token.setAttribute('transform','translate('+(lunge.x+(start.x-lunge.x)*q)+' '+(lunge.y+(start.y-lunge.y)*q)+')'));}
-    const rect=this.tokenElement(t.id)?.getBoundingClientRect(),natural=this.rollDie(20),mapPenalty=a.attacksMade===0?0:a.attacksMade===1?-5:-10,bonus=a.attackBonus+mapPenalty,total=natural+bonus,ac=this.effectiveAC(t),degree=this.degreeFor(total,ac,natural);
-    a.actionsUsed=Math.min(ACTIONS,a.actionsUsed+1);a.attacksMade++;let damage=0,damageText='';
-    if(degree>=2){const rolled=this.rollDice(a.damageDice,a.damageDie),base=Math.max(0,rolled.total+a.damageMod),multiplier=(degree===3?2:1)*(wasHidden?2:1);damage=base*multiplier;t.hp=Math.max(0,t.hp-damage);damageText=' Damage '+this.damageNotation(a)+': ['+rolled.rolls.join(', ')+']'+(a.damageMod?' '+signed(a.damageMod):'')+' = '+base+(multiplier>1?' × '+multiplier+' = '+damage:'')+' '+a.damageType+'.';}
-    const mapText=mapPenalty?' (base '+signed(a.attackBonus)+', MAP '+mapPenalty+')':'';this.log(a.name+' attacks '+t.name+' with '+a.weaponName+': d20 '+natural+' '+signed(bonus)+' = '+total+mapText+' vs AC '+ac+' — '+this.degreeName(degree)+'.'+damageText+(t.hp<=0?' '+t.name+' is defeated.':'')+(wasHidden?' Hidden strike damage doubled.':''));
-    this.selectedId=a.id;this.targetingMode=undefined;this.busy=false;this.checkGameOver();this.render();if(damage)this.showFloating(t,'−'+damage,'damage',rect);else this.showFloating(t,'MISS','miss',rect);
-    if(!this.gameOver){if(a.team==='enemy')this.schedule(330,()=>void this.runEnemy());else this.maybeFinish(a);}
-  }
-
-  healTarget(t:Unit){
-    const u=this.active();if(!u||u.id!=='mira'||t.team!=='player'||!this.hasAction(u)||this.distance(u,t)>HEAL_RANGE||t.hp>=t.maxHp||this.busy)return;
-    this.record();const rolled=this.rollDice(HEAL_DICE,HEAL_DIE),rolledAmount=rolled.total+HEAL_MOD,amount=Math.min(rolledAmount,t.maxHp-t.hp);t.hp+=amount;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.targetingMode=undefined;this.log(u.name+' heals '+t.name+': '+HEAL_DICE+'d'+HEAL_DIE+signed(HEAL_MOD)+' ['+rolled.rolls.join(', ')+'] = '+rolledAmount+'; '+amount+' HP restored.');this.selectedId=t.id;this.render();this.showFloating(t,'+'+amount,'healing');this.maybeFinish(u);
-  }
-  defendSelected(){const u=this.active();if(u?.team==='player'&&this.hasAction(u)&&!u.defending&&!this.busy)this.defendUnit(u,true);}
-  defendUnit(u:Unit,save=false){if(save)this.record();u.defending=true;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.targetingMode=undefined;this.log(u.name+' uses Defend and gains +2 AC until the start of their next turn.');this.render();this.maybeFinish(u);}
-  passTurn(){const u=this.active();if(!u||u.team!=='player'||this.busy)return;this.record();u.actionsUsed=ACTIONS;this.targetingMode=undefined;this.magicTargets.clear();this.fireballCenter=undefined;this.log(u.name+' passes.');this.render();this.maybeFinish(u);}
-
-  hideSelected(){
-    const u=this.active();if(!u||u.id!=='nox'||!this.hasAction(u)||this.busy)return;this.record();const success=Math.random()<.75;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);u.defending=false;u.hiding=success;this.log(u.name+(success?' slips into hiding.':' fails to hide.'));this.render();this.showFloating(u,success?'SUCCESS':'FAIL',success?'success':'failure');this.maybeFinish(u);
-  }
-  chargeSelected(){
-    const u=this.active();if(!u||u.id!=='garrick'||u.abilityUsed.includes('charge')||this.actionsRemaining(u)<2||this.busy)return;this.record();u.abilityUsed.push('charge');u.charged=true;u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+1);this.log(u.name+' prepares to Charge.');this.render();this.message('Charge active: movement doubled this turn.');this.maybeFinish(u);
-  }
-  async castMagicMissile(){
-    const u=this.active();if(!u||u.id!=='lyra'||u.abilityUsed.includes('magic')||!this.hasAction(u)||!this.magicTargets.size||this.busy)return;
-    this.record();const targets=[...this.magicTargets].map(id=>this.unit(id)).filter(Boolean) as Unit[],rects=new Map(targets.map(t=>[t.id,this.tokenElement(t.id)?.getBoundingClientRect()]));
-    const shards=Math.min(targets.length,this.actionsRemaining(u),3);u.abilityUsed.push('magic');u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+shards);this.targetingMode=undefined;this.magicTargets.clear();
-    const results=targets.slice(0,shards).map(t=>{const roll=this.rollDie(4),damage=roll+1;t.hp=Math.max(0,t.hp-damage);return{t,roll,damage};});
-    this.log(u.name+' casts Magic Missile / Force Barrage ('+shards+' action'+(shards===1?'':'s')+'): '+results.map(({t,roll,damage})=>t.name+' takes 1d4+1 ['+roll+'] + 1 = '+damage+' force damage'+(t.hp<=0?' and is defeated':'')).join(' · ')+'.');
-    this.checkGameOver();this.render();results.forEach(({t,damage})=>this.showFloating(t,'−'+damage,'damage',rects.get(t.id)));if(!this.gameOver){this.message(this.actionsRemaining(u)+' actions remaining.');this.maybeFinish(u);}
-  }
-
-  fireballArea(center:Point){
-    const out:Point[]=[];for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++)if(this.distance(center,{x,y})<=FIREBALL_RADIUS)out.push({x,y});return out;
-  }
-  async castFireball(){
-    const u=this.active(),center=this.fireballCenter;if(!u||u.id!=='lyra'||!center||u.abilityUsed.includes('fireball')||this.actionsRemaining(u)<FIREBALL_ACTIONS||this.busy)return;
-    this.record();const area=new Set(this.fireballArea(center).map(pointKey)),targets=this.living().filter(t=>area.has(pointKey(t))),rects=new Map(targets.map(t=>[t.id,this.tokenElement(t.id)?.getBoundingClientRect()])),rolled=this.rollDice(6,6),spellDC=u.spellDC??21;
-    u.abilityUsed.push('fireball');u.actionsUsed=Math.min(ACTIONS,u.actionsUsed+FIREBALL_ACTIONS);this.targetingMode=undefined;this.fireballCenter=undefined;
-    const results=targets.map(t=>{const natural=this.rollDie(20),saveTotal=natural+t.reflex,degree=this.degreeFor(saveTotal,spellDC,natural),damage=degree===3?0:degree===2?Math.floor(rolled.total/2):degree===1?rolled.total:rolled.total*2;t.hp=Math.max(0,t.hp-damage);return{t,natural,saveTotal,degree,damage};});
-    this.log(u.name+' casts Fireball: 6d6 ['+rolled.rolls.join(', ')+'] = '+rolled.total+' fire damage; basic Reflex DC '+spellDC+'.');
-    for(const result of results)this.log(result.t.name+' Reflex: d20 '+result.natural+' '+signed(result.t.reflex)+' = '+result.saveTotal+' — '+this.degreeName(result.degree)+', '+result.damage+' damage'+(result.t.hp<=0?' and defeated':'')+'.');
-    this.checkGameOver();this.render();for(const {t,damage} of results)this.showFloating(t,damage?'−'+damage:'0',damage?'damage':'miss',rects.get(t.id));if(!this.gameOver){this.message(this.actionsRemaining(u)+' actions remaining.');this.maybeFinish(u);}
-  }
-
-  routeToRange(u:Unit,t:Unit,kind:Weapon){
-    let best:Point[]=[];for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++){const p={x,y};if(!this.inWeaponRange(p,t,kind,u.weaponRange)||!this.validDestination(p,u.id))continue;const route=this.findRoute(u,p,u.id);if(route.length&&(!best.length||route.length<best.length))best=route;}return best;
-  }
-  async runEnemy(){
-    const enemy=this.active();if(!enemy||enemy.team!=='enemy'||this.gameOver||this.busy)return;this.selectedId=enemy.id;this.render();
-    if(!this.hasAction(enemy)){this.schedule(280,()=>this.finishTurn());return;}
-    const candidates=this.visibleHeroes();if(!candidates.length){enemy.actionsUsed=ACTIONS;this.render();this.schedule(280,()=>this.finishTurn());return;}
-    const kind=this.weaponKind(enemy);let target:Unit|undefined,best:Point[]=[];
-    for(const hero of candidates){const route=this.routeToRange(enemy,hero,kind);if(route.length&&(!best.length||route.length<best.length)){target=hero;best=route;}}
-    if(!target){enemy.actionsUsed=ACTIONS;this.log(enemy.name+' cannot find a path to a visible hero and ends its turn.');this.render();this.schedule(280,()=>this.finishTurn());return;}
-    if(this.canAttack(enemy,target,kind)){this.showEnemyAttack(target,kind,()=>void this.attack(enemy,target!,kind));return;}
-    if(best.length>1){await this.moveEnemy(enemy,best.slice(0,Math.min(best.length,this.moveRange(enemy)+1)));this.schedule(300,()=>void this.runEnemy());return;}
-    enemy.actionsUsed=ACTIONS;this.render();this.schedule(280,()=>this.finishTurn());
-  }
-
-  drawRoute(route:Point[],enemy=false){
-    if(!this.routeLayer)return;this.routeLayer.innerHTML='';if(route.length<2)return;
-    const centres=route.map(p=>({x:p.x*CELL+CELL/2,y:p.y*CELL+CELL/2})),first=centres[0],last=centres[centres.length-1],before=centres[centres.length-2];
-    const dx=last.x-before.x,dy=last.y-before.y,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,px=-uy,py=ux,shaft={x:last.x-ux*2,y:last.y-uy*2};
-    let d='M '+first.x+' '+first.y;const points=[...centres.slice(1,-1),shaft],radius=4;
-    for(let i=0;i<points.length;i++){const corner=points[i];if(i===points.length-1){d+=' L '+corner.x+' '+corner.y;break;}const prior=i===0?first:points[i-1],after=points[i+1],aLen=Math.hypot(corner.x-prior.x,corner.y-prior.y)||1,bLen=Math.hypot(after.x-corner.x,after.y-corner.y)||1,r=Math.min(radius,aLen/2,bLen/2),enter={x:corner.x-(corner.x-prior.x)/aLen*r,y:corner.y-(corner.y-prior.y)/aLen*r},exit={x:corner.x+(after.x-corner.x)/bLen*r,y:corner.y+(after.y-corner.y)/bLen*r};d+=' L '+enter.x+' '+enter.y+' Q '+corner.x+' '+corner.y+' '+exit.x+' '+exit.y;}
-    const tip={x:last.x+ux*4,y:last.y+uy*4},base={x:last.x-ux*6,y:last.y-uy*6},head=tip.x+','+tip.y+' '+(base.x+px*4.5)+','+(base.y+py*4.5)+' '+(base.x-px*4.5)+','+(base.y-py*4.5),colour=enemy?'#e14654':'#33c4e8',group=svg('g',{class:'route-arrow '+(enemy?'enemy':''),opacity:.68});
-    group.append(svg('path',{d,fill:'none',stroke:colour,'stroke-width':4.8,'stroke-linecap':'round','stroke-linejoin':'round'}),svg('polygon',{points:head,fill:colour}));this.routeLayer.appendChild(group);
-  }
-  drawAttackCue(t:Unit,kind:Weapon){
-    if(!this.routeLayer)return;const q={x:t.x*CELL+CELL/2+5,y:t.y*CELL+CELL/2-8},cue=svg('g',{transform:'translate('+q.x+' '+q.y+')',class:'attack-action-cue '+kind}),icon=svg('g',{class:'attack-cue-icon'});cue.appendChild(svg('circle',{cx:0,cy:0,r:4.7}));
-    if(kind==='melee')for(const angle of[-43,43]){const sword=svg('g',{transform:'rotate('+angle+')'});sword.append(svg('path',{d:'M 0 -4.6 L 1 -3.45 L .65 1.15 L -.65 1.15 L -1 -3.45 Z'}),svg('rect',{x:-1.8,y:1,width:3.6,height:.8}),svg('rect',{x:-.55,y:1.65,width:1.1,height:2.25}),svg('circle',{cx:0,cy:4,r:.65}));icon.appendChild(sword);}else icon.appendChild(svg('path',{d:'M -.62 4.1 L .62 4.1 L .62 -1.15 L 2.35 -1.15 L 0 -4.25 L -2.35 -1.15 L -.62 -1.15 Z',transform:'rotate(42)'}));
-    cue.appendChild(icon);this.routeLayer.appendChild(cue);
-  }
-  showEnemyAttack(t:Unit,kind:Weapon,act:()=>void){this.render();this.drawAttackCue(t,kind);this.schedule(460,act);}
-  tokenElement(id:string){return this.tokenLayer?.querySelector<SVGGElement>('.unit-token[data-id="'+id+'"]');}
-
-  validDestination(p:Point,movingId:string){const occupant=this.at(p.x,p.y);return this.inBounds(p)&&!this.isObstacle(p.x,p.y)&&(!occupant||occupant.id===movingId);}
-  findRoute(start:Point,d:Point,movingId:string){
-    if(!this.validDestination(d,movingId))return[];const queue:Point[]=[{...start}],prev=new Map<string,Point|null>([[pointKey(start),null]]);
-    while(queue.length){const cur=queue.shift()!;if(pointKey(cur)===pointKey(d))break;for(const n of this.neighbors(cur)){const occupied=this.at(n.x,n.y);if(prev.has(pointKey(n))||this.isObstacle(n.x,n.y)||(occupied&&occupied.id!==movingId))continue;prev.set(pointKey(n),cur);queue.push(n);}}
-    if(!prev.has(pointKey(d)))return[];const out:Point[]=[];let cur:Point|null={...d};while(cur){out.unshift(cur);cur=prev.get(pointKey(cur))??null;}return out;
-  }
-  reachable(u:Unit,max:number){const out:Point[]=[];for(let y=0;y<this.rows;y++)for(let x=0;x<this.cols;x++){if(!this.validDestination({x,y},u.id))continue;const route=this.findRoute(u,{x,y},u.id);if(route.length&&route.length-1<=max)out.push({x,y});}return out;}
-  at(x:number,y:number){return this.units.find(u=>u.hp>0&&u.x===x&&u.y===y);}
-  distance(a:Point,b:Point){return Math.abs(a.x-b.x)+Math.abs(a.y-b.y);}
-  isObstacle(x:number,y:number){return this.obstacles.some(o=>o.x===x&&o.y===y);}
-  inBounds(p:Point){return p.x>=0&&p.y>=0&&p.x<this.cols&&p.y<this.rows;}
-  neighbors(p:Point){return[{x:p.x+1,y:p.y},{x:p.x-1,y:p.y},{x:p.x,y:p.y+1},{x:p.x,y:p.y-1}].filter(n=>this.inBounds(n));}
-
-  toggleRail(){
-    this.railOpen=!this.railOpen;ui.railDrawer.classList.toggle('open',this.railOpen);ui.railDrawer.setAttribute('aria-hidden',String(!this.railOpen));ui.railToggle.setAttribute('aria-expanded',String(this.railOpen));ui.railToggle.classList.toggle('open',this.railOpen);
-  }
-  spriteClass(art:string){return 'sprite-'+art.replace('-','');}
-  renderHotbar(){
-    ui.hotbar.innerHTML='';const a=this.active();if(!a||a.team!=='player'||this.gameOver)return;
-    const button=(id:string,label:string,icon:string,handler:()=>void,disabled=false,active=false)=>{
-      const b=document.createElement('button');b.type='button';b.className='hotbar-action'+(active?' selected':'');b.dataset.action=id;b.disabled=disabled;b.innerHTML='<span class="hotbar-icon">'+icon+'</span><b>'+label+'</b>';b.addEventListener('click',handler);ui.hotbar.appendChild(b);
-    };
-    const canAct=this.hasAction(a),kind=this.weaponKind(a),hasTarget=this.living('enemy').some(t=>this.canAttack(a,t,kind));
-    button('attack','Attack',ICONS.attack,()=>this.beginTargeting('attack'),!canAct||!hasTarget,this.targetingMode==='attack');
-    button('defend','Defend',ICONS.defend,()=>this.defendSelected(),!canAct||a.defending);
-    if(a.id==='mira')button('heal','Heal',ICONS.heal,()=>this.beginTargeting('heal'),!canAct||!this.living('player').some(u=>this.distance(a,u)<=HEAL_RANGE&&u.hp<u.maxHp),this.targetingMode==='heal');
-    if(a.id==='lyra'&&!a.abilityUsed.includes('magic'))button('magic','Magic Missile'+(this.magicTargets.size?' '+this.magicTargets.size+'/'+Math.min(3,this.actionsRemaining(a)):''),ICONS.magic,()=>this.beginTargeting('magic'),!canAct||!this.living('enemy').some(u=>this.distance(a,u)<=FORCE_BARRAGE_RANGE),this.targetingMode==='magic');
-    if(a.id==='lyra'&&!a.abilityUsed.includes('fireball'))button('fireball','Fireball',ICONS.fireball,()=>this.beginTargeting('fireball'),this.actionsRemaining(a)<FIREBALL_ACTIONS,this.targetingMode==='fireball');
-    if(a.id==='nox'&&!a.hiding)button('hide','Hide',ICONS.hide,()=>this.hideSelected(),!canAct);
-    if(a.id==='garrick'&&!a.abilityUsed.includes('charge'))button('charge',a.charged?'Charged':'Charge',ICONS.charge,()=>this.chargeSelected(),this.actionsRemaining(a)<2,a.charged);
-    button('pass','Pass',ICONS.pass,()=>this.passTurn(),this.busy);
-  }
-  syncUI(){
-    const a=this.active(),selected=this.selected()??a??this.living()[0];ui.undo.disabled=!a||a.team!=='player'||!this.history.length;ui.zoomReset.disabled=!this.cameraDirty;
-    ui.spellConfirm.hidden=!(this.targetingMode==='fireball'&&this.fireballCenter&&a?.team==='player');
-    if(selected){
-      ui.drawer.dataset.team=selected.team;ui.selectedName.textContent=selected.name;ui.selectedClass.textContent=selected.role;ui.selectedTeam.textContent=selected.team==='player'?'Hero':'Enemy';ui.level.textContent=String(selected.level);ui.health.textContent=selected.hp+' / '+selected.maxHp;ui.ac.textContent=selected.ac+(selected.defending?' + 2 shield':'');ui.attack.textContent=selected.weaponName+' '+signed(selected.attackBonus);ui.damage.textContent=this.damageNotation(selected)+' '+selected.damageType;ui.movement.textContent=String(this.moveRange(selected));ui.initiative.textContent=signed(selected.initiativeMod)+' ('+selected.initiativeScore+')';
-      for(const [key,element] of [['str',ui.str],['dex',ui.dex],['con',ui.con],['int',ui.int],['wis',ui.wis],['cha',ui.cha]] as const){const score=selected.abilities[key];element.textContent=score+' ('+signed(abilityModifier(score))+')';}
-      ui.fort.textContent=signed(selected.fort);ui.reflex.textContent=signed(selected.reflex);ui.will.textContent=signed(selected.will);ui.spellRow.hidden=selected.spellDC===undefined;ui.spellDC.textContent=selected.spellDC===undefined?'—':String(selected.spellDC);ui.portrait.className='portrait '+this.spriteClass(selected.art);ui.portrait.dataset.id=selected.id;
-    }
-    ui.rail.innerHTML='';
-    for(const [index,id] of this.turnOrder.entries()){const u=this.unit(id);if(!u)continue;const b=document.createElement('button');b.type='button';b.className='initiative-token '+u.team+(index===this.activeIndex?' active':'')+(u.id===this.selectedId?' selected':'');b.dataset.id=u.id;b.setAttribute('aria-label',u.name+(index===this.activeIndex?', current turn':''));b.innerHTML='<span class="rail-sprite '+this.spriteClass(u.art)+'"></span><small>'+u.name+'</small>';b.addEventListener('click',()=>{this.targetingMode=undefined;this.magicTargets.clear();this.fireballCenter=undefined;this.selectedId=u.id;this.cameraMode=this.defaultScale()>1.01?'follow':'clean';this.centerCamera((u.x+.5)*CELL,(u.y+.5)*CELL,this.defaultScale());this.cameraDirty=false;this.render();});ui.rail.appendChild(b);}
-    const current=ui.rail.querySelector<HTMLElement>('.active');if(current&&this.railOpen)requestAnimationFrame(()=>current.scrollIntoView({behavior:'smooth',block:'center'}));this.renderHotbar();
+  scoreEndOfRound(){
+    if(this.scenario.id!=='ember-shrine'||this.objective.sigils<2)return;
+    const shrine=this.terrain.filter(t=>t.kind==='objective');
+    const heroControls=shrine.some(cell=>this.heroes().some(hero=>hero.x===cell.x&&hero.y===cell.y));
+    const enemyControls=shrine.some(cell=>this.enemies().some(enemy=>enemy.x===cell.x&&enemy.y===cell.y));
+    if(heroControls&&!enemyControls){this.objective.hold++;this.gainMomentum(1,'holding the Ember Shrine');this.log('Shrine held: '+this.objective.hold+' / 2 rounds.');}
   }
 
   checkGameOver(){
-    const heroes=this.living('player'),enemies=this.living('enemy');if(heroes.length&&enemies.length)return;this.gameOver=true;this.clearTimers();ui.resultOverlay.hidden=false;ui.resultTitle.textContent=heroes.length?'Victory':'Defeat';ui.resultCopy.textContent=heroes.length?'The field is secure.':'The company has fallen.';this.log(heroes.length?'Victory.':'Defeat.');
+    if(this.gameOver)return true;
+    if(!this.heroes().length){this.endGame(false,'Every hero is Downed.');return true;}
+    if(this.scenario.id==='broken-gate'){
+      const chief=this.units.find(unit=>unit.name==='Orc War Chief');
+      if(!chief||chief.hp<=0){this.endGame(true,'The War Chief falls and the broken gate is yours.');return true;}
+    }
+    if(this.scenario.id==='ember-shrine'&&this.objective.sigils>=2&&this.objective.hold>=2){
+      this.endGame(true,'The sigils are broken and the Ember Shrine holds.');return true;
+    }
+    if(this.scenario.id==='rescue-run'&&this.objective.rescued&&this.objective.carrierId){
+      const carrier=this.unit(this.objective.carrierId);
+      if(carrier&&this.terrainAt(carrier,'exit')){this.endGame(true,carrier.name+' carries the captive to safety.');return true;}
+    }
+    return false;
   }
-  showFloating(u:Unit,text:string,kind:'damage'|'healing'|'success'|'failure'|'miss',anchor?:DOMRect){
-    requestAnimationFrame(()=>{const rect=anchor??this.tokenElement(u.id)?.getBoundingClientRect();if(!rect)return;const vr=ui.viewport.getBoundingClientRect(),el=document.createElement('span');el.className='combat-float '+kind;el.textContent=text;el.style.left=rect.left-vr.left+rect.width/2+'px';el.style.top=rect.top-vr.top-2+'px';ui.viewport.appendChild(el);window.setTimeout(()=>el.remove(),1000);});
+
+  endGame(victory:boolean,copy:string){
+    this.gameOver=true;this.busy=false;this.activeId=undefined;ui.result.hidden=false;
+    ui.result.querySelector('.eyebrow')!.textContent=victory?'MISSION COMPLETE':'MISSION FAILED';
+    ui.resultTitle.textContent=victory?'Victory':'Defeat';ui.resultCopy.textContent=copy;this.log((victory?'Victory — ':'Defeat — ')+copy);this.render();
   }
+
+  makeSnapshot():GameSnapshot{
+    return{units:this.units.map(cloneUnit),terrain:this.terrain.map(t=>({...t})),zones:this.zones.map(z=>({...z,cells:z.cells.map(p=>({...p}))})),
+      momentum:this.momentum,objective:{...this.objective},logEntries:this.logEntries.map(e=>({...e})),selectedId:this.selectedId,
+      activeId:this.activeId,round:this.round,firstRoundFlankAwarded:this.firstRoundFlankAwarded};
+  }
+
+  undoActivation(){
+    if(!this.snapshot||this.busy||this.activeTeam!=='player'||this.gameOver)return;
+    const snapshot=this.snapshot;
+    this.units=snapshot.units.map(cloneUnit);this.terrain=snapshot.terrain.map(t=>({...t}));
+    this.zones=snapshot.zones.map(z=>({...z,cells:z.cells.map(p=>({...p}))}));this.momentum=snapshot.momentum;
+    this.objective={...snapshot.objective};this.logEntries=snapshot.logEntries.map(e=>({...e}));this.selectedId=snapshot.selectedId;
+    this.activeId=snapshot.activeId;this.round=snapshot.round;this.firstRoundFlankAwarded=snapshot.firstRoundFlankAwarded;
+    this.targeting=undefined;this.preview=undefined;this.forcedMoverId=undefined;this.renderLog();this.render();this.message('Activation rewound.');
+  }
+
+  gainMomentum(amount:number,reason:string){
+    const before=this.momentum;this.momentum=clamp(this.momentum+amount,0,MAX_MOMENTUM);
+    if(this.momentum>before){this.log('Momentum +'+(this.momentum-before)+' — '+reason+'.');this.showMomentumPulse();}
+  }
+  spendMomentum(cost:number){if(this.momentum<cost)return false;this.momentum-=cost;return true;}
+
+  effectiveDefense(target:Unit,source?:Unit,ranged=false){
+    let defense=target.defense;
+    const reasons:string[]=[];
+    if(target.conditions.Guarded){defense++;reasons.push('Guarded');}
+    if(target.conditions.Exposed){defense--;reasons.push('Exposed');}
+    if(this.inSanctuary(target)){defense++;reasons.push('Sanctuary');}
+    if(target.team==='enemy'&&this.enemies().some(unit=>unit.role==='Guardian'&&unit.id!==target.id&&chebyshev(unit,target)<=1)){defense++;reasons.push('Guardian');}
+    if(ranged&&source&&this.hasCover(source,target)){defense++;reasons.push('Cover');}
+    return{value:defense,reasons};
+  }
+
+  inSanctuary(unit:Unit){return this.zones.some(zone=>zone.kind==='sanctuary'&&zone.cells.some(cell=>cell.x===unit.x&&cell.y===unit.y)&&unit.team==='player');}
+
+  hasCover(source:Unit,target:Unit){
+    if(this.terrainAt(target,'cover'))return true;
+    const dx=sign(source.x-target.x),dy=sign(source.y-target.y);
+    return Boolean(this.terrainAt({x:target.x+dx,y:target.y+dy},'cover'));
+  }
+
+  isFlanked(target:Unit,byTeam:Team='player'){
+    const adjacent=this.units.filter(unit=>unit.team===byTeam&&unit.hp>0&&!unit.downed&&chebyshev(unit,target)===1);
+    for(let i=0;i<adjacent.length;i++)for(let j=i+1;j<adjacent.length;j++){
+      const a={x:sign(adjacent[i].x-target.x),y:sign(adjacent[i].y-target.y)};
+      const b={x:sign(adjacent[j].x-target.x),y:sign(adjacent[j].y-target.y)};
+      if(a.x===-b.x&&a.y===-b.y)return true;
+    }
+    return false;
+  }
+
+  isolated(unit:Unit){return !this.units.some(other=>other.team===unit.team&&other.id!==unit.id&&other.hp>0&&!other.downed&&chebyshev(other,unit)<=2);}
+
+  rollPower(source:Unit,stat:Stat,target:Unit|undefined,defense:number,ranged=false,extraBonus=0):RollResult{
+    const dice:[number,number]=[this.rollDie(6),this.rollDie(6)];
+    let bonus=this.stat(source,stat)+extraBonus;
+    const modifiers:string[]=[];
+    if(source.conditions.Dazed){bonus--;delete source.conditions.Dazed;modifiers.push('Dazed −1');}
+    if(target&&source.team==='player'&&target.team==='enemy'&&this.isFlanked(target,'player')){
+      bonus++;modifiers.push('Flank +1');
+      if(this.round===1&&!this.firstRoundFlankAwarded){this.firstRoundFlankAwarded=true;this.gainMomentum(1,'first-round flank');}
+    }
+    if(source.role==='Skirmisher'&&target&&this.isolated(target)){bonus++;modifiers.push('Isolated +1');}
+    const total=dice[0]+dice[1]+bonus;
+    const tier:0|1|2=total<=defense-3?0:total>=defense+3?2:1;
+    return{dice,bonus,total,defense,tier,modifiers};
+  }
+
+  rollDie(sides:number){return Math.floor(Math.random()*sides)+1;}
+  rollText(roll:RollResult){return'2d6 ['+roll.dice.join(', ')+'] '+signed(roll.bonus)+' = '+roll.total+' vs '+roll.defense+' — '+TIERS[roll.tier]+(roll.modifiers.length?' ('+roll.modifiers.join(', ')+')':'');}
+
+  powerRange(source:Unit,power:Power){return power.range+(this.isHigh(source)&&power.range>1?1:0);}
+
+  hasLineOfSight(a:Point,b:Point){
+    const points=this.lineCells(a,b).slice(1,-1);
+    return!points.some(point=>{const terrain=this.terrainAt(point);return terrain&&['wall','destructible','door','icewall'].includes(terrain.kind);});
+  }
+
+  lineCells(a:Point,b:Point){
+    const points:Point[]=[];let x=a.x,y=a.y;
+    const dx=Math.abs(b.x-a.x),dy=Math.abs(b.y-a.y),sx=a.x<b.x?1:-1,sy=a.y<b.y?1:-1;let err=dx-dy;
+    while(true){points.push({x,y});if(x===b.x&&y===b.y)break;const e2=2*err;if(e2>-dy){err-=dy;x+=sx;}if(e2<dx){err+=dx;y+=sy;}}
+    return points;
+  }
+
+  tierPreview(power:Power){
+    if(power.tierText)return power.tierText.map((text,index)=>'T'+(index+1)+' '+text).join(' · ');
+    return power.description;
+  }
+
+  beginPower(powerId:string){
+    const source=this.active(),power=powerById(powerId);
+    if(!source||source.team!=='player'||source.acted||this.busy||!power)return;
+    if(power.momentum&&this.momentum<power.momentum){this.message(power.name+' needs '+power.momentum+' Momentum.');return;}
+    this.cancelPreview(false);
+    this.targeting={powerId};
+    if(['come-and-get-me','cleave','whirlwind'].includes(powerId)){
+      const targets=this.enemies().filter(enemy=>chebyshev(source,enemy)<=power.range).slice(0,powerId==='cleave'?2:99);
+      if(!targets.length){this.message('No enemies are in reach.');this.targeting=undefined;return;}
+      this.setPreview({powerId,targets:targets.map(t=>t.id),title:power.name,copy:this.tierPreview(power)});
+      return;
+    }
+    this.preview=undefined;
+    this.message(this.targetPrompt(power));
+    this.render();
+  }
+
+  targetPrompt(power:Power){
+    if(power.id==='fireball'||power.id==='vortex'||power.id==='sanctuary')return'Choose the '+(power.id==='vortex'?'3×3 centre.':'2×2 area.');
+    if(power.id==='force-wave')return'Choose a direction for the 3-square line.';
+    if(power.id==='ice-wall')return'Choose the centre of the three-square wall.';
+    if(power.id==='vanish')return'Choose an empty destination within 3.';
+    if(power.id==='teleport')return'Choose yourself or an ally within 3.';
+    if(power.id==='command')return'Choose an ally within 3.';
+    if(power.target==='ally')return'Choose an ally in range.';
+    return'Choose an enemy in range.';
+  }
+
+  cancelTargeting(render=true){this.targeting=undefined;this.preview=undefined;ui.decision.hidden=true;if(render)this.render();}
+  cancelPreview(render=true){this.preview=undefined;ui.decision.hidden=true;if(render)this.render();}
+
+  setPreview(preview:Preview){
+    this.preview=preview;
+    ui.decisionKicker.textContent=preview.powerId==='__move__'?'MOVE PREVIEW':'POWER PREVIEW';
+    ui.decisionTitle.textContent=preview.title;ui.decisionCopy.textContent=preview.copy;ui.decision.hidden=false;
+    this.render();
+  }
+
+  async confirmPreview(){
+    const preview=this.preview;if(!preview||this.busy)return;
+    this.preview=undefined;ui.decision.hidden=true;
+    if(preview.powerId==='__move__'){await this.confirmMove(preview);return;}
+    await this.executePower(preview);
+  }
+
+  async executePower(preview:Preview){
+    const source=this.active(),power=powerById(preview.powerId);if(!source||!power||source.acted)return;
+    if(power.momentum&&!this.spendMomentum(power.momentum)){this.message('Not enough Momentum.');return;}
+    source.acted=true;this.targeting=undefined;this.busy=true;
+    switch(power.id){
+      case'heavy-strike':await this.singleAttack(source,this.unit(preview.targets[0])!,power,tier=>{if(tier===2)this.pushFrom(source,this.unit(preview.targets[0])!,1);});break;
+      case'shield-bash':await this.singleAttack(source,this.unit(preview.targets[0])!,power,tier=>{source.conditions.Guarded=1;this.pushFrom(source,this.unit(preview.targets[0])!,tier===2?2:1);});break;
+      case'come-and-get-me':
+        source.conditions.Guarded=1;for(const id of preview.targets){const target=this.unit(id);if(target?.hp)this.pullToward(source,target,1);}this.log(source.name+' uses Come & Get Me, pulling '+preview.targets.length+' enemies.');break;
+      case'cleave':for(const id of preview.targets){const target=this.unit(id);if(target?.hp)await this.singleAttack(source,target,power);}break;
+      case'whirlwind':for(const id of preview.targets){const target=this.unit(id);if(target?.hp){const result=await this.singleAttack(source,target,power);if(target.hp>0)this.pushFrom(source,target,result.tier===2?2:1);}}break;
+      case'backstab':await this.singleAttack(source,this.unit(preview.targets[0])!,power,undefined,this.isFlanked(this.unit(preview.targets[0])!,'player')?3:0);break;
+      case'dashing-strike':{
+        if(preview.route&&preview.route.length>1)await this.animateUnitRoute(source,preview.route,false);
+        const target=this.unit(preview.targets[0]);if(target?.hp){const result=await this.singleAttack(source,target,power);if(result.tier===2)target.conditions.Exposed=1;}
+        source.bonusMove=1;this.forcedMoverId=source.id;this.forcedMoveRange=1;this.forcedMoveReason='Dashing Strike';break;
+      }
+      case'swap':{const ally=this.unit(preview.targets[0])!;const old={x:source.x,y:source.y};source.x=ally.x;source.y=ally.y;ally.x=old.x;ally.y=old.y;source.conditions.Guarded=1;ally.conditions.Guarded=1;this.log(source.name+' swaps places with '+ally.name+'.');break;}
+      case'vanish':if(preview.route)await this.animateUnitRoute(source,preview.route,false);this.log(source.name+' vanishes through the melee.');break;
+      case'fireball':for(const id of preview.targets){const target=this.unit(id);if(target?.hp){const result=await this.singleAttack(source,target,power);if(result.tier===2&&target.hp>0)target.conditions.Burning=99;}}break;
+      case'force-wave':for(const id of preview.targets){const target=this.unit(id);if(target?.hp){await this.singleAttack(source,target,power);if(target.hp>0)this.pushFrom(source,target,1);}}break;
+      case'ice-wall':
+        for(const cell of preview.cells??[])this.terrain.push({id:'ice-'+source.id+'-'+pointKey(cell),kind:'icewall',...cell,ownerId:source.id,expiresRound:this.round+1});
+        this.log(source.name+' raises a three-square Ice Wall.');break;
+      case'teleport':{const ally=this.unit(preview.chosenId);if(ally&&preview.point){ally.x=preview.point.x;ally.y=preview.point.y;this.triggerTerrain(ally);this.log(source.name+' teleports '+ally.name+'.');}break;}
+      case'vortex':
+        for(const id of preview.targets){const target=this.unit(id);if(target?.hp&&preview.point){this.forceTowardPoint(target,preview.point,1);target.conditions.Dazed=1;}}
+        this.log(source.name+' opens a Vortex; '+preview.targets.length+' enemies are pulled and Dazed.');break;
+      case'smite':{
+        const result=await this.singleAttack(source,this.unit(preview.targets[0])!,power);
+        if(result.tier>=1){const ally=this.heroes().filter(hero=>hero.id!==source.id&&chebyshev(hero,source)<=1)[0];if(ally){this.forcedMoverId=ally.id;this.forcedMoveRange=1;this.forcedMoveReason='Smite';ally.bonusMove=1;}}
+        break;
+      }
+      case'restore':await this.restore(source,this.unit(preview.targets[0])!);break;
+      case'sanctuary':
+        this.zones=this.zones.filter(zone=>zone.ownerId!==source.id);
+        this.zones.push({id:'sanctuary-'+this.round,kind:'sanctuary',cells:preview.cells??[],ownerId:source.id,expiresRound:this.round+1});
+        this.log(source.name+' consecrates a Sanctuary.');break;
+      case'command':{
+        const ally=this.unit(preview.chosenId);if(ally){this.forcedMoverId=ally.id;this.forcedMoveRange=2;this.forcedMoveReason='Command';ally.bonusMove=2;this.log(source.name+' commands '+ally.name+' to move.');}
+        break;
+      }
+    }
+    this.busy=false;
+    this.checkGameOver();
+    this.render();
+    if(this.forcedMoverId){this.message(this.unit(this.forcedMoverId)?.name+': choose a free Move '+this.forcedMoveRange+' destination.');}
+    else this.afterPlayerDecision(source);
+  }
+
+  async singleAttack(source:Unit,target:Unit,power:Power,after?:(tier:0|1|2)=>void,extraDamage=0){
+    const ranged=chebyshev(source,target)>1;
+    const defense=this.effectiveDefense(target,source,ranged);
+    const roll=this.rollPower(source,power.stat??'might',target,defense.value,ranged);
+    const damage=(power.damage?.[roll.tier]??0)+extraDamage;
+    const targetRect=this.tokenElement(target.id)?.getBoundingClientRect();
+    this.log(source.name+' uses '+power.name+' on '+target.name+': '+this.rollText(roll)+(defense.reasons.length?' ['+defense.reasons.join(', ')+']':'')+'.');
+    await this.attackAnimation(source,target,ranged);
+    await this.dealDamage(source,target,damage,power.name,targetRect);
+    after?.(roll.tier);
+    return roll;
+  }
+
+  async restore(source:Unit,target:Unit){
+    const roll=this.rollPower(source,'will',undefined,SUPPORT_DEFENSE,false);
+    const healing=[3,5,7][roll.tier];
+    const wasDowned=target.downed;
+    target.downed=false;target.hp=Math.min(target.maxHp,Math.max(0,target.hp)+healing);
+    if(roll.tier>=1){const condition=(Object.keys(target.conditions) as Condition[])[0];if(condition)delete target.conditions[condition];}
+    this.log(source.name+' uses Restore on '+target.name+': '+this.rollText(roll)+'. '+healing+' HP restored'+(wasDowned?'; revived':'')+'.');
+    this.showFloating(target,'+'+healing,'healing');
+  }
+
+  async dealDamage(source:Unit|undefined,target:Unit,amount:number,cause:string,anchor?:DOMRect){
+    if(amount<=0||target.hp<=0)return;
+    let reduced=amount;
+    if(source&&target.team==='player'){
+      const cleric=this.heroes().find(hero=>hero.role==='Cleric'&&!hero.reactionUsed&&chebyshev(hero,target)<=3);
+      if(cleric){
+        cleric.reactionUsed=true;reduced=Math.max(0,reduced-2);
+        this.log(cleric.name+' uses Divine Intervention: '+target.name+' takes 2 less damage.');
+        this.slideAway(target,source,1);
+      }
+    }else if(source&&target.team==='enemy'){
+      const guardian=this.enemies().find(enemy=>enemy.role==='Guardian'&&enemy.id!==target.id&&!enemy.reactionUsed&&chebyshev(enemy,target)<=1);
+      if(guardian){
+        guardian.reactionUsed=true;reduced=Math.max(0,reduced-2);
+        this.log(guardian.name+' Braces for '+target.name+': 2 damage prevented.');
+      }
+    }
+    target.hp=Math.max(0,target.hp-reduced);
+    this.showFloating(target,'−'+reduced,'damage',anchor);
+    if(target.hp<=0){
+      if(target.team==='player'){
+        target.downed=true;target.carriedObjective=false;
+        if(this.objective.carrierId===target.id){this.objective.carrierId=undefined;this.objective.rescued=false;this.terrain.push({id:'dropped-captive',kind:'captive',x:target.x,y:target.y});this.log('The captive is dropped.');}
+        this.log(target.name+' is Downed.');
+      }else{
+        this.log(target.name+' is defeated.');
+        if(source?.team==='player')this.gainMomentum(1,'defeating '+target.name);
+      }
+    }else this.log(target.name+' takes '+reduced+' damage from '+cause+' ('+target.hp+'/'+target.maxHp+' HP).');
+    this.render();
+    await delay(180);
+  }
+
+  async directDamage(target:Unit,amount:number,cause:string){
+    const anchor=this.tokenElement(target.id)?.getBoundingClientRect();
+    target.hp=Math.max(0,target.hp-amount);this.showFloating(target,'−'+amount,'damage',anchor);
+    if(target.hp<=0){
+      if(target.team==='player'){target.downed=true;this.log(target.name+' is Downed by '+cause+'.');}
+      else this.log(target.name+' is defeated by '+cause+'.');
+    }else this.log(target.name+' takes '+amount+' '+cause+' damage.');
+    this.render();await delay(180);
+  }
+
+  pushFrom(source:Point,target:Unit,spaces:number){this.forceMove(target,{x:sign(target.x-source.x),y:sign(target.y-source.y)},spaces,'Push');}
+  pullToward(source:Point,target:Unit,spaces:number){this.forceMove(target,{x:sign(source.x-target.x),y:sign(source.y-target.y)},spaces,'Pull');}
+  forceTowardPoint(target:Unit,point:Point,spaces:number){this.forceMove(target,{x:sign(point.x-target.x),y:sign(point.y-target.y)},spaces,'Pull');}
+  slideAway(target:Unit,source:Point,spaces:number){this.forceMove(target,{x:sign(target.x-source.x),y:sign(target.y-source.y)},spaces,'Slide');}
+
+  forceMove(target:Unit,direction:Point,spaces:number,label:string){
+    if(!target||target.hp<=0||(!direction.x&&!direction.y))return;
+    for(let step=0;step<spaces;step++){
+      const next={x:target.x+direction.x,y:target.y+direction.y};
+      if(this.isBlocked(next,target.id)){
+        target.hp=Math.max(0,target.hp-2);this.log(label+' slams '+target.name+' into an obstacle for 2 collision damage.');
+        this.showFloating(target,'−2','damage');
+        if(target.hp<=0){if(target.team==='player'){target.downed=true;this.log(target.name+' is Downed.');}else{this.log(target.name+' is defeated.');this.gainMomentum(1,'a terrain collision');}}
+        break;
+      }
+      target.x=next.x;target.y=next.y;this.triggerTerrain(target);
+    }
+  }
+
+  triggerTerrain(unit:Unit){
+    const hazard=this.terrainAt(unit,'hazard');if(!hazard||unit.hp<=0)return;
+    unit.hp=Math.max(0,unit.hp-2);unit.conditions.Burning=99;
+    this.log(unit.name+' enters fire: 2 damage and Burning.');
+    this.showFloating(unit,'−2','damage');
+    if(unit.hp<=0){if(unit.team==='player')unit.downed=true;else this.gainMomentum(1,'hazard defeat');}
+  }
+
+  async attackAnimation(source:Unit,target:Unit,ranged:boolean){
+    const token=this.tokenElement(source.id);if(!token)return;
+    const start=this.tokenTranslation(token),end={x:target.x*CELL+CELL/2,y:target.y*CELL+CELL/2};
+    const dx=end.x-start.x,dy=end.y-start.y,length=Math.hypot(dx,dy)||1,distance=ranged?2.5:5;
+    const lunge={x:start.x+dx/length*distance,y:start.y+dy/length*distance};
+    await this.tween(80,t=>token.setAttribute('transform','translate('+(start.x+(lunge.x-start.x)*t)+' '+(start.y+(lunge.y-start.y)*t)+')'));
+    await this.tween(90,t=>token.setAttribute('transform','translate('+(lunge.x+(start.x-lunge.x)*t)+' '+(lunge.y+(start.y-lunge.y)*t)+')'));
+  }
+
+  afterPlayerDecision(source:Unit){
+    this.render();
+    if(source.acted&&source.moved){void this.finishActivation();return;}
+    if(source.acted)this.message(source.name+' may still Move, or end the activation.');
+    else if(source.moved)this.message(source.name+' may now use one Action.');
+    else this.message(source.name+': Move and take one Action in either order.');
+  }
+
+  async handleCell(x:number,y:number){
+    if(this.busy||this.gameOver||performance.now()<this.gestureSuppressUntil)return;
+    const point={x,y};
+    if(this.preview&&this.preview.powerId!=='__move__')this.cancelPreview(false);
+    if(this.targeting){this.targetCell(point);return;}
+    if(this.forcedMoverId){await this.moveForcedUnit(point);return;}
+    const source=this.active();
+    if(source?.team==='player'&&!source.moved&&!source.conditions.Rooted){
+      const route=this.findRoute(source,point,source.id,this.moveAllowance(source));
+      if(route.path.length>1){
+        this.setPreview({powerId:'__move__',targets:[],point,route:route.path,title:'Move '+route.cost,copy:this.movePreviewCopy(source,route)});
+        return;
+      }
+    }
+    const terrain=this.terrainAt(point);
+    if(terrain)this.message(this.terrainDescription(terrain.kind));
+  }
+
+  movePreviewCopy(source:Unit,route:RouteResult){
+    const notes:string[]=[];
+    if(route.path.some(point=>this.terrainAt(point,'difficult')))notes.push('difficult ground');
+    if(route.path.some(point=>this.terrainAt(point,'hazard')))notes.push('enters fire');
+    if(this.engaged(source))notes.push(source.role==='Rogue'?'Slip Away':'disengage +1');
+    return route.cost+' / '+this.moveAllowance(source)+' Move'+(notes.length?' · '+notes.join(' · '):'');
+  }
+
+  async confirmMove(preview:Preview){
+    const source=this.active();if(!source||!preview.route)return;
+    this.busy=true;await this.animateUnitRoute(source,preview.route,true);source.moved=true;this.busy=false;
+    this.cancelTargeting(false);this.checkGameOver();this.render();this.afterPlayerDecision(source);
+  }
+
+  async moveForcedUnit(point:Point){
+    const mover=this.unit(this.forcedMoverId);if(!mover)return;
+    const route=this.findRoute(mover,point,mover.id,this.forcedMoveRange,true,this.forcedMoveReason==='Vanish');
+    if(route.path.length<2){this.message('Choose a reachable empty square.');return;}
+    this.busy=true;await this.animateUnitRoute(mover,route.path,false);mover.bonusMove=0;this.forcedMoverId=undefined;this.forcedMoveRange=0;
+    const source=this.active();this.busy=false;this.render();if(source)this.afterPlayerDecision(source);
+  }
+
+  targetCell(point:Point){
+    const source=this.active(),targeting=this.targeting;if(!source||!targeting)return;
+    const power=powerById(targeting.powerId);if(!power)return;
+    const range=this.powerRange(source,power);
+    if(power.id==='vanish'){
+      const route=this.findRoute(source,point,source.id,range,true,true);
+      if(route.path.length<2){this.message('Choose an empty square within 3.');return;}
+      this.setPreview({powerId:power.id,targets:[],point,route:route.path,title:power.name,copy:'Spend 2 Momentum · Move '+route.cost+' through units; no reactions.'});return;
+    }
+    if(power.id==='fireball'||power.id==='sanctuary'){
+      if(chebyshev(source,point)>range||!this.hasLineOfSight(source,point)){this.message('That area is out of range or sight.');return;}
+      const x=clamp(point.x,0,COLS-2),y=clamp(point.y,0,ROWS-2),cells=[{x,y},{x:x+1,y},{x,y:y+1},{x:x+1,y:y+1}];
+      const targets=power.id==='fireball'?this.enemies().filter(enemy=>cells.some(cell=>pointKey(cell)===pointKey(enemy))).map(unit=>unit.id):[];
+      this.setPreview({powerId:power.id,targets,point:{x,y},cells,title:power.name,copy:power.id==='fireball'?(targets.length?this.tierPreview(power)+' · '+targets.length+' target'+(targets.length===1?'':'s'):'No enemies in the blast.'):'Spend 3 Momentum · Allies in the zone gain +1 Defense.'});return;
+    }
+    if(power.id==='vortex'){
+      if(chebyshev(source,point)>range||!this.hasLineOfSight(source,point)){this.message('That centre is out of range or sight.');return;}
+      const cells:Point[]=[];for(let y=point.y-1;y<=point.y+1;y++)for(let x=point.x-1;x<=point.x+1;x++)if(this.inBounds({x,y}))cells.push({x,y});
+      const targets=this.enemies().filter(enemy=>cells.some(cell=>pointKey(cell)===pointKey(enemy))).map(unit=>unit.id);
+      this.setPreview({powerId:power.id,targets,point,cells,title:power.name,copy:'Spend 3 Momentum · Pull '+targets.length+' enemies 1 and Daze them.'});return;
+    }
+    if(power.id==='force-wave'){
+      const dx=point.x-source.x,dy=point.y-source.y;
+      if(!dx&&!dy)return;
+      const direction=Math.abs(dx)>=Math.abs(dy)?{x:sign(dx),y:0}:{x:0,y:sign(dy)};
+      const cells:Point[]=[];for(let step=1;step<=range;step++){const cell={x:source.x+direction.x*step,y:source.y+direction.y*step};if(!this.inBounds(cell)||this.isBlockingTerrain(this.terrainAt(cell)))break;cells.push(cell);}
+      const targets=this.enemies().filter(enemy=>cells.some(cell=>pointKey(cell)===pointKey(enemy))).map(unit=>unit.id);
+      if(!targets.length){this.message('No enemies are in that line.');return;}
+      this.setPreview({powerId:power.id,targets,cells,point,title:power.name,copy:this.tierPreview(power)+' · '+targets.length+' target'+(targets.length===1?'':'s')});return;
+    }
+    if(power.id==='ice-wall'){
+      if(chebyshev(source,point)>range||!this.hasLineOfSight(source,point)){this.message('That wall is out of range or sight.');return;}
+      const horizontal=Math.abs(point.x-source.x)<=Math.abs(point.y-source.y);
+      const cells=[-1,0,1].map(offset=>horizontal?{x:point.x+offset,y:point.y}:{x:point.x,y:point.y+offset}).filter(cell=>this.inBounds(cell)&&!this.unitAt(cell)&&!this.isBlockingTerrain(this.terrainAt(cell)));
+      if(cells.length<2){this.message('There is not enough clear space for the wall.');return;}
+      this.setPreview({powerId:power.id,targets:[],cells,point,title:power.name,copy:'Create '+cells.length+' blocking wall squares until Lyra’s next activation.'});return;
+    }
+    if((power.id==='teleport'||power.id==='command')&&targeting.chosenId){
+      const ally=this.unit(targeting.chosenId)!;
+      const moveRange=power.id==='teleport'?3:2;
+      if(chebyshev(ally,point)>moveRange||this.isBlocked(point,ally.id)){this.message('Choose an empty square within '+moveRange+'.');return;}
+      this.setPreview({powerId:power.id,targets:[],chosenId:ally.id,point,title:power.name,copy:(power.id==='teleport'?'Teleport ':'Command ')+ally.name+' to this square.'});return;
+    }
+  }
+
+  handleUnit(id:string){
+    if(this.busy||this.gameOver)return;
+    const target=this.unit(id);if(!target)return;
+    const source=this.active();
+    if(this.targeting&&source?.team==='player'){this.targetUnit(source,target);return;}
+    if(this.activeTeam==='player'&&target.team==='player'&&!target.activated&&!target.downed&&target.hp>0){this.activateHero(target);return;}
+    this.selectedId=id;this.render();
+  }
+
+  targetUnit(source:Unit,target:Unit){
+    const targeting=this.targeting!,power=powerById(targeting.powerId);if(!power)return;
+    const range=this.powerRange(source,power);
+    if(power.id==='teleport'||power.id==='command'){
+      if(!targeting.chosenId){
+        if(target.team!=='player'||target.downed||chebyshev(source,target)>range){this.message('Choose a living ally in range.');return;}
+        targeting.chosenId=target.id;this.message('Now choose an empty destination for '+target.name+'.');this.render();return;
+      }
+    }
+    if(power.target==='ally'){
+      if(target.team!=='player'||(target.downed&&power.id!=='restore')||chebyshev(source,target)>range){this.message('That ally is not a valid target.');return;}
+      this.setPreview({powerId:power.id,targets:[target.id],chosenId:target.id,title:power.name,copy:power.id==='restore'?this.tierPreview(power):power.description});return;
+    }
+    if(power.target==='enemy'){
+      if(target.team!=='enemy'||target.hp<=0||chebyshev(source,target)>range||!this.hasLineOfSight(source,target)){this.message('That enemy is out of range or sight.');return;}
+      let route:Point[]|undefined;
+      if(power.id==='dashing-strike'&&chebyshev(source,target)>1){
+        const approach=this.routeToRange(source,target,1,2,true);if(!approach.path.length){this.message('No Dashing Strike route reaches that enemy.');return;}route=approach.path;
+      }
+      this.setPreview({powerId:power.id,targets:[target.id],route,title:power.name,copy:this.tierPreview(power)+(power.id==='backstab'&&this.isFlanked(target,'player')?' · FLANKED: +1 roll, +3 damage':'')});return;
+    }
+  }
+
+  beginInteract(){
+    const source=this.active();if(!source||source.acted)return;
+    const target=this.interactableNear(source);if(!target)return;
+    this.targeting=undefined;source.acted=true;
+    if(target.kind==='rune'){
+      this.terrain=this.terrain.filter(t=>t.id!==target.id);this.objective.sigils++;this.gainMomentum(1,'interrupting a void sigil');this.log(source.name+' interrupts a void sigil ('+this.objective.sigils+'/2).');
+    }else if(target.kind==='captive'){
+      this.terrain=this.terrain.filter(t=>t.id!==target.id);this.objective.rescued=true;this.objective.carrierId=source.id;source.carriedObjective=true;this.gainMomentum(1,'rescuing the captive');this.log(source.name+' rescues the captive and begins the escort.');
+    }else{
+      this.terrain=this.terrain.filter(t=>t.id!==target.id);this.gainMomentum(1,target.kind==='door'?'opening a route':'destroying terrain');this.log(source.name+(target.kind==='door'?' opens the prison door.':' smashes the barricade.'));
+    }
+    this.checkGameOver();this.render();this.afterPlayerDecision(source);
+  }
+
+  interactableNear(source:Unit){return this.terrain.find(t=>['rune','captive','door','destructible'].includes(t.kind)&&chebyshev(source,t)<=1);}
+
+  rally(){
+    const source=this.active();if(!source||source.acted)return;
+    const target=this.units.find(unit=>unit.team==='player'&&unit.downed&&chebyshev(source,unit)<=1);
+    if(!target)return;source.acted=true;target.downed=false;target.hp=3;this.log(source.name+' rallies '+target.name+' back to 3 HP.');this.showFloating(target,'+3','healing');this.render();this.afterPlayerDecision(source);
+  }
+
+  terrainDescription(kind:TerrainKind){
+    const descriptions:Record<TerrainKind,string>={
+      wall:'Wall — blocks movement and line of sight.',cover:'Cover — +1 Defense against ranged attacks.',
+      difficult:'Difficult terrain — costs +1 Move.',hazard:'Fire — 2 damage on entry and Burning.',
+      high:'High ground — +1 range.',objective:'Ember Shrine — hold after both sigils are broken.',
+      exit:'Exit — bring the rescued captive here.',captive:'Captive — an adjacent hero can rescue them.',
+      destructible:'Barricade — an adjacent hero can destroy it.',door:'Prison door — an adjacent hero can open it.',
+      rune:'Void sigil — an adjacent hero can interrupt it.',icewall:'Ice Wall — blocks movement and sight until Lyra’s next activation.'
+    };return descriptions[kind];
+  }
+
+  engaged(unit:Unit){return this.units.some(other=>other.team!==unit.team&&other.hp>0&&!other.downed&&chebyshev(other,unit)<=1);}
+
+  neighbors(point:Point){
+    const out:Point[]=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      if(!dx&&!dy)continue;const next={x:point.x+dx,y:point.y+dy};if(!this.inBounds(next))continue;
+      if(dx&&dy){
+        const a={x:point.x+dx,y:point.y},b={x:point.x,y:point.y+dy};
+        if(this.isBlockingTerrain(this.terrainAt(a))&&this.isBlockingTerrain(this.terrainAt(b)))continue;
+      }
+      out.push(next);
+    }return out;
+  }
+
+  stepCost(unit:Unit,from:Point,to:Point,start:Point,ignoreEngage=false){
+    let cost=1;if(this.terrainAt(to,'difficult'))cost++;
+    if(!ignoreEngage&&pointKey(from)===pointKey(start)&&this.engaged(unit)&&unit.role!=='Rogue')cost++;
+    return cost;
+  }
+
+  findRoute(unit:Unit,destination:Point,movingId:string,maxCost=99,ignoreEngage=false,ignoreUnits=false):RouteResult{
+    if(this.isBlocked(destination,movingId,ignoreUnits))return{path:[],cost:Infinity};
+    const start={x:unit.x,y:unit.y},dist=new Map<string,number>([[pointKey(start),0]]),prev=new Map<string,Point|null>([[pointKey(start),null]]),queue:Point[]=[start];
+    while(queue.length){
+      queue.sort((a,b)=>(dist.get(pointKey(a))??99)-(dist.get(pointKey(b))??99));const current=queue.shift()!,currentCost=dist.get(pointKey(current))!;
+      if(pointKey(current)===pointKey(destination))break;
+      for(const next of this.neighbors(current)){
+        if(this.isBlocked(next,movingId,ignoreUnits))continue;
+        const cost=currentCost+this.stepCost(unit,current,next,start,ignoreEngage);if(cost>maxCost)continue;
+        if(cost<(dist.get(pointKey(next))??Infinity)){dist.set(pointKey(next),cost);prev.set(pointKey(next),current);queue.push(next);}
+      }
+    }
+    const total=dist.get(pointKey(destination));if(total===undefined)return{path:[],cost:Infinity};
+    const path:Point[]=[];let current:Point|null={...destination};while(current){path.unshift(current);current=prev.get(pointKey(current))??null;}
+    return{path,cost:total};
+  }
+
+  reachable(unit:Unit,maxCost:number,ignoreEngage=false,ignoreUnits=false){
+    const results:RouteResult[]=[];for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+      const route=this.findRoute(unit,{x,y},unit.id,maxCost,ignoreEngage,ignoreUnits);if(route.path.length)results.push(route);
+    }return results;
+  }
+
+  routeToRange(unit:Unit,target:Unit,range:number,maxCost:number,ignoreEngage=false){
+    let best:RouteResult={path:[],cost:Infinity};
+    for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+      const point={x,y};if(chebyshev(point,target)>range||this.isBlocked(point,unit.id))continue;
+      const route=this.findRoute(unit,point,unit.id,maxCost,ignoreEngage);if(route.path.length&&route.cost<best.cost&&this.hasLineOfSight(point,target))best=route;
+    }return best;
+  }
+
+  async animateUnitRoute(unit:Unit,path:Point[],trigger:boolean){
+    const token=this.tokenElement(unit.id);
+    for(const point of path.slice(1)){
+      const start=token?this.tokenTranslation(token):{x:unit.x*CELL+CELL/2,y:unit.y*CELL+CELL/2},end={x:point.x*CELL+CELL/2,y:point.y*CELL+CELL/2};
+      if(token)await this.tween(115,t=>{const ease=.5-.5*Math.cos(Math.PI*t);token.setAttribute('transform','translate('+(start.x+(end.x-start.x)*ease)+' '+(start.y+(end.y-start.y)*ease)+')');});
+      unit.x=point.x;unit.y=point.y;if(trigger)this.triggerTerrain(unit);
+      if(unit.hp<=0)break;
+    }
+  }
+
+  tween(ms:number,update:(t:number)=>void){return new Promise<void>(resolve=>{const start=performance.now();const frame=(now:number)=>{const t=Math.min(1,(now-start)/ms);update(t);if(t<1)requestAnimationFrame(frame);else resolve();};requestAnimationFrame(frame);});}
+  tokenTranslation(element:SVGGElement){const match=/translate\(([-.\d]+)[ ,]([-.\d]+)\)/.exec(element.getAttribute('transform')||'');return{x:match?Number(match[1]):0,y:match?Number(match[2]):0};}
+  tokenElement(id:string){return this.tokenLayer?.querySelector<SVGGElement>('.unit-token[data-id="'+id+'"]');}
+
+  async runEnemyActivation(){
+    if(this.gameOver)return;
+    const enemy=this.chooseEnemy();if(!enemy){if(!this.hasReady('player'))await this.beginRound();return;}
+    this.activeId=enemy.id;this.selectedId=enemy.id;enemy.moved=false;enemy.acted=false;this.removeStartEffects(enemy);
+    this.log(enemy.name+' activates.');this.render();await delay(350);
+    this.busy=true;
+    const target=this.chooseHeroTarget(enemy);
+    if(!target){this.busy=false;await this.completeEnemyActivation(enemy);return;}
+    if(enemy.role==='Archer'&&this.heroes().some(hero=>chebyshev(enemy,hero)<=2))await this.enemyReposition(enemy,target,true);
+    if(enemy.role==='Controller'){
+      const hazardNear=this.terrain.some(t=>t.kind==='hazard'&&chebyshev(t,target)<=1);
+      if(!hazardNear&&chebyshev(enemy,target)<=3&&this.hasLineOfSight(enemy,target)){
+        const cell=this.neighbors(target).filter(p=>!this.terrainAt(p)&&!this.unitAt(p)).sort((a,b)=>chebyshev(a,enemy)-chebyshev(b,enemy))[0];
+        if(cell){this.terrain.push({id:'cult-fire-'+this.round+'-'+enemy.id,kind:'hazard',...cell,ownerId:enemy.id});enemy.acted=true;this.log(enemy.name+' conjures a burning hazard beside '+target.name+'.');this.render();await delay(420);}
+      }
+    }
+    if(!enemy.acted&&!this.canEnemyAttack(enemy,target)){
+      const attack=ENEMY_ATTACKS[enemy.role as EnemyRole],route=this.routeToRange(enemy,target,attack.range,this.moveAllowance(enemy));
+      if(route.path.length>1){await this.animateUnitRoute(enemy,route.path,true);enemy.moved=true;this.render();await delay(260);}
+    }
+    let actualTarget=target;
+    if(!enemy.acted&&this.canEnemyAttack(enemy,target)){
+      actualTarget=this.maybeIntercept(enemy,target);if(actualTarget.id!==target.id){this.render();await delay(360);}
+      await this.enemyAttack(enemy,actualTarget);enemy.acted=true;
+    }
+    if(enemy.role==='Skirmisher'&&enemy.acted&&enemy.hp>0)await this.enemySlide(enemy,actualTarget);
+    if(!enemy.moved&&enemy.hp>0)await this.enemyReposition(enemy,actualTarget,enemy.role==='Archer');
+    this.busy=false;this.render();await delay(300);await this.completeEnemyActivation(enemy);
+  }
+
+  chooseEnemy(){
+    const ready=this.ready('enemy');
+    const priority:EnemyRole[]=['Controller','Skirmisher','Brute','Guardian','Archer'];
+    return ready.sort((a,b)=>priority.indexOf(a.role as EnemyRole)-priority.indexOf(b.role as EnemyRole))[0];
+  }
+
+  chooseHeroTarget(enemy:Unit){
+    const heroes=this.heroes();if(!heroes.length)return undefined;
+    return heroes.sort((a,b)=>{
+      if(enemy.role==='Skirmisher'){const isolatedDelta=Number(this.isolated(b))-Number(this.isolated(a));if(isolatedDelta)return isolatedDelta;}
+      if(enemy.role==='Archer'||enemy.role==='Controller'){const hpDelta=a.hp-b.hp;if(hpDelta)return hpDelta;}
+      return chebyshev(enemy,a)-chebyshev(enemy,b);
+    })[0];
+  }
+
+  canEnemyAttack(enemy:Unit,target:Unit){
+    const attack=ENEMY_ATTACKS[enemy.role as EnemyRole];
+    return chebyshev(enemy,target)<=attack.range+(this.isHigh(enemy)&&attack.range>1?1:0)&&this.hasLineOfSight(enemy,target);
+  }
+
+  maybeIntercept(enemy:Unit,target:Unit){
+    if(chebyshev(enemy,target)>1)return target;
+    const fighter=this.heroes().find(hero=>hero.role==='Fighter'&&!hero.reactionUsed&&hero.id!==target.id&&chebyshev(hero,target)<=2);
+    if(!fighter)return target;
+    const destinations=this.neighbors(enemy).filter(point=>!this.isBlocked(point,fighter.id)).sort((a,b)=>chebyshev(a,fighter)-chebyshev(b,fighter));
+    const destination=destinations[0];if(!destination||chebyshev(fighter,destination)>1)return target;
+    fighter.x=destination.x;fighter.y=destination.y;fighter.reactionUsed=true;
+    this.log(fighter.name+' Intercepts, stepping in front of '+target.name+'.');return fighter;
+  }
+
+  async enemyAttack(enemy:Unit,target:Unit){
+    const attack=ENEMY_ATTACKS[enemy.role as EnemyRole],ranged=attack.range>1;
+    const defense=this.effectiveDefense(target,enemy,ranged),roll=this.rollPower(enemy,attack.stat,target,defense.value,ranged);
+    let damage=attack.damage[roll.tier];
+    if(enemy.role==='Archer'&&!this.heroes().some(hero=>chebyshev(enemy,hero)<=2))damage+=2;
+    const anchor=this.tokenElement(target.id)?.getBoundingClientRect();
+    this.log(enemy.name+' uses '+attack.name+' on '+target.name+': '+this.rollText(roll)+(defense.reasons.length?' ['+defense.reasons.join(', ')+']':'')+'.');
+    await this.attackAnimation(enemy,target,ranged);await this.dealDamage(enemy,target,damage,attack.name,anchor);
+    if(target.hp<=0)return;
+    if(enemy.role==='Brute')this.pushFrom(enemy,target,roll.tier===2?2:1);
+    if(enemy.role==='Controller'){
+      const hazard=this.terrain.filter(t=>t.kind==='hazard').sort((a,b)=>chebyshev(a,target)-chebyshev(b,target))[0];
+      if(hazard)this.forceTowardPoint(target,hazard,1);else this.pullToward(enemy,target,1);
+    }
+  }
+
+  async enemySlide(enemy:Unit,target:Unit){
+    const options=this.neighbors(enemy).filter(p=>!this.isBlocked(p,enemy.id)).sort((a,b)=>chebyshev(b,target)-chebyshev(a,target));
+    if(!options[0])return;await this.animateUnitRoute(enemy,[{x:enemy.x,y:enemy.y},options[0]],true);this.log(enemy.name+' Slides 1 after attacking.');this.render();await delay(180);
+  }
+
+  async enemyReposition(enemy:Unit,target:Unit,retreat=false){
+    if(enemy.moved||enemy.conditions.Rooted)return;
+    const reachable=this.reachable(enemy,this.moveAllowance(enemy));
+    if(!reachable.length)return;
+    const role=enemy.role;
+    reachable.sort((a,b)=>{
+      const pa=a.path.at(-1)!,pb=b.path.at(-1)!;
+      if(role==='Guardian'){
+        const allies=this.enemies().filter(unit=>unit.id!==enemy.id);
+        const da=Math.min(...allies.map(unit=>chebyshev(pa,unit)),9),db=Math.min(...allies.map(unit=>chebyshev(pb,unit)),9);return da-db;
+      }
+      if(retreat||role==='Archer')return chebyshev(pb,target)-chebyshev(pa,target);
+      return chebyshev(pa,target)-chebyshev(pb,target);
+    });
+    const route=reachable[0];if(route.path.length>1){await this.animateUnitRoute(enemy,route.path,true);enemy.moved=true;this.render();await delay(180);}
+  }
+
+  render(){
+    if(ui.shell.hidden)return;
+    ui.battlefield.innerHTML='';
+    const board=svg('svg',{class:'game-board',viewBox:'0 0 '+(COLS*CELL)+' '+(ROWS*CELL),preserveAspectRatio:'xMidYMin meet','data-scenario':this.scenario.id,'aria-label':'6 by 8 battlefield'});
+    const world=svg('g',{class:'world'}),tiles=svg('g',{class:'tiles'}),terrain=svg('g',{class:'terrain-layer'}),zones=svg('g',{class:'zones'}),highlights=svg('g',{class:'highlights'}),routes=svg('g',{class:'routes'}),tokens=svg('g',{class:'tokens'});
+    world.append(tiles,terrain,zones,highlights,routes,tokens);board.appendChild(world);ui.battlefield.appendChild(board);
+    this.svg=board;this.world=world;this.routeLayer=routes;this.tokenLayer=tokens;
+    for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+      const cell=svg('rect',{x:x*CELL,y:y*CELL,width:CELL,height:CELL,class:'tile','data-x':x,'data-y':y});
+      cell.addEventListener('pointerup',event=>{if(this.gestureActive||(event.target as Element).closest('.unit-token'))return;void this.handleCell(x,y);});tiles.appendChild(cell);
+    }
+    for(const item of this.terrain){
+      const group=svg('g',{class:'terrain-cell terrain-'+item.kind,transform:'translate('+(item.x*CELL)+' '+(item.y*CELL)+')','data-kind':item.kind,'data-id':item.id,'data-x':item.x,'data-y':item.y});
+      group.appendChild(svg('rect',{width:CELL,height:CELL}));terrain.appendChild(group);
+    }
+    for(const zone of this.zones)for(const cell of zone.cells){
+      const element=svg('rect',{class:'zone sanctuary-zone',x:cell.x*CELL,y:cell.y*CELL,width:CELL,height:CELL,'data-kind':zone.kind});zones.appendChild(element);
+    }
+    this.paintHighlights(highlights);
+    for(const unit of this.combatants())tokens.appendChild(this.makeToken(unit));
+    if(this.preview?.route)this.drawRoute(this.preview.route);
+    this.applyCamera();this.syncUI();this.layout();this.bindGestures();
+  }
+
+  paintHighlights(layer:SVGGElement){
+    const add=(point:Point,className:string)=>layer.appendChild(svg('rect',{x:point.x*CELL+1,y:point.y*CELL+1,width:CELL-2,height:CELL-2,rx:2,class:className}));
+    if(this.preview?.cells)this.preview.cells.forEach(point=>add(point,'area-preview'));
+    if(this.preview?.targets)for(const id of this.preview.targets){const unit=this.unit(id);if(unit)add(unit,'target-preview');}
+    if(this.forcedMoverId){
+      const mover=this.unit(this.forcedMoverId);if(mover)this.reachable(mover,this.forcedMoveRange,true).forEach(route=>add(route.path.at(-1)!,'free-move-range'));return;
+    }
+    const source=this.active();
+    if(this.targeting&&source?.team==='player'){
+      const power=powerById(this.targeting.powerId),range=this.powerRange(source,power);
+      if(this.targeting.chosenId){
+        const ally=this.unit(this.targeting.chosenId);if(ally)this.reachable(ally,power.id==='command'?2:3,true).forEach(route=>add(route.path.at(-1)!,'ally-range'));
+      }else if(['fireball','force-wave','ice-wall','vortex','sanctuary','vanish'].includes(power.id)){
+        for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)if(chebyshev(source,{x,y})<=range)add({x,y},power.id==='vanish'?'free-move-range':'power-range');
+      }else if(power.target==='ally'){
+        this.units.filter(unit=>unit.team==='player'&&chebyshev(source,unit)<=range&&(power.id==='restore'||!unit.downed)).forEach(unit=>add(unit,'ally-target'));
+      }else this.enemies().filter(enemy=>chebyshev(source,enemy)<=range&&this.hasLineOfSight(source,enemy)).forEach(enemy=>add(enemy,'enemy-target'));
+      return;
+    }
+    if(source?.team==='player'&&!source.moved&&!source.conditions.Rooted)this.reachable(source,this.moveAllowance(source)).forEach(route=>{const point=route.path.at(-1)!;if(pointKey(point)!==pointKey(source))add(point,'move-range');});
+    const selected=this.selected();if(selected?.team==='enemy'&&(!source||selected.id!==source.id)){
+      this.reachable(selected,this.moveAllowance(selected)).forEach(route=>add(route.path.at(-1)!,'enemy-move-range'));
+      const range=ENEMY_ATTACKS[selected.role as EnemyRole]?.range??1;for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)if(chebyshev(selected,{x,y})<=range)add({x,y},'enemy-threat');
+    }
+  }
+
+  makeToken(unit:Unit){
+    const className=['unit-token',unit.team,unit.id===this.activeId?'active':'',unit.id===this.selectedId?'selected':'',unit.activated?'spent':'',unit.downed?'downed':'',unit.elite?'elite':''].filter(Boolean).join(' ');
+    const group=svg('g',{class:className,transform:'translate('+(unit.x*CELL+CELL/2)+' '+(unit.y*CELL+CELL/2)+')','data-id':unit.id,'data-art':unit.art,'data-hp':unit.hp,'data-max-hp':unit.maxHp,'data-role':unit.role,'data-reaction-used':unit.reactionUsed?'1':'0','data-carrier':unit.carriedObjective?'1':'0'});
+    group.appendChild(svg('rect',{x:-8,y:-8,width:16,height:16,class:'token-hitbox'}));
+    for(const condition of Object.keys(unit.conditions))group.appendChild(svg('g',{class:'status-marker status-'+condition.toLowerCase(),'data-status':condition}));
+    group.addEventListener('pointerup',event=>{event.stopPropagation();if(this.drag?.id===unit.id||this.gestureActive||performance.now()<this.gestureSuppressUntil)return;this.handleUnit(unit.id);});
+    if(unit.team==='player')group.addEventListener('pointerdown',event=>this.beginDrag(event,unit,group));
+    return group;
+  }
+
+  renderHotbar(){
+    ui.hotbar.innerHTML='';const source=this.active();
+    if(!source||source.team!=='player'||this.gameOver){
+      const prompt=document.createElement('div');prompt.className='hotbar-prompt';prompt.textContent=this.activeTeam==='player'?'Tap a glowing hero to activate':'Enemy activation';ui.hotbar.appendChild(prompt);return;
+    }
+    const add=(id:string,label:string,disabled=false,selected=false,meta='')=>{
+      const button=document.createElement('button');button.type='button';button.className='hotbar-action'+(selected?' selected':'');button.disabled=disabled;button.dataset.action=id;
+      button.innerHTML='<span class="hotbar-icon">'+(ICONS[id]??'•')+'</span><b>'+label+'</b>'+(meta?'<small>'+meta+'</small>':'');
+      button.addEventListener('click',()=>{
+        if(id==='interact')this.beginInteract();else if(id==='rally')this.rally();else if(id==='end')void this.finishActivation();else this.beginPower(id);
+      });ui.hotbar.appendChild(button);
+    };
+    for(const id of source.powers){
+      const power=POWERS[id],cost=power.momentum?'◆'+power.momentum:'ACTION';
+      add(id,power.name,source.acted||Boolean(power.momentum&&this.momentum<power.momentum),this.targeting?.powerId===id,cost);
+    }
+    if(this.interactableNear(source))add('interact','Interact',source.acted,false,'ACTION');
+    if(this.units.some(unit=>unit.team==='player'&&unit.downed&&chebyshev(source,unit)<=1))add('rally','Rally',source.acted,false,'ACTION');
+    add('end','End',false,false,(source.moved?'M✓':'MOVE')+' · '+(source.acted?'A✓':'ACT'));
+  }
+
+  syncUI(){
+    ui.round.textContent=String(this.round);ui.railRound.textContent=String(this.round);
+    ui.side.textContent=this.activeTeam==='player'?(this.activeId?'HERO ACTIVE':'CHOOSE HERO'):'ENEMY ACTIVATION';
+    ui.objectiveKicker.textContent=this.scenario.kicker;ui.objectiveLabel.textContent=this.objectiveProgress();
+    this.renderMomentum();ui.undo.disabled=!this.snapshot||this.busy||this.activeTeam!=='player';
+    const selected=this.selected()??this.active()??this.units[0];if(selected)this.syncDrawer(selected);
+    this.renderRail();this.renderHotbar();
+  }
+
+  objectiveProgress(){
+    if(this.scenario.id==='ember-shrine')return'Sigils '+this.objective.sigils+'/2 · Hold '+this.objective.hold+'/2';
+    if(this.scenario.id==='rescue-run')return this.objective.rescued?'Escort captive to exit':'Rescue the captive';
+    const chief=this.units.find(unit=>unit.name==='Orc War Chief');return chief&&chief.hp>0?'War Chief '+chief.hp+'/'+chief.maxHp+' HP':'War Chief defeated';
+  }
+
+  renderMomentum(){
+    ui.momentum.innerHTML='';for(let index=0;index<MAX_MOMENTUM;index++){const pip=document.createElement('i');pip.className=index<this.momentum?'filled':'';ui.momentum.appendChild(pip);}
+  }
+
+  showMomentumPulse(){ui.momentum.classList.remove('pulse');requestAnimationFrame(()=>ui.momentum.classList.add('pulse'));}
+
+  syncDrawer(unit:Unit){
+    ui.drawer.dataset.team=unit.team;ui.selectedTeam.textContent=unit.team==='player'?'Hero':'Enemy';ui.selectedName.textContent=unit.name;
+    ui.selectedClass.textContent=unit.role+(unit.elite?' · Elite':'');ui.portrait.className='portrait '+this.spriteClass(unit.art);ui.portrait.dataset.id=unit.id;
+    ui.health.textContent=(unit.downed?'DOWNED · ':'')+unit.hp+' / '+unit.maxHp;ui.defense.textContent=String(this.effectiveDefense(unit).value);
+    ui.movement.textContent=String(this.moveAllowance(unit));ui.might.textContent=signed(unit.might);ui.agility.textContent=signed(unit.agility);ui.will.textContent=signed(unit.will);
+    ui.passive.textContent=unit.passive;ui.reactionRow.hidden=!unit.reaction;ui.reaction.textContent=unit.reaction??'—';
+    ui.statusChips.innerHTML='';
+    for(const condition of Object.keys(unit.conditions) as Condition[]){const chip=document.createElement('span');chip.textContent=condition;chip.title=CONDITIONS[condition];ui.statusChips.appendChild(chip);}
+    if(unit.activated){const chip=document.createElement('span');chip.textContent='Spent';ui.statusChips.appendChild(chip);}
+    if(unit.carriedObjective){const chip=document.createElement('span');chip.textContent='Escort';ui.statusChips.appendChild(chip);}
+    ui.powerList.innerHTML='';
+    if(unit.team==='player')for(const id of unit.powers){const power=POWERS[id],row=document.createElement('article');row.innerHTML='<b>'+power.name+(power.momentum?' · ◆'+power.momentum:'')+'</b><p>'+power.description+'</p>';ui.powerList.appendChild(row);}
+    else{const attack=ENEMY_ATTACKS[unit.role as EnemyRole],row=document.createElement('article');row.innerHTML='<b>'+attack.name+' · Range '+attack.range+'</b><p>'+attack.damage.join(' / ')+' damage · '+attack.effect+'</p>';ui.powerList.appendChild(row);}
+  }
+
+  renderRail(){
+    ui.rail.innerHTML='';
+    for(const unit of this.units.filter(unit=>unit.hp>0||unit.downed)){
+      const button=document.createElement('button');button.type='button';
+      button.className='initiative-token '+unit.team+(unit.id===this.activeId?' active':'')+(unit.id===this.selectedId?' selected':'')+(unit.activated?' spent':'')+(unit.downed?' downed':'');
+      button.dataset.id=unit.id;button.setAttribute('aria-label',unit.name+(unit.activated?', activated':', ready'));
+      button.innerHTML='<span class="rail-sprite '+this.spriteClass(unit.art)+'"></span><i></i><small>'+(unit.downed?'DOWN':unit.activated?'SPENT':'READY')+'</small>';
+      button.addEventListener('click',()=>this.handleUnit(unit.id));ui.rail.appendChild(button);
+    }
+  }
+
+  spriteClass(art:string){return'sprite-'+art.replaceAll('-','');}
+
+  showObjective(){this.message(this.scenario.objective+' Failure: '+this.scenario.failure);}
+  toggleUtility(){const open=ui.utilityPanel.hidden;ui.utilityPanel.hidden=!open;ui.utilityToggle.setAttribute('aria-expanded',String(open));ui.utilityToggle.classList.toggle('open',open);}
+  toggleRail(){this.railOpen=!this.railOpen;ui.railDrawer.classList.toggle('open',this.railOpen);ui.railDrawer.setAttribute('aria-hidden',String(!this.railOpen));ui.railToggle.setAttribute('aria-expanded',String(this.railOpen));ui.railToggle.classList.toggle('open',this.railOpen);}
+  toggleDrawer(){const open=!ui.drawer.classList.contains('open');ui.drawer.classList.toggle('open',open);ui.statsToggle.setAttribute('aria-expanded',String(open));}
+  closeDrawer(){ui.drawer.classList.remove('open');ui.statsToggle.setAttribute('aria-expanded','false');}
+  showHelp(open:boolean){ui.help.hidden=!open;}
+  toggleLog(){const open=ui.logPanel.hidden;ui.logPanel.hidden=!open;ui.logToggle.setAttribute('aria-expanded',String(open));this.renderLog();}
+  closeLog(){ui.logPanel.hidden=true;ui.logToggle.setAttribute('aria-expanded','false');}
   log(text:string){this.logEntries.push({round:this.round,text});this.renderLog();}
   renderLog(){ui.logList.innerHTML='';for(const entry of this.logEntries){const row=document.createElement('div');row.className='log-entry';row.innerHTML='<b>R'+entry.round+'</b><span>'+entry.text+'</span>';ui.logList.appendChild(row);}ui.logList.scrollTop=ui.logList.scrollHeight;}
-  closeLog(){ui.logPanel.hidden=true;ui.logToggle.setAttribute('aria-expanded','false');}
-  message(text:string){ui.instruction.textContent=text;}
-  schedule(ms:number,fn:()=>void){const id=window.setTimeout(()=>{this.timerIds=this.timerIds.filter(value=>value!==id);fn();},ms);this.timerIds.push(id);}
-  clearTimers(){this.timerIds.forEach(clearTimeout);this.timerIds=[];}
+  message(text:string){ui.instruction.textContent=text;ui.instruction.classList.remove('flash');requestAnimationFrame(()=>ui.instruction.classList.add('flash'));}
+
+  showFloating(unit:Unit,text:string,kind:'damage'|'healing'|'tier'|'status',anchor?:DOMRect){
+    requestAnimationFrame(()=>{const rect=anchor??this.tokenElement(unit.id)?.getBoundingClientRect();if(!rect)return;const viewport=ui.viewport.getBoundingClientRect(),element=document.createElement('span');element.className='combat-float '+kind;element.textContent=text;element.style.left=rect.left-viewport.left+rect.width/2+'px';element.style.top=rect.top-viewport.top+'px';ui.viewport.appendChild(element);window.setTimeout(()=>element.remove(),1000);});
+  }
+
+  drawRoute(path:Point[],enemy=false){
+    if(!this.routeLayer||path.length<2)return;this.routeLayer.innerHTML='';
+    const centres=path.map(point=>({x:point.x*CELL+CELL/2,y:point.y*CELL+CELL/2})),last=centres.at(-1)!,before=centres.at(-2)!;
+    const dx=last.x-before.x,dy=last.y-before.y,length=Math.hypot(dx,dy)||1,ux=dx/length,uy=dy/length,base={x:last.x-ux*3,y:last.y-uy*3},perp={x:-uy,y:ux};
+    const line=svg('polyline',{points:centres.map(p=>p.x+','+p.y).join(' '),class:'route-line '+(enemy?'enemy':''),fill:'none'});
+    const head=svg('polygon',{points:(last.x+ux*3)+','+(last.y+uy*3)+' '+(base.x+perp.x*4)+','+(base.y+perp.y*4)+' '+(base.x-perp.x*4)+','+(base.y-perp.y*4),class:'route-head '+(enemy?'enemy':'')});
+    this.routeLayer.append(line,head);
+  }
+
+  layout(){
+    const viewport=ui.viewport.getBoundingClientRect(),header=document.querySelector<HTMLElement>('.battle-header')!,hotbar=ui.hotbar.getBoundingClientRect();
+    const available=Math.max(300,viewport.height-Math.max(94,hotbar.height));
+    const width=Math.min(viewport.width,available*(COLS/ROWS));ui.frame.style.width=width+'px';ui.frame.style.height=width*(ROWS/COLS)+'px';
+    header.style.setProperty('--board-width',width+'px');
+  }
+
+  resetCamera(){this.scale=1;this.tx=0;this.ty=0;this.cameraDirty=false;this.applyCamera();ui.zoomReset.disabled=true;}
+  applyCamera(){this.world?.setAttribute('transform','translate('+this.tx+' '+this.ty+') scale('+this.scale+')');}
+  rootPoint(clientX:number,clientY:number){
+    if(!this.svg)return{x:0,y:0};const point=this.svg.createSVGPoint();point.x=clientX;point.y=clientY;const matrix=this.svg.getScreenCTM();if(!matrix)return{x:0,y:0};const transformed=point.matrixTransform(matrix.inverse());return{x:transformed.x,y:transformed.y};
+  }
+  worldPoint(clientX:number,clientY:number){
+    if(!this.world)return{x:0,y:0};const point=this.svg!.createSVGPoint();point.x=clientX;point.y=clientY;const matrix=this.world.getScreenCTM();if(!matrix)return{x:0,y:0};const transformed=point.matrixTransform(matrix.inverse());return{x:transformed.x,y:transformed.y};
+  }
+
+  bindGestures(){
+    const board=this.svg;if(!board)return;
+    board.onpointerdown=event=>{
+      if((event.target as Element).closest('.unit-token'))return;this.pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+      try{board.setPointerCapture(event.pointerId);}catch{}
+      if(this.pointers.size===2){this.gestureActive=true;this.gestureSuppressUntil=performance.now()+450;const points=[...this.pointers.values()],mid={x:(points[0].x+points[1].x)/2,y:(points[0].y+points[1].y)/2},root=this.rootPoint(mid.x,mid.y);this.gesture={distance:Math.hypot(points[1].x-points[0].x,points[1].y-points[0].y),scale:this.scale,anchor:{x:(root.x-this.tx)/this.scale,y:(root.y-this.ty)/this.scale},mid,mode:'wait'};}
+    };
+    board.onpointermove=event=>{
+      if(!this.pointers.has(event.pointerId))return;this.pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});if(this.pointers.size<2||!this.gesture)return;
+      const points=[...this.pointers.values()],midClient={x:(points[0].x+points[1].x)/2,y:(points[0].y+points[1].y)/2},mid=this.rootPoint(midClient.x,midClient.y),distance=Math.hypot(points[1].x-points[0].x,points[1].y-points[0].y),ratio=distance/Math.max(1,this.gesture.distance),travel=Math.hypot(midClient.x-this.gesture.mid.x,midClient.y-this.gesture.mid.y);
+      if(this.gesture.mode==='wait'){if(Math.abs(Math.log(ratio))>.045)this.gesture.mode='zoom';else if(travel>8)this.gesture.mode='pan';else return;}
+      if(this.gesture.mode==='zoom'){this.scale=clamp(this.gesture.scale*ratio,1,2.5);this.tx=mid.x-this.gesture.anchor.x*this.scale;this.ty=mid.y-this.gesture.anchor.y*this.scale;}
+      else{this.tx+=midClient.x-this.gesture.mid.x;this.ty+=midClient.y-this.gesture.mid.y;this.gesture.mid=midClient;}
+      this.clampCamera();this.cameraDirty=true;ui.zoomReset.disabled=false;this.applyCamera();
+    };
+    const end=(event:PointerEvent)=>{this.pointers.delete(event.pointerId);if(this.pointers.size<2){this.gesture=undefined;this.gestureActive=false;this.gestureSuppressUntil=performance.now()+350;}};
+    board.onpointerup=end;board.onpointercancel=end;
+  }
+
+  clampCamera(){
+    const width=COLS*CELL,height=ROWS*CELL,visibleHeight=ROWS*CELL;
+    this.tx=width*this.scale<=width?(width-width*this.scale)/2:clamp(this.tx,width-width*this.scale,0);
+    this.ty=height*this.scale<=visibleHeight?(visibleHeight-height*this.scale)/2:clamp(this.ty,visibleHeight-height*this.scale,0);
+  }
+
+  beginDrag(event:PointerEvent,unit:Unit,token:SVGGElement){
+    if(!this.isActiveHero(unit)||unit.moved||unit.conditions.Rooted||this.targeting||this.busy||this.gestureActive)return;
+    event.preventDefault();event.stopPropagation();token.setPointerCapture(event.pointerId);
+    const ghost=token.cloneNode(true) as SVGGElement;ghost.classList.add('drag-ghost');ghost.style.pointerEvents='none';this.tokenLayer?.appendChild(ghost);
+    this.drag={id:unit.id,pointerId:event.pointerId,ghost};
+    const move=(pointer:PointerEvent)=>{
+      if(!this.drag||pointer.pointerId!==this.drag.pointerId)return;const world=this.worldPoint(pointer.clientX,pointer.clientY);ghost.setAttribute('transform','translate('+world.x+' '+world.y+')');
+      const destination={x:Math.floor(world.x/CELL),y:Math.floor(world.y/CELL)},route=this.findRoute(unit,destination,unit.id,this.moveAllowance(unit));this.routeLayer!.innerHTML='';if(route.path.length)this.drawRoute(route.path);
+    };
+    const finish=(pointer:PointerEvent)=>{
+      token.removeEventListener('pointermove',move);token.removeEventListener('pointerup',finish);token.removeEventListener('pointercancel',cancel);ghost.remove();this.drag=undefined;
+      const world=this.worldPoint(pointer.clientX,pointer.clientY),destination={x:Math.floor(world.x/CELL),y:Math.floor(world.y/CELL)},route=this.findRoute(unit,destination,unit.id,this.moveAllowance(unit));
+      if(route.path.length>1)this.setPreview({powerId:'__move__',targets:[],point:destination,route:route.path,title:'Move '+route.cost,copy:this.movePreviewCopy(unit,route)});else this.render();
+    };
+    const cancel=()=>{token.removeEventListener('pointermove',move);token.removeEventListener('pointerup',finish);token.removeEventListener('pointercancel',cancel);ghost.remove();this.drag=undefined;this.render();};
+    token.addEventListener('pointermove',move);token.addEventListener('pointerup',finish);token.addEventListener('pointercancel',cancel);
+  }
+
+  debugState(){return{scenario:this.scenario.id,round:this.round,activeTeam:this.activeTeam,activeId:this.activeId,momentum:this.momentum,objective:{...this.objective},gameOver:this.gameOver,units:this.units.map(unit=>({id:unit.id,name:unit.name,role:unit.role,team:unit.team,x:unit.x,y:unit.y,hp:unit.hp,activated:unit.activated,downed:unit.downed,moved:unit.moved,acted:unit.acted,conditions:{...unit.conditions}}))};}
 }
 
 new Game();
