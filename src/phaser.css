@@ -29,6 +29,7 @@ button,input,select{font:inherit}button{-webkit-tap-highlight-color:transparent}
 .battlefield{position:absolute;inset:0;touch-action:none}.game-board{position:absolute;z-index:3;inset:0;width:100%;height:100%;touch-action:none}.world{transform-origin:0 0}
 .tile,.terrain-cell>rect,.zone{fill:transparent;stroke:transparent}.unit-token{cursor:pointer;touch-action:none}.drag-ghost{opacity:.55}
 .game-board .terrain-layer>*,.game-board .zones>*,.game-board .highlights>*,.game-board .tokens>*{opacity:0}
+.game-board .terrain-layer>*,.game-board .zones>*,.game-board .highlights>*,.game-board .routes>*{pointer-events:none}
 .game-board .routes>*{opacity:1}.route-line{stroke:#35c7eb;stroke-width:4.3;stroke-linecap:round;stroke-linejoin:round;opacity:.68}.route-line.enemy{stroke:#e64b5b}.route-head{fill:#35c7eb;opacity:.76}.route-head.enemy{fill:#e64b5b}
 .battlefield-canvas,.battlefield-token-canvas,.battlefield-status-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;background:transparent}.battlefield-canvas{z-index:2}.battlefield-token-canvas{z-index:4}.battlefield-status-canvas{z-index:5}
 
