@@ -626,6 +626,7 @@ class Game{
   }
 
   async handleCell(x:number,y:number){
+    ui.battlefield.dataset.lastInput=x+','+y;
     if(this.busy||this.gameOver||performance.now()<this.gestureSuppressUntil)return;
     const point={x,y};
     if(this.preview&&this.preview.powerId!=='__move__')this.cancelPreview(false);
@@ -946,7 +947,7 @@ class Game{
     this.svg=board;this.world=world;this.routeLayer=routes;this.tokenLayer=tokens;
     for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
       const cell=svg('rect',{x:x*CELL,y:y*CELL,width:CELL,height:CELL,class:'tile','data-x':x,'data-y':y});
-      cell.addEventListener('click',event=>{if(this.gestureActive||(event.target as Element).closest('.unit-token'))return;void this.handleCell(x,y);});tiles.appendChild(cell);
+      tiles.appendChild(cell);
     }
     for(const item of this.terrain){
       const group=svg('g',{class:'terrain-cell terrain-'+item.kind,transform:'translate('+(item.x*CELL)+' '+(item.y*CELL)+')','data-kind':item.kind,'data-id':item.id,'data-x':item.x,'data-y':item.y});
@@ -1110,6 +1111,11 @@ class Game{
 
   bindGestures(){
     const board=this.svg;if(!board)return;
+    board.onclick=event=>{
+      if(this.gestureActive||performance.now()<this.gestureSuppressUntil||(event.target as Element).closest('.unit-token'))return;
+      const point=this.worldPoint(event.clientX,event.clientY);
+      void this.handleCell(Math.floor(point.x/CELL),Math.floor(point.y/CELL));
+    };
     board.onpointerdown=event=>{
       if((event.target as Element).closest('.unit-token'))return;this.pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
       try{board.setPointerCapture(event.pointerId);}catch{}
