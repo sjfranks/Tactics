@@ -946,7 +946,7 @@ class Game{
     this.svg=board;this.world=world;this.routeLayer=routes;this.tokenLayer=tokens;
     for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
       const cell=svg('rect',{x:x*CELL,y:y*CELL,width:CELL,height:CELL,class:'tile','data-x':x,'data-y':y});
-      cell.addEventListener('pointerup',event=>{if(this.gestureActive||(event.target as Element).closest('.unit-token'))return;void this.handleCell(x,y);});tiles.appendChild(cell);
+      cell.addEventListener('click',event=>{if(this.gestureActive||(event.target as Element).closest('.unit-token'))return;void this.handleCell(x,y);});tiles.appendChild(cell);
     }
     for(const item of this.terrain){
       const group=svg('g',{class:'terrain-cell terrain-'+item.kind,transform:'translate('+(item.x*CELL)+' '+(item.y*CELL)+')','data-kind':item.kind,'data-id':item.id,'data-x':item.x,'data-y':item.y});
@@ -1123,7 +1123,7 @@ class Game{
       else{this.tx+=midClient.x-this.gesture.mid.x;this.ty+=midClient.y-this.gesture.mid.y;this.gesture.mid=midClient;}
       this.clampCamera();this.cameraDirty=true;ui.zoomReset.disabled=false;this.applyCamera();
     };
-    const end=(event:PointerEvent)=>{this.pointers.delete(event.pointerId);if(this.pointers.size<2){this.gesture=undefined;this.gestureActive=false;this.gestureSuppressUntil=performance.now()+350;}};
+    const end=(event:PointerEvent)=>{const wasGesture=this.gestureActive||Boolean(this.gesture);this.pointers.delete(event.pointerId);if(this.pointers.size<2){this.gesture=undefined;this.gestureActive=false;if(wasGesture)this.gestureSuppressUntil=performance.now()+350;}};
     board.onpointerup=end;board.onpointercancel=end;
   }
 
