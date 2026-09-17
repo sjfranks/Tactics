@@ -423,6 +423,11 @@ class Game{
   beginPower(powerId:string){
     const source=this.active(),power=powerById(powerId);
     if(!source||source.team!=='player'||source.acted||this.busy||!power)return;
+    if(this.targeting?.powerId===powerId){
+      this.cancelTargeting(false);
+      this.afterPlayerDecision(source);
+      return;
+    }
     if(power.momentum&&this.momentum<power.momentum){this.message(power.name+' needs '+power.momentum+' Momentum.');return;}
     this.cancelPreview(false);
     this.targeting={powerId};
