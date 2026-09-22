@@ -117,7 +117,7 @@ const encounters:{id:ScenarioId;host:string;title:string;kicker:string;copy:stri
   {id:'rescue-run',host:'Istria Pell',title:'Rescue at Ash Bridge',kicker:'RESCUE · ESCORT',copy:'Open the prison, rescue the captive, and reach the exit.'}
 ];
 
-const lead={x:790,y:850};
+const lead={x:890,y:690};
 const party:PartyMember[]=[
   {name:'Garrick',role:'Fighter',color:'#d7b15d',source:'heroes',cell:3,x:lead.x,y:lead.y,lag:0,lateral:0},
   {name:'Nox',role:'Rogue',color:'#62865a',source:'heroes',cell:1,x:lead.x-18,y:lead.y+34,lag:8,lateral:-15},
