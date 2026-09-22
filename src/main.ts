@@ -98,6 +98,7 @@ class Game{
   logEntries:LogEntry[]=[];
   gameOver=false;
   busy=false;
+  launchedFromExploration=false;
   railOpen=false;
   svg?:SVGSVGElement;
   world?:SVGGElement;
@@ -119,7 +120,7 @@ class Game{
     this.renderMomentum();
     (window as typeof window&{__TACTICS48__?:unknown}).__TACTICS48__={
       getState:()=>this.debugState(),
-      start:(scenario:ScenarioId='broken-gate',enemies=5)=>this.startEncounter(scenario,enemies),
+      start:(scenario:ScenarioId='broken-gate',enemies=5,fromExploration=false)=>this.startEncounter(scenario,enemies,fromExploration),
       game:this
     };
   }
@@ -128,11 +129,11 @@ class Game{
     ui.scenario.addEventListener('change',()=>this.updateScenarioPreview());
     ui.form.addEventListener('submit',event=>{
       event.preventDefault();
-      this.startEncounter(ui.scenario.value as ScenarioId,clamp(Number(ui.enemyCount.value)||5,4,8));
+      window.dispatchEvent(new CustomEvent('tactics:explore'));
     });
-    ui.setup.addEventListener('click',()=>this.showSetup());
-    ui.setupOverlay.addEventListener('click',()=>this.showSetup());
-    ui.restart.addEventListener('click',()=>this.startEncounter(this.scenario.id,this.enemyCount));
+    ui.setup.addEventListener('click',()=>this.leaveBattle());
+    ui.setupOverlay.addEventListener('click',()=>this.leaveBattle());
+    ui.restart.addEventListener('click',()=>this.startEncounter(this.scenario.id,this.enemyCount,this.launchedFromExploration));
     ui.objectiveButton.addEventListener('click',()=>this.showObjective());
     ui.utilityToggle.addEventListener('click',()=>this.toggleUtility());
     ui.railToggle.addEventListener('click',()=>this.toggleRail());
@@ -155,9 +156,11 @@ class Game{
     ui.scenarioPreview.textContent=scenario.objective;
   }
 
-  startEncounter(id:ScenarioId,count:number){
+  startEncounter(id:ScenarioId,count:number,fromExploration=false){
     this.scenario=scenarioById(id);
     this.enemyCount=count;
+    this.launchedFromExploration=fromExploration;
+    window.dispatchEvent(new CustomEvent('tactics:encounter-start'));
     this.units=[];
     this.terrain=this.scenario.terrain.map((terrain,index)=>({...terrain,id:'terrain-'+index}));
     this.zones=[];
@@ -188,7 +191,7 @@ class Game{
       this.units.push(unit);
     }
     this.selectedId=this.units[0].id;
-    ui.title.hidden=true;ui.shell.hidden=false;ui.drawer.hidden=false;ui.result.hidden=true;this.closeDrawer();this.closeLog();this.showHelp(false);
+    ui.title.hidden=true;ui.shell.hidden=false;ui.drawer.hidden=false;ui.result.hidden=true;ui.setupOverlay.textContent=fromExploration?'Return to Valmora':'Choose mission';this.closeDrawer();this.closeLog();this.showHelp(false);
     this.log(this.scenario.name+': '+this.scenario.objective);
     this.log('Round 1 begins. Choose any ready hero.');
     this.message('Choose any ready hero to begin.');
@@ -203,7 +206,13 @@ class Game{
   }
 
   showSetup(){
-    this.gameOver=true;this.busy=false;this.activeId=undefined;ui.shell.hidden=true;ui.title.hidden=false;ui.result.hidden=true;this.closeDrawer();this.closeLog();
+    this.gameOver=true;this.busy=false;this.activeId=undefined;this.launchedFromExploration=false;ui.shell.hidden=true;ui.title.hidden=false;ui.result.hidden=true;this.closeDrawer();this.closeLog();
+  }
+
+  leaveBattle(){
+    if(!this.launchedFromExploration){this.showSetup();return;}
+    this.gameOver=true;this.busy=false;this.activeId=undefined;ui.shell.hidden=true;ui.drawer.hidden=true;ui.result.hidden=true;this.closeDrawer();this.closeLog();
+    window.dispatchEvent(new CustomEvent('tactics:return-to-exploration',{detail:{scenario:this.scenario.id}}));
   }
 
   active(){return this.activeId?this.unit(this.activeId):undefined;}
@@ -327,7 +336,7 @@ class Game{
   endGame(victory:boolean,copy:string){
     this.gameOver=true;this.busy=false;this.activeId=undefined;ui.result.hidden=false;
     ui.result.querySelector('.eyebrow')!.textContent=victory?'MISSION COMPLETE':'MISSION FAILED';
-    ui.resultTitle.textContent=victory?'Victory':'Defeat';ui.resultCopy.textContent=copy;this.log((victory?'Victory — ':'Defeat — ')+copy);this.render();
+    ui.resultTitle.textContent=victory?'Victory':'Defeat';ui.resultCopy.textContent=copy;ui.setupOverlay.textContent=this.launchedFromExploration?'Return to Valmora':'Choose mission';this.log((victory?'Victory — ':'Defeat — ')+copy);this.render();
   }
 
   makeSnapshot():GameSnapshot{

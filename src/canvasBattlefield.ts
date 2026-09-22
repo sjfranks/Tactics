@@ -5,7 +5,7 @@ const canvases=canvasClasses.map(className=>{const canvas=document.createElement
 const [groundCanvas,tokenCanvas,statusCanvas]=canvases;
 const asset=(path:string)=>import.meta.env.BASE_URL+'assets/'+path;
 const load=(path:string)=>{const image=new Image();image.decoding='async';image.src=asset(path);return image;};
-const background=load('encounters/meadow-6x8.webp');
+const background=load('encounters/avaran-arena-6x8.webp');
 const legacyUnits=load('emblem/units.png');
 const heroes=load('encounters/heroes-atlas.webp');
 const enemies=load('encounters/tactics48-enemies-atlas.webp');
