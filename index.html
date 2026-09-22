@@ -53,18 +53,12 @@
     <main id="exploration-shell" class="exploration-shell" aria-label="Explore Valmora" hidden>
       <canvas id="exploration-canvas" class="exploration-canvas" aria-label="Free-roaming exploration map"></canvas>
 
-      <header class="exploration-header">
-        <div><small>AVARAN · VALMORA</small><strong>Outer Quarter</strong></div>
-        <span class="exploration-status"><i></i> Arena trials available</span>
-      </header>
-
       <nav class="exploration-menu-buttons" aria-label="Exploration menus">
         <button id="explore-map-button" type="button" aria-label="Open map" title="Map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 5 5-2 8 3 5-2v15l-5 2-8-3-5 2Z M8 3v15M16 6v15"></path></svg></button>
         <button id="explore-party-button" type="button" aria-label="Open party" title="Party"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"></circle><circle cx="17" cy="9" r="2.5"></circle><path d="M3 20c.4-4 2.1-6 5-6s4.6 2 5 6M13 16c1-.9 2.3-1.3 3.7-1.3 2.5 0 3.9 1.7 4.3 5.3"></path></svg></button>
         <button id="explore-journal-button" type="button" aria-label="Open journal" title="Journal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h12a2 2 0 0 1 2 2v16H7a2 2 0 0 1-2-2ZM8 7h8M8 11h8M8 15h5"></path></svg></button>
+        <button id="explore-settings-button" type="button" aria-label="Open settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2h4l.6 2.4 1.9.8 2.1-1.3 2.8 2.8-1.3 2.1.8 1.9L23 11v4l-2.4.6-.8 1.9 1.3 2.1-2.8 2.8-2.1-1.3-1.9.8L14 24h-4l-.6-2.4-1.9-.8-2.1 1.3-2.8-2.8 1.3-2.1-.8-1.9L1 15v-4l2.4-.6.8-1.9-1.3-2.1 2.8-2.8 2.1 1.3 1.9-.8Z" transform="translate(0 -1) scale(.92)"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
       </nav>
-
-      <div id="explore-context" class="explore-context" aria-live="polite"><b>Explore Valmora</b><span>Drag the movement circle to walk</span></div>
 
       <button id="explore-interact" class="explore-interact" type="button" aria-label="Interact" title="Interact">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V6a1.5 1.5 0 0 1 3 0v4-6a1.5 1.5 0 0 1 3 0v6-5a1.5 1.5 0 0 1 3 0v6-3a1.5 1.5 0 0 1 3 0v6c0 4-3 7-7 7h-1c-3 0-5-1-7-4l-2-3a1.6 1.6 0 0 1 2.5-2Z"></path></svg>
@@ -87,6 +81,26 @@
           <small id="explore-menu-kicker">VALMORA</small><h2 id="explore-menu-title">Map</h2>
           <div id="explore-menu-content"></div>
         </div>
+      </section>
+
+      <section id="mask-editor" class="mask-editor" hidden aria-label="Map mask editor">
+        <div class="mask-editor-header"><div><small>DEVELOPER MODE · AVARAN</small><h2>Map masks</h2></div><button id="mask-close" type="button">Close</button></div>
+        <div class="mask-editor-toolbar">
+          <label>Show<select id="mask-filter"><option value="collision">Impassable</option><option value="foreground">Go-behind</option><option value="all">Both layers</option></select></label>
+          <button id="mask-add" type="button">+ New area</button><button id="mask-finish" type="button" hidden>Finish outline</button>
+        </div>
+        <canvas id="mask-editor-canvas" aria-label="Editable map mask polygons. Tap a mask to select it, drag a vertex to reshape it, or drag empty space to pan."></canvas>
+        <div class="mask-editor-zoom"><button id="mask-zoom-out" type="button" aria-label="Zoom out">−</button><span id="mask-zoom-value">1×</span><button id="mask-zoom-in" type="button" aria-label="Zoom in">+</button><button id="mask-zoom-reset" type="button">Fit</button></div>
+        <div class="mask-editor-inspector">
+          <label>Area<select id="mask-zone-list"></select></label>
+          <label>Name<input id="mask-name" type="text" maxlength="100"></label>
+          <div class="mask-editor-fields"><label>Layer<select id="mask-kind"><option value="collision">Impassable</option><option value="foreground">Go-behind</option></select></label><label>Image to reveal<select id="mask-source"></select></label></div>
+          <label id="mask-depth-row">Foreground depth (feet Y)<input id="mask-depth" type="number" min="0" max="1024" step="1"></label>
+          <div class="mask-editor-actions"><button id="mask-vertex-add" type="button">+ Vertex</button><button id="mask-vertex-delete" type="button">− Vertex</button><button id="mask-zone-delete" type="button">Delete area</button></div>
+        </div>
+        <p id="mask-editor-hint" class="mask-editor-hint">Choose an area, then drag its handles. Drag empty space to pan. Zoom in for accurate edges.</p>
+        <div class="mask-editor-footer"><button id="mask-defaults" type="button">Load defaults</button><button id="mask-import" type="button">Import JSON</button><button id="mask-export" type="button">Export JSON</button><button id="mask-save" type="button">Save masks</button></div>
+        <input id="mask-import-file" type="file" accept="application/json,.json" hidden>
       </section>
 
       <section id="arena-panel" class="explore-modal arena-panel" hidden aria-label="Arena trials">
@@ -116,7 +130,7 @@
       <section class="battlefield-viewport">
         <div id="battlefield-frame" class="battlefield-frame"><div id="battlefield" class="battlefield" aria-label="Six by eight tactical battlefield"></div></div>
 
-        <p id="instruction" class="instruction" aria-live="polite">Choose a ready hero.</p>
+        <p id="instruction" class="instruction" aria-live="polite">Roll initiative to begin.</p>
 
         <div id="combat-log-panel" class="combat-log-panel" hidden>
           <div class="combat-log-heading"><strong>Battle Chronicle</strong><button id="log-close" type="button" aria-label="Close combat log">×</button></div>
@@ -147,7 +161,7 @@
           <button id="utility-toggle" class="hud-circle utility-toggle" type="button" aria-label="Show game controls" aria-expanded="false" title="Controls"><svg class="chevron-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 14.5 5.5-5 5.5 5"></path></svg></button>
         </div>
 
-        <aside id="activation-drawer" class="initiative-drawer" aria-label="Unit readiness" aria-hidden="true">
+        <aside id="activation-drawer" class="initiative-drawer" aria-label="Initiative order" aria-hidden="true">
           <div class="rail-heading"><small>ROUND <span id="rail-round">1</span></small><b>Ready</b></div>
           <div id="activation-rail" class="initiative-rail" role="list"></div>
         </aside>
@@ -186,7 +200,7 @@
         <button id="help-close" class="drawer-close" type="button" aria-label="Close rules">×</button>
         <p class="title-kicker">QUICK RULES</p><h2>Tactics 48</h2>
         <div class="help-grid">
-          <article><b>Activation</b><p>Choose any ready hero. Take one Move and one Action in either order. Powers can add extra movement.</p></article>
+          <article><b>Initiative</b><p>Units roll d20 + Agility at the start of battle. Tap the current hero when their turn arrives. Move orthogonally and take one Action in either order; powers can add extra movement.</p></article>
           <article><b>No whiffs</b><p>Roll 2d6 + Might, Agility or Will against Defense. Every attack produces a Tier 1, 2 or 3 result.</p></article>
           <article><b>Position</b><p>Flank from opposite sides for +1. Leaving engagement costs +1 Move. Cover adds +1 Defense against ranged attacks.</p></article>
           <article><b>Momentum</b><p>Earn it from flanks, defeating enemies, objectives and terrain plays. Spend the shared pool on Heroic powers.</p></article>

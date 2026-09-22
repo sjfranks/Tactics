@@ -4,10 +4,10 @@
   "version": "0.3.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "vite --configLoader runner",
+    "build": "vite build --configLoader runner",
     "typecheck": "tsc -b",
-    "preview": "vite preview"
+    "preview": "vite preview --configLoader runner"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

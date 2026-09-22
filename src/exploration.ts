@@ -1,10 +1,11 @@
 export {};
+import {MAP_WIDTH,MAP_HEIGHT,circleTouchesPolygon,loadMasks,polygonBounds,pointInside,type MaskZone} from './explorationMasks';
+import {createMaskEditor} from './maskEditor';
 
 type Vec={x:number;y:number};
-type Rect={x:number;y:number;w:number;h:number};
 type ScenarioId='broken-gate'|'ember-shrine'|'rescue-run';
 type TacticsApi={start:(scenario:ScenarioId,enemies?:number,fromExploration?:boolean)=>void;getState:()=>unknown;game?:unknown};
-type Prop={id:string;cell:number;x:number;y:number;w:number;h:number;solid?:Rect;occlusion?:Rect};
+type Prop={id:string;cell:number;x:number;y:number;w:number;h:number};
 type TownInteraction={
   id:string;name:string;x:number;y:number;cell?:number;kind:'npc'|'object'|'arena';
   lines:string[];scenario?:ScenarioId;radius?:number;
@@ -27,7 +28,6 @@ const battle=$<HTMLElement>('#game-shell');
 const unitDrawer=$<HTMLElement>('#unit-drawer');
 const stick=$<HTMLElement>('#explore-stick');
 const knob=$<HTMLElement>('#explore-stick-knob');
-const contextCard=$<HTMLElement>('#explore-context');
 const interactButton=$<HTMLButtonElement>('#explore-interact');
 const dialogue=$<HTMLElement>('#explore-dialogue');
 const dialogueSpeaker=$<HTMLElement>('#dialogue-speaker');
@@ -44,13 +44,12 @@ const arenaEncounters=$<HTMLElement>('#arena-encounters');
 const arenaEnemyCount=$<HTMLSelectElement>('#arena-enemy-count');
 const toast=$<HTMLElement>('#explore-toast');
 
-const WORLD_W=1536;
-const WORLD_H=1024;
+const WORLD_W=MAP_WIDTH;
+const WORLD_H=MAP_HEIGHT;
 const PLAYER_RADIUS=15;
 const asset=(path:string)=>import.meta.env.BASE_URL+'assets/'+path;
 const clamp=(value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
-const inRect=(point:Vec,rect:Rect)=>point.x>=rect.x&&point.x<=rect.x+rect.w&&point.y>=rect.y&&point.y<=rect.y+rect.h;
 
 function loadImage(path:string){
   const image=new Image();
@@ -65,22 +64,14 @@ const npcAtlas=loadImage('exploration/avaran-npcs.webp');
 const heroAtlas=loadImage('encounters/heroes-atlas.webp');
 
 const props:Prop[]=[
-  {id:'sarano-house',cell:0,x:275,y:354,w:350,h:350,solid:{x:118,y:215,w:314,h:142},occlusion:{x:100,y:54,w:350,h:300}},
-  {id:'sun-inn',cell:1,x:620,y:330,w:320,h:320,solid:{x:490,y:208,w:270,h:126},occlusion:{x:470,y:54,w:300,h:270}},
-  {id:'arena-gate',cell:2,x:965,y:286,w:360,h:300,solid:{x:818,y:190,w:300,h:92},occlusion:{x:810,y:30,w:320,h:250}},
-  {id:'old-olive',cell:3,x:355,y:842,w:290,h:290,solid:{x:317,y:794,w:82,h:66},occlusion:{x:215,y:570,w:285,h:275}},
-  {id:'cypress-wall',cell:4,x:704,y:790,w:260,h:300,solid:{x:594,y:742,w:228,h:58},occlusion:{x:580,y:500,w:250,h:286}},
-  {id:'varite-shrine',cell:5,x:265,y:722,w:225,h:225,solid:{x:190,y:670,w:154,h:64},occlusion:{x:175,y:515,w:180,h:210}}
+  {id:'sarano-house',cell:0,x:275,y:354,w:350,h:350},
+  {id:'sun-inn',cell:1,x:620,y:330,w:320,h:320},
+  {id:'arena-gate',cell:2,x:965,y:286,w:360,h:300},
+  {id:'old-olive',cell:3,x:355,y:842,w:290,h:290},
+  {id:'cypress-wall',cell:4,x:704,y:790,w:260,h:300},
+  {id:'varite-shrine',cell:5,x:265,y:722,w:225,h:225}
 ];
-
-const staticColliders:Rect[]=[
-  {x:0,y:0,w:58,h:WORLD_H},
-  {x:0,y:0,w:WORLD_W,h:42},
-  {x:0,y:974,w:WORLD_W,h:50},
-  {x:820,y:82,w:300,h:72},
-  {x:55,y:62,w:210,h:92},
-  {x:1060,y:728,w:226,h:112}
-];
+let masks:MaskZone[]=loadMasks();
 
 const interactions:TownInteraction[]=[
   {id:'ilyra',name:'Ilyra Sanz',x:752,y:482,cell:0,kind:'npc',lines:[
@@ -137,6 +128,7 @@ const party:PartyMember[]=[
 let objectCells:HTMLCanvasElement[]=[];
 let npcCells:HTMLCanvasElement[]=[];
 let heroCells:HTMLCanvasElement[]=[];
+const bottomInsets=new WeakMap<HTMLCanvasElement,number>();
 let assetsReady=false;
 let active=false;
 let input:Vec={x:0,y:0};
@@ -147,7 +139,7 @@ let nearest:TownInteraction|undefined;
 let toastTimer=0;
 let dialogueState:{speaker:string;lines:string[];index:number;onComplete?:()=>void}|undefined;
 let stickPointer:number|undefined;
-let stickStart=0;
+let stickOrigin:Vec={x:0,y:0};
 let stickMoved=false;
 let keyboardInput:Vec={x:0,y:0};
 
@@ -168,6 +160,10 @@ function extractAtlas(image:HTMLImageElement,cols:number,rows:number){
       const alpha=clamp((difference-18)/54,0,1);
       data[index+3]=Math.round(copy[index+3]*alpha);
     }
+    for(let y=sourceH-1;y>=0;y--){
+      let solid=0;for(let x=0;x<sourceW;x++)if(data[(y*sourceW+x)*4+3]>100)solid++;
+      if(solid>=4){bottomInsets.set(cell,sourceH-1-y);break;}
+    }
     cellContext.clearRect(0,0,sourceW,sourceH);cellContext.putImageData(imageData,0,0);cells.push(cell);
   }
   return cells;
@@ -180,16 +176,11 @@ Promise.all([groundImage.decode(),objectAtlas.decode(),npcAtlas.decode(),heroAtl
   assetsReady=true;
 }).catch(()=>{assetsReady=false;});
 
-function isPaused(){return!dialogue.hidden||!menuModal.hidden||!arenaPanel.hidden;}
+function isPaused(){return!dialogue.hidden||!menuModal.hidden||!arenaPanel.hidden||editor.isOpen();}
 
 function blocked(x:number,y:number){
   if(x<PLAYER_RADIUS||y<PLAYER_RADIUS||x>WORLD_W-PLAYER_RADIUS||y>WORLD_H-PLAYER_RADIUS)return true;
-  const point={x,y};
-  const onBridge=y>430&&y<590;
-  if(x>1287&&!onBridge)return true;
-  const hits=(rect:Rect)=>x+PLAYER_RADIUS>rect.x&&x-PLAYER_RADIUS<rect.x+rect.w&&y+PLAYER_RADIUS>rect.y&&y-PLAYER_RADIUS<rect.y+rect.h;
-  if(staticColliders.some(hits))return true;
-  return props.some(prop=>prop.solid&&hits(prop.solid));
+  return masks.some(mask=>mask.kind==='collision'&&circleTouchesPolygon({x,y},PLAYER_RADIUS,mask.points));
 }
 
 function moveParty(delta:number){
@@ -219,28 +210,42 @@ function resize(){
   canvas.style.width=rect.width+'px';canvas.style.height=rect.height+'px';
 }
 
-function occluded(point:Vec){return props.some(prop=>prop.occlusion&&point.y<prop.y+4&&inRect(point,prop.occlusion));}
-
-function drawPlaceholder(x:number,y:number,color:string,alpha=1){
-  context.save();context.globalAlpha=alpha;context.fillStyle='rgba(12,18,21,.45)';context.beginPath();context.ellipse(x,y+2,21,8,0,0,Math.PI*2);context.fill();
+function drawPlaceholder(x:number,y:number,color:string){
+  context.save();context.fillStyle='rgba(12,18,21,.45)';context.beginPath();context.ellipse(x,y+2,21,8,0,0,Math.PI*2);context.fill();
   context.fillStyle=color;context.beginPath();context.arc(x,y-23,12,0,Math.PI*2);context.fill();context.fillRect(x-13,y-18,26,24);context.restore();
 }
 
-function drawCell(cell:HTMLCanvasElement|undefined,x:number,y:number,w:number,h:number,alpha=1,bob=0){
-  if(!cell)return false;context.save();context.globalAlpha=alpha;context.drawImage(cell,x-w/2,y-h+bob,w,h);context.restore();return true;
+function drawCell(cell:HTMLCanvasElement|undefined,x:number,y:number,w:number,h:number,footOffset=0,ctx=context){
+  if(!cell)return false;ctx.drawImage(cell,x-w/2,y-h+footOffset,w,h);return true;
+}
+function groundedOffset(cell:HTMLCanvasElement|undefined,height:number){return cell?height*(bottomInsets.get(cell)??0)/cell.height+2:0;}
+
+function drawProp(prop:Prop,ctx=context){
+  const cell=objectCells[prop.cell];
+  if(!drawCell(cell,prop.x,prop.y,prop.w,prop.h,0,ctx)){
+    ctx.fillStyle='rgba(121,83,47,.8)';ctx.fillRect(prop.x-prop.w*.35,prop.y-prop.h*.45,prop.w*.7,prop.h*.45);
+  }
 }
 
-function drawProp(prop:Prop){
-  const cell=objectCells[prop.cell];
-  if(!drawCell(cell,prop.x,prop.y,prop.w,prop.h)){
-    context.fillStyle='rgba(121,83,47,.8)';context.fillRect(prop.x-prop.w*.35,prop.y-prop.h*.45,prop.w*.7,prop.h*.45);
+function overlayForeground(point:Vec,height:number,width:number){
+  for(const mask of masks){
+    if(mask.kind!=='foreground'||point.y>=(mask.depthY??polygonBounds(mask.points).y1))continue;
+    const bounds=polygonBounds(mask.points);
+    if(point.x+width/2<bounds.x0||point.x-width/2>bounds.x1||point.y+6<bounds.y0||point.y-height>bounds.y1)continue;
+    context.save();context.beginPath();mask.points.forEach((vertex,index)=>index?context.lineTo(vertex.x,vertex.y):context.moveTo(vertex.x,vertex.y));context.closePath();context.clip();
+    if(mask.source&&mask.source!=='ground'){
+      const prop=props.find(item=>item.id===mask.source);if(prop)drawProp(prop);
+    }else if(groundImage.complete&&groundImage.naturalWidth)context.drawImage(groundImage,0,0,WORLD_W,WORLD_H);
+    context.restore();
   }
 }
 
 function drawNpc(npc:TownInteraction,time:number){
-  const alpha=occluded(npc)?.32:1,bob=Math.sin(time*.002+npc.x)*1.2;
-  context.save();context.globalAlpha=alpha;context.fillStyle='rgba(10,17,20,.42)';context.beginPath();context.ellipse(npc.x,npc.y+2,19,7,0,0,Math.PI*2);context.fill();context.restore();
-  if(!drawCell(npc.cell===undefined?undefined:npcCells[npc.cell],npc.x,npc.y,72,96,alpha,bob))drawPlaceholder(npc.x,npc.y,'#a57146',alpha);
+  const bob=Math.sin(time*.002+npc.x)*.5;
+  context.save();context.fillStyle='rgba(10,17,20,.42)';context.beginPath();context.ellipse(npc.x,npc.y+2,19,7,0,0,Math.PI*2);context.fill();context.restore();
+  const cell=npc.cell===undefined?undefined:npcCells[npc.cell];
+  if(!drawCell(cell,npc.x,npc.y,72,96,groundedOffset(cell,96)+bob))drawPlaceholder(npc.x,npc.y,'#a57146');
+  overlayForeground(npc,96,72);
   if(nearest?.id===npc.id){
     context.save();context.strokeStyle='#ffe5a0';context.lineWidth=2;context.beginPath();context.ellipse(npc.x,npc.y+1,27,12,0,0,Math.PI*2);context.stroke();
     context.fillStyle='#fff3bd';context.strokeStyle='#38210f';context.lineWidth=3;context.font='900 20px Georgia';context.textAlign='center';context.strokeText('!',npc.x,npc.y-76);context.fillText('!',npc.x,npc.y-76);context.restore();
@@ -248,11 +253,14 @@ function drawNpc(npc:TownInteraction,time:number){
 }
 
 function drawParty(member:PartyMember,index:number,time:number){
-  const alpha=occluded(member)?.3:1,bob=Math.sin(time*.011-index*.8)*(Math.hypot(input.x+keyboardInput.x,input.y+keyboardInput.y)>.1?2:0);
-  context.save();context.globalAlpha=alpha;context.fillStyle='rgba(7,14,18,.5)';context.beginPath();context.ellipse(member.x,member.y+3,index?18:22,index?6:8,0,0,Math.PI*2);context.fill();
+  const bob=Math.sin(time*.011-index*.8)*(Math.hypot(input.x+keyboardInput.x,input.y+keyboardInput.y)>.1?1:0);
+  context.save();context.fillStyle='rgba(7,14,18,.5)';context.beginPath();context.ellipse(member.x,member.y+3,index?18:22,index?6:8,0,0,Math.PI*2);context.fill();
   if(index===0){context.strokeStyle='#91e7ff';context.lineWidth=2;context.beginPath();context.ellipse(member.x,member.y+1,27,12,0,0,Math.PI*2);context.stroke();}context.restore();
   const cells=member.source==='heroes'?heroCells:npcCells;
-  if(!drawCell(cells[member.cell],member.x,member.y,index?70:78,index?82:92,alpha,bob))drawPlaceholder(member.x,member.y,member.color,alpha);
+  const spriteHeight=index?82:92,spriteWidth=index?70:78;
+  const cell=cells[member.cell];
+  if(!drawCell(cell,member.x,member.y,spriteWidth,spriteHeight,groundedOffset(cell,spriteHeight)+bob))drawPlaceholder(member.x,member.y,member.color);
+  overlayForeground(member,spriteHeight,spriteWidth);
 }
 
 function drawWorld(time:number){
@@ -266,8 +274,6 @@ function drawWorld(time:number){
   if(groundImage.complete&&groundImage.naturalWidth)context.drawImage(groundImage,0,0,WORLD_W,WORLD_H);
   else{context.fillStyle='#bf9b62';context.fillRect(0,0,WORLD_W,WORLD_H);}
 
-  context.save();context.globalAlpha=.14+.05*Math.sin(time*.0016);context.fillStyle='#71d7db';context.fillRect(1290,0,246,WORLD_H);context.restore();
-
   const drawable:Array<{y:number;draw:()=>void}>=props.map(prop=>({y:prop.y,draw:()=>drawProp(prop)}));
   for(const npc of interactions.filter(item=>item.cell!==undefined))drawable.push({y:npc.y,draw:()=>drawNpc(npc,time)});
   party.forEach((member,index)=>drawable.push({y:member.y,draw:()=>drawParty(member,index,time)}));
@@ -280,8 +286,8 @@ function drawWorld(time:number){
 function updateNearest(){
   const candidate=interactions.map(item=>({item,distance:distance(lead,item)})).filter(entry=>entry.distance<=(entry.item.radius??78)).sort((a,b)=>a.distance-b.distance)[0]?.item;
   if(candidate?.id===nearest?.id)return;nearest=candidate;
-  if(nearest){contextCard.innerHTML='<b>'+nearest.name+'</b><span>Tap the movement circle to '+(nearest.kind==='arena'?'enter the arena':'interact')+'</span>';contextCard.classList.add('active');interactButton.classList.add('active');}
-  else{contextCard.innerHTML='<b>Explore Valmora</b><span>Drag the movement circle to walk</span>';contextCard.classList.remove('active');interactButton.classList.remove('active');}
+  interactButton.classList.toggle('active',Boolean(nearest));
+  interactButton.title=nearest?'Interact with '+nearest.name:'Interact';
 }
 
 function frame(time:number){
@@ -296,28 +302,36 @@ function resetStick(){input={x:0,y:0};knob.style.transform='translate3d(0,0,0)';
 function setStickFromPointer(event:PointerEvent){
   const rect=stick.getBoundingClientRect(),centre={x:rect.left+rect.width/2,y:rect.top+rect.height/2},dx=event.clientX-centre.x,dy=event.clientY-centre.y,max=rect.width*.31,length=Math.hypot(dx,dy)||1,scale=Math.min(1,max/length),x=dx*scale,y=dy*scale;
   input={x:x/max,y:y/max};knob.style.transform='translate3d('+x+'px,'+y+'px,0)';
-  if(Math.hypot(x,y)>8){stickMoved=true;stick.classList.add('moving');}
+  stick.classList.add('moving');
 }
 
 stick.addEventListener('pointerdown',event=>{
-  if(isPaused())return;event.preventDefault();stickPointer=event.pointerId;stickStart=performance.now();stickMoved=false;stick.setPointerCapture(event.pointerId);setStickFromPointer(event);
+  if(isPaused())return;event.preventDefault();stickPointer=event.pointerId;stickOrigin={x:event.clientX,y:event.clientY};stickMoved=false;stick.setPointerCapture(event.pointerId);
 });
-stick.addEventListener('pointermove',event=>{if(event.pointerId===stickPointer)setStickFromPointer(event);});
+stick.addEventListener('pointermove',event=>{
+  if(event.pointerId!==stickPointer)return;
+  if(!stickMoved&&Math.hypot(event.clientX-stickOrigin.x,event.clientY-stickOrigin.y)>18)stickMoved=true;
+  if(stickMoved)setStickFromPointer(event);
+});
 const releaseStick=(event:PointerEvent)=>{
-  if(event.pointerId!==stickPointer)return;const tapped=!stickMoved&&performance.now()-stickStart<350;stickPointer=undefined;resetStick();if(tapped)interact();
+  if(event.pointerId!==stickPointer)return;
+  const tapped=!stickMoved&&Math.hypot(event.clientX-stickOrigin.x,event.clientY-stickOrigin.y)<=24;
+  stickPointer=undefined;resetStick();if(tapped)interact();
 };
 stick.addEventListener('pointerup',releaseStick);stick.addEventListener('pointercancel',event=>{if(event.pointerId===stickPointer){stickPointer=undefined;resetStick();}});
 
 const keys=new Set<string>();
 window.addEventListener('keydown',event=>{
+  if(!active||isPaused()||event.target instanceof HTMLInputElement||event.target instanceof HTMLTextAreaElement||event.target instanceof HTMLSelectElement)return;
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d',' '].includes(event.key))event.preventDefault();
-  if(event.key===' '&&!isPaused()){interact();return;}keys.add(event.key.toLowerCase());updateKeyboard();
+  if(event.key===' '){interact();return;}keys.add(event.key.toLowerCase());updateKeyboard();
 });
 window.addEventListener('keyup',event=>{keys.delete(event.key.toLowerCase());updateKeyboard();});
 function updateKeyboard(){keyboardInput={x:Number(keys.has('arrowright')||keys.has('d'))-Number(keys.has('arrowleft')||keys.has('a')),y:Number(keys.has('arrowdown')||keys.has('s'))-Number(keys.has('arrowup')||keys.has('w'))};}
+function clearMovementKeys(){keys.clear();updateKeyboard();}
 
 function openDialogue(speaker:string,lines:string[],onComplete?:()=>void){
-  resetStick();dialogueState={speaker,lines,index:0,onComplete};dialogueSpeaker.textContent=speaker;dialogueCopy.textContent=lines[0];dialogueNext.innerHTML=lines.length>1?'Continue <span>›</span>':'Close <span>›</span>';dialogue.hidden=false;
+  resetStick();clearMovementKeys();dialogueState={speaker,lines,index:0,onComplete};dialogueSpeaker.textContent=speaker;dialogueCopy.textContent=lines[0];dialogueNext.innerHTML=lines.length>1?'Continue <span>›</span>':'Close <span>›</span>';dialogue.hidden=false;
 }
 
 function advanceDialogue(){
@@ -339,23 +353,39 @@ function showToast(copy:string){
   window.clearTimeout(toastTimer);toast.textContent=copy;toast.hidden=false;requestAnimationFrame(()=>toast.classList.add('visible'));toastTimer=window.setTimeout(()=>{toast.classList.remove('visible');window.setTimeout(()=>toast.hidden=true,180);},1800);
 }
 
-function openMenu(kind:'map'|'party'|'journal'){
-  resetStick();menuModal.hidden=false;
+const editor=createMaskEditor({
+  getMasks:()=>masks,
+  onSave:saved=>{masks=saved;showToast('Map masks saved on this device.');},
+  drawBase:ctx=>{
+    if(groundImage.complete&&groundImage.naturalWidth)ctx.drawImage(groundImage,0,0,WORLD_W,WORLD_H);
+    else{ctx.fillStyle='#c49c67';ctx.fillRect(0,0,WORLD_W,WORLD_H);}
+    props.slice().sort((a,b)=>a.y-b.y).forEach(prop=>drawProp(prop,ctx));
+  }
+});
+
+function openMenu(kind:'map'|'party'|'journal'|'settings'){
+  resetStick();clearMovementKeys();menuModal.hidden=false;
   if(kind==='map'){
     menuKicker.textContent='VALMORA · OUTER QUARTER';menuTitle.textContent='Settlement map';
-    menuContent.innerHTML='<div class="settlement-map"><span class="map-you">You are here</span><i class="map-arena">Free Arena</i><i class="map-market">Market</i><i class="map-shrine">Old Spring</i><i class="map-river">Pell River</i></div><p class="menu-note">The Free Arena stands north-east of the central market. The river can only be crossed at the stone bridge.</p>';
+    const dots=party.map((member,index)=>'<circle cx="'+member.x.toFixed(1)+'" cy="'+member.y.toFixed(1)+'" r="'+(index?10:15)+'" fill="'+member.color+'" stroke="#172925" stroke-width="5" class="map-party-dot"/><circle cx="'+member.x.toFixed(1)+'" cy="'+member.y.toFixed(1)+'" r="'+(index?10:15)+'" fill="none" stroke="#fff2c0" stroke-width="3"/>').join('');
+    menuContent.innerHTML='<div class="settlement-map"><img src="'+asset('exploration/avaran-ground.webp')+'" alt="Map of Valmora’s Outer Quarter"/><svg viewBox="0 0 1536 1024" aria-label="Party position"><circle cx="'+lead.x+'" cy="'+lead.y+'" r="32" fill="rgba(255,227,145,.22)" stroke="#fff1b7" stroke-width="5"/>'+dots+'</svg><i class="map-arena">Free Arena</i><i class="map-market">Market</i><i class="map-shrine">Old Spring</i><i class="map-river">Pell River</i></div><p class="menu-note">Coloured circles show the company’s exact positions. The river can only be crossed at the stone bridge.</p>';
   }else if(kind==='party'){
     menuKicker.textContent='YOUR COMPANY';menuTitle.textContent='Party';
     menuContent.innerHTML='<div class="explore-party-list">'+party.map((member,index)=>'<article><span class="party-gem" style="--party:'+member.color+'">'+(index+1)+'</span><div><b>'+member.name+'</b><small>'+member.role+'</small></div><strong>'+['24','18','16','20'][index]+' HP</strong></article>').join('')+'</div><p class="menu-note">The party follows Garrick in formation. All four heroes enter arena encounters together.</p>';
-  }else{
+  }else if(kind==='journal'){
     menuKicker.textContent='FIELD JOURNAL';menuTitle.textContent='Current leads';
     menuContent.innerHTML='<div class="journal-list"><article><small>ACTIVE</small><b>Prove the company</b><p>Speak with one of the three masters at the Free Arena and complete a tactical trial.</p></article><article><small>RUMOUR</small><b>Late grain</b><p>Market steward Ilyra says House Sarano has doubled the mountain-road toll.</p></article><article><small>RUMOUR</small><b>Pretty chains</b><p>Varite workers are speaking more openly about the Great Houses.</p></article></div>';
+  }else{
+    menuKicker.textContent='EXPLORATION';menuTitle.textContent='Settings';
+    menuContent.innerHTML='<div class="settings-list"><article><small>DEVELOPER MODE</small><b>Edit map masks</b><p>Trace impassable ground and foreground art directly on the settlement. Drag vertices, add or remove areas, then save your work on this device.</p><button id="open-mask-editor" type="button">Open mask editor</button></article><p class="menu-note">Export a JSON backup from the editor if you want to move your masks between devices.</p></div>';
+    menuContent.querySelector<HTMLButtonElement>('#open-mask-editor')!.addEventListener('click',()=>{menuModal.hidden=true;editor.open();});
   }
 }
 
 $<HTMLButtonElement>('#explore-map-button').addEventListener('click',()=>openMenu('map'));
 $<HTMLButtonElement>('#explore-party-button').addEventListener('click',()=>openMenu('party'));
 $<HTMLButtonElement>('#explore-journal-button').addEventListener('click',()=>openMenu('journal'));
+$<HTMLButtonElement>('#explore-settings-button').addEventListener('click',()=>openMenu('settings'));
 menuClose.addEventListener('click',()=>menuModal.hidden=true);menuModal.addEventListener('click',event=>{if(event.target===menuModal)menuModal.hidden=true;});
 
 function renderEncounters(preferred?:ScenarioId){
@@ -375,9 +405,9 @@ function launchEncounter(id:ScenarioId){
 arenaClose.addEventListener('click',()=>arenaPanel.hidden=true);arenaPanel.addEventListener('click',event=>{if(event.target===arenaPanel)arenaPanel.hidden=true;});
 
 function show(){
-  active=true;title.hidden=true;battle.hidden=true;unitDrawer.hidden=true;shell.hidden=false;dialogue.hidden=true;menuModal.hidden=true;arenaPanel.hidden=true;lastTime=performance.now();resize();
+  active=true;title.hidden=true;battle.hidden=true;unitDrawer.hidden=true;shell.hidden=false;dialogue.hidden=true;menuModal.hidden=true;arenaPanel.hidden=true;editor.close();lastTime=performance.now();resize();
 }
-function hide(){active=false;resetStick();shell.hidden=true;dialogue.hidden=true;menuModal.hidden=true;arenaPanel.hidden=true;}
+function hide(){active=false;resetStick();clearMovementKeys();editor.close();shell.hidden=true;dialogue.hidden=true;menuModal.hidden=true;arenaPanel.hidden=true;}
 
 window.addEventListener('resize',resize);
 window.addEventListener('tactics:explore',()=>{show();showToast('Find the three arena masters north-east of the market.');});
@@ -386,6 +416,6 @@ window.addEventListener('tactics:return-to-exploration',()=>{show();showToast('T
 
 window.__EXPLORATION__={
   show,hide,interact,
-  state:()=>({active,lead:{...lead},camera:{...camera},nearest:nearest?.id,assetsReady,party:party.map(member=>({name:member.name,x:Math.round(member.x),y:Math.round(member.y)}))}),
+  state:()=>({active,lead:{...lead},camera:{...camera},nearest:nearest?.id,assetsReady,masks:masks.length,editorOpen:editor.isOpen(),party:party.map(member=>({name:member.name,x:Math.round(member.x),y:Math.round(member.y)}))}),
   teleportToArena:()=>{lead.x=960;lead.y=420;trail=[{...lead}];party.forEach(member=>{member.x=lead.x;member.y=lead.y;});camera={...lead};updateNearest();}
 };

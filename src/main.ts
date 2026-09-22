@@ -28,7 +28,7 @@ type Preview={
 };
 type GameSnapshot={
   units:Unit[];terrain:Terrain[];zones:Zone[];momentum:number;objective:ObjectiveState;
-  logEntries:LogEntry[];selectedId:string;activeId?:string;round:number;firstRoundFlankAwarded:boolean;
+  logEntries:LogEntry[];selectedId:string;activeId?:string;round:number;firstRoundFlankAwarded:boolean;initiativeIndex:number;
 };
 type RouteResult={path:Point[];cost:number};
 type RollResult={dice:[number,number];bonus:number;total:number;defense:number;tier:0|1|2;modifiers:string[]};
@@ -86,6 +86,9 @@ class Game{
   activeTeam:Team='player';
   activeId?:string;
   selectedId='';
+  initiativeOrder:string[]=[];
+  initiativeRolls:Record<string,number>={};
+  initiativeIndex=-1;
   momentum=0;
   objective:ObjectiveState={sigils:0,hold:0,rescued:false};
   firstRoundFlankAwarded=false;
@@ -167,6 +170,10 @@ class Game{
     this.round=1;
     this.activeTeam='player';
     this.activeId=undefined;
+    this.selectedId='';
+    this.initiativeIndex=-1;
+    this.initiativeOrder=[];
+    this.initiativeRolls={};
     this.momentum=0;
     this.objective={sigils:0,hold:0,rescued:false};
     this.firstRoundFlankAwarded=false;
@@ -190,12 +197,35 @@ class Game{
       if(id==='broken-gate'&&index===0){unit.name='Orc War Chief';unit.hp=24;unit.maxHp=24;unit.defense=10;unit.elite=true;}
       this.units.push(unit);
     }
-    this.selectedId=this.units[0].id;
+    this.rollInitiative();
     ui.title.hidden=true;ui.shell.hidden=false;ui.drawer.hidden=false;ui.result.hidden=true;ui.setupOverlay.textContent=fromExploration?'Return to Valmora':'Choose mission';this.closeDrawer();this.closeLog();this.showHelp(false);
     this.log(this.scenario.name+': '+this.scenario.objective);
-    this.log('Round 1 begins. Choose any ready hero.');
-    this.message('Choose any ready hero to begin.');
+    this.log('Round 1 begins. Initiative: '+this.initiativeOrder.map(unitId=>this.unit(unitId)!.name+' '+this.initiativeRolls[unitId]).join(' · ')+'.');
+    void this.advanceInitiative();
+  }
+
+  rollInitiative(){
+    this.initiativeRolls=Object.fromEntries(this.units.map(unit=>[unit.id,Math.floor(Math.random()*20)+1+unit.agility]));
+    this.initiativeOrder=this.units.map(unit=>unit.id).sort((a,b)=>this.initiativeRolls[b]-this.initiativeRolls[a]||this.unit(b)!.agility-this.unit(a)!.agility||a.localeCompare(b));
+  }
+
+  async advanceInitiative(){
+    if(this.gameOver)return;
+    this.selectedId='';this.activeId=undefined;this.cancelTargeting(false);
+    this.initiativeIndex++;
+    while(this.initiativeIndex<this.initiativeOrder.length){
+      const unit=this.unit(this.initiativeOrder[this.initiativeIndex]);
+      if(unit&&unit.hp>0&&!unit.downed&&!unit.activated)break;
+      this.initiativeIndex++;
+    }
+    if(this.initiativeIndex>=this.initiativeOrder.length){await this.beginRound();return;}
+    const unit=this.unit(this.initiativeOrder[this.initiativeIndex])!;
+    this.activeId=unit.id;this.activeTeam=unit.team;
+    unit.moved=false;unit.acted=false;unit.bonusMove=0;this.removeStartEffects(unit);
+    this.log(unit.name+' takes the initiative ('+this.initiativeRolls[unit.id]+').');
     this.render();
+    if(unit.team==='player')this.message(unit.name+'’s turn. Tap '+unit.name+' to move or use a power.');
+    else{this.message(unit.name+'’s turn.');await delay(350);if(!this.gameOver&&this.activeId===unit.id)await this.runEnemyActivation();}
   }
 
   makeUnit(template:typeof HEROES[number],id:string,p:Point):Unit{
@@ -221,8 +251,6 @@ class Game{
   heroes(includeDowned=false){return this.units.filter(unit=>unit.team==='player'&&(includeDowned||!unit.downed)&&unit.hp>0);}
   enemies(){return this.units.filter(unit=>unit.team==='enemy'&&unit.hp>0);}
   combatants(){return this.units.filter(unit=>unit.team==='enemy'?unit.hp>0:true);}
-  ready(team:Team){return this.units.filter(unit=>unit.team===team&&!unit.activated&&unit.hp>0&&!unit.downed);}
-  hasReady(team:Team){return this.ready(team).length>0;}
   isActiveHero(unit:Unit){return unit.team==='player'&&unit.id===this.activeId&&this.activeTeam==='player'&&!this.gameOver;}
   terrainAt(p:Point,kind?:TerrainKind){return this.terrain.find(t=>t.x===p.x&&t.y===p.y&&(!kind||t.kind===kind));}
   unitAt(p:Point,includeDowned=true){return this.units.find(unit=>unit.x===p.x&&unit.y===p.y&&(unit.hp>0||(includeDowned&&unit.team==='player'&&unit.downed)));}
@@ -240,13 +268,10 @@ class Game{
 
   activateHero(unit:Unit){
     if(this.busy||this.gameOver||this.activeTeam!=='player'||unit.team!=='player'||unit.activated||unit.downed||unit.hp<=0)return;
-    const current=this.active();
-    if(current&&(current.moved||current.acted||current.bonusMove>0)){this.message('Finish '+current.name+'’s activation first.');return;}
-    this.activeId=unit.id;this.selectedId=unit.id;unit.moved=false;unit.acted=false;unit.bonusMove=0;
-    this.removeStartEffects(unit);
-    this.snapshot=this.makeSnapshot();
+    if(unit.id!==this.activeId){this.message('It is '+this.active()?.name+'’s turn.');return;}
+    this.selectedId=unit.id;
+    if(!this.snapshot)this.snapshot=this.makeSnapshot();
     this.cancelTargeting(false);
-    this.log(unit.name+' activates.');
     this.message(unit.name+': Move and take one Action in either order.');
     this.render();
   }
@@ -272,14 +297,9 @@ class Game{
       }
     }
     unit.bonusMove=0;
-    this.activeId=undefined;
     this.snapshot=undefined;
     if(this.checkGameOver())return;
-    if(this.hasReady('enemy')){
-      this.activeTeam='enemy';this.render();this.message('Enemy activation…');await delay(420);await this.runEnemyActivation();
-    }else if(this.hasReady('player')){
-      this.activeTeam='player';this.render();this.message('Choose another ready hero.');
-    }else await this.beginRound();
+    await this.advanceInitiative();
   }
 
   async completeEnemyActivation(unit:Unit){
@@ -288,11 +308,8 @@ class Game{
     for(const condition of ['Exposed','Rooted','Slowed'] as Condition[]){
       if(unit.conditions[condition]){unit.conditions[condition]!--;if((unit.conditions[condition]??0)<=0)delete unit.conditions[condition];}
     }
-    this.activeId=undefined;
     if(this.checkGameOver())return;
-    if(this.hasReady('player')){this.activeTeam='player';this.render();this.message('Choose a ready hero.');}
-    else if(this.hasReady('enemy')){this.activeTeam='enemy';this.render();await delay(320);await this.runEnemyActivation();}
-    else await this.beginRound();
+    await this.advanceInitiative();
   }
 
   async beginRound(){
@@ -303,9 +320,9 @@ class Game{
       this.endGame(false,'The enemy ritual overwhelms the shrine at the start of round '+this.round+'.');return;
     }
     for(const unit of this.units){unit.activated=false;unit.reactionUsed=false;unit.moved=false;unit.acted=false;unit.bonusMove=0;}
-    this.activeTeam='player';this.activeId=undefined;
+    this.activeId=undefined;this.selectedId='';this.initiativeIndex=-1;
     this.log('Round '+this.round+' begins.');
-    this.render();this.message('Round '+this.round+': choose any ready hero.');
+    await this.advanceInitiative();
   }
 
   scoreEndOfRound(){
@@ -342,7 +359,7 @@ class Game{
   makeSnapshot():GameSnapshot{
     return{units:this.units.map(cloneUnit),terrain:this.terrain.map(t=>({...t})),zones:this.zones.map(z=>({...z,cells:z.cells.map(p=>({...p}))})),
       momentum:this.momentum,objective:{...this.objective},logEntries:this.logEntries.map(e=>({...e})),selectedId:this.selectedId,
-      activeId:this.activeId,round:this.round,firstRoundFlankAwarded:this.firstRoundFlankAwarded};
+      activeId:this.activeId,round:this.round,firstRoundFlankAwarded:this.firstRoundFlankAwarded,initiativeIndex:this.initiativeIndex};
   }
 
   undoActivation(){
@@ -351,7 +368,7 @@ class Game{
     this.units=snapshot.units.map(cloneUnit);this.terrain=snapshot.terrain.map(t=>({...t}));
     this.zones=snapshot.zones.map(z=>({...z,cells:z.cells.map(p=>({...p}))}));this.momentum=snapshot.momentum;
     this.objective={...snapshot.objective};this.logEntries=snapshot.logEntries.map(e=>({...e}));this.selectedId=snapshot.selectedId;
-    this.activeId=snapshot.activeId;this.round=snapshot.round;this.firstRoundFlankAwarded=snapshot.firstRoundFlankAwarded;
+    this.activeId=snapshot.activeId;this.round=snapshot.round;this.firstRoundFlankAwarded=snapshot.firstRoundFlankAwarded;this.initiativeIndex=snapshot.initiativeIndex;
     this.targeting=undefined;this.preview=undefined;this.forcedMoverId=undefined;this.renderLog();this.render();this.message('Activation rewound.');
   }
 
@@ -603,7 +620,9 @@ class Game{
   forceMove(target:Unit,direction:Point,spaces:number,label:string){
     if(!target||target.hp<=0||(!direction.x&&!direction.y))return;
     for(let step=0;step<spaces;step++){
-      const next={x:target.x+direction.x,y:target.y+direction.y};
+      const directions=direction.x&&direction.y?[{x:direction.x,y:0},{x:0,y:direction.y}]:[direction];
+      const directionToUse=directions.find(axis=>!this.isBlocked({x:target.x+axis.x,y:target.y+axis.y},target.id))??directions[0];
+      const next={x:target.x+directionToUse.x,y:target.y+directionToUse.y};
       if(this.isBlocked(next,target.id)){
         target.hp=Math.max(0,target.hp-2);this.log(label+' slams '+target.name+' into an obstacle for 2 collision damage.');
         this.showFloating(target,'−2','damage');
@@ -647,6 +666,7 @@ class Game{
     if(this.targeting){this.targetCell(point);return;}
     if(this.forcedMoverId){await this.moveForcedUnit(point);return;}
     const source=this.active();
+    if(source?.team==='player'&&this.selectedId!==source.id)return;
     if(source?.team==='player'&&!source.moved&&!source.conditions.Rooted){
       const route=this.findRoute(source,point,source.id,this.moveAllowance(source));
       if(route.path.length>1){
@@ -732,8 +752,13 @@ class Game{
     if(this.busy||this.gameOver)return;
     const target=this.unit(id);if(!target)return;
     const source=this.active();
-    if(this.targeting&&source?.team==='player'){this.targetUnit(source,target);return;}
-    if(this.activeTeam==='player'&&target.team==='player'&&!target.activated&&!target.downed&&target.hp>0){this.activateHero(target);return;}
+    if(this.targeting&&source?.team==='player'){
+      const power=powerById(this.targeting.powerId);
+      if(power&&(['area','cell'].includes(power.target)||(this.targeting.chosenId&&['teleport','command'].includes(power.id))))this.targetCell({x:target.x,y:target.y});
+      else this.targetUnit(source,target);
+      return;
+    }
+    if(this.activeTeam==='player'&&target.team==='player'&&target.id===this.activeId){this.activateHero(target);return;}
     this.selectedId=id;this.render();
   }
 
@@ -796,14 +821,8 @@ class Game{
   engaged(unit:Unit){return this.units.some(other=>other.team!==unit.team&&other.hp>0&&!other.downed&&chebyshev(other,unit)<=1);}
 
   neighbors(point:Point){
-    const out:Point[]=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
-      if(!dx&&!dy)continue;const next={x:point.x+dx,y:point.y+dy};if(!this.inBounds(next))continue;
-      if(dx&&dy){
-        const a={x:point.x+dx,y:point.y},b={x:point.x,y:point.y+dy};
-        if(this.isBlockingTerrain(this.terrainAt(a))&&this.isBlockingTerrain(this.terrainAt(b)))continue;
-      }
-      out.push(next);
-    }return out;
+    return[{x:1,y:0},{x:0,y:1},{x:-1,y:0},{x:0,y:-1}]
+      .map(direction=>({x:point.x+direction.x,y:point.y+direction.y})).filter(next=>this.inBounds(next));
   }
 
   stepCost(unit:Unit,from:Point,to:Point,start:Point,ignoreEngage=false){
@@ -859,9 +878,7 @@ class Game{
 
   async runEnemyActivation(){
     if(this.gameOver)return;
-    const enemy=this.chooseEnemy();if(!enemy){if(!this.hasReady('player'))await this.beginRound();return;}
-    this.activeId=enemy.id;this.selectedId=enemy.id;enemy.moved=false;enemy.acted=false;this.removeStartEffects(enemy);
-    this.log(enemy.name+' activates.');this.render();await delay(350);
+    const enemy=this.active();if(!enemy||enemy.team!=='enemy')return;
     this.busy=true;
     const target=this.chooseHeroTarget(enemy);
     if(!target){this.busy=false;await this.completeEnemyActivation(enemy);return;}
@@ -885,12 +902,6 @@ class Game{
     if(enemy.role==='Skirmisher'&&enemy.acted&&enemy.hp>0)await this.enemySlide(enemy,actualTarget);
     if(!enemy.moved&&enemy.hp>0)await this.enemyReposition(enemy,actualTarget,enemy.role==='Archer');
     this.busy=false;this.render();await delay(300);await this.completeEnemyActivation(enemy);
-  }
-
-  chooseEnemy(){
-    const ready=this.ready('enemy');
-    const priority:EnemyRole[]=['Controller','Skirmisher','Brute','Guardian','Archer'];
-    return ready.sort((a,b)=>priority.indexOf(a.role as EnemyRole)-priority.indexOf(b.role as EnemyRole))[0];
   }
 
   chooseHeroTarget(enemy:Unit){
@@ -1000,7 +1011,7 @@ class Game{
       }else this.enemies().filter(enemy=>chebyshev(source,enemy)<=range&&this.hasLineOfSight(source,enemy)).forEach(enemy=>add(enemy,'enemy-target'));
       return;
     }
-    if(source?.team==='player'&&!source.moved&&!source.conditions.Rooted)this.reachable(source,this.moveAllowance(source)).forEach(route=>{const point=route.path.at(-1)!;if(pointKey(point)!==pointKey(source))add(point,'move-range');});
+    if(source?.team==='player'&&source.id===this.selectedId&&!source.moved&&!source.conditions.Rooted)this.reachable(source,this.moveAllowance(source)).forEach(route=>{const point=route.path.at(-1)!;if(pointKey(point)!==pointKey(source))add(point,'move-range');});
     const selected=this.selected();if(selected?.team==='enemy'&&(!source||selected.id!==source.id)){
       this.reachable(selected,this.moveAllowance(selected)).forEach(route=>add(route.path.at(-1)!,'enemy-move-range'));
       const range=ENEMY_ATTACKS[selected.role as EnemyRole]?.range??1;for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)if(chebyshev(selected,{x,y})<=range)add({x,y},'enemy-threat');
@@ -1019,8 +1030,8 @@ class Game{
 
   renderHotbar(){
     ui.hotbar.innerHTML='';const source=this.active();
-    if(!source||source.team!=='player'||this.gameOver){
-      const prompt=document.createElement('div');prompt.className='hotbar-prompt';prompt.textContent=this.activeTeam==='player'?'Tap a glowing hero to activate':'Enemy activation';ui.hotbar.appendChild(prompt);return;
+    if(!source||source.team!=='player'||this.gameOver||this.selectedId!==source.id){
+      const prompt=document.createElement('div');prompt.className='hotbar-prompt';prompt.textContent=source?.team==='player'?'Tap '+source.name+' to take this turn':'Enemy turn';ui.hotbar.appendChild(prompt);return;
     }
     const add=(id:string,label:string,disabled=false,selected=false,meta='')=>{
       const button=document.createElement('button');button.type='button';button.className='hotbar-action'+(selected?' selected':'');button.disabled=disabled;button.dataset.action=id;
@@ -1040,7 +1051,7 @@ class Game{
 
   syncUI(){
     ui.round.textContent=String(this.round);ui.railRound.textContent=String(this.round);
-    ui.side.textContent=this.activeTeam==='player'?(this.activeId?'HERO ACTIVE':'CHOOSE HERO'):'ENEMY ACTIVATION';
+    ui.side.textContent=this.activeTeam==='player'?(this.selectedId===this.activeId?'HERO ACTIVE':'YOUR TURN'):'ENEMY TURN';
     ui.objectiveKicker.textContent=this.scenario.kicker;ui.objectiveLabel.textContent=this.objectiveProgress();
     this.renderMomentum();ui.undo.disabled=!this.snapshot||this.busy||this.activeTeam!=='player';
     const selected=this.selected()??this.active()??this.units[0];if(selected)this.syncDrawer(selected);
@@ -1076,11 +1087,12 @@ class Game{
 
   renderRail(){
     ui.rail.innerHTML='';
-    for(const unit of this.units.filter(unit=>unit.hp>0||unit.downed)){
+    for(const id of this.initiativeOrder){
+      const unit=this.unit(id)!;
       const button=document.createElement('button');button.type='button';
       button.className='initiative-token '+unit.team+(unit.id===this.activeId?' active':'')+(unit.id===this.selectedId?' selected':'')+(unit.activated?' spent':'')+(unit.downed?' downed':'');
-      button.dataset.id=unit.id;button.setAttribute('aria-label',unit.name+(unit.activated?', activated':', ready'));
-      button.innerHTML='<span class="rail-sprite '+this.spriteClass(unit.art)+'"></span><i></i><small>'+(unit.downed?'DOWN':unit.activated?'SPENT':'READY')+'</small>';
+      button.dataset.id=unit.id;button.setAttribute('aria-label',unit.name+', initiative '+this.initiativeRolls[unit.id]+(unit.activated?', activated':', waiting'));
+      button.innerHTML='<span class="rail-sprite '+this.spriteClass(unit.art)+'"></span><i></i><small>'+(unit.downed?'DOWN':unit.hp<=0?'OUT':unit.activated?'SPENT':String(this.initiativeRolls[unit.id]))+'</small>';
       button.addEventListener('click',()=>this.handleUnit(unit.id));ui.rail.appendChild(button);
     }
   }
@@ -1159,7 +1171,7 @@ class Game{
   }
 
   beginDrag(event:PointerEvent,unit:Unit,token:SVGGElement){
-    if(!this.isActiveHero(unit)||unit.moved||unit.conditions.Rooted||this.targeting||this.busy||this.gestureActive)return;
+    if(!this.isActiveHero(unit)||this.selectedId!==unit.id||unit.moved||unit.conditions.Rooted||this.targeting||this.busy||this.gestureActive)return;
     event.preventDefault();event.stopPropagation();token.setPointerCapture(event.pointerId);
     const ghost=token.cloneNode(true) as SVGGElement;ghost.classList.add('drag-ghost');ghost.style.pointerEvents='none';this.tokenLayer?.appendChild(ghost);
     this.drag={id:unit.id,pointerId:event.pointerId,ghost};
@@ -1176,7 +1188,7 @@ class Game{
     token.addEventListener('pointermove',move);token.addEventListener('pointerup',finish);token.addEventListener('pointercancel',cancel);
   }
 
-  debugState(){return{scenario:this.scenario.id,round:this.round,activeTeam:this.activeTeam,activeId:this.activeId,momentum:this.momentum,objective:{...this.objective},gameOver:this.gameOver,units:this.units.map(unit=>({id:unit.id,name:unit.name,role:unit.role,team:unit.team,x:unit.x,y:unit.y,hp:unit.hp,activated:unit.activated,downed:unit.downed,moved:unit.moved,acted:unit.acted,conditions:{...unit.conditions}}))};}
+  debugState(){return{scenario:this.scenario.id,round:this.round,activeTeam:this.activeTeam,activeId:this.activeId,selectedId:this.selectedId,initiativeIndex:this.initiativeIndex,initiativeOrder:this.initiativeOrder.map(id=>({id,roll:this.initiativeRolls[id]})),momentum:this.momentum,objective:{...this.objective},gameOver:this.gameOver,units:this.units.map(unit=>({id:unit.id,name:unit.name,role:unit.role,team:unit.team,x:unit.x,y:unit.y,hp:unit.hp,activated:unit.activated,downed:unit.downed,moved:unit.moved,acted:unit.acted,conditions:{...unit.conditions}}))};}
 }
 
 new Game();
