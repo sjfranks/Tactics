@@ -133,7 +133,8 @@ let assetsReady=false;
 let active=false;
 let input:Vec={x:0,y:0};
 let camera={x:lead.x,y:lead.y};
-let trail:Vec[]=[{...lead}];
+const formationTrail=(origin:Vec):Vec[]=>Array.from({length:120},(_,index)=>({x:origin.x,y:Math.min(WORLD_H-PLAYER_RADIUS,origin.y+index*4)}));
+let trail:Vec[]=formationTrail(lead);
 let lastTime=performance.now();
 let nearest:TownInteraction|undefined;
 let toastTimer=0;
@@ -200,7 +201,10 @@ function updateFollowers(delta:number){
     const member=party[index],target=trail[Math.min(member.lag,trail.length-1)]??lead,next=trail[Math.min(member.lag+2,trail.length-1)]??target;
     const dx=target.x-next.x,dy=target.y-next.y,length=Math.hypot(dx,dy)||1;
     const desired={x:target.x-dy/length*member.lateral,y:target.y+dx/length*member.lateral};
-    const ease=1-Math.exp(-delta*7);member.x+=(desired.x-member.x)*ease;member.y+=(desired.y-member.y)*ease;
+    const destination=blocked(desired.x,desired.y)?target:desired,ease=1-Math.exp(-delta*7);
+    const stepX=(destination.x-member.x)*ease,stepY=(destination.y-member.y)*ease;
+    if(!blocked(member.x+stepX,member.y))member.x+=stepX;
+    if(!blocked(member.x,member.y+stepY))member.y+=stepY;
   }
 }
 
@@ -208,6 +212,10 @@ function resize(){
   const rect=shell.getBoundingClientRect(),ratio=Math.min(window.devicePixelRatio||1,2);
   canvas.width=Math.max(1,Math.floor(rect.width*ratio));canvas.height=Math.max(1,Math.floor(rect.height*ratio));
   canvas.style.width=rect.width+'px';canvas.style.height=rect.height+'px';
+}
+function centreCameraOnLead(){
+  const rect=shell.getBoundingClientRect(),zoom=clamp(rect.width/430,.78,1.08);
+  camera={x:clamp(lead.x,rect.width/(2*zoom),WORLD_W-rect.width/(2*zoom)),y:clamp(lead.y,rect.height/(2*zoom),WORLD_H-rect.height/(2*zoom))};
 }
 
 function drawPlaceholder(x:number,y:number,color:string){
@@ -292,7 +300,7 @@ function updateNearest(){
 
 function frame(time:number){
   const delta=Math.min(.034,(time-lastTime)/1000||0);lastTime=time;
-  if(active){moveParty(delta);updateFollowers(delta);updateNearest();drawWorld(time);}
+  if(active&&!isPaused()){moveParty(delta);updateFollowers(delta);updateNearest();drawWorld(time);}
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -405,7 +413,7 @@ function launchEncounter(id:ScenarioId){
 arenaClose.addEventListener('click',()=>arenaPanel.hidden=true);arenaPanel.addEventListener('click',event=>{if(event.target===arenaPanel)arenaPanel.hidden=true;});
 
 function show(){
-  active=true;title.hidden=true;battle.hidden=true;unitDrawer.hidden=true;shell.hidden=false;dialogue.hidden=true;menuModal.hidden=true;arenaPanel.hidden=true;editor.close();lastTime=performance.now();resize();
+  active=true;title.hidden=true;battle.hidden=true;unitDrawer.hidden=true;shell.hidden=false;dialogue.hidden=true;menuModal.hidden=true;arenaPanel.hidden=true;editor.close();lastTime=performance.now();resize();centreCameraOnLead();
 }
 function hide(){active=false;resetStick();clearMovementKeys();editor.close();shell.hidden=true;dialogue.hidden=true;menuModal.hidden=true;arenaPanel.hidden=true;}
 
@@ -417,5 +425,5 @@ window.addEventListener('tactics:return-to-exploration',()=>{show();showToast('T
 window.__EXPLORATION__={
   show,hide,interact,
   state:()=>({active,lead:{...lead},camera:{...camera},nearest:nearest?.id,assetsReady,masks:masks.length,editorOpen:editor.isOpen(),party:party.map(member=>({name:member.name,x:Math.round(member.x),y:Math.round(member.y)}))}),
-  teleportToArena:()=>{lead.x=960;lead.y=420;trail=[{...lead}];party.forEach(member=>{member.x=lead.x;member.y=lead.y;});camera={...lead};updateNearest();}
+  teleportToArena:()=>{lead.x=960;lead.y=420;trail=formationTrail(lead);party.forEach(member=>{member.x=lead.x;member.y=lead.y;});centreCameraOnLead();updateNearest();}
 };
