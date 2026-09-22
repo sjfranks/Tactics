@@ -120,9 +120,9 @@ const encounters:{id:ScenarioId;host:string;title:string;kicker:string;copy:stri
 const lead={x:890,y:690};
 const party:PartyMember[]=[
   {name:'Garrick',role:'Fighter',color:'#d7b15d',source:'heroes',cell:3,x:lead.x,y:lead.y,lag:0,lateral:0},
-  {name:'Nox',role:'Rogue',color:'#62865a',source:'heroes',cell:1,x:lead.x-18,y:lead.y+34,lag:8,lateral:-15},
-  {name:'Lyra',role:'Wizard',color:'#536d9f',source:'heroes',cell:0,x:lead.x+18,y:lead.y+58,lag:14,lateral:15},
-  {name:'Mira',role:'Cleric',color:'#d8d7c0',source:'npcs',cell:2,x:lead.x,y:lead.y+84,lag:21,lateral:-10}
+  {name:'Nox',role:'Rogue',color:'#62865a',source:'heroes',cell:1,x:lead.x-35,y:lead.y+48,lag:12,lateral:-35},
+  {name:'Lyra',role:'Wizard',color:'#536d9f',source:'heroes',cell:0,x:lead.x+35,y:lead.y+96,lag:24,lateral:35},
+  {name:'Mira',role:'Cleric',color:'#d8d7c0',source:'npcs',cell:2,x:lead.x-20,y:lead.y+144,lag:36,lateral:-20}
 ];
 
 let objectCells:HTMLCanvasElement[]=[];
