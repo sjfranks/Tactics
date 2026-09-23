@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#071426" />
+    <meta name="description" content="Tactics 48 — explore Avaran, meet its people, and enter compact tactical encounters." />
+    <title>Tactics 48 · Avaran</title>
+  </head>
+  <body>
+    <section id="title-screen" class="title-screen" aria-label="Tactics 48 setup">
+      <div class="title-backdrop"></div>
+      <form id="encounter-form" class="encounter-card">
+        <p class="title-kicker">AN RPG OF REVOLUTION · MYTH · TACTICS</p>
+        <h1>Tactics <span>48</span></h1>
+        <p class="title-copy">Walk the sunlit roads of Avaran, meet its people, and test your company in fast, positioning-first battles.</p>
+
+        <div class="legacy-setup" hidden>
+          <label class="setup-field"><span>Mission</span>
+          <select id="scenario-select">
+            <option value="broken-gate">The Broken Gate · Destroy / Boss</option>
+            <option value="ember-shrine">The Ember Shrine · Interrupt / Hold</option>
+            <option value="rescue-run">Rescue at Ash Bridge · Escort / Escape</option>
+          </select></label>
+          <p id="scenario-preview" class="scenario-preview">Break the barricades and defeat the Orc War Chief.</p>
+          <label class="setup-field compact-field"><span>Enemy force</span>
+          <select id="enemy-count">
+            <option value="4">4 · Quick</option>
+            <option value="5" selected>5 · Standard</option>
+            <option value="6">6 · Pressured</option>
+            <option value="7">7 · Hard</option>
+            <option value="8">8 · Brutal</option>
+          </select></label>
+        </div>
+
+        <div class="avaran-intro"><small>VALMORA · OUTER QUARTER</small><p>A market settlement above the Southlight Sea. The arena masters are expecting you.</p></div>
+
+        <div class="roster-heading"><span>Your company</span><small>Four distinct tactical roles</small></div>
+        <div class="roster-preview fixed-roster" aria-label="Garrick, Nox, Lyra and Mira">
+          <div class="preview-unit"><span class="preview-hero sprite-garrick"></span><b>Fighter</b></div>
+          <div class="preview-unit"><span class="preview-hero sprite-nox"></span><b>Rogue</b></div>
+          <div class="preview-unit"><span class="preview-hero sprite-lyra"></span><b>Wizard</b></div>
+          <div class="preview-unit"><span class="preview-hero sprite-mira"></span><b>Cleric</b></div>
+        </div>
+
+        <div class="rules-ribbon" aria-label="Core rules">
+          <span><b>Move</b> + Action</span><span><b>2d6</b> · 3 tiers</span><span><b>1</b> Reaction</span>
+        </div>
+        <button class="new-encounter-button" type="submit">Enter Avaran</button>
+      </form>
+    </section>
+
+    <main id="exploration-shell" class="exploration-shell" aria-label="Explore Valmora" hidden>
+      <canvas id="exploration-canvas" class="exploration-canvas" aria-label="Free-roaming exploration map"></canvas>
+
+      <nav class="exploration-menu-buttons" aria-label="Exploration menus">
+        <button id="explore-map-button" type="button" aria-label="Open map" title="Map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 5 5-2 8 3 5-2v15l-5 2-8-3-5 2Z M8 3v15M16 6v15"></path></svg></button>
+        <button id="explore-party-button" type="button" aria-label="Open party" title="Party"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"></circle><circle cx="17" cy="9" r="2.5"></circle><path d="M3 20c.4-4 2.1-6 5-6s4.6 2 5 6M13 16c1-.9 2.3-1.3 3.7-1.3 2.5 0 3.9 1.7 4.3 5.3"></path></svg></button>
+        <button id="explore-journal-button" type="button" aria-label="Open journal" title="Journal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h12a2 2 0 0 1 2 2v16H7a2 2 0 0 1-2-2ZM8 7h8M8 11h8M8 15h5"></path></svg></button>
+        <button id="explore-settings-button" type="button" aria-label="Open settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2h4l.6 2.4 1.9.8 2.1-1.3 2.8 2.8-1.3 2.1.8 1.9L23 11v4l-2.4.6-.8 1.9 1.3 2.1-2.8 2.8-2.1-1.3-1.9.8L14 24h-4l-.6-2.4-1.9-.8-2.1 1.3-2.8-2.8 1.3-2.1-.8-1.9L1 15v-4l2.4-.6.8-1.9-1.3-2.1 2.8-2.8 2.1 1.3 1.9-.8Z" transform="translate(0 -1) scale(.92)"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+      </nav>
+
+      <button id="explore-interact" class="explore-interact" type="button" aria-label="Interact" title="Interact">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V6a1.5 1.5 0 0 1 3 0v4-6a1.5 1.5 0 0 1 3 0v6-5a1.5 1.5 0 0 1 3 0v6-3a1.5 1.5 0 0 1 3 0v6c0 4-3 7-7 7h-1c-3 0-5-1-7-4l-2-3a1.6 1.6 0 0 1 2.5-2Z"></path></svg>
+      </button>
+
+      <div id="explore-stick" class="explore-stick" role="application" aria-label="Movement circle. Drag to walk; tap to interact.">
+        <i class="stick-arrow north"></i><i class="stick-arrow east"></i><i class="stick-arrow south"></i><i class="stick-arrow west"></i>
+        <span id="explore-stick-knob" class="explore-stick-knob"></span>
+      </div>
+
+      <section id="explore-dialogue" class="explore-dialogue" hidden aria-live="polite">
+        <small id="dialogue-speaker">TOWNSPERSON</small>
+        <p id="dialogue-copy"></p>
+        <button id="dialogue-next" type="button">Continue <span>›</span></button>
+      </section>
+
+      <section id="explore-menu-modal" class="explore-modal" hidden aria-label="Exploration menu">
+        <div class="explore-modal-card">
+          <button id="explore-menu-close" class="explore-close" type="button" aria-label="Close menu">×</button>
+          <small id="explore-menu-kicker">VALMORA</small><h2 id="explore-menu-title">Map</h2>
+          <div id="explore-menu-content"></div>
+        </div>
+      </section>
+
+      <section id="mask-editor" class="mask-editor" hidden aria-label="Map mask editor">
+        <div class="mask-editor-header"><div><small>DEVELOPER MODE · AVARAN</small><h2>Map masks</h2></div><button id="mask-close" type="button">Close</button></div>
+        <div class="mask-editor-toolbar">
+          <label>Show<select id="mask-filter"><option value="collision">Impassable</option><option value="foreground">Go-behind</option><option value="all">Both layers</option></select></label>
+          <button id="mask-add" type="button">+ New area</button><button id="mask-finish" type="button" hidden>Finish outline</button>
+        </div>
+        <canvas id="mask-editor-canvas" aria-label="Editable map mask polygons. Tap a mask to select it, drag a vertex to reshape it, or drag empty space to pan."></canvas>
+        <div class="mask-editor-zoom"><button id="mask-zoom-out" type="button" aria-label="Zoom out">−</button><span id="mask-zoom-value">1×</span><button id="mask-zoom-in" type="button" aria-label="Zoom in">+</button><button id="mask-zoom-reset" type="button">Fit</button></div>
+        <div class="mask-editor-inspector">
+          <label>Area<select id="mask-zone-list"></select></label>
+          <label>Name<input id="mask-name" type="text" maxlength="100"></label>
+          <div class="mask-editor-fields"><label>Layer<select id="mask-kind"><option value="collision">Impassable</option><option value="foreground">Go-behind</option></select></label><label>Image to reveal<select id="mask-source"></select></label></div>
+          <label id="mask-depth-row">Foreground depth (feet Y)<input id="mask-depth" type="number" min="0" max="1024" step="1"></label>
+          <div class="mask-editor-actions"><button id="mask-vertex-add" type="button">+ Vertex</button><button id="mask-vertex-delete" type="button">− Vertex</button><button id="mask-zone-delete" type="button">Delete area</button></div>
+        </div>
+        <p id="mask-editor-hint" class="mask-editor-hint">Choose an area, then drag its handles. Drag empty space to pan. Zoom in for accurate edges.</p>
+        <div class="mask-editor-footer"><button id="mask-defaults" type="button">Load defaults</button><button id="mask-import" type="button">Import JSON</button><button id="mask-export" type="button">Export JSON</button><button id="mask-save" type="button">Save masks</button></div>
+        <input id="mask-import-file" type="file" accept="application/json,.json" hidden>
+      </section>
+
+      <section id="arena-panel" class="explore-modal arena-panel" hidden aria-label="Arena trials">
+        <div class="explore-modal-card">
+          <button id="arena-close" class="explore-close" type="button" aria-label="Close arena trials">×</button>
+          <small>VALMORA FREE ARENA</small><h2>Choose a trial</h2>
+          <p class="arena-intro">Three arena masters stage tactical exercises for your whole company.</p>
+          <div id="arena-encounters" class="arena-encounters"></div>
+          <label class="arena-force"><span>Enemy force</span><select id="arena-enemy-count"><option value="4">4 · Quick</option><option value="5" selected>5 · Standard</option><option value="6">6 · Pressured</option><option value="7">7 · Hard</option><option value="8">8 · Brutal</option></select></label>
+        </div>
+      </section>
+
+      <div id="explore-toast" class="explore-toast" hidden></div>
+    </main>
+
+    <main id="game-shell" class="game-shell" aria-label="Tactics 48 battle" hidden>
+      <header class="battle-header">
+        <div class="turn-mark"><small id="side-label">YOUR ACTIVATION</small><strong>Round <span id="round-label">1</span></strong></div>
+        <button id="objective-button" class="objective-chip" type="button" aria-label="Show mission objective">
+          <small id="objective-kicker">DESTROY · BOSS</small><strong id="objective-label">Defeat the War Chief</strong>
+        </button>
+        <div class="momentum-panel" aria-label="Shared Momentum">
+          <small>MOMENTUM</small><div id="momentum-pips" class="momentum-pips"></div>
+        </div>
+      </header>
+
+      <section class="battlefield-viewport">
+        <div id="battlefield-frame" class="battlefield-frame"><div id="battlefield" class="battlefield" aria-label="Six by eight tactical battlefield"></div></div>
+
+        <p id="instruction" class="instruction" aria-live="polite">Roll initiative to begin.</p>
+
+        <div id="combat-log-panel" class="combat-log-panel" hidden>
+          <div class="combat-log-heading"><strong>Battle Chronicle</strong><button id="log-close" type="button" aria-label="Close combat log">×</button></div>
+          <div id="combat-log-list" class="combat-log-list"></div>
+        </div>
+
+        <div id="decision-panel" class="decision-panel" hidden>
+          <div><small id="decision-kicker">POWER PREVIEW</small><strong id="decision-title">Heavy Strike</strong><p id="decision-copy"></p></div>
+          <button id="decision-cancel" class="decision-button cancel" type="button" aria-label="Cancel power">×</button>
+          <button id="decision-confirm" class="decision-button confirm" type="button" aria-label="Confirm power">✓</button>
+        </div>
+
+        <div id="result-overlay" class="result-overlay" hidden>
+          <p class="eyebrow">MISSION COMPLETE</p><h2 id="result-title">Victory</h2><p id="result-copy">The field is secure.</p>
+          <button id="restart-overlay" class="primary-button" type="button">Play again</button>
+          <button id="setup-overlay" class="secondary-button" type="button">Choose mission</button>
+        </div>
+
+        <div class="hud-left">
+          <div id="utility-panel" class="utility-panel" hidden>
+            <button id="setup-action" class="hud-circle" type="button" aria-label="Return to mission setup" title="Mission setup">⚙</button>
+            <button id="help-toggle" class="hud-circle" type="button" aria-label="Show Tactics 48 rules" title="Rules">?</button>
+            <button id="stats-toggle" class="hud-circle" type="button" aria-label="Show selected unit sheet" aria-expanded="false" title="Unit sheet"><svg class="hud-icon sheet-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8" cy="9" r="2"></circle><path d="M5.5 15c.8-2 4.2-2 5 0M13 8h5M13 12h5M13 16h4"></path></svg></button>
+            <button id="log-toggle" class="hud-circle" type="button" aria-label="Open battle chronicle" aria-expanded="false" title="Battle chronicle"><span class="speech-icon" aria-hidden="true"></span></button>
+            <button id="undo-action" class="hud-circle" type="button" aria-label="Undo this hero activation" title="Undo">↶</button>
+            <button id="zoom-reset" class="hud-circle zoom-reset" type="button" aria-label="Reset battlefield zoom" title="Reset zoom"><span class="zoom-out-icon" aria-hidden="true">−</span></button>
+          </div>
+          <button id="utility-toggle" class="hud-circle utility-toggle" type="button" aria-label="Show game controls" aria-expanded="false" title="Controls"><svg class="chevron-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 14.5 5.5-5 5.5 5"></path></svg></button>
+        </div>
+
+        <aside id="activation-drawer" class="initiative-drawer" aria-label="Initiative order" aria-hidden="true">
+          <div class="rail-heading"><small>ROUND <span id="rail-round">1</span></small><b>Ready</b></div>
+          <div id="activation-rail" class="initiative-rail" role="list"></div>
+        </aside>
+        <div class="hud-right">
+          <button id="rail-toggle" class="hud-circle rail-toggle" type="button" aria-label="Show unit readiness" aria-expanded="false" title="Unit readiness"><svg class="hud-icon roster-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="5" r="2"></circle><circle cx="5" cy="12" r="2"></circle><circle cx="5" cy="19" r="2"></circle><path d="M9 5h10M9 12h10M9 19h10"></path></svg></button>
+        </div>
+
+        <div id="action-hotbar" class="action-hotbar" role="toolbar" aria-label="Powers"></div>
+      </section>
+    </main>
+
+    <aside class="unit-drawer" id="unit-drawer" aria-label="Selected unit sheet" hidden>
+      <div class="drawer-content">
+        <button id="drawer-close" class="drawer-close" type="button" aria-label="Close unit sheet">×</button>
+        <span class="label" id="selected-team">Hero</span>
+        <div class="drawer-heading"><div class="portrait" id="portrait" aria-hidden="true"></div><div><strong id="selected-name">Garrick</strong><small id="selected-class">Fighter</small></div></div>
+        <div id="status-chips" class="status-chips"></div>
+        <dl class="stat-list">
+          <div><dt>HP</dt><dd id="health-text">24 / 24</dd></div>
+          <div><dt>Defense</dt><dd id="defense-stat">10</dd></div>
+          <div><dt>Move</dt><dd id="movement-stat">3</dd></div>
+          <div class="stat-section"><dt>Power</dt><dd></dd></div>
+          <div><dt>Might</dt><dd id="might-stat">+4</dd></div>
+          <div><dt>Agility</dt><dd id="agility-stat">+1</dd></div>
+          <div><dt>Will</dt><dd id="will-stat">+1</dd></div>
+          <div class="stat-section"><dt>Kit</dt><dd></dd></div>
+          <div class="wide-stat"><dt>Passive</dt><dd id="passive-stat"></dd></div>
+          <div id="reaction-row" class="wide-stat"><dt>Reaction</dt><dd id="reaction-stat"></dd></div>
+        </dl>
+        <div id="power-list" class="drawer-power-list"></div>
+      </div>
+    </aside>
+
+    <section id="help-overlay" class="help-overlay" hidden aria-label="Tactics 48 rules">
+      <div class="help-card">
+        <button id="help-close" class="drawer-close" type="button" aria-label="Close rules">×</button>
+        <p class="title-kicker">QUICK RULES</p><h2>Tactics 48</h2>
+        <div class="help-grid">
+          <article><b>Initiative</b><p>Units roll d20 + Agility at the start of battle. The active hero is selected automatically. Move orthogonally and take one Action in either order; powers can add extra movement.</p></article>
+          <article><b>No whiffs</b><p>Roll 2d6 + Might, Agility or Will against Defense. Every attack produces a Tier 1, 2 or 3 result.</p></article>
+          <article><b>Position</b><p>Flank from opposite sides for +1. Leaving engagement costs +1 Move. Cover adds +1 Defense against ranged attacks.</p></article>
+          <article><b>Momentum</b><p>Earn it from flanks, defeating enemies, objectives and terrain plays. Spend the shared pool on Heroic powers.</p></article>
+          <article><b>Terrain</b><p>Walls block sight. Difficult ground costs +1. High ground adds 1 range. Fire Burns. Forced movement into a wall deals +2.</p></article>
+          <article><b>Downed</b><p>Heroes at 0 HP are Downed, not dead. Mira can Restore them; any adjacent hero can Rally them.</p></article>
+        </div>
+        <button id="help-done" class="new-encounter-button" type="button">Return to battle</button>
+      </div>
+    </section>
+
+    <script type="module" src="/src/main.ts"></script>
+    <script type="module" src="/src/canvasBattlefield.ts"></script>
+    <script type="module" src="/src/exploration.ts"></script>
+  </body>
+</html>
