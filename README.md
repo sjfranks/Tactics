@@ -17,7 +17,7 @@ A portrait-first, touch-friendly RPG prototype that joins a free-roaming Avaran 
 - Three arena masters who launch the test encounters, with a full battle-to-town return loop
 - Four heroes with distinct positioning kits: Fighter, Rogue, Wizard and Cleric
 - Five enemy roles with role-specific AI: Skirmisher, Brute, Controller, Guardian and Archer
-- Rolled d20 + Agility initiative with one Move, one Action and one Reaction per round; each turn starts with a clear, unselected board
+- Rolled d20 + Agility initiative with one Move, one Action and one Reaction per round; the active hero is selected automatically when their turn begins
 - No-whiff combat: 2d6 + Power produces Tier 1, Tier 2 or Tier 3 results
 - Orthogonal movement, engagement, flanking, cover, high ground, difficult terrain, hazards, line of sight and collision damage
 - Push, Pull, Slide, walls, destructible terrain and interactive objectives

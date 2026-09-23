@@ -223,8 +223,12 @@ class Game{
     this.activeId=unit.id;this.activeTeam=unit.team;
     unit.moved=false;unit.acted=false;unit.bonusMove=0;this.removeStartEffects(unit);
     this.log(unit.name+' takes the initiative ('+this.initiativeRolls[unit.id]+').');
+    if(unit.team==='player'){
+      this.selectedId=unit.id;
+      this.snapshot=this.makeSnapshot();
+    }
     this.render();
-    if(unit.team==='player')this.message(unit.name+'’s turn. Tap '+unit.name+' to move or use a power.');
+    if(unit.team==='player')this.message(unit.name+'’s turn. Move or use a power.');
     else{this.message(unit.name+'’s turn.');await delay(350);if(!this.gameOver&&this.activeId===unit.id)await this.runEnemyActivation();}
   }
 
