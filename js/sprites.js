@@ -799,3 +799,54 @@ function spr(key,variant){
 }
 const ICONC={};
 function icon(key){return ICONC[key]||(ICONC[key]=buildSprite(ICON[key],{}));}
+/* ---------- 32×32 sprites: Scale2x on the palette grid, then 1px outlines and rim shading ---------- */
+function scale2x(rows){
+  const h=rows.length,w=rows[0].length;const at=(x,y)=>(x<0||y<0||x>=w||y>=h)?'.':rows[y][x];
+  const out=Array.from({length:h*2},()=>new Array(w*2).fill('.'));
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const P=at(x,y),A=at(x,y-1),Bc=at(x+1,y),Cc=at(x-1,y),D=at(x,y+1);
+    out[2*y][2*x]=(Cc===A&&Cc!==D&&A!==Bc)?A:P;
+    out[2*y][2*x+1]=(A===Bc&&A!==Cc&&Bc!==D)?Bc:P;
+    out[2*y+1][2*x]=(D===Cc&&D!==Bc&&Cc!==A)?Cc:P;
+    out[2*y+1][2*x+1]=(Bc===D&&Bc!==A&&D!==Cc)?D:P;
+  }
+  return out;
+}
+function thinOutline(g){
+  const h=g.length,w=g[0].length;const at=(x,y)=>(x<0||y<0||x>=w||y>=h)?'.':g[y][x];
+  const out=g.map(r=>r.slice());
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    if(g[y][x]!=='k')continue;
+    if(at(x,y-1)==='.'||at(x+1,y)==='.'||at(x,y+1)==='.'||at(x-1,y)==='.')continue;
+    let near=false;for(let dy=-2;dy<=2&&!near;dy++)for(let dx=-2;dx<=2;dx++)if(at(x+dx,y+dy)==='.'){near=true;break;}
+    if(!near)continue;
+    for(const[dx,dy]of[[0,1],[1,0],[0,-1],[-1,0]]){const c=at(x+dx,y+dy);if(c!=='k'&&c!=='.'){out[y][x]=c;break;}}
+  }
+  return out;
+}
+function shadeHex(hex,f){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;const t=f>0?255:0,a=Math.abs(f);r=Math.round(r+(t-r)*a);g=Math.round(g+(t-g)*a);b=Math.round(b+(t-b)*a);return '#'+((1<<24)|(r<<16)|(g<<8)|b).toString(16).slice(1);}
+function buildHi(rows16,pal){
+  const g=thinOutline(scale2x(rows16));const h=g.length,w=g[0].length;
+  const at=(x,y)=>(x<0||y<0||x>=w||y>=h)?'.':g[y][x];
+  const c=document.createElement('canvas');c.width=w;c.height=h;const cx=c.getContext('2d');
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const ch=g[y][x];if(ch==='.')continue;
+    let col=pal[ch]||PAL[ch]||'#f0f';
+    if(ch!=='k'){const up=at(x,y-1),lf=at(x-1,y),dn=at(x,y+1),rt=at(x+1,y);
+      if(up==='k'||up==='.'||lf==='k'||lf==='.')col=shadeHex(col,.16);
+      else if(dn==='k'||dn==='.'||rt==='k'||rt==='.')col=shadeHex(col,-.18);}
+    cx.fillStyle=col;cx.fillRect(x,y,1,1);
+  }
+  return c;
+}
+const SPRH={};
+function sprH(key,variant){
+  const id=key+(variant?':'+variant:'');
+  if(SPRH[id])return SPRH[id];
+  const lo=spr(key,variant);const d=SPR[key]||SPR.villager;
+  const pal=Object.assign({},d.pal||{},variant==='rival'?RIVAL_PAL[key]||{}:{});
+  const c=buildHi(d.rows,pal);
+  return SPRH[id]={c,f:flipped(c),wh:silhouette(c,'#ffffff'),bk:silhouette(c,'#000000'),top:lo.top*2,bot:lo.bot*2+1,lft:lo.lft*2,rgt:lo.rgt*2+1};
+}
+const ICONH={};
+function iconH(key){return ICONH[key]||(ICONH[key]=buildHi(ICON[key],{}));}
