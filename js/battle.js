@@ -3,7 +3,7 @@
    EMBERWATCH — battle screen
    ===================================================================== */
 let BX=96,BY=15;const TS=16;
-function battleLayout(){if(PORT){BX=2;BY=31;}else{BX=96;BY=15;}}
+function battleLayout(){if(PORT){BX=26;BY=111;}else{BX=96;BY=15;}}
 const B={pi:0,pend:null,inspect:null,drag:null,busy:false,page:0,terr:null,terrKey:'',gRef:null,banner:null,toast:null,vkey:'',V:null,dragTile:null,onEnd:null};
 const VIS={};
 function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -109,7 +109,7 @@ H.save=()=>{if(typeof saveGame==='function')saveGame();};
 H.turn=async u=>{
   const v=vis(u);v.last={x:u.x*TS,y:u.y*TS};
   B.pend=null;B.inspect=null;
-  if(isPlayer(u)){B.pi=defaultPower(u);B.page=Math.floor(B.pi/(u.powers.length>8?7:8));sfx('turn');B.toast={t0:NOW,dur:900,text:`${u.name}'s turn`,col:C.blue};}
+  if(isPlayer(u)){B.pi=defaultPower(u);B.page=Math.floor(B.pi/(PORT?4:(u.powers.length>8?7:8)));sfx('turn');B.toast={t0:NOW,dur:900,text:`${u.name}'s turn`,col:C.blue};}
   else{B.toast={t0:NOW,dur:700,text:`${u.name}`,col:u.side==='enemy'?C.red:C.blue};await sleep(260);}
 };
 H.banner=async(kind,b,va)=>{
@@ -287,7 +287,7 @@ function drawBattle(){
   drawTop();
   drawBoard();
   drawLeft();
-  if(PORT){drawOrderStrip();drawSideButtons();}else drawRight();
+  if(PORT){drawOrderStrip(95);drawCtrlBar();}else drawRight();
   drawHotbar();
   drawFX();
   if(B.banner){const b=B.banner;const p=(NOW-b.t0)/b.dur;if(p>=1)B.banner=null;else{
@@ -302,7 +302,16 @@ function drawTop(){
   rect(0,0,SW,12,C.panel);rect(0,11,SW,1,C.rim);rect(0,12,SW,1,C.edge);
   const E=G.enc;
   const obj=objText();
-  if(PORT){text(obj,3,3,C.parch);hit(0,0,SW,12,{fn:()=>msg(E.title,E.type==='boss'?BOSS_TXT[E.act]:MISSIONS[E.type].desc),id:'obj'});return;}
+  if(PORT){
+    rect(0,0,SW,14,C.bg);
+    const chip=(x,w,fill,rim)=>{rect(x,1,w,12,C.edge);rect(x+1,2,w-2,10,fill);frame(x+1,2,w-2,10,rim);};
+    const fm=`◆${Math.max(0,G.foeMom)}`,rd=`R${G.round}`;
+    const gw=13,rw=textW(rd)+10,mw=textW(fm)+10,ow=SW-4-gw-rw-mw-9;
+    chip(2,ow,C.panel,C.rim);text(fitText(obj,ow-8),6,4,C.parch);hit(2,1,ow,12,{fn:()=>msg(E.title,E.type==='boss'?BOSS_TXT[E.act]:MISSIONS[E.type].desc),id:'obj'});
+    let x=ow+5;chip(x,mw,'#3a2460','#a47bff');text(fm,x+mw/2,4,'#f0e6ff',{al:'c'});hit(x,1,mw,12,{fn:()=>openGloss('momentum'),id:'fm'});
+    x+=mw+3;chip(x,rw,C.panel,C.rim);text(rd,x+rw/2,4,C.parch,{al:'c'});
+    x+=rw+3;button(x,1,gw,12,'≡',()=>openSettings(true),{});
+    return;}
   text(MISSIONS[E.type].name.toUpperCase(),3,3,C.gold);
   const ow=textW(MISSIONS[E.type].name.toUpperCase());
   text('· '+obj,6+ow,3,C.parch);
@@ -409,7 +418,7 @@ function drawPath(){
   const e=path[path.length-1];rect(BX+e.x*TS+5,BY+e.y*TS+5,6,6,C.edge);rect(BX+e.x*TS+6,BY+e.y*TS+6,4,4,col);
 }
 function drawLeft(){
-  const px=PORT?0:0,py=PORT?160:13,pw=PORT?SW:95,ph=PORT?94:133;
+  const px=0,py=PORT?14:13,pw=PORT?SW:95,ph=PORT?80:133;
   panel(px,py,pw,ph,{});
   const u=playerUnit();
   const insp=B.inspect?U(B.inspect):null;
@@ -482,31 +491,26 @@ function drawForecast(u,x,y0,w,h){
   button(x,bot,w-27,13,p.tgt==='enemy'?'STRIKE':'CONFIRM',confirmPend,{hot:true,disabled:B.busy});
   button(x+w-25,bot,25,13,'×',()=>{B.pend=null;},{});
 }
-function drawOrderStrip(){
-  rect(0,13,SW,17,C.panel2);rect(0,29,SW,1,C.edge);
+function drawOrderStrip(y0){
+  y0=y0||13;const oy=y0-13;
+  rect(0,y0,SW,16,C.panel2);rect(0,y0+15,SW,1,C.edge);
   const list=upcoming(12);let x=9,lastR=G.round;
   for(const e of list){
-    if(e.round!==lastR){rect(x-4,15,1,13,C.dim);x+=3;lastR=e.round;}
+    if(e.round!==lastR){rect(x-4,15+oy,1,13,C.dim);x+=3;lastR=e.round;}
     if(x>SW-8)break;
     const u=e.u;
-    if(e.now){rect(x-8,14,16,15,'#5a4418');frame(x-8,14,16,15,C.gold);}
-    token(u,x,21,6);
-    hit(x-7,14,15,15,{fn:()=>{B.inspect=u.id;},id:'ts'+u.id+x});
+    if(e.now){rect(x-8,14+oy,16,15,'#5a4418');frame(x-8,14+oy,16,15,C.gold);}
+    token(u,x,21+oy,6);
+    hit(x-7,14+oy,15,15,{fn:()=>{B.inspect=u.id;},id:'ts'+u.id+x});
     x+=15;
   }
 }
-function drawSideButtons(){
-  const x=133,w=45,pu=playerUnit();
-  panel(131,29,49,131,{plain:true});
-  text('ROUND '+G.round,x+w/2,34,C.parch,{al:'c'});
-  const fm=`Foes ◆${Math.max(0,G.foeMom)}`;text(fm,x+w/2,42,C.mom,{al:'c'});hit(x,40,w,9,{fn:()=>openGloss('momentum'),id:'fm'});
-  button(x,51,w,13,'ORDER',openOrder,{});
-  button(x,66,w,13,'LOG',openLog,{});
-  button(x,81,w,13,'UNDO',undoUI,{disabled:B.busy||!canUndo()});
-  button(x,96,w,13,'MENU',()=>openSettings(true),{});
-  button(x,113,w,43,'',endTurnUI,{hot:!!pu&&turnDone(pu),disabled:!pu||B.busy});
-  const tc=!pu||B.busy?C.dim:C.white;
-  if(pu){text('END',x+w/2,127,tc,{al:'c',sh:C.edge});text('TURN',x+w/2,135,tc,{al:'c',sh:C.edge});}else text('…',x+w/2,131,tc,{al:'c'});
+function drawCtrlBar(){
+  const y=SH-27,pu=playerUnit();
+  rect(0,y-2,SW,SH-y+2,C.bg);
+  const bs=[['UNDO',undoUI,{disabled:B.busy||!canUndo()}],['LOG',openLog,{}],['ORDER',openOrder,{}]];
+  bs.forEach((b,i)=>button(2+i*37,y,35,24,b[0],b[1],b[2]));
+  button(113,y,65,24,pu?'END TURN':'…',endTurnUI,{hot:!!pu&&turnDone(pu),disabled:!pu||B.busy});
 }
 function drawRight(){
   panel(225,13,95,133,{});
@@ -530,15 +534,17 @@ function drawRight(){
   button(229,120,87,22,pu?'END TURN':'…',endTurnUI,{hot:!!pu&&turnDone(pu),disabled:!pu||B.busy});
 }
 function drawHotbar(){
-  const py=PORT?254:146,ph=PORT?66:34;
+  const py=PORT?243:146,ph=PORT?48:34;
   panel(0,py,SW,ph,{});
   const u=playerUnit();const au=activeUnit();
   if(!u){const t=au&&live(au)?`${au.name} is acting…`:'';text(t,SW/2,py+ph/2-3,C.mute,{al:'c'});return;}
   if(u.kind==='npc'){rich('The captive can only move. Tap a blue square, then End Turn.',8,py+8,SW-16,C.parch);return;}
-  const cols=PORT?4:8,rowsN=PORT?2:1,cw=PORT?43:38,chh=PORT?29:28,x0=PORT?3:4,y0=PORT?257:149,sx=PORT?44:39,sy=31;
+  const cols=PORT?4:8,rowsN=1,cw=PORT?43:38,chh=PORT?34:28,x0=PORT?3:4,y0=PORT?246:149,sx=PORT?44:39,sy=31;
   const slots=cols*rowsN;
-  const n=u.powers.length;const per=n>slots?slots-1:slots;const pages=Math.ceil(n/per);B.page=Math.min(B.page,pages-1);
+  const n=u.powers.length;const per=PORT?4:(n>slots?slots-1:slots);const pages=Math.ceil(n/per);B.page=Math.min(B.page,pages-1);
   const start=B.page*per;
+  const SWIPE=PORT?{drag:()=>{},dragStart:(x)=>{B.swipe=x;},drop:(x)=>{const d=x-(B.swipe||x);if(d<-12)B.page=Math.min(pages-1,B.page+1);else if(d>12)B.page=Math.max(0,B.page-1);}}:{};
+  if(PORT)hit(0,py,SW,ph,Object.assign({id:'tray'},SWIPE));
   for(let i=start;i<Math.min(n,start+per);i++){
     const p=powerOf(u,i);const slot=i-start;const x=x0+(slot%cols)*sx,y=y0+Math.floor(slot/cols)*sy;
     const ok=usable(u,p)&&!u.acted;const on=i===B.pi;
@@ -550,8 +556,11 @@ function drawHotbar(){
     text(st,x+3,y+chh-9,ok?C.white:C.dim,{sh:C.edge});
     if(p.cost)text('◆'+p.cost,x+cw-2,y+chh-9,u.mom>=p.cost?C.mom:'#6a4a7a',{al:'r',sh:C.edge});
     else text(p.free?'FREE':ATTR[p.a][0],x+cw-2,y+chh-9,C.mute,{al:'r',sh:C.edge});
-    hit(x,y,cw,chh,{fn:()=>cardTap(i),id:'card'+i});
+    hit(x,y,cw,chh,Object.assign({fn:()=>cardTap(i),id:'card'+i},SWIPE));
   }
+  if(PORT){
+    if(pages>1){for(let i=0;i<pages;i++){const dx=SW/2-(pages*6)/2+i*6;rect(dx,y0+chh+3,4,4,C.edge);rect(dx+1,y0+chh+4,2,2,i===B.page?C.gold:C.dim);hit(dx-1,y0+chh+1,6,8,{fn:()=>{B.page=i;},id:'dot'+i});}}
+    return;}
   if(pages>1){const sl=slots-1;button(x0+(sl%cols)*sx,y0+Math.floor(sl/cols)*sy,cw,chh,`${B.page+1}/${pages} ▶`,()=>{B.page=(B.page+1)%pages;},{});}
 }
 function cardTap(i){
