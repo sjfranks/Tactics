@@ -11,7 +11,7 @@ let SCALE=1;const ROT=false;
 function fit(){
   const vw=window.innerWidth,vh=window.innerHeight;
   PORT=vh>vw;
-  const w=PORT?196:320,h=PORT?clamp(Math.round(196*vh/vw),400,470):180;
+  const w=PORT?196:320,h=PORT?clamp(Math.round(196*vh/vw),330,560):180;
   if(w!==SW||h!==SH){SW=w;SH=h;cv.width=SW;cv.height=SH;MAINCTX.imageSmoothingEnabled=false;if(typeof onResize==='function')onResize();}
   let s=Math.min(vw/SW,vh/SH);if(s>=3)s=Math.floor(s);
   SCALE=s;

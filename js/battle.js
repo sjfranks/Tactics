@@ -7,8 +7,12 @@
 let TS=16,Q=1;const BM=14;let BX=BM,BY=BM;
 let OX=112,OY=15,BK=1,PL={};let BCV=null,BCX=null;
 function battleLayout(){
-  if(PORT){const info=SH-354;TS=32;Q=2;PL={infoY:14,infoH:info,stripY:14+info,boardY:28+info,trayY:SH-66,ctrlY:SH-26};BK=1;OX=Math.floor((SW-COLS*TS)/2);OY=PL.boardY+2;}
-  else{TS=16;Q=1;PL={};BK=1;OX=96+Math.floor((128-COLS*TS)/2);OY=15;}
+  if(PORT){
+    TS=32;Q=2;BK=1;OX=Math.floor((SW-COLS*TS)/2);
+    if(SH<394){const info=SH-330;PL={compact:true,infoY:14,infoH:info,stripY:null,boardY:14+info,trayY:SH-56,trayH:34,ctrlY:SH-22,ctrlH:20};}
+    else{const info=SH-354;PL={infoY:14,infoH:info,stripY:14+info,boardY:28+info,trayY:SH-66,trayH:40,ctrlY:SH-26,ctrlH:24};}
+    OY=PL.boardY+2;
+  }else{TS=16;Q=1;PL={};BK=1;OX=96+Math.floor((128-COLS*TS)/2);OY=15;}
 }
 function drawBoardLayer(){
   const w=COLS*TS+2*BM,h=ROWS*TS+2*BM;
@@ -313,10 +317,11 @@ function drawBattle(){
   rect(0,0,SW,SH,C.bg);
   drawTop();
   drawLeft();
-  if(PORT){drawOrderStrip(PL.stripY);drawCtrlBar();}else drawRight();
+  if(PORT){if(PL.stripY!=null)drawOrderStrip(PL.stripY);drawCtrlBar();}else drawRight();
   drawHotbar();
   rect(OX-2,OY-2,COLS*TS*BK+4,ROWS*TS*BK+4,C.edge);rect(OX-1,OY-1,COLS*TS*BK+2,ROWS*TS*BK+2,C.rim);
   drawBoardLayer();
+  if(PORT&&PL.infoH<44)drawForecastOverlay();
   if(B.banner){const b=B.banner;const p=(NOW-b.t0)/b.dur;if(p>=1)B.banner=null;else{
     const h=b.sub?34:22,y=OY+Math.round(ROWS*TS*BK/2)-h/2;ctx.globalAlpha=Math.min(1,Math.min(p,1-p)*6);
     rect(0,y,SW,h,'rgba(10,6,4,.85)');rect(0,y,SW,1,b.villain?C.red:C.gold2);rect(0,y+h-1,SW,1,b.villain?C.red:C.gold2);
@@ -444,13 +449,32 @@ function drawPath(){
 }
 function drawLeft(){
   const px=0,py=PORT?PL.infoY:13,pw=PORT?SW:95,ph=PORT?PL.infoH:133;
-  panel(px,py,pw,ph,{});
   const u=playerUnit();
   const insp=B.inspect?U(B.inspect):null;
+  if(PORT&&ph<44){drawInfoLine(u,insp,px,py,pw,ph);return;}
+  panel(px,py,pw,ph,{});
   if(B.pend&&u&&!insp){drawForecast(u,px+4,py+3,pw-8,ph-6);return;}
   const show=insp&&(live(insp)||insp.dead)?insp:(activeUnit()||u);
   if(!show){text('Waiting…',px+pw/2,py+ph/2,C.mute,{al:'c'});return;}
   drawUnitCard(show,px+4,py+3,pw-8,ph-7,!!insp);
+}
+/* Short screens: a one-line unit summary; the forecast floats over the board instead. */
+function drawInfoLine(u,insp,x,y,w,h){
+  rect(x,y,w,h,C.panel);rect(x,y+h-1,w,1,C.edge);
+  const show=insp&&(live(insp)||insp.dead)?insp:(activeUnit()||u);if(!show)return;
+  const cy=y+Math.floor((h-6)/2);
+  token(show,x+9,y+Math.floor(h/2),Math.min(6,Math.floor(h/2)-1));
+  text(show.name,x+18,cy,show.side==='enemy'?'#ff9a80':C.gold);
+  const bx=x+20+textW(show.name)+4;bar(bx,cy+1,40,5,show.hp/show.maxHp,show.side==='enemy'?'#d04030':'#50c050');text(`${Math.max(0,show.hp)}`,bx+43,cy,C.parch);
+  if(G.cur===show.id&&show.kind==='pc'&&!insp)text(`Mv ${show.mp} · ${show.acted?'acted':'ready'}`,x+w-3,cy,show.acted?C.mute:C.green,{al:'r'});
+  hit(x,y,w,h,{fn:()=>openUnitInfo(show),id:'infoline'});
+  if(insp)button(x+w-11,y+Math.floor((h-9)/2),10,9,'×',()=>{B.inspect=null;},{});
+}
+function drawForecastOverlay(){
+  const u=playerUnit();if(!u||!B.pend||B.inspect)return;
+  const h=78,y=B.pend.T.y<3?OY+ROWS*TS-h-2:OY+2;
+  ctx.globalAlpha=.95;panel(2,y,SW-4,h,{});ctx.globalAlpha=1;
+  drawForecast(u,6,y+3,SW-12,h-6);
 }
 function drawUnitCard(u,x,y,w,h,closable){
   inset(x,y,34,34,'#15100c');
@@ -534,8 +558,8 @@ function drawCtrlBar(){
   rect(0,y-1,SW,SH-y+1,C.bg);
   const bs=[['UNDO',undoUI,{disabled:B.busy||!canUndo()}],['LOG',openLog,{}],['ORDER',openOrder,{}]];
   const bw=Math.floor((SW-4)*.21);
-  bs.forEach((b,i)=>button(2+i*(bw+2),y,bw,24,b[0],b[1],b[2]));
-  const ex=2+3*(bw+2);button(ex,y,SW-2-ex,24,pu?'END TURN':'…',endTurnUI,{hot:!!pu&&turnDone(pu),disabled:!pu||B.busy});
+  bs.forEach((b,i)=>button(2+i*(bw+2),y,bw,PL.ctrlH,b[0],b[1],b[2]));
+  const ex=2+3*(bw+2);button(ex,y,SW-2-ex,PL.ctrlH,pu?'END TURN':'…',endTurnUI,{hot:!!pu&&turnDone(pu),disabled:!pu||B.busy});
 }
 function drawRight(){
   panel(225,13,95,133,{});
@@ -559,7 +583,7 @@ function drawRight(){
   button(229,120,87,22,pu?'END TURN':'…',endTurnUI,{hot:!!pu&&turnDone(pu),disabled:!pu||B.busy});
 }
 function drawHotbar(){
-  const py=PORT?PL.trayY:146,ph=PORT?40:34;
+  const py=PORT?PL.trayY:146,ph=PORT?PL.trayH:34;
   panel(0,py,SW,ph,{});
   const u=playerUnit();const au=activeUnit();
   if(!u){const t=au&&live(au)?`${au.name} is acting…`:'';text(t,SW/2,py+ph/2-3,C.mute,{al:'c'});return;}
@@ -585,7 +609,7 @@ function drawHotbar(){
     hit(x,y,cw,chh,Object.assign({fn:()=>cardTap(i),id:'card'+i},SWIPE));
   }
   if(PORT){
-    if(pages>1){for(let i=0;i<pages;i++){const dx=SW/2-(pages*6)/2+i*6;rect(dx,y0+chh+3,4,4,C.edge);rect(dx+1,y0+chh+4,2,2,i===B.page?C.gold:C.dim);hit(dx-1,y0+chh+1,6,8,{fn:()=>{B.page=i;},id:'dot'+i});}}
+    if(pages>1&&!PL.compact){for(let i=0;i<pages;i++){const dx=SW/2-(pages*6)/2+i*6;rect(dx,y0+chh+3,4,4,C.edge);rect(dx+1,y0+chh+4,2,2,i===B.page?C.gold:C.dim);hit(dx-1,y0+chh+1,6,8,{fn:()=>{B.page=i;},id:'dot'+i});}}
     return;}
   if(pages>1){const sl=slots-1;button(x0+(sl%cols)*sx,y0+Math.floor(sl/cols)*sy,cw,chh,`${B.page+1}/${pages} ▶`,()=>{B.page=(B.page+1)%pages;},{});}
 }
