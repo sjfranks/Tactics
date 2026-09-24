@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Emberwatch is a single self-contained page; publish only that file.
-      - run: mkdir _site && cp index.html _site/
+      # Emberwatch is static: the page plus its scripts, no build step.
+      - run: mkdir _site && cp -r index.html js _site/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
