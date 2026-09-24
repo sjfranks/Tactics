@@ -108,7 +108,7 @@ function token(u,cx,cy,r,ring){
   const S=unitSprite(u);const hx=Math.round((S.lft+S.rgt)/2),hy=Math.min(S.top+r,Math.round((S.top+S.bot)/2));ctx.drawImage(S.c,cx-hx,cy-hy);ctx.restore();
 }
 function sideRing(u){return u.side==='enemy'?(u.boss?'#f0c050':'#c83a30'):u.kind==='npc'?'#6ac86a':'#4a8ae0';}
-function unitSprite(u){if(u.kind==='pc')return spr(u.cls,u.rival?'rival':null);if(u.kind==='npc')return spr(u.npc);return spr(MON[u.type].art);}
+function unitSprite(u,hi){const f=hi?sprH:spr;if(u.kind==='pc')return f(u.cls,u.rival?'rival':null);if(u.kind==='npc')return f(u.npc);return f(MON[u.type].art);}
 
 /* ---------------- rich text with clickable keywords ---------------- */
 const KW_MAP={};const KW_LIST=[];

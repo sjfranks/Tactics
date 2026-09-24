@@ -30,8 +30,8 @@ function titleBG(){
   g.fillStyle='#0c0709';g.fillRect(tx,ty,12,SH);g.fillRect(tx-2,ty-4,16,5);for(let i=0;i<4;i++)g.fillRect(tx-2+i*4,ty-8,2,4);g.fillStyle='#ffb040';g.fillRect(tx+5,ty+8,2,3);g.fillRect(tx+5,ty+20,2,3);
   return BGC[key]=c;
 }
-function mapBG(act,seed){
-  const key='map'+act+'_'+seed+'_'+SW;if(BGC[key])return BGC[key];
+function mapBG(act,seed,hh){
+  const SH=hh||screenH();const key='map'+act+'_'+seed+'_'+SW+'_'+SH;if(BGC[key])return BGC[key];
   const c=document.createElement('canvas');c.width=SW;c.height=SH;const g=c.getContext('2d');const r=mulberry(seed+act*13);
   const P=[['#3a5424','#46622a','#324a20'],['#2c322c','#343a32','#262c26'],['#2a1c18','#34241e','#221612']][act];
   paintDither(g,0,0,SW,SH,P[0],P[1],r,.18);g.fillStyle=P[2];for(let i=0;i<SW*SH*.08;i++)g.fillRect(Math.floor(r()*SW),Math.floor(r()*SH),1,1);
@@ -87,42 +87,82 @@ const TITLE_SCREEN={enter(){this.save=loadSave();},draw(){
 /* ---------------- overworld map ---------------- */
 function roadLine(x1,y1,x2,y2,col,dark){const n=Math.max(Math.abs(x2-x1),Math.abs(y2-y1));for(let i=0;i<=n;i+=3){const x=Math.round(x1+(x2-x1)*i/n),y=Math.round(y1+(y2-y1)*i/n);rect(x-1,y-1,3,3,dark);rect(x,y,2,2,col);}}
 let MAPSEL=null;
-function nodePos(n){if(!PORT)return {x:n.x,y:n.y};if(n.id==='boss')return {x:SW/2,y:40};const jx=(n.x*7)%7-3,jy=(n.y*5)%7-3;return {x:Math.round(SW/2+(n.l-1.5)*46)+jx,y:Math.round(SH-50-n.f*(SH-124)/6)+jy};}
-const MAP_SCREEN={enter(){MAPSEL=null;},draw(){
-  const M=RUN.map;ctx.drawImage(mapBG(RUN.act,M.seed),0,0);
-  if(RUN.act===1){for(let i=0;i<4;i++){const y=30+i*38+Math.sin(NOW/3000+i)*6;ctx.globalAlpha=.08;rect(0,y,SW,10,'#d0d8d0');ctx.globalAlpha=1;}}
+function screenH(){return SH;}
+/* Portrait maps are taller than the screen and scroll; landscape maps fit. */
+const MAPP={top:31,fs:64};
+function mapVH(){return PORT?70+6*MAPP.fs+72:SH;}
+function mapViewH(){return PORT?SH-46-MAPP.top:SH;}
+function nodePos(n){
+  if(!PORT)return {x:n.x,y:n.y};
+  const VH=mapVH();
+  if(n.id==='boss')return {x:SW/2,y:36};
+  const jx=(n.x*7)%7-3,jy=(n.y*5)%9-4;
+  return {x:Math.round(SW/2+(n.l-1.5)*46)+jx,y:VH-44-n.f*MAPP.fs+jy};
+}
+const MAPS={y:0,anim:null};
+function mapScrollTo(vy){MAPS.y=clamp(vy-mapViewH()/2,0,Math.max(0,mapVH()-mapViewH()));}
+function startTravel(id){
+  const M=RUN.map;const to=nodePos(M.nodes[id]);
+  const from=RUN.pos?nodePos(M.nodes[RUN.pos]):(PORT?{x:14,y:mapVH()-20}:{x:6,y:95});
+  MAPS.anim={from,to,id,t0:NOW,dur:Math.min(1400,380+Math.hypot(to.x-from.x,to.y-from.y)*9)};sfx('step');
+}
+const MAP_SCREEN={enter(){MAPSEL=null;MAPS.anim=null;const M=RUN.map;const cur=RUN.pos?nodePos(M.nodes[RUN.pos]):{y:mapVH()};mapScrollTo(cur.y-40);},draw(){
+  const M=RUN.map;
+  const oy=PORT?MAPP.top-Math.round(MAPS.y):0;
+  const A=MAPS.anim;
+  let tok=RUN.pos?nodePos(M.nodes[RUN.pos]):(PORT?{x:14,y:mapVH()-20}:{x:6,y:95}),hop=0;
+  if(A){const p=Math.min(1,(NOW-A.t0)/A.dur);const e=p<.5?2*p*p:1-2*(1-p)*(1-p);tok={x:A.from.x+(A.to.x-A.from.x)*e,y:A.from.y+(A.to.y-A.from.y)*e};hop=Math.round(Math.abs(Math.sin(p*Math.PI*4))*3);
+    if(Math.floor(p*8)!==A.step){A.step=Math.floor(p*8);sfx('step');}
+    if(PORT)mapScrollTo(tok.y);
+    if(p>=1){MAPS.anim=null;travel(A.id);return;}}
+  if(PORT){ctx.save();ctx.beginPath();ctx.rect(0,MAPP.top,SW,mapViewH());ctx.clip();}
+  ctx.drawImage(mapBG(RUN.act,M.seed,mapVH()),0,oy);
+  if(RUN.act===1){for(let i=0;i<(PORT?10:4);i++){const y=oy+30+i*38+Math.sin(NOW/3000+i)*6;ctx.globalAlpha=.08;rect(0,y,SW,10,'#d0d8d0');ctx.globalAlpha=1;}}
   if(RUN.act===2)drawEmbers();
-  const avail=new Set(availableNodes());
+  const avail=new Set(A?[]:availableNodes());
   const vis=new Set(M.visited);
-  for(const e of M.edges){const[a,b]=e.split('>');const A=nodePos(M.nodes[a]),Bn=nodePos(M.nodes[b]);const walked=vis.has(a)&&vis.has(b)&&M.visited.indexOf(b)===M.visited.indexOf(a)+1;roadLine(A.x,A.y,Bn.x,Bn.y,walked?'#e8c070':'#7a5a34','#1a0e08');}
+  const scr=PORT?{scroll:d=>{if(!MAPS.anim)MAPS.y=clamp(MAPS.y-d,0,Math.max(0,mapVH()-mapViewH()));}}:{};
+  if(PORT)hit(0,MAPP.top,SW,mapViewH(),Object.assign({id:'mapscroll'},scr));
+  for(const e of M.edges){const[a,b]=e.split('>');const P1=nodePos(M.nodes[a]),P2=nodePos(M.nodes[b]);const walked=vis.has(a)&&vis.has(b)&&M.visited.indexOf(b)===M.visited.indexOf(a)+1;roadLine(P1.x,P1.y+oy,P2.x,P2.y+oy,walked?'#e8c070':'#7a5a34','#1a0e08');}
   for(const n of Object.values(M.nodes)){
-    const q=nodePos(n);
-    const av=avail.has(n.id),vd=vis.has(n.id);const big=n.type==='boss';const r=big?11:7;
-    if(av){const p=Math.floor(NOW/250)%2;circle(q.x,q.y,r+2+p,C.gold);}
-    circle(q.x,q.y,r+1,C.edge);circle(q.x,q.y,r,vd?'#3a3028':'#e8dcc0');circle(q.x,q.y,r-1,vd?'#2a221c':'#c8b890');
-    if(big){const S=spr(MON[BOSSES[RUN.act]].art);ctx.drawImage(S.c,q.x-8,q.y-9);}else ctx.drawImage(icon(n.type),q.x-5,q.y-5);
-    if(vd&&n.id!==RUN.pos){ctx.globalAlpha=.6;circle(q.x,q.y,r-1,'#1a1410');ctx.globalAlpha=1;text('✓',q.x,q.y-2,C.mute,{al:'c'});}
-    hit(q.x-r-2,q.y-r-2,2*r+4,2*r+4,{fn:()=>mapNodeTap(n,av),id:'node'+n.id});
+    const q=nodePos(n);const y=q.y+oy;
+    const av=avail.has(n.id),vd=vis.has(n.id);const big=n.type==='boss';const r=PORT?(big?17:12):(big?11:7);
+    if(av){const p=Math.floor(NOW/250)%2;circle(q.x,y,r+2+p,C.gold);}
+    circle(q.x,y,r+1,C.edge);circle(q.x,y,r,vd?'#3a3028':'#e8dcc0');circle(q.x,y,r-1,vd?'#2a221c':'#c8b890');
+    if(big){if(PORT){ctx.drawImage(sprH(MON[BOSSES[RUN.act]].art).c,q.x-16,y-18);}else{const S=spr(MON[BOSSES[RUN.act]].art);ctx.drawImage(S.c,q.x-8,y-9);}}
+    else if(PORT)ctx.drawImage(iconH(n.type),q.x-11,y-11);else ctx.drawImage(icon(n.type),q.x-5,y-5);
+    if(vd&&n.id!==RUN.pos){ctx.globalAlpha=.6;circle(q.x,y,r-1,'#1a1410');ctx.globalAlpha=1;text('✓',q.x,y-2,C.mute,{al:'c'});}
+    hit(q.x-r-2,y-r-2,2*r+4,2*r+4,Object.assign({fn:()=>{if(!MAPS.anim)mapNodeTap(n,av);},id:'node'+n.id},scr));
   }
-  const cur=RUN.pos?nodePos(M.nodes[RUN.pos]):(PORT?{x:10,y:SH-36}:{x:6,y:95});
-  ctx.drawImage(spr('fighter').c,cur.x-8,cur.y-20+(Math.floor(NOW/400)%2));
-  rect(0,0,SW,13,'rgba(12,8,6,.92)');rect(0,13,SW,1,C.rim);
-  text(PORT?`ACT ${ROMAN[RUN.act]} · ${ACTS[RUN.act].sub.replace('The ','').toUpperCase()}`:`ACT ${ROMAN[RUN.act]} · ${ACTS[RUN.act].sub.toUpperCase()}`,4,4,C.gold);
-  coin(SW-(PORT?30:40),4);text(String(RUN.gold),SW-(PORT?22:32),4,C.gold);
-  const bh=PORT?30:16;
-  rect(0,SH-bh,SW,bh,'rgba(12,8,6,.92)');rect(0,SH-bh-1,SW,1,C.rim);
-  const hx=PORT?44:38;
-  RUN.heroes.forEach((h,i)=>{const x=3+i*hx;ctx.drawImage(spr(h.cls).c,0,0,16,12,x,SH-14,16,12);bar(x+17,SH-12,19,4,h.hp/effMaxHp(h),'#50c050');text(`${h.hp}`,x+17,SH-7,C.parch);hit(x,SH-15,36,14,{fn:()=>openUnitInfo(heroSheetUnit(h)),id:'mh'+i});});
-  const rx=PORT?3:158,ry=PORT?SH-28:SH-14,rmax=PORT?10:8;
-  RUN.relics.slice(0,rmax).forEach((r,i)=>{relicIcon(r,rx+i*12,ry);hit(rx+i*12,ry,11,11,{fn:()=>msg(RELICS[r].name,RELICS[r].desc,null,160),id:'mr'+r});});
-  if(RUN.relics.length>rmax)text('+'+(RUN.relics.length-rmax),rx+rmax*12,ry+3,C.mute);
-  if(PORT)button(SW-38,SH-29,35,12,'MENU',()=>openSettings(false,true),{});
-  else button(282,SH-14,35,11,'MENU',()=>openSettings(false,true),{});
-  if(!RUN.pos&&RUN.act===0&&!M.visited.length){const p=.6+.4*Math.sin(NOW/300);ctx.globalAlpha=p;text('Choose where to go first',SW/2,PORT?SH-37:20,C.parch,{al:'c',ol:C.edge});ctx.globalAlpha=1;}
+  if(PORT){const S=sprH('fighter');ctx.drawImage(S.c,Math.round(tok.x-16),Math.round(tok.y+oy-36-hop+(A?0:Math.floor(NOW/400)%2)));}
+  else ctx.drawImage(spr('fighter').c,Math.round(tok.x-8),Math.round(tok.y-20-hop+(A?0:Math.floor(NOW/400)%2)));
+  if(!RUN.pos&&RUN.act===0&&!M.visited.length&&!A){const p=.6+.4*Math.sin(NOW/300);ctx.globalAlpha=p;text('Choose where to go first',SW/2,PORT?oy+mapVH()-18:20,C.parch,{al:'c',ol:C.edge});ctx.globalAlpha=1;}
+  if(PORT)ctx.restore();
+  if(PORT){
+    rect(0,0,SW,MAPP.top,'rgba(12,8,6,.95)');rect(0,MAPP.top-1,SW,1,C.rim);hit(0,0,SW,MAPP.top,{id:'mapbar'});hit(0,SH-46,SW,46,{id:'mapbar2'});
+    text(`ACT ${ROMAN[RUN.act]}`,4,3,C.gold,{sc:2,ol:C.edge});
+    text(ACTS[RUN.act].sub.toUpperCase(),4+textW(`ACT ${ROMAN[RUN.act]}`,2)+6,7,C.parch);
+    coin(SW-34,7);text(String(RUN.gold),SW-26,7,C.gold);
+    RUN.relics.slice(0,11).forEach((r,i)=>{relicIcon(r,3+i*12,17);hit(3+i*12,17,11,11,{fn:()=>msg(RELICS[r].name,RELICS[r].desc,null,160),id:'mr'+r});});
+    if(RUN.relics.length>11)text('+'+(RUN.relics.length-11),3+11*12,20,C.mute);
+    button(SW-40,17,37,12,'MENU',()=>openSettings(false,true),{});
+    const by=SH-46;rect(0,by,SW,46,'rgba(12,8,6,.95)');rect(0,by,SW,1,C.rim);
+    const hw=Math.floor(SW/4);
+    RUN.heroes.forEach((h,i)=>{const x=i*hw;ctx.drawImage(sprH(h.cls).c,x+Math.floor((hw-32)/2),by+2);bar(x+3,by+36,hw-6,5,h.hp/effMaxHp(h),'#50c050');text(`${h.hp}`,x+hw-3,by+2,C.parch,{al:'r'});hit(x,by,hw,46,{fn:()=>openUnitInfo(heroSheetUnit(h)),id:'mh'+i});});
+  }else{
+    rect(0,0,SW,13,'rgba(12,8,6,.92)');rect(0,13,SW,1,C.rim);
+    text(`ACT ${ROMAN[RUN.act]} · ${ACTS[RUN.act].sub.toUpperCase()}`,4,4,C.gold);
+    coin(SW-40,4);text(String(RUN.gold),SW-32,4,C.gold);
+    rect(0,SH-16,SW,16,'rgba(12,8,6,.92)');rect(0,SH-17,SW,1,C.rim);
+    RUN.heroes.forEach((h,i)=>{const x=3+i*38;ctx.drawImage(spr(h.cls).c,0,0,16,12,x,SH-14,16,12);bar(x+17,SH-12,19,4,h.hp/effMaxHp(h),'#50c050');text(`${h.hp}`,x+17,SH-7,C.parch);hit(x,SH-15,36,14,{fn:()=>openUnitInfo(heroSheetUnit(h)),id:'mh'+i});});
+    RUN.relics.slice(0,8).forEach((r,i)=>{relicIcon(r,158+i*12,SH-14);hit(158+i*12,SH-14,11,11,{fn:()=>msg(RELICS[r].name,RELICS[r].desc,null,160),id:'mr'+r});});
+    if(RUN.relics.length>8)text('+'+(RUN.relics.length-8),256,SH-11,C.mute);
+    button(282,SH-14,35,11,'MENU',()=>openSettings(false,true),{});
+  }
 }};
 function mapNodeTap(n,av){
   const I=NODE_INFO[n.type];const body=n.type==='boss'?`${MON[BOSSES[RUN.act]].name}. ${BOSS_TXT[RUN.act]}`:I.desc;
-  openModal(dialog({title:(n.type==='boss'?'BOSS':I.name.toUpperCase()),body:body+(av?'':'\n{m:You cannot reach this yet.}'),w:170,buttons:av?[{l:'TRAVEL',hot:true,fn:()=>travel(n.id)},{l:'CANCEL'}]:[{l:'OK'}]}));
+  openModal(dialog({title:(n.type==='boss'?'BOSS':I.name.toUpperCase()),body:body+(av?'':'\n{m:You cannot reach this yet.}'),w:170,buttons:av?[{l:'TRAVEL',hot:true,fn:()=>startTravel(n.id)},{l:'CANCEL'}]:[{l:'OK'}]}));
 }
 
 /* ---------------- rewards ---------------- */
