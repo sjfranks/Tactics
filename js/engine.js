@@ -821,7 +821,7 @@ async function villain(b){
     case 'inferno':{
       const rows={};for(const h of hs)rows[h.y]=(rows[h.y]||0)+1;
       const y=+Object.keys(rows).sort((a,c)=>rows[c]-rows[a])[0];
-      await H.area({x:3.5,y},0,'row');
+      await H.area({x:(COLS-1)/2,y},0,'row');
       for(const h of hs.filter(h=>h.y===y))await damage(b,h,10,{});
       for(const h of hs.filter(h=>Math.abs(h.y-y)===1))await damage(b,h,4,{});
       for(let x=0;x<COLS;x++)setHaz(x,y,'fire',2,b.side);
@@ -879,22 +879,22 @@ function genTerrain(act,reserved,hazOn,type){
     const tiles=Array.from({length:COLS*ROWS},()=>({ob:null,ter:null,haz:null,v:rnd(4)}));
     const free=k=>!reserved.has(k)&&!tiles[k].ob&&!tiles[k].haz&&!tiles[k].ter;
     const spot=(y0,y1)=>{for(let g=0;g<40;g++){const x=rnd(COLS),y=y0+rnd(y1-y0+1),k=K(x,y);if(free(k))return k;}return -1;};
-    const nOb=2+rnd(3),nCov=2+rnd(3);
+    const nOb=2+rnd(2),nCov=1+rnd(3);
     for(let i=0;i<nOb;i++){const k=spot(1,5);if(k>=0)tiles[k].ob=pick(th.obs);}
     for(let i=0;i<nCov;i++){const k=spot(1,5);if(k>=0)tiles[k].ob=pick(th.cov);}
     const cluster=(ter,n,y0,y1)=>{let k=spot(y0,y1);if(k<0)return;for(let i=0;i<n&&k>=0;i++){tiles[k].ter=ter;const opts=DIRS.map(([dx,dy])=>({x:KX(k)+dx,y:KY(k)+dy})).filter(t=>inB(t.x,t.y)&&free(K(t.x,t.y)));if(!opts.length)break;const t=pick(opts);k=K(t.x,t.y);}};
     for(let i=0;i<1+rnd(2);i++)cluster('high',2+rnd(2),2,5);
     for(let i=0;i<1+rnd(2);i++)cluster(th.water&&rnd(2)?'water':'rough',2+rnd(3),1,6);
     if(hazOn){const n=th.hazN[0]+rnd(th.hazN[1]-th.hazN[0]+1);for(let i=0;i<n;i++){const h=pick(th.haz);if(h==='lava'){let k=spot(2,5);for(let j=0;j<1+rnd(2)&&k>=0;j++){tiles[k].haz={t:'lava',dur:-1};const o=DIRS.map(([dx,dy])=>({x:KX(k)+dx,y:KY(k)+dy})).filter(t=>inB(t.x,t.y)&&free(K(t.x,t.y)));const q=o.length?pick(o):null;k=q?K(q.x,q.y):-1;}}else{const k=spot(1,6);if(k>=0)tiles[k].haz={t:h,dur:-1};}}}
-    const start=[...reserved].map(k=>({x:KX(k),y:KY(k)})).find(p=>p.y>=5)||{x:3,y:7};
+    const start=[...reserved].map(k=>({x:KX(k),y:KY(k)})).find(p=>p.y>=5)||{x:2,y:7};
     if(connectedTiles(tiles,start))return tiles;
   }
   return Array.from({length:COLS*ROWS},()=>({ob:null,ter:null,haz:null,v:0}));
 }
 const HERO_POS={
-  normal:{fighter:[3,6],rogue:[4,6],cleric:[3,7],wizard:[4,7]},
-  center:{fighter:[3,3],rogue:[4,3],cleric:[3,4],wizard:[4,4]},
-  wagon:{fighter:[3,5],rogue:[4,6],cleric:[2,6],wizard:[3,7]},
+  normal:{fighter:[2,6],rogue:[3,6],cleric:[2,7],wizard:[3,7]},
+  center:{fighter:[2,3],rogue:[3,3],cleric:[2,4],wizard:[3,4]},
+  wagon:{fighter:[2,5],rogue:[3,6],cleric:[1,6],wizard:[2,7]},
 };
 function genEncounter(f,type,opt){
   opt=opt||{};
@@ -905,10 +905,10 @@ function genEncounter(f,type,opt){
     heroPos:type==='ambush'?'center':type==='defend'?'wagon':'normal'};
   const reserved=new Set();
   const hp=HERO_POS[enc.heroPos];for(const c in hp)reserved.add(K(...hp[c]));
-  if(type==='hold')enc.zone=[[3,3],[4,3],[3,4],[4,4]];
-  if(type==='rescue'){const x=1+rnd(6);enc.npcs.push({kind:'villager',x,y:3});}
-  if(type==='defend')enc.npcs.push({kind:'wagon',x:3,y:6});
-  if(type==='ritual')enc.enemies.push({type:'pillar',x:1,y:1},{type:'pillar',x:6,y:1});
+  if(type==='hold')enc.zone=[[2,3],[3,3],[2,4],[3,4]];
+  if(type==='rescue'){const x=1+rnd(4);enc.npcs.push({kind:'villager',x,y:3});}
+  if(type==='defend')enc.npcs.push({kind:'wagon',x:2,y:6});
+  if(type==='ritual')enc.enemies.push({type:'pillar',x:1,y:1},{type:'pillar',x:4,y:1});
   enc.zone.forEach(z=>reserved.add(K(z[0],z[1])));
   enc.npcs.forEach(n=>{reserved.add(K(n.x,n.y));for(const[dx,dy]of DIRS)if(inB(n.x+dx,n.y+dy))reserved.add(K(n.x+dx,n.y+dy));});
   enc.enemies.forEach(n=>reserved.add(K(n.x,n.y)));
@@ -927,11 +927,11 @@ function genEncounter(f,type,opt){
     if(type==='assassinate')list.push({type:LEADERS[act],leader:true});
     if(opt.elite){const t=pick(ELITES[act]);list.push({type:t,elite:true});budget*=.85;}
     const pool=ACT_POOL[act];let g=0;
-    while(list.length<10&&g++<80){
+    while(list.length<9&&g++<80){
       const aff=pool.filter(t=>(SWARM.includes(t)?2:MON[t].cost)<=budget&&!(type==='boss'&&MON[t].cost>=5));
       if(!aff.length)break;
       const t=pick(aff);
-      if(SWARM.includes(t)){for(let i=0;i<3&&list.length<10;i++)list.push({type:t});budget-=2;}
+      if(SWARM.includes(t)){for(let i=0;i<3&&list.length<9;i++)list.push({type:t});budget-=2;}
       else{list.push({type:t});budget-=MON[t].cost;}
     }
   }
@@ -940,13 +940,13 @@ function genEncounter(f,type,opt){
   for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
     const k=K(x,y);if((reserved.has(k)&&!(y===0&&type!=='breakout'))||blockedK(k))continue;
     if(enc.npcs.some(n=>n.x===x&&n.y===y)||enc.enemies.some(n=>n.x===x&&n.y===y))continue;
-    if(type==='ambush'){if((x===0||x===COLS-1||y===0||y===ROWS-1)&&cheb({x,y},{x:3.5,y:3.5})>=2)spots.push({x,y});}
+    if(type==='ambush'){if((x===0||x===COLS-1||y===0||y===ROWS-1)&&cheb({x,y},{x:2.5,y:3.5})>=2)spots.push({x,y});}
     else if(rowsFor.includes(y))spots.push({x,y});
   }
   shuffle(spots);
   for(const e of list){
     let s;
-    if(e.boss||e.leader||e.elite)s=spots.find(t=>t.y===0&&(t.x===3||t.x===4))||spots.find(t=>t.y<=1)||spots[0];
+    if(e.boss||e.leader||e.elite)s=spots.find(t=>t.y===0&&(t.x===2||t.x===3))||spots.find(t=>t.y<=1)||spots[0];
     else s=spots[0];
     if(!s)break;
     spots=spots.filter(t=>t!==s);

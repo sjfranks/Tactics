@@ -2,7 +2,7 @@
 /* =====================================================================
    EMBERWATCH — rules data
    ===================================================================== */
-const COLS=8,ROWS=8;
+const COLS=6,ROWS=8;
 const ATTR={M:'Might',F:'Finesse',W:'Wits',P:'Presence'};
 const ATTR_USE={M:'Force, endurance and heavy melee.',F:'Precision, agility, stealth and ranged weapons.',W:'Reasoning, magic and reading the environment.',P:'Conviction, leadership and reading people.'};
 const SKILLS={Athletics:'M',Acrobatics:'F',Stealth:'F',Thievery:'F',Magic:'W',Lore:'W',Survival:'W',Insight:'P',Influence:'P'};

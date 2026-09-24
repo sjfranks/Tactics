@@ -2,8 +2,22 @@
 /* =====================================================================
    EMBERWATCH — battle screen
    ===================================================================== */
-let BX=96,BY=15;const TS=16;
-function battleLayout(){if(PORT){BX=26;BY=111;}else{BX=96;BY=15;}}
+/* The board is drawn at 16px per tile into its own canvas (board space, origin BX/BY inside a margin),
+   then scaled onto the screen: 2× in portrait so it fills the phone, 1× in landscape. */
+const TS=16,BM=14;let BX=BM,BY=BM;
+let OX=112,OY=15,BK=1,PL={};let BCV=null,BCX=null;
+function battleLayout(){
+  if(PORT){const info=SH-354;PL={infoY:14,infoH:info,stripY:14+info,boardY:28+info,trayY:SH-66,ctrlY:SH-26};BK=2;OX=Math.floor((SW-COLS*TS*2)/2);OY=PL.boardY+2;}
+  else{PL={};BK=1;OX=96+Math.floor((128-COLS*TS)/2);OY=15;}
+}
+function drawBoardLayer(){
+  const w=COLS*TS+2*BM,h=ROWS*TS+2*BM;
+  if(!BCV||BCV.width!==w||BCV.height!==h){BCV=document.createElement('canvas');BCV.width=w;BCV.height=h;BCX=BCV.getContext('2d');}
+  const main=ctx;ctx=BCX;ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,w,h);
+  try{drawBoard();drawFX();}finally{ctx=main;}
+  ctx.drawImage(BCV,0,0,w,h,OX-BM*BK,OY-BM*BK,w*BK,h*BK);
+  hit(OX,OY,COLS*TS*BK,ROWS*TS*BK,boardInput);
+}
 const B={pi:0,pend:null,inspect:null,drag:null,busy:false,page:0,terr:null,terrKey:'',gRef:null,banner:null,toast:null,vkey:'',V:null,dragTile:null,onEnd:null};
 const VIS={};
 function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -265,7 +279,7 @@ function boardTap(x,y){
   if(t===u){B.inspect=null;selfPend(u);return;}
   B.pend=null;B.inspect=null;
 }
-function tileAt(px,py){const x=Math.floor((px-BX)/TS),y=Math.floor((py-BY)/TS);return inB(x,y)?{x,y}:null;}
+function tileAt(px,py){const x=Math.floor((px-OX)/(TS*BK)),y=Math.floor((py-OY)/(TS*BK));return inB(x,y)?{x,y}:null;}
 const boardInput={
   fn:(px,py)=>{const t=tileAt(px,py);if(t)boardTap(t.x,t.y);},
   dragStart:(px,py)=>{const t=tileAt(px,py);const u=playerUnit();if(t&&u&&!B.busy&&u.x===t.x&&u.y===t.y)B.drag={id:u.id};},
@@ -285,13 +299,13 @@ function drawBattle(){
   battleLayout();
   rect(0,0,SW,SH,C.bg);
   drawTop();
-  drawBoard();
   drawLeft();
-  if(PORT){drawOrderStrip(95);drawCtrlBar();}else drawRight();
+  if(PORT){drawOrderStrip(PL.stripY);drawCtrlBar();}else drawRight();
   drawHotbar();
-  drawFX();
+  rect(OX-2,OY-2,COLS*TS*BK+4,ROWS*TS*BK+4,C.edge);rect(OX-1,OY-1,COLS*TS*BK+2,ROWS*TS*BK+2,C.rim);
+  drawBoardLayer();
   if(B.banner){const b=B.banner;const p=(NOW-b.t0)/b.dur;if(p>=1)B.banner=null;else{
-    const h=b.sub?34:22,y=BY+64-h/2;ctx.globalAlpha=Math.min(1,Math.min(p,1-p)*6);
+    const h=b.sub?34:22,y=OY+Math.round(ROWS*TS*BK/2)-h/2;ctx.globalAlpha=Math.min(1,Math.min(p,1-p)*6);
     rect(0,y,SW,h,'rgba(10,6,4,.85)');rect(0,y,SW,1,b.villain?C.red:C.gold2);rect(0,y+h-1,SW,1,b.villain?C.red:C.gold2);
     if(b.unit){const S=unitSprite(b.unit);ctx.drawImage(S.c,0,0,16,16,SW/2-textW(b.title,2)/2-22,y+3,16,16);}
     text(b.title,SW/2,y+5,b.villain?'#ffb070':C.gold,{al:'c',sc:2,ol:C.edge});
@@ -337,7 +351,6 @@ function objText(){
 }
 function tileRect(x,y,col,a){ctx.globalAlpha=a;rect(BX+x*TS+1,BY+y*TS+1,TS-2,TS-2,col);ctx.globalAlpha=Math.min(1,a*2.2);frame(BX+x*TS+1,BY+y*TS+1,TS-2,TS-2,col);ctx.globalAlpha=1;}
 function drawBoard(){
-  rect(BX-2,BY-2,COLS*TS+4,ROWS*TS+4,C.edge);rect(BX-1,BY-1,COLS*TS+2,ROWS*TS+2,C.rim);
   ctx.drawImage(B.terr,BX,BY);
   const t=NOW/1000;
   for(let k=0;k<G.tiles.length;k++){const T0=G.tiles[k],X=BX+KX(k)*TS,Y=BY+KY(k)*TS;
@@ -356,9 +369,8 @@ function drawBoard(){
   if(cur&&live(cur)){const p=uPos(cur);const X=BX+p.x,Y=BY+p.y;const a=Math.floor(t*4)%2;const c=C.gold;
     for(const[dx,dy,sx,sy]of[[0,0,1,1],[TS-3,0,-1,1],[0,TS-3,1,-1],[TS-3,TS-3,-1,-1]]){rect(X+dx-a*sx,Y+dy+(sy<0?2:0)-a*sy,3,1,c);rect(X+dx+(sx<0?2:0)-a*sx,Y+dy-a*sy,1,3,c);}}
   for(const u of us)drawUnit(u);
-  if(B.drag){const u=U(B.drag.id);if(u&&B.dragPos){const S=unitSprite(u);ctx.globalAlpha=.8;ctx.drawImage(S.c,Math.round(B.dragPos.x-8),Math.round(B.dragPos.y-12));ctx.globalAlpha=1;}}
-  hit(BX,BY,COLS*TS,ROWS*TS,boardInput);
-  if(B.toast){const p=(NOW-B.toast.t0)/B.toast.dur;if(p>=1)B.toast=null;else{ctx.globalAlpha=Math.min(1,(1-p)*3);const w=textW(B.toast.text)+10;rect(BX+64-w/2,BY+1,w,9,'rgba(10,6,4,.8)');text(B.toast.text,BX+64,BY+3,B.toast.col,{al:'c'});ctx.globalAlpha=1;}}
+  if(B.drag){const u=U(B.drag.id);if(u&&B.dragPos){const S=unitSprite(u);ctx.globalAlpha=.8;ctx.drawImage(S.c,Math.round((B.dragPos.x-OX)/BK+BX-8),Math.round((B.dragPos.y-OY)/BK+BY-12));ctx.globalAlpha=1;}}
+  if(B.toast){const p=(NOW-B.toast.t0)/B.toast.dur;if(p>=1)B.toast=null;else{ctx.globalAlpha=Math.min(1,(1-p)*3);const w=textW(B.toast.text)+10;rect(BX+COLS*TS/2-w/2,BY+1,w,9,'rgba(10,6,4,.8)');text(B.toast.text,BX+COLS*TS/2,BY+3,B.toast.col,{al:'c'});ctx.globalAlpha=1;}}
 }
 function drawUnit(u){
   const v=vis(u);const p=uPos(u);const X=BX+p.x,Y=BY+p.y;
@@ -418,7 +430,7 @@ function drawPath(){
   const e=path[path.length-1];rect(BX+e.x*TS+5,BY+e.y*TS+5,6,6,C.edge);rect(BX+e.x*TS+6,BY+e.y*TS+6,4,4,col);
 }
 function drawLeft(){
-  const px=0,py=PORT?14:13,pw=PORT?SW:95,ph=PORT?80:133;
+  const px=0,py=PORT?PL.infoY:13,pw=PORT?SW:95,ph=PORT?PL.infoH:133;
   panel(px,py,pw,ph,{});
   const u=playerUnit();
   const insp=B.inspect?U(B.inspect):null;
@@ -492,25 +504,25 @@ function drawForecast(u,x,y0,w,h){
   button(x+w-25,bot,25,13,'×',()=>{B.pend=null;},{});
 }
 function drawOrderStrip(y0){
-  y0=y0||13;const oy=y0-13;
-  rect(0,y0,SW,16,C.panel2);rect(0,y0+15,SW,1,C.edge);
-  const list=upcoming(12);let x=9,lastR=G.round;
+  rect(0,y0,SW,14,C.panel2);rect(0,y0+13,SW,1,C.edge);
+  const list=upcoming(14);let x=9,lastR=G.round;const cy=y0+7;
   for(const e of list){
-    if(e.round!==lastR){rect(x-4,15+oy,1,13,C.dim);x+=3;lastR=e.round;}
+    if(e.round!==lastR){rect(x-4,y0+1,1,12,C.dim);x+=3;lastR=e.round;}
     if(x>SW-8)break;
     const u=e.u;
-    if(e.now){rect(x-8,14+oy,16,15,'#5a4418');frame(x-8,14+oy,16,15,C.gold);}
-    token(u,x,21+oy,6);
-    hit(x-7,14+oy,15,15,{fn:()=>{B.inspect=u.id;},id:'ts'+u.id+x});
+    if(e.now){rect(x-8,y0,16,14,'#5a4418');frame(x-8,y0,16,14,C.gold);}
+    token(u,x,cy,6);
+    hit(x-7,y0,15,14,{fn:()=>{B.inspect=u.id;},id:'ts'+u.id+x});
     x+=15;
   }
 }
 function drawCtrlBar(){
-  const y=SH-27,pu=playerUnit();
-  rect(0,y-2,SW,SH-y+2,C.bg);
+  const y=PL.ctrlY,pu=playerUnit();
+  rect(0,y-1,SW,SH-y+1,C.bg);
   const bs=[['UNDO',undoUI,{disabled:B.busy||!canUndo()}],['LOG',openLog,{}],['ORDER',openOrder,{}]];
-  bs.forEach((b,i)=>button(2+i*37,y,35,24,b[0],b[1],b[2]));
-  button(113,y,65,24,pu?'END TURN':'…',endTurnUI,{hot:!!pu&&turnDone(pu),disabled:!pu||B.busy});
+  const bw=Math.floor((SW-4)*.21);
+  bs.forEach((b,i)=>button(2+i*(bw+2),y,bw,24,b[0],b[1],b[2]));
+  const ex=2+3*(bw+2);button(ex,y,SW-2-ex,24,pu?'END TURN':'…',endTurnUI,{hot:!!pu&&turnDone(pu),disabled:!pu||B.busy});
 }
 function drawRight(){
   panel(225,13,95,133,{});
@@ -534,12 +546,13 @@ function drawRight(){
   button(229,120,87,22,pu?'END TURN':'…',endTurnUI,{hot:!!pu&&turnDone(pu),disabled:!pu||B.busy});
 }
 function drawHotbar(){
-  const py=PORT?243:146,ph=PORT?48:34;
+  const py=PORT?PL.trayY:146,ph=PORT?40:34;
   panel(0,py,SW,ph,{});
   const u=playerUnit();const au=activeUnit();
   if(!u){const t=au&&live(au)?`${au.name} is acting…`:'';text(t,SW/2,py+ph/2-3,C.mute,{al:'c'});return;}
   if(u.kind==='npc'){rich('The captive can only move. Tap a blue square, then End Turn.',8,py+8,SW-16,C.parch);return;}
-  const cols=PORT?4:8,rowsN=1,cw=PORT?43:38,chh=PORT?34:28,x0=PORT?3:4,y0=PORT?246:149,sx=PORT?44:39,sy=31;
+  const pcw=Math.floor((SW-8)/4);
+  const cols=PORT?4:8,rowsN=1,cw=PORT?pcw-2:38,chh=PORT?29:28,x0=PORT?4:4,y0=PORT?py+3:149,sx=PORT?pcw:39,sy=31;
   const slots=cols*rowsN;
   const n=u.powers.length;const per=PORT?4:(n>slots?slots-1:slots);const pages=Math.ceil(n/per);B.page=Math.min(B.page,pages-1);
   const start=B.page*per;

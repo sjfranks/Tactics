@@ -87,7 +87,7 @@ const TITLE_SCREEN={enter(){this.save=loadSave();},draw(){
 /* ---------------- overworld map ---------------- */
 function roadLine(x1,y1,x2,y2,col,dark){const n=Math.max(Math.abs(x2-x1),Math.abs(y2-y1));for(let i=0;i<=n;i+=3){const x=Math.round(x1+(x2-x1)*i/n),y=Math.round(y1+(y2-y1)*i/n);rect(x-1,y-1,3,3,dark);rect(x,y,2,2,col);}}
 let MAPSEL=null;
-function nodePos(n){if(!PORT)return {x:n.x,y:n.y};if(n.id==='boss')return {x:SW/2,y:40};const jx=(n.x*7)%7-3,jy=(n.y*5)%7-3;return {x:26+n.l*43+jx,y:SH-50-n.f*33+jy};}
+function nodePos(n){if(!PORT)return {x:n.x,y:n.y};if(n.id==='boss')return {x:SW/2,y:40};const jx=(n.x*7)%7-3,jy=(n.y*5)%7-3;return {x:Math.round(SW/2+(n.l-1.5)*46)+jx,y:Math.round(SH-50-n.f*(SH-124)/6)+jy};}
 const MAP_SCREEN={enter(){MAPSEL=null;},draw(){
   const M=RUN.map;ctx.drawImage(mapBG(RUN.act,M.seed),0,0);
   if(RUN.act===1){for(let i=0;i<4;i++){const y=30+i*38+Math.sin(NOW/3000+i)*6;ctx.globalAlpha=.08;rect(0,y,SW,10,'#d0d8d0');ctx.globalAlpha=1;}}
@@ -160,7 +160,7 @@ const SHOP_SCREEN={draw(){
   if(PORT){coin(SW-34,SH-17);text(String(RUN.gold),SW-26,SH-17,C.gold);}else{coin(SW-44,6);text(String(RUN.gold),SW-36,6,C.gold);}
   const items=RUN.shop.items;
   items.forEach((it,i)=>{
-    const x=PORT?4+(i%2)*88:6+(i%3)*104,y=PORT?24+Math.floor(i/2)*84:24+Math.floor(i/3)*68,w=PORT?84:100,h=PORT?80:64;
+    const pw2=Math.floor((SW-12)/2),x=PORT?4+(i%2)*(pw2+4):6+(i%3)*104,y=PORT?24+Math.floor(i/2)*Math.min(96,Math.floor((SH-50)/3)):24+Math.floor(i/3)*68,w=PORT?pw2:100,h=PORT?Math.min(92,Math.floor((SH-50)/3)-4):64;
     panel(x,y,w,h,{fill:it.sold?'#141010':C.panel});
     const cx=x+5,cy=y+5,cw=w-10;
     if(it.sold){text('SOLD',x+w/2,y+28,C.dim,{al:'c',sc:2});return;}
@@ -364,7 +364,7 @@ function skirmishStart(){
   const f=clamp(Math.round((lvl-1)*1.0),0,11);
   CTX={mode:'skirmish',relics:[],skirmish:true};
   const enc=genEncounter(f,type,{act:SK.act,hazards:SK.haz,enemies,title:'Skirmish'});
-  const spots=[[3,0],[4,0],[2,1],[5,1]].map(([x,y])=>({x,y}));
+  const spots=[[2,0],[3,0],[1,1],[4,1]].map(([x,y])=>({x,y}));
   rivals.forEach((c,i)=>{let s=spots[i];if(enc.tiles[K(s.x,s.y)].ob||enc.enemies.some(e=>e.x===s.x&&e.y===s.y)){s=null;for(let y=0;y<3&&!s;y++)for(let x=0;x<COLS&&!s;x++)if(!enc.tiles[K(x,y)].ob&&!enc.tiles[K(x,y)].haz&&!enc.enemies.some(e=>e.x===x&&e.y===y))s={x,y};}
     if(s)enc.enemies.push({pc:c,lvl,hp:hpAt(c),maxHp:hpAt(c),powers:SK.rivalPow[c].slice(),x:s.x,y:s.y});});
   setupBattle(enc,party);

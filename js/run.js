@@ -16,7 +16,7 @@ const NODE_INFO={
 };
 function newHeroes(){return ORDER.map(c=>({cls:c,lvl:1,maxHp:CLASSES[c].hp,hp:CLASSES[c].hp,powers:CLASSES[c].start.slice()}));}
 function newRun(){
-  RUN={v:6,act:0,map:genMap(0),pos:null,gold:40,heroes:newHeroes(),relics:[],stats:{wins:0,kills:0,battles:0,gold:0},stage:'map',pending:null,seen:[],shop:null,event:null,enc:null};
+  RUN={v:7,act:0,map:genMap(0),pos:null,gold:40,heroes:newHeroes(),relics:[],stats:{wins:0,kills:0,battles:0,gold:0},stage:'map',pending:null,seen:[],shop:null,event:null,enc:null};
   saveGame();
 }
 function genMap(act){
@@ -186,7 +186,7 @@ function saveGame(){
     localStorage.setItem(SAVE_KEY,JSON.stringify(d));
   }catch(e){}
 }
-function loadSave(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');return d&&d.RUN&&d.RUN.v===6?d:null;}catch(e){return null;}}
+function loadSave(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');return d&&d.RUN&&d.RUN.v===7?d:null;}catch(e){return null;}}
 function clearSave(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
 function continueRun(){
   const d=loadSave();if(!d)return;RUN=d.RUN;CTX={mode:'run',relics:RUN.relics};
