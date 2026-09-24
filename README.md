@@ -6,7 +6,7 @@ A pixel-art tactics roguelite. Lead four heroes down a branching road through th
 
 [Play Emberwatch on GitHub Pages](https://sjfranks.github.io/Tactics/)
 
-The whole game draws to a pixel canvas scaled up with crisp pixels: 320×180 on landscape screens and 180×320 on portrait screens such as a phone held upright. Every screen has a layout for each shape, and the game switches when you rotate the device.
+The whole game draws to a pixel canvas scaled up with crisp pixels: 320×180 on landscape screens, and 196 wide on portrait screens such as a phone held upright, where the 6×8 battle board is drawn at 2× to fill the width. Every screen has a layout for each shape, and the game switches when you rotate the device.
 
 ## What is in the game
 

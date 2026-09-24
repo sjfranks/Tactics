@@ -1,18 +1,18 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — pixel canvas (320×180 landscape, 180×320 portrait), input, widgets
+   EMBERWATCH — pixel canvas (320×180 landscape, 196 wide portrait), input, widgets
    ===================================================================== */
 let SW=320,SH=180,PORT=false;
 const cv=document.getElementById('game');
-const ctx=cv.getContext('2d');
+let ctx=cv.getContext('2d');const MAINCTX=ctx;
 cv.width=SW;cv.height=SH;ctx.imageSmoothingEnabled=false;
 let SCALE=1;const ROT=false;
 /* Landscape screens get a 320×180 canvas; portrait screens get 180×320. */
 function fit(){
   const vw=window.innerWidth,vh=window.innerHeight;
   PORT=vh>vw;
-  const w=PORT?180:320,h=PORT?320:180;
-  if(w!==SW||h!==SH){SW=w;SH=h;cv.width=SW;cv.height=SH;ctx.imageSmoothingEnabled=false;if(typeof onResize==='function')onResize();}
+  const w=PORT?196:320,h=PORT?clamp(Math.round(196*vh/vw),400,470):180;
+  if(w!==SW||h!==SH){SW=w;SH=h;cv.width=SW;cv.height=SH;MAINCTX.imageSmoothingEnabled=false;if(typeof onResize==='function')onResize();}
   let s=Math.min(vw/SW,vh/SH);if(s>=3)s=Math.floor(s);
   SCALE=s;
   cv.style.width=SW*s+'px';cv.style.height=SH*s+'px';
