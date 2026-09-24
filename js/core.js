@@ -1,22 +1,24 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — 320×180 canvas, input, widgets
+   EMBERWATCH — pixel canvas (320×180 landscape, 180×320 portrait), input, widgets
    ===================================================================== */
-const SW=320,SH=180;
+let SW=320,SH=180,PORT=false;
 const cv=document.getElementById('game');
 const ctx=cv.getContext('2d');
 cv.width=SW;cv.height=SH;ctx.imageSmoothingEnabled=false;
-let SCALE=1,ROT=false;
+let SCALE=1;const ROT=false;
+/* Landscape screens get a 320×180 canvas; portrait screens get 180×320. */
 function fit(){
   const vw=window.innerWidth,vh=window.innerHeight;
-  ROT=vh>vw*1.05;
-  const aw=ROT?vh:vw,ah=ROT?vw:vh;
-  let s=Math.min(aw/SW,ah/SH);if(s>=3)s=Math.floor(s);
+  PORT=vh>vw;
+  const w=PORT?180:320,h=PORT?320:180;
+  if(w!==SW||h!==SH){SW=w;SH=h;cv.width=SW;cv.height=SH;ctx.imageSmoothingEnabled=false;if(typeof onResize==='function')onResize();}
+  let s=Math.min(vw/SW,vh/SH);if(s>=3)s=Math.floor(s);
   SCALE=s;
   cv.style.width=SW*s+'px';cv.style.height=SH*s+'px';
-  cv.style.transform='translate(-50%,-50%)'+(ROT?' rotate(90deg)':'');
+  cv.style.transform='translate(-50%,-50%)';
 }
-window.addEventListener('resize',fit);fit();
+window.addEventListener('resize',fit);window.addEventListener('orientationchange',()=>setTimeout(fit,50));fit();
 
 /* ---------------- colours ---------------- */
 const C={bg:'#0d0b0a',panel:'#1c1613',panel2:'#29201a',panel3:'#372a20',edge:'#050303',rim:'#6a5236',rim2:'#9a7a48',hi:'#4a3a2a',
@@ -39,7 +41,7 @@ function hit(x,y,w,h,o){HITS.push(Object.assign({x,y,w,h},o));}
 function hitAt(px,py,list){for(let i=list.length-1;i>=0;i--){const r=list[i];if(px>=r.x&&py>=r.y&&px<r.x+r.w&&py<r.y+r.h)return r;}return null;}
 function toCanvas(ev){
   const r=cv.getBoundingClientRect();const cx=(r.left+r.right)/2,cy=(r.top+r.bottom)/2;
-  let dx=ev.clientX-cx,dy=ev.clientY-cy;if(ROT){const t=dx;dx=dy;dy=-t;}
+  const dx=ev.clientX-cx,dy=ev.clientY-cy;
   return {x:dx/SCALE+SW/2,y:dy/SCALE+SH/2};
 }
 window.addEventListener('pointerdown',ev=>{
@@ -176,7 +178,7 @@ function closeAllModals(){MODALS.length=0;}
 /* Standard dialog box: title, rich body (scrolls if long), buttons [{l,fn,hot}]. */
 function dialog(o){
   return {closable:o.closable!==false,draw(){
-    const w=o.w||200;const bodyW=w-16;
+    const w=Math.min(o.w||200,SW-8);const bodyW=w-16;
     const bh=o.body?richH(o.body,bodyW):0;
     const extra=o.extraH||0;
     const btnH=o.buttons&&o.buttons.length?16:0;

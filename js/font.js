@@ -74,3 +74,5 @@ function wrap(s,maxW){
   }
   return out;
 }
+
+function fitText(s,w){if(textW(s)<=w)return s;while(s.length>1&&textW(s+'…')>w)s=s.slice(0,-1);return s+'…';}

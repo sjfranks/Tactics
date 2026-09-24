@@ -6,7 +6,7 @@ A pixel-art tactics roguelite. Lead four heroes down a branching road through th
 
 [Play Emberwatch on GitHub Pages](https://sjfranks.github.io/Tactics/)
 
-The whole game draws to a 320×180 canvas scaled up with crisp pixels. On a phone held upright, the view turns sideways to fill the screen.
+The whole game draws to a pixel canvas scaled up with crisp pixels: 320×180 on landscape screens and 180×320 on portrait screens such as a phone held upright. Every screen has a layout for each shape, and the game switches when you rotate the device.
 
 ## What is in the game
 
@@ -30,7 +30,7 @@ No build step. Open `index.html` in a browser (or serve the folder). GitHub Acti
 - `js/data.js`: classes, powers, monsters, relics, missions, glossary, events
 - `js/engine.js`: rules, initiative, movement, hazards, AI, undo
 - `js/font.js`, `js/sprites.js`: bitmap font and pixel sprites
-- `js/core.js`: canvas scaling, input, widgets, rich text
+- `js/core.js`: canvas sizing (landscape or portrait), input, widgets, rich text
 - `js/battle.js`: the battle screen
 - `js/run.js`: the journey, rewards, shops, events and saves
 - `js/screens.js`: title, map, compendium, skirmish and other screens
