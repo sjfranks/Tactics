@@ -69,7 +69,8 @@ const TITLE_SCREEN={enter(){this.save=loadSave();},draw(){
   if(PORT){text('Four heroes. Three lands.',SW/2,ly+38,C.parch,{al:'c'});text('One dragon.',SW/2,ly+46,C.parch,{al:'c'});}
   else text('Four heroes. Three lands. One dragon.',16,58,C.parch);
   const px=PORT?Math.floor(SW/2-34):58,py=PORT?Math.round(SH*.66)-18:146;
-  ORDER.forEach((c,i)=>{const S=spr(c);ctx.drawImage(S.c,px+i*17,py+(Math.floor(NOW/500+i)%2));});
+  if(PORT)ORDER.forEach((c,i)=>{ctx.drawImage(sprH(c).c,SW/2-72+i*36,py-16+(Math.floor(NOW/500+i)%2));});
+  else ORDER.forEach((c,i)=>{const S=spr(c);ctx.drawImage(S.c,px+i*17,py+(Math.floor(NOW/500+i)%2));});
   const save=this.save;
   const items=[];
   if(save)items.push(['CONTINUE',()=>{continueRun();},true]);
@@ -185,8 +186,8 @@ const REWARD_SCREEN={draw(){
   offers.forEach((o,i)=>{
     const x=PORT?x0:x0+i*(w+gap),y=PORT?ty+i*(ch+gap):42;
     offerCard(x,y,w,ch,(cx,cy,cw)=>{
-      if(s==='train'){const p=POWERS[o.id];const h=RUN.heroes.find(q=>q.cls===o.cls);ctx.drawImage(spr(o.cls).c,cx,cy);text(CLASSES[o.cls].name,cx+18,cy+1,C.mute);text(p.name,cx+18,cy+8,C.gold);
-        const u=heroSheetUnit(h);const body=powerText(p,u);rich(body,cx,cy+19,cw,C.parch);}
+      if(s==='train'){const p=POWERS[o.id];const h=RUN.heroes.find(q=>q.cls===o.cls);const hi=PORT,ox=hi?35:18;ctx.drawImage(art(o.cls).c,cx,cy-(hi?2:0));text(CLASSES[o.cls].name,cx+ox,cy+1,C.mute);text(p.name,cx+ox,cy+8,C.gold);
+        const u=heroSheetUnit(h);const body=powerText(p,u);rich(body,hi?cx+ox:cx,cy+(hi?17:19),hi?cw-ox:cw,C.parch);}
       else{relicIcon(o,cx,cy);text(RELICS[o].name,cx+14,cy+3,C.gold);rich(RELICS[o].desc,cx,cy+16,cw,C.parch);}
     },()=>{sfx('chest');takeReward(o);if(!nextRewardStep())finishRewards();},'offer'+i);
   });
@@ -206,7 +207,7 @@ const SHOP_SCREEN={draw(){
     if(it.sold){text('SOLD',x+w/2,y+28,C.dim,{al:'c',sc:2});return;}
     let name,desc;
     if(it.kind==='relic'){relicIcon(it.id,cx,cy);name=RELICS[it.id].name;desc=RELICS[it.id].desc;text(fitText(name,cw-14),cx+14,cy+3,C.gold);}
-    else if(it.kind==='power'){ctx.drawImage(spr(it.cls).c,cx,cy-2);name=POWERS[it.id].name;desc=`${CLASSES[it.cls].name} learns this power. `+POWERS[it.id].desc;text(fitText(name,cw-18),cx+18,cy+1,C.gold);text(CLASSES[it.cls].name,cx+18,cy+8,C.mute);}
+    else if(it.kind==='power'){if(PORT)token({kind:'pc',cls:it.cls,side:'hero'},cx+7,cy+5,7);else ctx.drawImage(spr(it.cls).c,cx,cy-2);name=POWERS[it.id].name;desc=`${CLASSES[it.cls].name} learns this power. `+POWERS[it.id].desc;text(fitText(name,cw-18),cx+18,cy+1,C.gold);text(CLASSES[it.cls].name,cx+18,cy+8,C.mute);}
     else{text('+',cx+4,cy+2,C.green,{sc:2});name='Healing Draught';desc='Every hero heals 40% of their health.';text(name,cx+14,cy+3,C.gold);}
     rich(desc,cx,cy+17,cw,C.parch,{nohit:true});
     const ok=RUN.gold>=it.price;coin(x+w-30,y+h-12);text(String(it.price),x+w-22,y+h-12,ok?C.gold:C.red);
@@ -228,7 +229,7 @@ const REST_SCREEN={draw(){
   const cx=SW/2,cy=PORT?176:112;
   rect(0,cy-2,SW,SH,'#141a10');
   campfire(cx,cy,2);
-  ORDER.forEach((c,i)=>{const S=spr(c);const off=[[-48,-8],[-32,8],[24,8],[40,-8]][i];ctx.drawImage(i<2?S.c:S.f,0,0,16,16,cx+off[0],cy+off[1],16,16);});
+  ORDER.forEach((c,i)=>{const S=art(c);if(PORT){const off=[[-68,-28],[-50,-4],[18,-4],[36,-28]][i];ctx.drawImage(i<2?S.c:S.f,cx+off[0],cy+off[1]);}else{const off=[[-48,-8],[-32,8],[24,8],[40,-8]][i];ctx.drawImage(i<2?S.c:S.f,0,0,16,16,cx+off[0],cy+off[1],16,16);}});
   text('CAMPFIRE',SW/2,6,C.gold,{al:'c',sc:2,ol:C.edge});
   let ty=24;for(const l of wrap('The night is quiet. Choose how to spend it.',SW-8)){text(l,SW/2,ty,C.parch,{al:'c'});ty+=7;}
   const rest=()=>{RUN.heroes.forEach(h=>h.hp=Math.min(effMaxHp(h),h.hp+Math.ceil(effMaxHp(h)*.4)));sfx('heal');RUN.stage='map';saveGame();go(MAP_SCREEN);};
@@ -277,7 +278,7 @@ const END_SCREEN={draw(){
   const bw=PORT?56:76,gap=PORT?2:8,sx=Math.floor((SW-3*bw-2*gap)/2);
   st.forEach((s,i)=>{const x=sx+i*(bw+gap);panel(x,y,bw,30,{});text(String(s[1]),x+bw/2,y+6,C.gold,{al:'c',sc:2});text(s[0],x+bw/2,y+20,C.mute,{al:'c'});});
   y+=38;
-  RUN.heroes.forEach((h,i)=>{const x=SW/2-60+i*32;ctx.drawImage(spr(h.cls).c,x,y);text('Lv '+h.lvl,x+8,y+18,C.parch,{al:'c'});});
+  RUN.heroes.forEach((h,i)=>{if(PORT){const x=SW/2-76+i*38;ctx.drawImage(sprH(h.cls).c,x+3,y);text('Lv '+h.lvl,x+19,y+34,C.parch,{al:'c'});}else{const x=SW/2-60+i*32;ctx.drawImage(spr(h.cls).c,x,y);text('Lv '+h.lvl,x+8,y+18,C.parch,{al:'c'});}});
   if(PORT){button(20,SH-40,SW-40,14,'NEW JOURNEY',()=>{newRun();go(MAP_SCREEN);},{hot:true});button(20,SH-22,SW-40,14,'TITLE',()=>go(TITLE_SCREEN),{});}
   else{button(60,156,90,14,'NEW JOURNEY',()=>{newRun();go(MAP_SCREEN);},{hot:true});button(170,156,90,14,'TITLE',()=>go(TITLE_SCREEN),{});}
 }};
@@ -328,10 +329,10 @@ const COMP={tab:0,cls:0,sel:null};
 const COMP_SCREEN={enter(){COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);},draw(){
   rect(0,0,SW,SH,C.bg);
   const tabs=['HEROES','RELICS','BESTIARY','GLOSSARY'];
-  const tw=PORT?43:60,tsx=PORT?44:62;
-  tabs.forEach((t,i)=>button(PORT?2+i*tsx:4+i*tsx,3,tw,12,t,()=>{COMP.tab=i;COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);},{on:COMP.tab===i}));
+  const tw=PORT?40:60,tsx=PORT?41:62;
+  tabs.forEach((t,i)=>button(PORT?31+i*tsx:4+i*tsx,3,tw,12,t,()=>{COMP.tab=i;COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);},{on:COMP.tab===i}));
   const back=()=>{const b=SCREEN_BACK||TITLE_SCREEN;SCREEN_BACK=null;go(b);};
-  if(PORT)button(2,SH-15,SW-4,13,'BACK',back,{hot:true});else button(SW-54,3,50,12,'BACK',back,{hot:true});
+  if(PORT)button(2,3,27,12,'◀',back,{hot:true});else button(SW-54,3,50,12,'BACK',back,{hot:true});
   let entries=[];
   if(COMP.tab===0){
     ORDER.forEach((c,i)=>button(PORT?2+i*tsx:4+i*48,18,PORT?tw:46,11,CLASSES[c].title.toUpperCase(),()=>{COMP.cls=i;COMP.sel=null;scrollTo('clist',0);},{on:COMP.cls===i}));
@@ -342,16 +343,16 @@ const COMP_SCREEN={enter(){COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);
   else entries=Object.keys(GLOSS).sort((a,b)=>GLOSS[a].name.localeCompare(GLOSS[b].name)).map(k=>({k,label:GLOSS[k].name}));
   const ly=COMP.tab===0?32:18;
   const lx=2,lw=PORT?SW-4:112,lh=PORT?Math.round((SH-ly)*.4):SH-ly;
-  const dxp=PORT?2:116,dyp=PORT?ly-2+lh+2:ly-2,dwp=PORT?SW-4:SW-118,dhp=PORT?SH-18-dyp:SH-ly;
+  const dxp=PORT?2:116,dyp=PORT?ly-2+lh+2:ly-2,dwp=PORT?SW-4:SW-118,dhp=PORT?SH-2-dyp:SH-ly;
   panel(lx,ly-2,lw,lh,{plain:true});
   if(!COMP.sel&&entries.length)COMP.sel=entries.find(e=>e.k).k;
-  const rowH=e=>e.hdr?9:e.sprite?15:10;
+  const rowH=e=>e.hdr?9:e.sprite?(PORT?33:15):10;
   const ch=entries.reduce((s,e)=>s+rowH(e),0)+4;
   scrollArea('clist',lx+3,ly+1,lw-6,lh-6,ch,(yy,clip)=>{let y=yy;for(const e of entries){const h=rowH(e);
     if(e.hdr){text(e.hdr.toUpperCase(),lx+6,y+2,C.mute,{sh:false});y+=h;continue;}
     if(COMP.sel===e.k)rect(lx+3,y,lw-8,h,'#3a2e1a');
-    let tx=lx+6;if(e.sprite){ctx.drawImage(spr(e.sprite).c,lx+4,y-1);tx=lx+22;}if(e.relic){relicIcon(e.relic,lx+4,y);tx=lx+17;}
-    text(e.label,tx,y+(e.sprite?5:2),COMP.sel===e.k?C.gold:(e.col||C.parch));if(e.sub)text(e.sub,lx+lw-6,y+2,C.mute,{al:'r'});
+    let tx=lx+6;if(e.sprite){if(PORT){ctx.drawImage(sprH(e.sprite).c,lx+4,y);tx=lx+40;}else{ctx.drawImage(spr(e.sprite).c,lx+4,y-1);tx=lx+22;}}if(e.relic){relicIcon(e.relic,lx+4,y);tx=lx+17;}
+    text(e.label,tx,y+(e.sprite?(PORT?13:5):2),COMP.sel===e.k?C.gold:(e.col||C.parch));if(e.sub)text(e.sub,lx+lw-6,y+2,C.mute,{al:'r'});
     if(y+h>clip[0]&&y<clip[1])hit(lx+3,Math.max(y,clip[0]),lw-8,h,{fn:()=>{COMP.sel=e.k;scrollTo('cdet',0);},id:'ce'+e.k});
     y+=h;}});
   panel(dxp,dyp,dwp,dhp,{});
@@ -412,24 +413,23 @@ function skirmishStart(){
 }
 const SKIRMISH_SCREEN={enter(){CTX={mode:'skirmish',relics:[],skirmish:true};},draw(){
   rect(0,0,SW,SH,C.bg);
-  text('SKIRMISH',PORT?SW/2:6,4,C.gold,{sc:2,ol:C.edge,al:PORT?'c':undefined});
+  text('SKIRMISH',PORT?34:6,4,C.gold,{sc:2,ol:C.edge});
   const tabs=PORT?['FOES','RIVALS','PARTY','FIELD']:['MONSTERS','RIVAL PARTY','YOUR PARTY','FIELD'];
   const ty=PORT?20:3;
   tabs.forEach((t,i)=>button(PORT?2+i*44:90+i*57,ty,PORT?43:55,12,t,()=>{SK.tab=i;},{on:SK.tab===i}));
   const nFoes=Object.values(SK.foes).reduce((a,b)=>a+b,0)+ORDER.filter(c=>SK.rivals[c]).length;
-  button(SW-66,SH-17,62,14,'START',skirmishStart,{hot:true,disabled:!nFoes});
-  button(4,SH-17,50,14,'BACK',()=>go(TITLE_SCREEN),{});
-  if(PORT)text(`Foes: ${nFoes}`,SW/2,SH-12,C.mute,{al:'c'});
-  else text(`Foes: ${nFoes} · Level ${SK.lvl} · ${ACTS[SK.act].sub} · ${MISSIONS[SK_MISSIONS[SK.mission]].name}`,SW/2,SH-12,C.mute,{al:'c'});
-  const top=ty+15,bot=SH-20;
+  if(PORT){button(2,3,27,14,'◀',()=>go(TITLE_SCREEN),{});button(SW-50,3,48,14,'START',skirmishStart,{hot:true,disabled:!nFoes});text(`${nFoes} foes`,SW-52,7,C.mute,{al:'r'});}
+  else{button(SW-66,SH-17,62,14,'START',skirmishStart,{hot:true,disabled:!nFoes});button(4,SH-17,50,14,'BACK',()=>go(TITLE_SCREEN),{});text(`Foes: ${nFoes} · Level ${SK.lvl} · ${ACTS[SK.act].sub} · ${MISSIONS[SK_MISSIONS[SK.mission]].name}`,SW/2,SH-12,C.mute,{al:'c'});}
+  const top=ty+15,bot=PORT?SH-2:SH-20;
   if(SK.tab===0){
     const lw=PORT?SW-4:150,lh=PORT?Math.round((bot-top)*.5):bot-top;
     panel(2,top,lw,lh,{plain:true});
     const list=Object.values(MON).filter(m=>!m.object);const bx=2+lw-46;
-    scrollArea('skm',5,top+3,lw-6,lh-6,list.length*16,(yy,clip)=>{list.forEach((m,i)=>{const y=yy+i*16;const n=SK.foes[m.id]||0;
-      if(SK.sel===m.id)rect(5,y,lw-8,16,'#3a2e1a');ctx.drawImage(spr(m.art).c,6,y);text(m.name,24,y+2,n?C.gold:C.parch);text(m.role,24,y+9,C.mute);
-      if(y+16>clip[0]&&y<clip[1]){hit(5,y,bx-8,16,{fn:()=>{SK.sel=m.id;scrollTo('skd',0);},id:'skm'+m.id});
-        button(bx,y+2,11,11,'-',()=>{if(n>0)SK.foes[m.id]=n-1;},{disabled:!n});text(String(n),bx+17,y+5,C.white,{al:'c'});button(bx+23,y+2,11,11,'+',()=>{SK.foes[m.id]=n+1;},{disabled:nFoes>=12});}
+    const RH=PORT?33:16,by0=PORT?10:2;
+    scrollArea('skm',5,top+3,lw-6,lh-6,list.length*RH,(yy,clip)=>{list.forEach((m,i)=>{const y=yy+i*RH;const n=SK.foes[m.id]||0;
+      if(SK.sel===m.id)rect(5,y,lw-8,RH,'#3a2e1a');if(PORT)ctx.drawImage(sprH(m.art).c,6,y);else ctx.drawImage(spr(m.art).c,6,y);const tx=PORT?40:24;text(m.name,tx,y+(PORT?10:2),n?C.gold:C.parch);text(m.role,tx,y+(PORT?17:9),C.mute);
+      if(y+RH>clip[0]&&y<clip[1]){hit(5,y,bx-8,RH,{fn:()=>{SK.sel=m.id;scrollTo('skd',0);},id:'skm'+m.id});
+        button(bx,y+by0,11,11,'-',()=>{if(n>0)SK.foes[m.id]=n-1;},{disabled:!n});text(String(n),bx+17,y+by0+3,C.white,{al:'c'});button(bx+23,y+by0,11,11,'+',()=>{SK.foes[m.id]=n+1;},{disabled:nFoes>=12});}
     });});
     const dx=PORT?2:154,dy=PORT?top+lh+2:top,dw=PORT?SW-4:164,dh=PORT?bot-dy:bot-top;
     panel(dx,dy,dw,dh,{});const m=MON[SK.sel];
@@ -441,10 +441,10 @@ const SKIRMISH_SCREEN={enter(){CTX={mode:'skirmish',relics:[],skirmish:true};},d
     let y=top+5;for(const l of wrap(rival?'Add heroes to fight against, with any powers you like.':'Choose the powers your own party brings.',SW-16)){text(l,8,y,C.mute);y+=7;}
     const rh=PORT?Math.floor((bot-y-4)/4):28;
     ORDER.forEach((c,i)=>{const yy=y+3+i*rh;const on=rival?SK.rivals[c]:true;const list=rival?SK.rivalPow[c]:SK.partyPow[c];
-      inset(8,yy,24,24,'#15100c');ctx.drawImage(spr(c,rival?'rival':null).c,12,yy+4);
-      text(rival?CLASSES[c].rival:CLASSES[c].name,38,yy+3,on?C.gold:C.dim);text(CLASSES[c].title,38,yy+10,C.mute);
+      if(PORT){inset(4,yy,34,34,'#15100c');ctx.drawImage(sprH(c,rival?'rival':null).c,5,yy+1);}else{inset(8,yy,24,24,'#15100c');ctx.drawImage(spr(c,rival?'rival':null).c,12,yy+4);}
+      text(rival?CLASSES[c].rival:CLASSES[c].name,PORT?42:38,yy+3,on?C.gold:C.dim);text(CLASSES[c].title,PORT?42:38,yy+10,C.mute);
       const names=list.map(id=>POWERS[id].name).join(', ');
-      if(PORT){const ls=wrap(names,SW-98);ls.slice(0,Math.max(1,Math.floor((rh-30)/7)+1)).forEach((l,j)=>text(l,38,yy+18+j*7,C.parch));}
+      if(PORT){const ls=wrap(names,SW-100);ls.slice(0,Math.max(1,Math.floor((rh-30)/7)+1)).forEach((l,j)=>text(l,42,yy+18+j*7,C.parch));}
       else text(names,38,yy+17,C.parch);
       const bx=PORT?SW-54:220;
       if(rival)button(bx,yy+2,PORT?48:40,12,on?'IN':'OUT',()=>{SK.rivals[c]=!SK.rivals[c];},{on});
