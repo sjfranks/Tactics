@@ -8,20 +8,20 @@
 <style>
   :root{color-scheme:dark}
   html,body{margin:0;height:100%;background:#050303;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
-  #game{position:absolute;left:50%;top:50%;image-rendering:pixelated;image-rendering:crisp-edges;transform-origin:50% 50%;touch-action:none;outline:none}
+  #game{position:fixed;left:0;top:0;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;outline:none}
 </style>
 </head>
 <body>
 <canvas id="game" width="320" height="180" aria-label="Emberwatch Tactics"></canvas>
-<script src="js/data.js"></script>
-<script src="js/engine.js"></script>
-<script src="js/font.js"></script>
-<script src="js/sprites.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/core.js"></script>
-<script src="js/battle.js"></script>
-<script src="js/run.js"></script>
-<script src="js/screens.js"></script>
+<script src="js/data.js?v=BUILD"></script>
+<script src="js/engine.js?v=BUILD"></script>
+<script src="js/font.js?v=BUILD"></script>
+<script src="js/sprites.js?v=BUILD"></script>
+<script src="js/audio.js?v=BUILD"></script>
+<script src="js/core.js?v=BUILD"></script>
+<script src="js/battle.js?v=BUILD"></script>
+<script src="js/run.js?v=BUILD"></script>
+<script src="js/screens.js?v=BUILD"></script>
 <script>go(TITLE_SCREEN);requestAnimationFrame(loop);</script>
 </body>
 </html>

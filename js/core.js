@@ -8,16 +8,23 @@ let ctx=cv.getContext('2d');const MAINCTX=ctx;
 cv.width=SW;cv.height=SH;ctx.imageSmoothingEnabled=false;
 let SCALE=1;const ROT=false;
 /* Landscape screens get a 320×180 canvas; portrait screens get 180×320. */
+/* Size from the visible viewport, minus the phone's safe areas (notch, home bar, browser chrome). */
+const SAFE=document.createElement('div');SAFE.style.cssText='position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';document.body.appendChild(SAFE);
 function fit(){
-  const vw=window.innerWidth,vh=window.innerHeight;
+  const vv=window.visualViewport;
+  const st=parseFloat(getComputedStyle(SAFE).paddingTop)||0,sb=parseFloat(getComputedStyle(SAFE).paddingBottom)||0;
+  const vw=vv?vv.width:window.innerWidth,vh=(vv?vv.height:window.innerHeight)-st-sb;
   PORT=vh>vw;
   const w=PORT?196:320,h=PORT?clamp(Math.round(196*vh/vw),330,560):180;
   if(w!==SW||h!==SH){SW=w;SH=h;cv.width=SW;cv.height=SH;MAINCTX.imageSmoothingEnabled=false;if(typeof onResize==='function')onResize();}
   let s=Math.min(vw/SW,vh/SH);if(s>=3)s=Math.floor(s);
   SCALE=s;
   cv.style.width=SW*s+'px';cv.style.height=SH*s+'px';
-  cv.style.transform='translate(-50%,-50%)';
+  cv.style.left=((vv?vv.offsetLeft:0)+(vw-SW*s)/2)+'px';
+  cv.style.top=((vv?vv.offsetTop:0)+st+(vh-SH*s)/2)+'px';
+  cv.style.transform='none';
 }
+if(window.visualViewport){visualViewport.addEventListener('resize',fit);visualViewport.addEventListener('scroll',fit);}
 window.addEventListener('resize',fit);window.addEventListener('orientationchange',()=>setTimeout(fit,50));fit();
 
 /* ---------------- colours ---------------- */
@@ -35,14 +42,13 @@ const spd=()=>(SET.speed===2?.45:SET.speed===0?1.5:1)*(window.__SPEED!=null?wind
 const sleep=ms=>new Promise(r=>setTimeout(r,ms*spd()));
 
 /* ---------------- hit regions & input ---------------- */
-let HITS=[],PHITS=[];
+let HITS=[],PHITS=[],SCROLLER=null;
 const PTR={down:false,x:0,y:0,x0:0,y0:0,drag:false,hit:null,id:null};
-function hit(x,y,w,h,o){HITS.push(Object.assign({x,y,w,h},o));}
+function hit(x,y,w,h,o){const r=Object.assign({x,y,w,h},o);if(SCROLLER&&!r.scroll&&!r.drag)r.scroll=SCROLLER;HITS.push(r);}
 function hitAt(px,py,list){for(let i=list.length-1;i>=0;i--){const r=list[i];if(px>=r.x&&py>=r.y&&px<r.x+r.w&&py<r.y+r.h)return r;}return null;}
 function toCanvas(ev){
-  const r=cv.getBoundingClientRect();const cx=(r.left+r.right)/2,cy=(r.top+r.bottom)/2;
-  const dx=ev.clientX-cx,dy=ev.clientY-cy;
-  return {x:dx/SCALE+SW/2,y:dy/SCALE+SH/2};
+  const r=cv.getBoundingClientRect();
+  return {x:(ev.clientX-r.left)*SW/r.width,y:(ev.clientY-r.top)*SH/r.height};
 }
 window.addEventListener('pointerdown',ev=>{
   auInit();
@@ -105,7 +111,7 @@ function circle(cx,cy,r,col){ctx.fillStyle=col;for(let y=-r;y<=r;y++){const w=Ma
 function token(u,cx,cy,r,ring){
   circle(cx,cy,r+1,C.edge);circle(cx,cy,r,ring||sideRing(u));circle(cx,cy,r-1,'#1a1410');
   ctx.save();ctx.beginPath();ctx.arc(cx+.5,cy+.5,r-1,0,7);ctx.clip();
-  const S=unitSprite(u);const hx=Math.round((S.lft+S.rgt)/2),hy=Math.min(S.top+r,Math.round((S.top+S.bot)/2));ctx.drawImage(S.c,cx-hx,cy-hy);ctx.restore();
+  const S=unitSprite(u,PORT);const hx=Math.round((S.lft+S.rgt)/2),hy=PORT?Math.min(S.top+r+3,Math.round((S.top+S.bot)/2)):Math.min(S.top+r,Math.round((S.top+S.bot)/2));ctx.drawImage(S.c,cx-hx,cy-hy);ctx.restore();
 }
 function sideRing(u){return u.side==='enemy'?(u.boss?'#f0c050':'#c83a30'):u.kind==='npc'?'#6ac86a':'#4a8ae0';}
 function unitSprite(u,hi){const f=hi?sprH:spr;if(u.kind==='pc')return f(u.cls,u.rival?'rival':null);if(u.kind==='npc')return f(u.npc);return f(MON[u.type].art);}
@@ -162,9 +168,11 @@ const SCR={};
 function scrollArea(id,x,y,w,h,contentH,draw){
   const st=SCR[id]||(SCR[id]={y:0});
   const max=Math.max(0,contentH-h);st.y=clamp(st.y,0,max);
-  hit(x,y,w,h,{scroll:d=>{st.y=clamp(st.y-d,0,max);},id:'scr'+id});
+  const sc=d=>{st.y=clamp(st.y-d,0,max);};
+  hit(x,y,w,h,{scroll:sc,id:'scr'+id});
   ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();
-  draw(y-Math.round(st.y),[y,y+h]);
+  const prev=SCROLLER;SCROLLER=sc;
+  try{draw(y-Math.round(st.y),[y,y+h]);}finally{SCROLLER=prev;}
   ctx.restore();
   if(max>0){const th=Math.max(8,Math.round(h*h/contentH));const ty=y+Math.round((h-th)*st.y/max);rect(x+w-2,y,2,h,'#1a120c');rect(x+w-2,ty,2,th,C.rim2);}
 }
@@ -205,3 +213,6 @@ function fx(o){o.t0=NOW;FX.push(o);return o;}
 function drawFX(){
   for(let i=FX.length-1;i>=0;i--){const f=FX[i];const p=(NOW-f.t0)/(f.dur*spd());if(p>=1){FX.splice(i,1);f.done&&f.done();continue;}f.draw(p);}
 }
+
+/* 32×32 art in portrait, 16×16 in landscape. */
+function art(key,variant){return PORT?sprH(key,variant):spr(key,variant);}

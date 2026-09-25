@@ -325,7 +325,7 @@ function drawBattle(){
   if(B.banner){const b=B.banner;const p=(NOW-b.t0)/b.dur;if(p>=1)B.banner=null;else{
     const h=b.sub?34:22,y=OY+Math.round(ROWS*TS*BK/2)-h/2;ctx.globalAlpha=Math.min(1,Math.min(p,1-p)*6);
     rect(0,y,SW,h,'rgba(10,6,4,.85)');rect(0,y,SW,1,b.villain?C.red:C.gold2);rect(0,y+h-1,SW,1,b.villain?C.red:C.gold2);
-    if(b.unit){const S=unitSprite(b.unit);ctx.drawImage(S.c,0,0,16,16,SW/2-textW(b.title,2)/2-22,y+3,16,16);}
+    if(b.unit){const S=unitSprite(b.unit);ctx.drawImage(S.c,0,0,16,16,Math.max(0,SW/2-textW(b.title,2)/2-22),y+3,16,16);}
     text(b.title,SW/2,y+5,b.villain?'#ffb070':C.gold,{al:'c',sc:2,ol:C.edge});
     if(b.sub)text(b.sub,SW/2,y+22,C.parch,{al:'c'});
     ctx.globalAlpha=1;}}
@@ -514,7 +514,7 @@ function drawForecast(u,x,y0,w,h){
   const wide=w>=150;let y=y0;
   text(p.name,x,y,C.gold);if(p.cost)text('◆'+p.cost,wide?x+w-92:x+w-1,y,C.mom,{al:'r'});y+=8;
   const tgt=r&&r.t;
-  if(tgt){ctx.drawImage(unitSprite(tgt).c,x,y-2);text(tgt.name,x+18,y,tgt.side===u.side?C.green:'#ff9a80');text(`HP ${tgt.hp}/${tgt.maxHp}`+(rows.length>1?`  +${rows.length-1} more`:''),x+18,y+7,C.mute);y+=17;}
+  if(tgt){if(PORT)token(tgt,x+7,y+5,7);else ctx.drawImage(unitSprite(tgt).c,x,y-2);text(tgt.name,x+18,y,tgt.side===u.side?C.green:'#ff9a80');text(`HP ${tgt.hp}/${tgt.maxHp}`+(rows.length>1?`  +${rows.length-1} more`:''),x+18,y+7,C.mute);y+=17;}
   else{text(p.tgt==='self'||p.area!=null?'No one in the area.':'',x,y,C.mute);y+=10;}
   let body='';
   if(r&&r.dmg){
