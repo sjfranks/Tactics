@@ -24,7 +24,7 @@ function resOf(nat,mod){if(nat>=16)return 3;const v=nat+mod;return v<=10?1:v<=14
 const _rp={};
 function resProbs(mod){if(_rp[mod])return _rp[mod];const p=[0,0,0];for(let s=3;s<=18;s++)p[resOf(s,mod)-1]+=D3[s]/216;return _rp[mod]=p;}
 function roll3(mod){const d=[1+rnd(6),1+rnd(6),1+rnd(6)];const nat=d[0]+d[1]+d[2];return {d,nat,mod,total:nat+mod,res:resOf(nat,mod)};}
-function rollText(r){return `3d6 (${r.d.join('+')})${r.mod>=0?'+':''}${r.mod} = ${r.total} ${RESULT[r.res-1]}${r.nat>=16?' (natural)':''}`;}
+function rollText(r){return `3d6 (${r.d.join('+')})${r.mod>=0?'+':''}${r.mod} = ${r.total}: ${RESULT[r.res-1]}${r.nat>=16&&r.total<15?' (16+ on the dice)':''}`;}
 
 /* ---------------- STATE HELPERS ---------------- */
 const U=id=>G.units.find(u=>u.id===id);
@@ -660,7 +660,7 @@ async function monAttack(e,A,t,isTile){
   if(A.cost)G.foeMom-=A.cost;
   if(A.cd){e.cd=e.cd||{};e.cd[A.name]=G.round+A.cd;}
   if(isTile){
-    await H.strike(e,{x:t.x,y:t.y,id:'tile'},{proj:A.trap==='fire'?'#ff7a2a':'#c8b060',monster:true});
+    await H.strike(e,{x:t.x,y:t.y,id:'tile'},{proj:A.trap==='fire'?'#ff7a2a':'#c8b060',monster:true,act:A});
     setHaz(t.x,t.y,A.trap,A.trap==='trap'?-1:3,e.side);
     log(`${e.name}: ${A.name} at ${tileName(t.x,t.y)}.`,'e');H.sfx(A.trap==='fire'?'fire':'click');
     return;
@@ -669,9 +669,9 @@ async function monAttack(e,A,t,isTile){
   if(A.tgt==='ally'){await H.strike(e,t,{support:true});NOTE=[];heal(t,A.heal+G.dmgAdd);const ex=NOTE;NOTE=null;log(`${e.name} mends ${t.name}. ${ex.join(' ')}`,'e');return;}
   if(A.rally){H.pop(e,'Rally!','call');log(`${e.name} rallies its allies!`,'e');for(const f of allies(e).filter(f=>f!==e&&!f.object&&man(f,e)<=3)){const h=fighters(f).find(h=>man(h,f)===1);if(h)await partingBlow(f,h);}return;}
   if(A.mom){H.pop(e,'Offering','call');NOTE=[];await damage(null,e,3,{});NOTE=null;G.foeMom+=A.mom;log(`${e.name} bleeds itself to feed the foes' momentum (+${A.mom}).`,'e');return;}
-  await H.strike(e,t,{proj:A.range>1&&man(e,t)>1?(A.area?'#ff7a2a':'#ff9a7a'):null,monster:true});
+  await H.strike(e,t,{proj:A.range>1&&man(e,t)>1?(A.area?'#ff7a2a':'#ff9a7a'):null,monster:true,act:A});
   const victims=A.area?foesOf(e).filter(o=>cheb(o,t)<=A.area):[t];
-  if(A.area)await H.area(t,A.area,'fire');
+  if(A.area)await H.area(t,A.area,/Chill/.test(A.name)?'ice':'fire');
   for(const v of victims){
     if(!live(v))continue;
     const nb=netBoon(e,v,A,e);
