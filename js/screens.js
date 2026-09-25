@@ -268,7 +268,7 @@ const EVENT_SCREEN={draw(){
 const END_SCREEN={draw(){
   const won=RUN.stage==='won';
   rect(0,0,SW,SH,won?'#140e06':'#0e0606');drawEmbers(won?'#ffb040':'#6a2010');
-  const S=spr(won?'dragon':'fighter');ctx.drawImage(S.c,0,0,16,16,SW/2-16,14,32,32);
+  ctx.drawImage(sprH(won?'dragon':'fighter').c,SW/2-16,14);
   let y=52;
   for(const l of PORT?(won?['THE DRAGON','FALLS']:['THE WATCH','IS BROKEN']):[won?'THE DRAGON FALLS':'THE WATCH IS BROKEN']){text(l,SW/2,y,won?C.gold:C.red,{al:'c',sc:2,ol:C.edge});y+=14;}
   y+=4;for(const l of wrap(won?'Emberwatch stands. Songs will be sung of this company.':`Your company fell in ${ACTS[RUN.act].sub}. Another will rise.`,SW-12)){text(l,SW/2,y,C.parch,{al:'c'});y+=7;}
@@ -366,7 +366,7 @@ const COMP_SCREEN={enter(){COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);
   else if(COMP.tab===2&&MON[k]){const m=MON[k];title=m.name;art=m.art;body=monBlock(m)+(m.act>=0?`\n{m:Found in ${ACTS[m.act].sub}.}`:'');}
   else if(COMP.tab===3&&GLOSS[k]){title=GLOSS[k].name;body=GLOSS[k].text;}
   let y=dyp+5;
-  if(art){inset(dx,y,34,34,'#15100c');ctx.drawImage(spr(art).c,0,0,16,16,dx+1,y+1,32,32);text(title,dx+38,y+2,C.gold);y+=38;}
+  if(art){inset(dx,y,34,34,'#15100c');ctx.drawImage(sprH(art).c,dx+1,y+1);text(title,dx+38,y+2,C.gold);y+=38;}
   else{text(title,dx,y,C.gold);y+=10;}
   const bh=richH(body,dw);
   scrollArea('cdet',dx,y,dw+4,dyp+dhp-y-4,bh,(yy,clip)=>rich(body,dx,yy,dw,C.parch,{clip}));
@@ -433,7 +433,7 @@ const SKIRMISH_SCREEN={enter(){CTX={mode:'skirmish',relics:[],skirmish:true};},d
     });});
     const dx=PORT?2:154,dy=PORT?top+lh+2:top,dw=PORT?SW-4:164,dh=PORT?bot-dy:bot-top;
     panel(dx,dy,dw,dh,{});const m=MON[SK.sel];
-    inset(dx+6,dy+5,34,34,'#15100c');ctx.drawImage(spr(m.art).c,0,0,16,16,dx+7,dy+6,32,32);text(m.name,dx+44,dy+7,C.gold);
+    inset(dx+6,dy+5,34,34,'#15100c');ctx.drawImage(sprH(m.art).c,dx+7,dy+6);text(m.name,dx+44,dy+7,C.gold);
     const body=monBlock(m);scrollArea('skd',dx+6,dy+42,dw-10,dh-46,richH(body,dw-16),(yy,clip)=>rich(body,dx+6,yy,dw-16,C.parch,{clip}));
   }else if(SK.tab===1||SK.tab===2){
     const rival=SK.tab===1;
