@@ -8,9 +8,15 @@ let TS=16,Q=1;const BM=14;let BX=BM,BY=BM;
 let OX=112,OY=15,BK=1,PL={};let BCV=null,BCX=null;
 function battleLayout(){
   if(PORT){
+    /* top bar 14 · info 22 · [turn strip 14] · board · power tray · controls. Spare height becomes breathing room around the board. */
     TS=32;Q=2;BK=1;OX=Math.floor((SW-COLS*TS)/2);
-    if(SH<394){const info=SH-330;PL={compact:true,infoY:14,infoH:info,stripY:null,boardY:14+info,trayY:SH-56,trayH:34,ctrlY:SH-22,ctrlH:20};}
-    else{const info=SH-354;PL={infoY:14,infoH:info,stripY:14+info,boardY:28+info,trayY:SH-66,trayH:40,ctrlY:SH-26,ctrlH:24};}
+    const boardH=ROWS*TS+4;let spare=SH-(14+22+boardH+34+22);
+    const strip=spare>=14;if(strip)spare-=14;
+    const big=spare>=10;if(big)spare-=10;
+    const trayH=big?40:34,ctrlH=big?24:20,ctrlY=SH-ctrlH-2,trayY=ctrlY-trayH;
+    const infoY=14,infoH=22,stripY=strip?infoY+infoH:null,top=infoY+infoH+(strip?14:0);
+    const boardY=top+Math.floor((trayY-top-boardH)/2);
+    PL={compact:!big,infoY,infoH,stripY,boardY,trayY,trayH,ctrlY,ctrlH};
     OY=PL.boardY+2;
   }else{TS=16;Q=1;PL={};BK=1;OX=96+Math.floor((128-COLS*TS)/2);OY=15;}
 }
@@ -321,7 +327,7 @@ function drawBattle(){
   drawHotbar();
   rect(OX-2,OY-2,COLS*TS*BK+4,ROWS*TS*BK+4,C.edge);rect(OX-1,OY-1,COLS*TS*BK+2,ROWS*TS*BK+2,C.rim);
   drawBoardLayer();
-  if(PORT&&PL.infoH<44)drawForecastOverlay();
+  if(PORT)drawForecastOverlay();
   if(B.banner){const b=B.banner;const p=(NOW-b.t0)/b.dur;if(p>=1)B.banner=null;else{
     const h=b.sub?34:22,y=OY+Math.round(ROWS*TS*BK/2)-h/2;ctx.globalAlpha=Math.min(1,Math.min(p,1-p)*6);
     rect(0,y,SW,h,'rgba(10,6,4,.85)');rect(0,y,SW,1,b.villain?C.red:C.gold2);rect(0,y+h-1,SW,1,b.villain?C.red:C.gold2);
@@ -451,24 +457,28 @@ function drawLeft(){
   const px=0,py=PORT?PL.infoY:13,pw=PORT?SW:95,ph=PORT?PL.infoH:133;
   const u=playerUnit();
   const insp=B.inspect?U(B.inspect):null;
-  if(PORT&&ph<44){drawInfoLine(u,insp,px,py,pw,ph);return;}
+  if(PORT){drawInfoLine(u,insp,px,py,pw,ph);return;}
   panel(px,py,pw,ph,{});
   if(B.pend&&u&&!insp){drawForecast(u,px+4,py+3,pw-8,ph-6);return;}
   const show=insp&&(live(insp)||insp.dead)?insp:(activeUnit()||u);
   if(!show){text('Waiting…',px+pw/2,py+ph/2,C.mute,{al:'c'});return;}
   drawUnitCard(show,px+4,py+3,pw-8,ph-7,!!insp);
 }
-/* Short screens: a one-line unit summary; the forecast floats over the board instead. */
+/* Portrait: just name, health and momentum. Tap it for the full character sheet. */
 function drawInfoLine(u,insp,x,y,w,h){
-  rect(x,y,w,h,C.panel);rect(x,y+h-1,w,1,C.edge);
-  const show=insp&&(live(insp)||insp.dead)?insp:(activeUnit()||u);if(!show)return;
-  const cy=y+Math.floor((h-6)/2);
-  token(show,x+9,y+Math.floor(h/2),Math.min(6,Math.floor(h/2)-1));
-  text(show.name,x+18,cy,show.side==='enemy'?'#ff9a80':C.gold);
-  const bx=x+20+textW(show.name)+4;bar(bx,cy+1,40,5,show.hp/show.maxHp,show.side==='enemy'?'#d04030':'#50c050');text(`${Math.max(0,show.hp)}`,bx+43,cy,C.parch);
-  if(G.cur===show.id&&show.kind==='pc'&&!insp)text(`Mv ${show.mp} · ${show.acted?'acted':'ready'}`,x+w-3,cy,show.acted?C.mute:C.green,{al:'r'});
+  rect(x,y,w,h,C.panel);rect(x,y,w,1,C.hi);rect(x,y+h-1,w,1,C.edge);
+  const show=insp&&(live(insp)||insp.dead)?insp:(activeUnit()||u);
+  if(!show){text('Waiting…',x+w/2,y+8,C.mute,{al:'c'});return;}
+  const foe=show.side==='enemy';
+  token(show,x+11,y+11,9);
+  const tx=x+23,rx=x+w-(insp?15:4);
+  text(fitText(show.name,rx-tx-40),tx,y+3,foe?'#ff9a80':C.gold);
+  text(`${Math.max(0,show.hp)}/${show.maxHp}`,rx,y+3,C.parch,{al:'r'});
+  const pc=show.kind==='pc',mw=pc?54:0;
+  bar(tx,y+13,rx-tx-mw,5,show.hp/show.maxHp,foe?'#d04030':'#50c050');
+  if(pc){const mx=rx-49;for(let i=0;i<10;i++){rect(mx+i*5,y+12,4,7,C.edge);rect(mx+1+i*5,y+13,2,5,i<show.mom?C.mom:'#2a2030');}}
   hit(x,y,w,h,{fn:()=>openUnitInfo(show),id:'infoline'});
-  if(insp)button(x+w-11,y+Math.floor((h-9)/2),10,9,'×',()=>{B.inspect=null;},{});
+  if(insp)button(x+w-13,y+5,11,11,'×',()=>{B.inspect=null;},{});
 }
 function drawForecastOverlay(){
   const u=playerUnit();if(!u||!B.pend||B.inspect)return;

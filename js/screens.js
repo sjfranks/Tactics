@@ -289,6 +289,7 @@ function openSettings(inBattle,onMap){
     dim();const w=Math.min(180,SW-8),items=[];
     items.push([`Music: ${SET.music?'On':'Off'}`,()=>{SET.music=!SET.music;auInit();SET.music?musicStart():musicStop();saveSet();}]);
     items.push([`Sound effects: ${SET.sfx?'On':'Off'}`,()=>{SET.sfx=!SET.sfx;saveSet();}]);
+    if(navigator.audioSession)items.push([`Silent switch: ${SET.loud?'Ignore':'Obey'}`,()=>{SET.loud=!SET.loud;auSession();saveSet();}]);
     items.push([`Animation speed: ${['Slow','Normal','Fast'][SET.speed]}`,()=>{SET.speed=(SET.speed+1)%3;saveSet();}]);
     items.push([`Auto end turn: ${SET.autoEnd?'On':'Off'}`,()=>{SET.autoEnd=!SET.autoEnd;saveSet();}]);
     items.push(['How to play',openHowTo]);
@@ -463,6 +464,7 @@ const SKIRMISH_SCREEN={enter(){CTX={mode:'skirmish',relics:[],skirmish:true};},d
 function onResize(){for(const e of EMBERS){e.x=Math.random()*SW;e.y=Math.random()*SH;}B.gRef=null;}
 function loop(t){
   NOW=t;
+  try{refit();}catch(e){}
   HITS=[];
   ctx.imageSmoothingEnabled=false;
   try{

@@ -10,20 +10,34 @@ let SCALE=1;const ROT=false;
 /* Landscape screens get a 320×180 canvas; portrait screens get 180×320. */
 /* Size from the visible viewport, minus the phone's safe areas (notch, home bar, browser chrome). */
 const SAFE=document.createElement('div');SAFE.style.cssText='position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';document.body.appendChild(SAFE);
-function fit(){
+/* Portrait: the canvas always matches the screen's shape. It is at least 196 wide and PORT_MIN tall;
+   a short/wide screen gets a wider canvas (margins beside the board) instead of a squashed layout. */
+const PORT_MIN=366;let VPKEY='';
+function viewportSize(){
   const vv=window.visualViewport;
-  const st=parseFloat(getComputedStyle(SAFE).paddingTop)||0,sb=parseFloat(getComputedStyle(SAFE).paddingBottom)||0;
-  const vw=vv?vv.width:window.innerWidth,vh=(vv?vv.height:window.innerHeight)-st-sb;
+  let st=parseFloat(getComputedStyle(SAFE).paddingTop)||0;const sb=parseFloat(getComputedStyle(SAFE).paddingBottom)||0;
+  let vw=vv&&vv.width>0?vv.width:window.innerWidth,vh=(vv&&vv.height>0?vv.height:window.innerHeight);
+  if(!(vw>0)||!(vh>0)){vw=document.documentElement.clientWidth||320;vh=document.documentElement.clientHeight||568;}
+  if(vh-st-sb>100)vh-=st+sb;else st=0;
+  return {vw,vh,st,ox:vv?vv.offsetLeft||0:0,oy:vv?vv.offsetTop||0:0};
+}
+function fit(){
+  const {vw,vh,st,ox,oy}=viewportSize();
+  VPKEY=rawVP();
   PORT=vh>vw;
-  const w=PORT?196:320,h=PORT?clamp(Math.round(196*vh/vw),330,560):180;
+  let w=320,h=180;
+  if(PORT){w=196;h=Math.round(w*vh/vw);if(h<PORT_MIN){h=PORT_MIN;w=Math.max(196,Math.round(h*vw/vh));}h=Math.min(h,640);}
   if(w!==SW||h!==SH){SW=w;SH=h;cv.width=SW;cv.height=SH;MAINCTX.imageSmoothingEnabled=false;if(typeof onResize==='function')onResize();}
-  let s=Math.min(vw/SW,vh/SH);if(s>=3)s=Math.floor(s);
+  let s=Math.min(vw/SW,vh/SH);if(!PORT&&s>=3)s=Math.floor(s);
   SCALE=s;
   cv.style.width=SW*s+'px';cv.style.height=SH*s+'px';
-  cv.style.left=((vv?vv.offsetLeft:0)+(vw-SW*s)/2)+'px';
-  cv.style.top=((vv?vv.offsetTop:0)+st+(vh-SH*s)/2)+'px';
+  cv.style.left=(ox+(vw-SW*s)/2)+'px';
+  cv.style.top=(oy+st+(vh-SH*s)/2)+'px';
   cv.style.transform='none';
 }
+/* Safari doesn't always fire resize events (toolbar show/hide, restoring a tab); re-check every frame. */
+function rawVP(){const vv=window.visualViewport;return [innerWidth,innerHeight,vv&&vv.width,vv&&vv.height,vv&&vv.offsetTop].join(',');}
+function refit(){if(rawVP()!==VPKEY)fit();}
 if(window.visualViewport){visualViewport.addEventListener('resize',fit);visualViewport.addEventListener('scroll',fit);}
 window.addEventListener('resize',fit);window.addEventListener('orientationchange',()=>setTimeout(fit,50));fit();
 
@@ -51,7 +65,6 @@ function toCanvas(ev){
   return {x:(ev.clientX-r.left)*SW/r.width,y:(ev.clientY-r.top)*SH/r.height};
 }
 window.addEventListener('pointerdown',ev=>{
-  auInit();
   const p=toCanvas(ev);PTR.down=true;PTR.x=PTR.x0=p.x;PTR.y=PTR.y0=p.y;PTR.ly=p.y;PTR.drag=false;PTR.id=ev.pointerId;
   PTR.hit=hitAt(p.x,p.y,PHITS);
   if(PTR.hit&&PTR.hit.press)PTR.hit.press(p.x,p.y);
