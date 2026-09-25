@@ -12,7 +12,7 @@ let SCALE=1;const ROT=false;
 const SAFE=document.createElement('div');SAFE.style.cssText='position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';document.body.appendChild(SAFE);
 /* Portrait: the canvas always matches the screen's shape. It is at least 196 wide and PORT_MIN tall;
    a short/wide screen gets a wider canvas (margins beside the board) instead of a squashed layout. */
-const PORT_MIN=366;let VPKEY='';
+const PORT_MIN=378;let VPKEY='';
 function viewportSize(){
   const vv=window.visualViewport;
   let st=parseFloat(getComputedStyle(SAFE).paddingTop)||0;const sb=parseFloat(getComputedStyle(SAFE).paddingBottom)||0;
@@ -114,6 +114,7 @@ function button(x,y,w,h,label,fn,o){
   if(!pressed&&!dis){rect(x+1,y+1,w-2,1,o.hot?'#c8883a':'#6a5440');rect(x+1,y+h-2,w-2,1,'#1a120c');}
   else rect(x+1,y+1,w-2,1,'#1a120c');
   if(o.on)frame(x+1,y+1,w-2,h-2,C.gold);
+  if(o.glow&&!dis){const a=.35+.35*Math.sin(NOW/170);ctx.globalAlpha=a;frame(x-1,y-1,w+2,h+2,'#ffd870');frame(x,y,w,h,'#ffd870');ctx.globalAlpha=1;}
   const tc=dis?C.dim:(o.tc||(o.hot?C.white:C.parch));
   if(label!=null&&label!=='')text(label,x+w/2,y+Math.floor((h-5)/2)+(pressed?1:0),tc,{al:'c',sh:C.edge});
   if(!dis&&fn)hit(x,y,w,h,{fn,id:'b'+x+','+y});
@@ -127,6 +128,53 @@ function token(u,cx,cy,r,ring){
   const S=unitSprite(u,PORT);const hx=Math.round((S.lft+S.rgt)/2),hy=PORT?Math.min(S.top+r+3,Math.round((S.top+S.bot)/2)):Math.min(S.top+r,Math.round((S.top+S.bot)/2));ctx.drawImage(S.c,cx-hx,cy-hy);ctx.restore();
 }
 function sideRing(u){return u.side==='enemy'?(u.boss?'#f0c050':'#c83a30'):u.kind==='npc'?'#6ac86a':'#4a8ae0';}
+/* ---------------- momentum gems, portraits, status icons ---------------- */
+/* A 7×7 diamond. 'full' = momentum you have, 'empty' = an unfilled slot, 'cost' = would be spent (blinks), 'foe' = the foes' pool. */
+function gem(x,y,state){
+  x=Math.round(x);y=Math.round(y);state=state||'full';
+  const blink=Math.floor(NOW/260)%2;
+  const fill=state==='empty'?'#231a2e':state==='cost'?(blink?'#f4e8ff':'#a070e0'):state==='foe'?'#e0609a':state==='gain'?'#ffffff':C.mom;
+  for(let r=0;r<7;r++){const hw=3-Math.abs(r-3);rect(x+3-hw,y+r,hw*2+1,1,C.edge);}
+  for(let r=0;r<5;r++){const hw=2-Math.abs(r-2);rect(x+3-hw,y+1+r,hw*2+1,1,fill);}
+  if(state==='empty'){rect(x+3,y+3,1,1,'#3e3050');}
+  else{rect(x+2,y+2,1,1,'rgba(255,255,255,.85)');rect(x+3,y+1,1,1,'rgba(255,255,255,.6)');rect(x+4,y+4,1,1,'rgba(0,0,0,.25)');rect(x+3,y+5,1,1,'rgba(0,0,0,.25)');}
+}
+/* A row of momentum gems. cost>0 makes the gems that a selected power would spend blink. */
+function gemRow(x,y,n,max,cost,gainT){
+  for(let i=0;i<max;i++){
+    let st=i<n?'full':'empty';
+    if(cost&&i<n&&i>=n-cost)st='cost';
+    if(gainT&&i<n&&i>=n-gainT.n&&NOW-gainT.t<600&&Math.floor((NOW-gainT.t)/100)%2===0)st='gain';
+    gem(x+i*6,y,st);
+  }
+  return max*6+1;
+}
+function chip(x,y,w,h,fill,rim){rect(x,y,w,h,C.edge);rect(x+1,y+1,w-2,h-2,rim||C.rim);rect(x+2,y+2,w-4,h-4,fill||C.panel);rect(x+2,y+2,w-4,1,'rgba(255,255,255,.08)');}
+/* Square framed portrait: head and shoulders of the unit's sprite on a side-coloured backdrop. */
+function portrait(u,x,y,s,o){
+  o=o||{};
+  const foe=u.side==='enemy';
+  const bg=foe?(u.boss?'#3a2a0e':'#3a1614'):u.kind==='npc'?'#16301a':'#16223e';
+  const rim=foe?(u.boss?C.gold:'#b84030'):u.kind==='npc'?'#5aa85a':'#4a80d0';
+  rect(x,y,s,s,C.edge);rect(x+1,y+1,s-2,s-2,o.rim||rim);rect(x+2,y+2,s-4,s-4,bg);
+  rect(x+2,y+s-6,s-4,4,'rgba(0,0,0,.25)');
+  const S=unitSprite(u,true);
+  const cx=Math.round((S.lft+S.rgt)/2);
+  const big=S.bot-S.top>26&&S.rgt-S.lft>26;
+  ctx.save();ctx.beginPath();ctx.rect(x+2,y+2,s-4,s-4);ctx.clip();
+  const sx=x+Math.floor(s/2)-cx,sy=y+2-S.top+(big?2:1)+(o.dy||0);
+  if(o.dim)ctx.globalAlpha=.45;
+  ctx.drawImage(o.dead?S.bk:S.c,sx,sy);
+  ctx.globalAlpha=1;
+  ctx.restore();
+}
+function unitStatuses(u){
+  const out=Object.keys(u.st||{}).filter(k=>STATUS7[k]);
+  if(u.hidden)out.push('hidden');
+  if(u.shield>0)out.push('shield');
+  return out;
+}
+function statusRow(u,x,y,max){const L=unitStatuses(u).slice(0,max||6);L.forEach((k,i)=>{const c=statusIcon(k);if(c)ctx.drawImage(c,x+i*8,y);});return L.length*8;}
 function unitSprite(u,hi){const f=hi?sprH:spr;if(u.kind==='pc')return f(u.cls,u.rival?'rival':null);if(u.kind==='npc')return f(u.npc);return f(MON[u.type].art);}
 
 /* ---------------- rich text with clickable keywords ---------------- */
@@ -148,7 +196,13 @@ function atomize(s,col,nokw){
   }
   return atoms;
 }
+const RICHC=new Map();
 function layoutRich(s,w,col,nokw){
+  const key=s+'\u0001'+w+'\u0001'+col+'\u0001'+(nokw?1:0);const hitc=RICHC.get(key);if(hitc)return hitc;
+  if(RICHC.size>600)RICHC.clear();
+  const lines=layoutRich0(s,w,col,nokw);RICHC.set(key,lines);return lines;
+}
+function layoutRich0(s,w,col,nokw){
   const atoms=atomize(s,col,nokw);const lines=[[]];let x=0;
   for(let i=0;i<atoms.length;i++){
     const a=atoms[i];

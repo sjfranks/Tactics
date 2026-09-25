@@ -72,7 +72,7 @@ function startRunBattle(enc,kind){
 }
 function beginBattleScreen(onEnd){
   B.onEnd=onEnd;B.busy=false;B.pend=null;B.inspect=null;B.vkey='';B.gRef=null;
-  for(const k in VIS)delete VIS[k];FX.length=0;
+  for(const k in VIS)delete VIS[k];FX.length=0;PARTS.length=0;B.flash=null;B.banner=null;SHK.m=0;
   scrollTo('card',0);
   go(BATTLE_SCREEN);
   (async()=>{await sleep(300);await nextTurn();const u=playerUnit();if(u)selfPend(u);})();
@@ -163,17 +163,21 @@ function bestAt(skill){
   for(const h of RUN.heroes){const a=attrsFor(h.cls,h.lvl)[SKILLS[skill]]+(CLASSES[h.cls].skills.includes(skill)?2:0);if(!best||a>best.mod)best={h,mod:a};}
   return best;
 }
+/* Chance that the party's best hero passes a skill check. */
+function checkChance(skill,dc){const b=bestAt(skill);let p=0;for(let t=3;t<=18;t++)if(t+b.mod>=dc)p+=D3[t]/216;return {p,b};}
 function resolveEvent(opt){
   let out=opt.win,roll=null;
   if(opt.cost){if(RUN.gold<opt.cost)return {text:'You cannot afford it.',fail:true};RUN.gold-=opt.cost;}
-  if(opt.check){const b=bestAt(opt.check.skill);const d=[1+rnd(6),1+rnd(6),1+rnd(6)];const tot=d[0]+d[1]+d[2]+b.mod;roll={who:CLASSES[b.h.cls].name,d,mod:b.mod,tot,dc:opt.check.dc,ok:tot>=opt.check.dc};out=roll.ok?opt.win:opt.lose;}
-  const lines=[];
-  if(roll)lines.push(`${roll.who} tries ${opt.check.skill}: 3d6 (${roll.d.join('+')}) ${roll.mod>=0?'+':''}${roll.mod} = ${roll.tot} vs ${roll.dc}. ${roll.ok?'{h:Success!}':'{r:Failure.}'}`);
-  lines.push(out.text);
+  if(opt.check){const b=bestAt(opt.check.skill);const d=[1+rnd(6),1+rnd(6),1+rnd(6)];const tot=d[0]+d[1]+d[2]+b.mod;
+    roll={who:CLASSES[b.h.cls].name,cls:b.h.cls,skill:opt.check.skill,d,mod:b.mod,tot,dc:opt.check.dc,ok:tot>=opt.check.dc};out=roll.ok?opt.win:opt.lose;}
+  const lines=[out.text];
   if(out.gold){RUN.gold=Math.max(0,RUN.gold+out.gold);lines.push(out.gold>0?`{g:+${out.gold} gold.}`:`{r:${out.gold} gold.}`);}
   if(out.heal){RUN.heroes.forEach(h=>h.hp=Math.min(effMaxHp(h),h.hp+Math.ceil(effMaxHp(h)*out.heal)));lines.push(`{h:The party heals ${Math.round(out.heal*100)}%.}`);}
   if(out.dmg){RUN.heroes.forEach(h=>h.hp=Math.max(1,h.hp-out.dmg));lines.push(`{r:Everyone takes ${out.dmg} damage.}`);}
-  const res={text:lines.join('\n'),relic:!!out.relic,train:!!out.train,fight:out.fight};
+  if(out.relic)lines.push('{g:A relic awaits.}');
+  if(out.train)lines.push('{g:A hero can learn a new power.}');
+  if(out.fight)lines.push('{r:A fight!}');
+  const res={text:lines.join('\n'),roll,label:opt.label,relic:!!out.relic,train:!!out.train,fight:out.fight};
   saveGame();return res;
 }
 /* ---------------- saves ---------------- */
