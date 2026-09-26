@@ -16,7 +16,7 @@ const DIRS=[[0,-1],[1,0],[0,1],[-1,0]];
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const tv=(arr,t)=>arr?(arr[t-1]||0):0;
 const _n=()=>{},_a=async()=>{};
-const H={step:_a,strike:_a,area:_a,tele:_a,death:_a,banner:_a,pause:_a,turn:_a,end:_a,pop:_n,result:_n,sfx:_n,upd:_n,spawn:_n,save:_n,combo:_n};
+const H={dice:_a,step:_a,strike:_a,area:_a,tele:_a,death:_a,banner:_a,pause:_a,turn:_a,end:_a,pop:_n,result:_n,sfx:_n,upd:_n,spawn:_n,save:_n,combo:_n};
 let G=null,CTX={mode:'run',relics:[]};
 let AUTOPLAY=false;
 const HIST=[];
@@ -27,7 +27,9 @@ function resOf(nat,mod){if(nat>=16)return 3;const v=nat+mod;return v<=10?1:v<=14
 const _rp={};
 function resProbs(mod){if(_rp[mod])return _rp[mod];const p=[0,0,0];for(let s=3;s<=18;s++)p[resOf(s,mod)-1]+=D3[s]/216;return _rp[mod]=p;}
 function roll3(mod){const d=[1+rnd(6),1+rnd(6),1+rnd(6)];const nat=d[0]+d[1]+d[2];return {d,nat,mod,total:nat+mod,res:resOf(nat,mod)};}
-function rollText(r){return `3d6 (${r.d.join('+')})${r.mod>=0?'+':''}${r.mod} = ${r.total}: ${RESULT[r.res-1]}${r.stag?' (staggered)':r.nat>=16&&r.total<15?' (16+ on the dice)':''}`;}
+function rollText(r){return `3d6 (${r.d.join('+')})${r.mod>=0?'+':''}${r.mod} = ${r.total}: ${RESULT[r.res-1]}`;}
+/* "2d4: [4] 2, explodes 4 3 = 13: Critical hit" */
+function diceLog(r){const kept=r.stag?`[${r.prim}]`:r.tries.length>1?`[${r.tries.join('/')}→${r.prim}]`:`[${r.prim}]`;return `${diceText(r.d)}: ${kept}${r.rest.length?' '+r.rest.join(' '):''}${r.boom.length?', explodes '+r.boom.join(' '):''} = ${r.total}: ${RESULT[r.res-1]}${r.stag?' (staggered)':''}`;}
 
 /* ---------------- STATE HELPERS ---------------- */
 const U=id=>G.units.find(u=>u.id===id);
@@ -214,7 +216,7 @@ async function forceMove(t,from,n,pull,src,fl){
         const o=foot(t,nx,ny).map(q=>inB(q.x,q.y)?unitAt(q.x,q.y):null).find(q=>q&&q!==t&&!q.object);
         note(`${moved?'Pushed '+moved+', s':'S'}lams ${o?'into '+o.name+' ':''}for ${sd}.`);
         await damage(src,t,sd,{});
-        if(o&&live(o)){await damage(src,o,2,{});if(live(o)){stagger(o,src);note(`${o.name} is knocked off balance.`);}}
+        if(o&&live(o)){await damage(src,o,2,{});if(live(o)){stagger(o,src);if(o.st.stag)note(`${o.name} is knocked off balance.`);}}
       }
       break;
     }
@@ -222,7 +224,7 @@ async function forceMove(t,from,n,pull,src,fl){
     await onEnter(t);
   }
   if(moved>0)note(`${pull?'Pulled':'Pushed'} ${moved}.`);
-  if((moved>0||slam)&&live(t)){stagger(t,src);note('Staggered.');if(fl&&fl.stagIds&&src&&src.side!==t.side)fl.stagIds.add(t.id);}
+  if((moved>0||slam)&&live(t)){stagger(t,src);if(t.st.stag)note('Staggered.');if(fl&&fl.stagIds&&src&&src.side!==t.side)fl.stagIds.add(t.id);}
   if(moved>0&&src&&src.side!==t.side)xp(src,moved,'control');
   if(slam&&src&&src.side!==t.side)xp(src,2,'control');
 }
@@ -286,9 +288,11 @@ function addSt(t,k,v){
 }
 /* Set-ups remember which hero made them, so the hero who cashes one in scores a combo with them. */
 const byHero=s=>s&&s.kind==='pc'&&s.side==='hero'?s.id:null;
-function stagger(t,src){if(!live(t)||t.object)return;addSt(t,'stag',1);t.stagBy=byHero(src);}
+function stagger(t,src){if(!live(t)||t.object||t.st.steady)return;addSt(t,'stag',1);t.stagBy=byHero(src);}
+/* A staggered foe (not a boss) loses its next turn, then can't be staggered again until after its following turn. */
+const losesTurn=u=>u.side==='enemy'&&!u.boss&&!!u.st.stag;
 function blessUnit(a,src){if(!live(a)||a.object)return;a.st.bless=Math.max(a.st.bless||0,2);a.blessBy=byHero(src);H.pop(a,'Blessed','gold');H.upd(a);}
-const ST_NAME={slow:'slowed',root:'rooted',stag:'staggered',daze:'dazed',weak:'weakened',bleed:'bleeding',burn:'burning',expose:'exposed',mark:'marked',bless:'blessed'};
+const ST_NAME={steady:'steadied',slow:'slowed',root:'rooted',stag:'staggered',daze:'dazed',weak:'weakened',bleed:'bleeding',burn:'burning',expose:'exposed',mark:'marked',bless:'blessed'};
 function applyEff(src,t,eff,res){
   if(!eff||!live(t)||t.object)return;
   for(const k in eff){
@@ -298,7 +302,7 @@ function applyEff(src,t,eff,res){
     if(t.boss&&(k==='daze'||k==='root')){note(`${t.name} shrugs off ${ST_NAME[k]}.`);continue;}
     if(k==='burn'&&immuneFire(t))continue;
     if(k==='bleed')t.bleedDmg=src.side==='hero'?3:2+G.act;
-    if(k==='stag')stagger(t,src);else addSt(t,k,v);
+    if(k==='stag'){stagger(t,src);if(!t.st.stag)continue;}else addSt(t,k,v);
     if(k==='expose')t.exposeBy=byHero(src);
     note(ST_NAME[k][0].toUpperCase()+ST_NAME[k].slice(1)+'.');if(t.side!==src.side)xp(src,1,'control');
   }
@@ -336,7 +340,52 @@ function netBoon(a,t,p,O){
   const net=clamp(Math.min(2,pro.length)-Math.min(2,con.length),-2,2);
   return {net,pro,con};
 }
-function attackMod(a,attr){let m=(a.attrs&&a.attrs[attr])||0;if(a.kind==='mon')m+=G.rollAdd;if(a.side==='hero'&&a.kind==='pc'&&hasR('dice'))m++;return m;}
+/* ---------------- DAMAGE DICE (after Nimble 2e) ----------------
+   Every attack rolls damage dice. The first die is the primary die: a 1 on it is a graze (weak, no "on a hit"
+   effects), its top number is a critical hit, and a critical explodes: roll another die and add it, again
+   and again while the top number keeps coming up. Advantage rolls the primary die again and keeps the best;
+   disadvantage keeps the worst. Each hero has their own die: the rogue's small d4 crits most often. */
+const CLASS_DIE={fighter:8,rogue:4,wizard:6,cleric:6};
+const DIE_SIZES=[4,6,8,10,12];
+function nearDie(v){let b=4;for(const s of DIE_SIZES)if(Math.abs(s-v)<Math.abs(b-v))b=s;return b;}
+/* n dice of size s plus a flat bonus b (before attributes and other bonuses). Powers and attacks can set it
+   directly with dice:[n,s,b]; otherwise heroes roll their class die and foes the die nearest their old numbers. */
+function atkDice(u,p){
+  if(p.dice)return {n:p.dice[0],s:p.dice[1],b:p.dice[2]||0};
+  if(u.kind==='pc'){const s=CLASS_DIE[u.cls]||6;return {n:Math.max(1,Math.round(p.dmg[1]/((s+1)/2))),s,b:0};}
+  const s=nearDie(p.dmg[2]);return {n:1,s,b:Math.max(0,Math.round(p.dmg[1]-(s+1)/2))};
+}
+function diceText(d){return `${d.n}d${d.s}${d.b?'+'+d.b:''}`;}
+/* A power's dice as its class rolls them (for cards shown outside battle, too). */
+function powDice(p,u){return atkDice(u&&u.kind==='pc'?u:{kind:'pc',cls:p.c},p);}
+/* Chance of a graze, a hit and a critical hit with this much advantage (net, -2..2). */
+function dieProbs(s,net){
+  const k=Math.abs(net),q=1/s;let hi,lo;
+  if(net>=0){hi=1-Math.pow(1-q,k+1);lo=Math.pow(q,k+1);}else{hi=Math.pow(q,k+1);lo=1-Math.pow(1-q,k+1);}
+  return [lo,Math.max(0,1-lo-hi),hi];
+}
+/* Average dice total for each result, the explosion included. */
+function tierDice(d,res){
+  const avg=(d.s+1)/2,rest=(d.n-1)*avg;
+  if(res===1)return 1+rest+d.b;
+  if(res===3)return d.s+avg*d.s/(d.s-1)+rest+d.b;
+  return (d.s+1)/2+rest+d.b;
+}
+/* Roll an attack's dice. forceCrit: the target is staggered. */
+function rollDice(d,net,forceCrit,bonusDie){
+  const tries=[];for(let i=0;i<=Math.abs(net);i++)tries.push(1+rnd(d.s));
+  let prim=net>=0?Math.max(...tries):Math.min(...tries);
+  if(forceCrit)prim=d.s;
+  const rest=[];for(let i=1;i<d.n;i++)rest.push(1+rnd(d.s));
+  const res=prim===d.s?3:prim===1?1:2;
+  const boom=[];
+  if(res===3){let r,g=0;do{r=1+rnd(d.s);boom.push(r);}while(r===d.s&&g++<12);if(bonusDie)boom.push(1+rnd(d.s));}
+  const total=prim+rest.reduce((a,b)=>a+b,0)+boom.reduce((a,b)=>a+b,0)+d.b;
+  return {d,tries,prim,rest,boom,res,total,net,stag:!!forceCrit};
+}
+/* Staggered: the attack is a critical hit, except against a boss, which only grants double advantage. */
+function stagNet(t,net){return t.boss?2:net;}
+function stagProbs(t,s,net){return t.boss?dieProbs(s,2):[0,0,1];}
 const sneakBonus=a=>TUNE.sneak+Math.floor(a.lvl/3);
 /* A foe is "set up" when an ally has thrown it off balance, exposed it, pinned it or stands beside it. */
 function setUp(a,t){return !t.object&&(!!t.st.stag||!!t.st.expose||!!t.st.root||!!t.st.daze||allies(a).some(h=>h!==a&&!h.object&&man(h,t)===1));}
@@ -350,7 +399,7 @@ function comboBonus(n){return Math.min(3,n||0);}
 function pcDmg(a,p,t,res,o){
   o=o||{};
   if(p.noDmg||!p.dmg)return 0;
-  let d=p.dmg[res-1]+(a.attrs[p.a]||0)+wBonus(a,p,'dmg');
+  let d=Math.round(o.dice!=null?o.dice:tierDice(atkDice(a,p),res))+(a.attrs[p.a]||0)+wBonus(a,p,'dmg')+wBonus(a,p,'acc');
   if(a.side==='hero'&&hasR('whetstone'))d+=1;
   d+=a.side==='hero'?(G.pcDmgAdd||0):(G.foeDmgAdd||0);
   if(o.sneak!=null?o.sneak:sneakOn(a,t))d+=sneakBonus(a);
@@ -361,15 +410,12 @@ function pcDmg(a,p,t,res,o){
   if(t.armor&&res<3)d=Math.max(1,d-t.armor);
   return Math.max(0,d);
 }
-/* What an attack on a staggered creature becomes: a critical hit (bosses: one step better). */
-function stagRes(t,res){return t.boss?Math.min(3,res+1):3;}
-function stagProbs(t,probs){return t.boss?[0,probs[0],probs[1]+probs[2]]:[0,0,1];}
 /* How many of a tiny swarm's critters are still standing (1-4). */
 function alive4(u){return u.tiny?Math.max(1,Math.ceil(u.tiny*u.hp/u.maxHp)):1;}
-function monDmg(a,A,t,res){
+function monDmg(a,A,t,res,dice){
   const ex=t.st&&t.st.expose?EXPOSE_DMG:0;
   if(A.flat!=null)return Math.max(1,(A.per?A.flat*alive4(a):A.flat)+Math.floor(G.dmgAdd/2))+ex;
-  let d=Math.max(1,A.dmg[res-1]+G.dmgAdd);
+  let d=Math.max(1,Math.round(dice!=null?dice:tierDice(atkDice(a,A),res))+G.dmgAdd);
   if(mon(a).savage&&t.hp<=t.maxHp/2)d+=2;
   return d+ex;
 }
@@ -466,9 +512,9 @@ function forecast(u,p,T,O){
   const by=comboSetters(u,p,strikeTargets(u,p,T,O));
   const combo=u.side==='hero'?(G.combo||0)+(by.length?1:0):0;
   rows.by=by;rows.combo=combo;
-  const mk=t=>{const nb=netBoon(u,t,p,O);const mod=attackMod(u,p.a)+wBonus(u,p,'acc')+2*nb.net;let probs=resProbs(mod);
-    const st=!!t.st.stag&&!p.noDmg&&!!p.dmg&&!t.object;if(st)probs=stagProbs(t,probs);
-    return {t,net:nb.net,pro:nb.pro,con:nb.con,mod,probs,stag:st,expose:!!t.st.expose,sneak:sneakOn(u,t)&&!!p.dmg&&!p.noDmg,dmg:[1,2,3].map(r=>pcDmg(u,p,t,r,{combo})*(p.hits||1)),ctrl:!!p.noDmg};};
+  const mk=t=>{const nb=netBoon(u,t,p,O);const dd=p.dmg?atkDice(u,p):{n:1,s:6,b:0};let probs=dieProbs(dd.s,nb.net);const mod=0;
+    const st=!!t.st.stag&&!p.noDmg&&!!p.dmg&&!t.object;if(st)probs=stagProbs(t,dd.s,nb.net);
+    return {t,net:nb.net,pro:nb.pro,con:nb.con,mod,dice:dd,probs,stag:st,expose:!!t.st.expose,sneak:sneakOn(u,t)&&!!p.dmg&&!p.noDmg,dmg:[1,2,3].map(r=>pcDmg(u,p,t,r,{combo})*(p.hits||1)),ctrl:!!p.noDmg};};
   if(p.tgt==='enemy'){
     for(const t of strikeTargets(u,p,T,O))rows.push(mk(t));
   }else if(p.tgt==='ally'){
@@ -492,11 +538,14 @@ async function pcStrike(u,p,t,C,fl){
   for(let h=0;h<hits&&live(t);h++){
     const nb=netBoon(u,t,p,u);
     const sn=sneakOn(u,t);
-    const r=roll3(attackMod(u,p.a)+wBonus(u,p,'acc')+2*nb.net);
+    const dd=p.dmg?atkDice(u,p):{n:1,s:CLASS_DIE[u.cls]||6,b:0};
+    // a staggered creature can't defend itself: the attack is a critical hit (a boss only gives double advantage)
+    const st=t.st.stag&&!p.noDmg&&p.dmg&&!t.object;
+    const r=rollDice(dd,st?stagNet(t,nb.net):nb.net,st&&!t.boss,u.side==='hero'&&hasR('dice'));
     if(nb.pro.includes('Blessed'))fl.usedBless=true;
-    // a staggered creature can't defend itself: the attack is a critical hit (a boss's is one step better)
-    if(t.st.stag&&!p.noDmg&&p.dmg&&!t.object){r.res=stagRes(t,r.res);r.stag=true;delete t.st.stag;t.stagBy=null;H.pop(t,'Off balance!','call');}
-    const d=pcDmg(u,p,t,r.res,{sneak:sn});
+    if(st){delete t.st.stag;t.stagBy=null;H.pop(t,'Off balance!','call');}
+    await H.dice(u,t,r);
+    const d=p.dmg?pcDmg(u,p,t,r.res,{sneak:sn,dice:r.total}):0;
     if(sn&&d>0)fl.sneak=true;
     H.result(t,r);
     NOTE=[];
@@ -521,7 +570,7 @@ async function pcStrike(u,p,t,C,fl){
     }
     const ex=NOTE||[];NOTE=null;
     const why=(nb.pro.length?' +'+nb.pro.join(', +'):'')+(nb.con.length?' -'+nb.con.join(', -'):'');
-    log(`${u.name}: ${p.name} → ${t.name}. ${rollText(r)}${why?' ('+why.trim()+')':''}. ${ex.join(' ')}`,sideCol(u));
+    log(`${u.name}: ${p.name} → ${t.name}. ${diceLog(r)}${why?' ('+why.trim()+')':''}. ${ex.join(' ')}`,sideCol(u));
   }
 }
 async function support(u,a,p,fl){
@@ -688,8 +737,8 @@ function distField(sources){
 }
 function evMon(e,A,t,O){
   const nb=netBoon(e,t,A,O);
-  let probs=A.flat!=null?[0,1,0]:resProbs(attackMod(e,A.a)+2*nb.net);
-  if(A.flat==null&&t.st.stag)probs=stagProbs(t,probs);
+  let probs=A.flat!=null?[0,1,0]:dieProbs(atkDice(e,A).s,nb.net);
+  if(A.flat==null&&t.st.stag)probs=stagProbs(t,atkDice(e,A).s,nb.net);
   const hp=t.hp+t.shield;let ev=0,kp=0;
   for(let i=0;i<3;i++){const d=monDmg(e,A,t,i+1);ev+=probs[i]*Math.min(hp,d);if(d>=hp)kp+=probs[i];}
   return {ev,kill:kp,net:nb.net};
@@ -825,13 +874,14 @@ async function monAttack(e,A,t,isTile){
   for(const v of victims){
     if(!live(v))continue;
     const nb=netBoon(e,v,A,e);
-    const r=A.flat!=null?null:roll3(attackMod(e,A.a)+2*nb.net);
-    if(r&&v.st.stag){r.res=stagRes(v,r.res);r.stag=true;delete v.st.stag;v.stagBy=null;H.pop(v,'Off balance!','call');}
+    const st=A.flat==null&&!!v.st.stag;
+    const r=A.flat!=null?null:rollDice(atkDice(e,A),st?stagNet(v,nb.net):nb.net,st&&!v.boss);
+    if(st){delete v.st.stag;v.stagBy=null;H.pop(v,'Off balance!','call');}
     const res=r?r.res:2;
     if(v.side==='hero'&&hasR('ward')){v.warded=v.warded||{};v.warded[e.id]=1;}
     if(r)H.result(v,r);
     NOTE=[];
-    await damage(e,v,monDmg(e,A,v,res),{crit:res===3,area:!!A.area});
+    await damage(e,v,monDmg(e,A,v,res,r?r.total:null),{crit:res===3,area:!!A.area});
     if(live(v)){
       applyEff(e,v,A.eff,res);
       const push=tv(A.eff&&A.eff.push,res),pull=tv(A.eff&&A.eff.pull,res);
@@ -840,7 +890,7 @@ async function monAttack(e,A,t,isTile){
     }
     const ex=NOTE||[];NOTE=null;
     const why=(nb.pro.length?' +'+nb.pro.join(', +'):'')+(nb.con.length?' -'+nb.con.join(', -'):'');
-    log(`${e.name}: ${A.name} → ${v.name}. ${r?rollText(r):'Swarm hit'}${why&&r?' ('+why.trim()+')':''}. ${ex.join(' ')}`,'e');
+    log(`${e.name}: ${A.name} → ${v.name}. ${r?diceLog(r):'Swarm hit'}${why&&r?' ('+why.trim()+')':''}. ${ex.join(' ')}`,'e');
   }
   if(A.hazard){
     if(A.area){for(let y=t.y-A.area;y<=t.y+A.area;y++)for(let x=t.x-A.area;x<=t.x+A.area;x++)if(inB(x,y))setHaz(x,y,A.hazard,3,e.side);}
@@ -902,7 +952,7 @@ function payoffGain(h,t,kind){
     const q=POWERS[id];if(!q.dmg||q.noDmg||q.tgt!=='enemy'||!usable(h,q))continue;
     const rng=q.range+(q.range===1?wBonus(h,q,'reach'):wBonus(h,q,'range'));
     if(man(h,t)>h.mp+rng)continue;
-    const pr=resProbs(attackMod(h,q.a)+wBonus(h,q,'acc'));const d=[1,2,3].map(r=>pcDmg(h,q,t,r));
+    const pr=dieProbs(atkDice(h,q).s,0);const d=[1,2,3].map(r=>pcDmg(h,q,t,r));
     const exp=pr[0]*d[0]+pr[1]*d[1]+pr[2]*d[2];
     let g=kind==='stag'?(t.boss?pr[0]*(d[1]-d[0])+pr[1]*(d[2]-d[1]):d[2]-exp):kind==='expose'?EXPOSE_DMG*(q.hits||1):(pr[0]*.4+pr[1]*.4)*(d[2]-d[0])*.6;
     if(h.cls==='rogue'&&kind!=='bless'&&!sneakOn(h,t))g+=sneakBonus(h);
@@ -920,6 +970,12 @@ function setupWorth(u,t,kind){
   }
   if(SETUP_C)SETUP_C[key]=v;
   return v;
+}
+/* What making t lose its turn is worth: roughly the damage it would have dealt. */
+function skipWorth(t){
+  if(!t||t.side!=='enemy'||t.boss||t.st.steady||t.object||t.kind!=='mon')return 0;
+  const A=mon(t).acts.find(a=>!a.tgt&&!a.trap);if(!A)return 0;
+  return .8*(A.flat!=null?A.flat:tierDice(atkDice(t,A),2)+G.dmgAdd)*(mon(t).attacks||1);
 }
 /* How much the fighter gains by taunting t: it would otherwise go after one of her softer friends. */
 function tauntWorth(u,t){
@@ -941,10 +997,10 @@ function valuePower(u,p,T,O){
       if(P){
         const alive=1-killP(r),e=p.eff||{};
         const fm=(tv(e.push,2)||tv(e.pull,2))?(tv(e.push,2)||tv(e.pull,2))+pushExtra(u,p)-(r.t.steady||0):0;
-        if(fm>0||tv(e.stag,2))sv(alive*setupWorth(u,r.t,'stag')*(rows.length>1?.6:1));
+        if(fm>0||tv(e.stag,2)){sv(alive*setupWorth(u,r.t,'stag')*(rows.length>1?.6:1));v+=alive*skipWorth(r.t);}
         if(tv(e.expose,2))sv(alive*setupWorth(u,r.t,'expose'));
       }
-      if(r.stag)v+=1;
+      if(r.stag)v-=skipWorth(r.t)*(1-killP(r))*.6;
     }else{
       const t=r.t,miss=t.maxHp-t.hp;
       if(r.heal)v+=miss>=4?Math.min(miss,r.heal)*1.1:0;
@@ -955,7 +1011,7 @@ function valuePower(u,p,T,O){
     }
   }
   // Come and Get It and Gravity Well drag foes in, leaving them staggered for the heroes still to act
-  if(p.pullFirst||p.pullCenter){const C=p.tgt==='self'?O:T;for(const f of foesOf(u).filter(e=>cheb(e,C)<=p.area&&!e.object&&man(e,C)>0&&(e.steady||0)<(p.pullFirst||p.pullCenter))){hits++;if(P)sv(setupWorth(u,f,'stag')*.7);if(p.pullFirst)v+=tauntWorth(u,f);}}
+  if(p.pullFirst||p.pullCenter){const C=p.tgt==='self'?O:T;for(const f of foesOf(u).filter(e=>cheb(e,C)<=p.area&&!e.object&&man(e,C)>0&&(e.steady||0)<(p.pullFirst||p.pullCenter))){hits++;if(P)sv(setupWorth(u,f,'stag')*.7);v+=skipWorth(f);if(p.pullFirst)v+=tauntWorth(u,f);}}
   if(p.blessNear&&hits){const c=allies(u).filter(a=>a!==u&&!a.object&&!a.caged&&a.kind!=='npc'&&man(a,O)<=p.blessNear);if(c.length){const fo=fighters(u);const sc=a=>Math.min(9,...fo.map(f=>man(f,a)));c.sort((a,b)=>sc(a)-sc(b));if(P&&payers(u).includes(c[0])&&sc(c[0])<=c[0].mp+2)sv(4);else v+=1;}}
   if(p.tgt!=='ally'&&p.aff!=='ally'&&!hits&&!p.revive&&!p.selfHeal)return -99;
   if(p.zone)v+=3*hits;
@@ -1313,6 +1369,11 @@ async function nextTurn(){
       if(!u||!live(u)||u.object||u.caged)continue;
     }
     G.cur=u.id;
+    if(losesTurn(u)){
+      delete u.st.stag;u.stagBy=null;u.st.steady=2;u.react=true;
+      await H.turn(u);H.pop(u,'Loses its turn!','call');log(`${u.name} is staggered and loses its turn.`,'e');
+      await endTurn(u);if(G.over)return;await H.pause(120);continue;
+    }
     await beginTurn(u);
     if(G.over)return;
     if(!live(u)){G.cur=null;continue;}

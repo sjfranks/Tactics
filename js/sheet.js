@@ -22,8 +22,8 @@ function powerReach(p){
 }
 function powerDmgLine(p,u){
   const b=u?(u.attrs[p.a]||0)+(u.side==='hero'&&hasR('whetstone')?1:0):0;
-  if(p.dmg&&!p.noDmg){const d=p.dmg.map(v=>v+b);
-    return `{m:Graze} {w:${d[0]}} {m:·} {m:Hit} {w:${d[1]}} {m:·} {m:Crit} {w:${d[2]}}${p.hits>1?` {w:×${p.hits}}`:''}${u?'':' {m:+ '+ATTR[p.a]+'}'}${p.radiant?' radiant':''}`;}
+  if(p.dmg&&!p.noDmg){const d=powDice(p,u);
+    return `{m:Damage} {w:${diceText(d)}${u&&b?'+'+b:''}}${p.hits>1?` {w:×${p.hits}}`:''}${u?'':' {m:+ '+ATTR[p.a]+'}'}${p.radiant?' radiant':''} {m:· crit on a ${d.s}, explodes}`;}
   if(p.heal)return `{h:Heals ${u?healAmt(u,p.heal):p.heal+(p.c==='cleric'?' + Presence':'')}}`+(p.shield?` {b:and ${p.shield} shield}`:'');
   if(p.shield)return `{b:${p.shield} shield}`;
   return '';
@@ -57,7 +57,7 @@ function monActLines(A){
   if(A.mom)return {sub:'Itself',dmg:'',desc:`Takes 3 damage to give the foes ${A.mom} momentum.`};
   if(A.trap)return {sub:`Range ${A.range}`,dmg:'',desc:`${A.trap==='trap'?'Hides a snare':'Sets fire'} on a square. Every ${A.cd} rounds.`};
   const sub=(A.range===1?'Melee':`Range ${A.range}`)+(A.area?`, ${A.area*2+1}x${A.area*2+1} area`:'')+(A.a?` · ${ATTR[A.a]}`:'');
-  const dmg=A.flat!=null?`{w:${A.flat}} damage, never rolls`:`{m:Graze} {w:${A.dmg[0]}} {m:·} {m:Hit} {w:${A.dmg[1]}} {m:·} {m:Crit} {w:${A.dmg[2]}}`;
+  const dmg=A.flat!=null?`{w:${A.flat}} damage, never rolls`:`{m:Damage} {w:${diceText(atkDice({kind:'mon'},A))}} {m:· crit on a ${atkDice({kind:'mon'},A).s}, explodes}`;
   const desc=(effText(A.eff)+(A.hazard?` Leaves ${A.hazard==='web'?'web':A.hazard}.`:'')).trim();
   return {sub,dmg,desc};
 }

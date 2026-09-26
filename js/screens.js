@@ -529,13 +529,13 @@ const HOWTO=`{g:Turn order.} Everyone rolls initiative (d20 + Finesse) when a ba
 
 {g:Foe intents.} Tap INTENT to see whom each foe means to attack, and how hard. Shove foes out of reach, taunt them or finish them first.
 
-{g:Combos.} Heroes set each other up. A foe that is shoved, dragged or knocked down is {g:staggered}: the next attack on it is a sure critical hit. An {g:exposed} foe takes +3 damage from every hit. A {g:blessed} hero attacks with advantage. Set-ups on a foe fade when its own turn ends, so line up a hero who acts before it. When a hero cashes in a set-up another hero made, it is a {g:combo}: both gain 1 momentum, and every hero hit for the rest of the round deals +1 damage per combo (up to +3).
+{g:Combos.} Heroes set each other up. A foe that is shoved, dragged or knocked down is {g:staggered}: it loses its next turn, unless someone attacks it first, and that attack is a sure critical hit. An {g:exposed} foe takes +3 damage from every hit. A {g:blessed} hero attacks with advantage. Set-ups on a foe fade when its own turn ends, so line up a hero who acts before it. When a hero cashes in a set-up another hero made, it is a {g:combo}: both gain 1 momentum, and every hero hit for the rest of the round deals +1 damage per combo (up to +3).
 
 {g:The roles.} Brakka throws foes off balance and makes them fight her: foes she marks can only attack her. Orin does it to whole groups. Sela blesses her friends and exposes foes. Vex cashes it all in with sneak attacks on set-up foes.
 
-{g:Attack results.} Every attack rolls 3d6 and adds an attribute. A total of 10 or less is a graze, 11 to 14 is a hit, 15 or more is a critical hit. Better results deal more damage, and effects listed "on a hit" or "on a crit" only happen on those results. {g:Armored} foes shrug off part of every blow except critical hits.
+{g:Damage dice.} Every attack rolls damage dice and adds an attribute: Brakka rolls d8s, Orin and Sela d6s, Vex d4s. The first die decides the result: a 1 is a graze, the top number is a critical hit, anything else a hit. Critical hits {g:explode}: roll another die and add it, again and again while the top number comes up. Small dice crit more often. {g:Armored} foes shrug off part of every blow except critical hits.
 
-{g:Advantage and disadvantage.} Advantage adds 2 to the roll and disadvantage takes 2 away, up to twice each. Flanking, high ground, blessings and dazed or rooted targets give advantage. Cover, being weakened and shooting with a foe beside you give disadvantage.
+{g:Advantage and disadvantage.} Advantage rolls the first die again and keeps the best; disadvantage keeps the worst. Flanking, high ground, blessings and dazed or rooted targets give advantage. Cover, being weakened and shooting with a foe beside you give disadvantage.
 
 {g:Momentum.} Shown as {p:◆} gems. Every hero starts a battle with none, gains 1 each turn, 1 per combo, and more for doing their job: each hero's sheet says how. Stronger powers cost momentum.
 
@@ -597,7 +597,7 @@ const COMP_SCREEN={enter(){COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);
       if(k==='class'){const Cc=CLASSES[cls];const u=heroSheetUnit({cls,lvl:1,hp:Cc.hp,maxHp:Cc.hp,powers:Cc.start});
         y+=sheetLayout(u,dx,y,dw,clip,{plain:true,classInfo:true});}
       else if(POWERS[k]){const p=POWERS[k];text(`Level ${p.lv} ${CLASSES[cls].title} power`,dx,y,C.mute);y+=9;y+=powerBlock(p,null,dx,y,dw,{clip})+4;
-        y+=rich('Damage adds the attribute it uses. {m:Graze, Hit and Crit are the three attack results.}',dx,y,dw,C.mute,{clip});}
+        y+=rich('Damage adds the attribute it uses. {m:A 1 on the first die is a graze; its top number is an exploding critical hit.}',dx,y,dw,C.mute,{clip});}
     }else if(COMP.tab===1&&RELICS[k]){inset(dx,y,20,20,'#100b08');ctx.drawImage(relicArt(k),dx+2,y+2);text(RELICS[k].name,dx+24,y+3,C.gold);text(`About ${RELICS[k].price} gold`,dx+24,y+11,C.mute);y+=24;
       y+=rich(RELICS[k].desc,dx,y,dw,C.parch,{clip});}
     else if(COMP.tab===2&&MON[k]){y+=sheetLayout(monSheetUnit(k),dx,y,dw,clip,{plain:true,found:true});}
