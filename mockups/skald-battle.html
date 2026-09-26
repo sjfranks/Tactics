@@ -1,0 +1,121 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Emberwatch in the style of SKALD</title>
+<style>html,body{margin:0;background:#000;height:100%}#m{position:absolute;left:0;top:0;width:390px;height:850px;image-rendering:pixelated}#game{display:none}</style>
+</head><body>
+<canvas id="game"></canvas><canvas id="m"></canvas>
+<script src="../js/data.js"></script><script src="../js/engine.js"></script><script src="../js/font.js"></script>
+<script src="../js/sprites.js"></script><script src="../js/art.js"></script><script src="../js/art64.js"></script>
+<script>
+/* A mockup of the Emberwatch battle screen drawn like SKALD: the 16-colour Commodore 64 palette,
+   chunky square pixels, a black screen split by thin framed panels, tile map, portraits and a text log. */
+(function(){
+const W=200,H=436;const cv=document.getElementById('m');cv.width=W;cv.height=H;const g=cv.getContext('2d');g.imageSmoothingEnabled=false;
+const C64=['#000000','#ffffff','#68372b','#70a4b2','#6f3d86','#588d43','#352879','#b8c76f','#6f4f25','#433900','#9a6759','#444444','#6c6c6c','#9ad284','#6c5eb5','#959595'];
+const [K,WH,RD,CY,PU,GR,BL,YE,OR,BR,LR,DG,MG,LG,LB,GY]=C64;
+const rgb=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+const PALRGB=C64.map(rgb);
+function near(r,gg,b){let bi=0,bd=1e9;PALRGB.forEach((p,i)=>{const d=(p[0]-r)**2*.3+(p[1]-gg)**2*.59+(p[2]-b)**2*.11;if(d<bd){bd=d;bi=i;}});return C64[bi];}
+const px=(x,y,c)=>{g.fillStyle=c;g.fillRect(x,y,1,1);};
+const box=(x,y,w,h,c)=>{g.fillStyle=c;g.fillRect(x,y,w,h);};
+const R=(()=>{let a=1234567;return()=>{a=(a*1103515245+12345)&0x7fffffff;return a/0x7fffffff;};})();
+/* --- tiny font (the game's 5px glyphs) --- */
+const GL={};for(const k in GLYPH_SRC)GL[k]=GLYPH_SRC[k].split('/');
+function tw(s){let w=0;for(const ch of s){const gl=GL[ch]||GL['?'];w+=gl[0].length+1;}return w-1;}
+function txt(s,x,y,c,sc,sh){sc=sc||1;if(sh)txt(s,x+sc,y+sc,sh,sc);let cx=x;for(const ch of s){const gl=GL[ch]||GL['?'];gl.forEach((row,j)=>{for(let i=0;i<row.length;i++)if(row[i]==='#')box(cx+i*sc,y+j*sc,sc,sc,c);});cx+=(gl[0].length+1)*sc;}return cx;}
+/* rich line: {c:word} colours words */
+function rtxt(parts,x,y){let cx=x;for(const [s,c] of parts)cx=txt(s,cx,y,c)+0;return cx;}
+/* --- sprites from the game, re-coloured into the C64 palette --- */
+function c64Sprite(key,variant){const d=SPR32[key];const pal=Object.assign({},d.pal,variant==='rival'?d.rival:{});
+  const n=d.rows.length;const c=document.createElement('canvas');c.width=n;c.height=n;const x=c.getContext('2d');
+  d.rows.forEach((row,yy)=>{for(let xx=0;xx<row.length;xx++){const ch=row[xx];if(ch==='.')continue;let col=pal[ch]||PAL[ch]||'#f0f';if(ch==='k')col='#000000';else col=near(...rgb(col));x.fillStyle=col;x.fillRect(xx,yy,1,1);}});
+  return c;}
+/* --- frame: SKALD's thin double rule with little corner knots --- */
+function frame(x,y,w,h,c1,c2){box(x,y,w,1,c1);box(x,y+h-1,w,1,c1);box(x,y,1,h,c1);box(x+w-1,y,1,h,c1);
+  box(x+2,y+2,w-4,1,c2);box(x+2,y+h-3,w-4,1,c2);box(x+2,y+2,1,h-4,c2);box(x+w-3,y+2,1,h-4,c2);
+  for(const[cx,cy]of[[x,y],[x+w-3,y],[x,y+h-3],[x+w-3,y+h-3]]){box(cx,cy,3,3,c2);px(cx+1,cy+1,WH);}}
+function title(s,x,y,w){const tw2=tw(s);box(x+Math.floor((w-tw2)/2)-3,y-1,tw2+6,7,K);txt(s,x+Math.floor((w-tw2)/2),y,YE);}
+/* ================= screen ================= */
+box(0,0,W,H,K);
+/* header */
+frame(2,2,W-4,15,MG,BL);
+txt('THE BARROW MOORS',7,7,YE);const r='ROUND 3';txt(r,W-7-tw(r),7,CY);
+/* ---- map ---- */
+const TS=32,MX=4,MY=20,COLS=6,ROWS=8;
+const map=[
+ 'wwwwww',
+ 'g.t.gg',
+ '..r...',
+ 'm.~~.t',
+ 'm.~~..',
+ '..h...',
+ 'g....g',
+ 'gg..gg'];
+function tile(tx,ty,t){const X=MX+tx*TS,Y=MY+ty*TS;
+  // moor grass: dark green ground, specks and tufts in a fixed rhythm
+  box(X,Y,TS,TS,GR);
+  for(let i=0;i<40;i++){const x=X+Math.floor(R()*TS),y=Y+Math.floor(R()*TS);px(x,y,((x+y)&1)?DG:LG);}
+  for(let i=0;i<5;i++){const x=X+2+Math.floor(R()*(TS-5)),y=Y+4+Math.floor(R()*(TS-6));px(x,y,LG);px(x+1,y-1,LG);px(x+2,y,LG);px(x+1,y,DG);}
+  if(t==='.'||t==='h'||t==='r'){ // worn path: brown with dithered edge
+    for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){const e=Math.min(x,y,TS-1-x,TS-1-y);if(e>2||((x+y)&1)&&e>0)px(X+x,Y+y,((x*7+y*3)%11===0)?BR:OR);}
+    for(let i=0;i<6;i++)px(X+3+Math.floor(R()*(TS-6)),Y+3+Math.floor(R()*(TS-6)),GY);}
+  if(t==='w'){ // ruined crypt wall
+    box(X,Y,TS,TS,DG);for(let r2=0;r2<4;r2++){const off=r2%2?8:0;for(let c=-1;c<3;c++){const bx=X+off+c*16,by=Y+r2*8;box(Math.max(X,bx+1),by+1,Math.min(14,X+TS-bx-1),6,r2===0?GY:MG);box(Math.max(X,bx+1),by+1,Math.min(14,X+TS-bx-1),1,GY);}}
+    box(X,Y+TS-3,TS,3,K);px(X+10,Y+5,LG);px(X+11,Y+6,LG);px(X+22,Y+13,LG);}
+  if(t==='~'){ // black bog water
+    box(X,Y,TS,TS,BL);for(let y=2;y<TS;y+=5)for(let x=(y*3)%7;x<TS-3;x+=9){box(X+x,Y+y,4,1,LB);}px(X+5,Y+20,CY);px(X+20,Y+9,CY);}
+  if(t==='m'){ // mound of stones
+    box(X,Y,TS,TS,GR);for(let i=0;i<5;i++){const x=X+4+i*5,y=Y+14+(i%2)*5;box(x,y,6,5,MG);box(x,y,6,1,GY);box(x+5,y,1,5,DG);}}
+}
+for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)tile(x,y,map[y][x]);
+/* obstacles */
+function tomb(tx,ty){const X=MX+tx*TS+9,Y=MY+ty*TS+6;box(X+1,Y+20,16,3,K);box(X,Y+2,14,19,MG);box(X+2,Y,10,2,MG);box(X,Y+2,2,19,GY);box(X+12,Y+2,2,19,DG);box(X+5,Y+6,4,1,K);box(X+6,Y+4,2,7,K);}
+function deadtree(tx,ty){const X=MX+tx*TS,Y=MY+ty*TS;box(X+14,Y+8,4,20,BR);box(X+15,Y+8,1,20,OR);box(X+8,Y+12,7,2,BR);box(X+17,Y+6,8,2,BR);box(X+7,Y+9,2,4,BR);box(X+24,Y+3,2,4,BR);box(X+11,Y+27,11,2,K);}
+tomb(0,1);tomb(4,1);tomb(5,6);tomb(0,6);deadtree(2,1);deadtree(5,3);
+/* grid: black dots at tile corners, as in SKALD's combat map */
+for(let y=0;y<=ROWS;y++)for(let x=0;x<=COLS;x++)px(MX+x*TS,MY+y*TS,K);
+/* movement range: checker dither of light blue over reachable squares */
+const reach=[[1,5],[2,5],[3,5],[1,6],[2,6],[3,6],[4,6],[2,7],[3,7],[4,5]];
+for(const[tx,ty]of reach){const X=MX+tx*TS,Y=MY+ty*TS;for(let y=1;y<TS;y+=2)for(let x=1+((y>>1)&1);x<TS;x+=4)px(X+x,Y+y,LB);box(X,Y,TS,1,LB);box(X,Y,1,TS,LB);}
+/* attack target: flashing red brackets */
+function brackets(tx,ty,c){const X=MX+tx*TS,Y=MY+ty*TS;for(const[dx,dy,sx,sy]of[[0,0,1,1],[TS-1,0,-1,1],[0,TS-1,1,-1],[TS-1,TS-1,-1,-1]]){box(X+dx+(sx<0?-4:0),Y+dy,5,1,c);box(X+dx,Y+dy+(sy<0?-4:0),1,5,c);}}
+/* units */
+function unit(key,tx,ty,variant,flip){const S=c64Sprite(key,variant);const X=MX+tx*TS,Y=MY+ty*TS;
+  g.fillStyle=K;g.fillRect(X+8,Y+28,16,2);
+  if(flip){g.save();g.translate(X+TS,0);g.scale(-1,1);g.drawImage(S,0,Y-1);g.restore();}else g.drawImage(S,X,Y-1);}
+unit('wight',2,2);unit('skeleton',1,3);unit('skeleton',4,3);unit('skeletonArcher',3,1);unit('bones',0,4);unit('bones',4,4);
+unit('fighter',2,6);unit('rogue',4,5,null,true);unit('wizard',1,7);unit('cleric',3,7);
+brackets(2,2,LR);brackets(1,3,RD);
+/* active hero: white corner ticks */
+brackets(2,6,WH);
+/* enemy health pips under each foe */
+for(const[tx,ty,f]of[[2,2,.7],[1,3,.4],[4,3,1],[3,1,1],[0,4,1],[4,4,1]]){const X=MX+tx*TS+6,Y=MY+ty*TS+29;box(X,Y,20,2,K);box(X,Y,Math.round(20*f),2,RD);}
+frame(2,18,W-4,MY+ROWS*TS-16,MG,BL);
+/* ---- party portraits ---- */
+const PY=MY+ROWS*TS+4,PW=48;
+const party=[['fighter','BRAKKA',34,40,3],['rogue','VEX',17,25,4],['wizard','ORIN',20,22,2],['cleric','SELA',29,30,1]];
+party.forEach(([k,n,hp,mhp,mom],i)=>{const X=2+i*PW+(i?1:0),Y=PY;const act=i===0;
+  frame(X,Y,PW-1,54,act?YE:MG,act?OR:BL);
+  box(X+4,Y+4,PW-9,30,act?PU:BL);
+  // portrait: the hero's head and shoulders at double size
+  const S=c64Sprite(k);g.drawImage(S,6,2,20,15,X+4,Y+4,40,30);
+  txt(n,X+4,Y+37,act?YE:WH);
+  box(X+4,Y+44,PW-10,3,K);box(X+4,Y+44,Math.round((PW-10)*hp/mhp),3,hp/mhp>.5?LG:YE);
+  for(let j=0;j<5;j++){const mx=X+4+j*6,my=Y+49;if(j<mom){px(mx+1,my,LB);box(mx,my+1,3,1,LB);px(mx+1,my+2,LB);}else{px(mx+1,my+1,DG);}}
+});
+/* ---- log ---- */
+const LY=PY+57;frame(2,LY,W-4,50,MG,BL);title('CHRONICLE',2,LY,W-4);
+const lines=[
+ [['The ',GY],['Barrow Wight',LR],[' rises from the',GY]],
+ [['cairn. Cold light spills out.',GY]],
+ [['Vex ',CY],['strikes a ',GY],['Skeleton',LR],[':',GY]],
+ [['HIT',YE],[' for 7. It staggers.',GY]],
+];
+lines.forEach((l,i)=>rtxt(l,8,LY+8+i*9));
+/* ---- actions ---- */
+const AY=LY+53;frame(2,AY,W-4,H-AY-2,YE,OR);title('BRAKKA - ACTION',2,AY,W-4);
+const acts=[['1','ATTACK','Grinding Strike',true],['2','POWERS','3 ready',false],['3','MOVE','4 squares',false],['4','END TURN','',false]];
+acts.forEach(([n,a,d,sel],i)=>{const y=AY+10+i*9;if(sel){box(6,y-2,W-12,9,BL);txt('>',8,y,YE);}
+  txt(n+'.',14,y,sel?YE:GY);txt(a,24,y,sel?WH:LG);if(d)txt(d,W-8-tw(d),y,sel?CY:MG);});
+})();
+</script>
+</body></html>

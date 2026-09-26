@@ -42,7 +42,7 @@ function noise2(seed){
 }
 const fbm=(n,x,y)=>n(x,y)*.55+n(x*2.03+17.1,y*2.03+5.7)*.3+n(x*4.1+3.3,y*4.1+11.9)*.15;
 const hash2=(x,y)=>{let h=Math.imul(x|0,374761393)+Math.imul(y|0,668265263);h=Math.imul(h^h>>>13,1274126177);return ((h^h>>>16)>>>0)/4294967296;};
-function buildTerrain(){
+function buildTerrain(){if(!HIRES)return buildTerrainLo();
   const T=TS*RES,S=T/64,W=COLS*T,H=ROWS*T;
   const c=document.createElement('canvas');c.width=W;c.height=H;c._s=RES;const g=c.getContext('2d');g.imageSmoothingEnabled=false;
   const act=G.act,P=TERR[act];const seed=G.enc.f*991+act*7+(G.enc.title||'').length*13;const r=mulberry(seed);
