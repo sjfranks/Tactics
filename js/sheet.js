@@ -136,6 +136,14 @@ function sheetLayout(u,x,y,w,clip,o){
       if(t)rect(sx,sy+2,2,2,C.gold);text(k,sx+4,sy,t?C.gold:C.parch);text((v>=0?'+':'')+v,sx+colW,sy,t?C.gold:C.mute,{al:'r'});});
     cy+=Math.ceil(sk.length/2)*8+2;
     cy+=rich('{g:Gold} skills are trained (+2). Skills are tested on the road.',x,cy,w,C.mute,{clip})+5;
+    // role, weapon, experience
+    cy+=secHead(`ROLE: ${Cc.role.toUpperCase()}`,x,cy,w);
+    cy+=rich(Cc.style,x,cy,w,C.parch,{clip})+2;
+    cy+=rich(`{m:Earns experience by:} ${Cc.xpText}`,x,cy,w,C.parch,{clip})+3;
+    if(u.side==='hero'&&!u.rival&&u.xp!=null){const lo=XP_AT[u.lvl]||0,hi=XP_AT[u.lvl+1]||XP_AT[TUNE.maxLvl];const f=u.lvl>=TUNE.maxLvl?1:clamp((u.xp-lo)/(hi-lo),0,1);
+      rect(x,cy+1,w-50,4,C.edge);rect(x+1,cy+2,Math.round((w-52)*f),2,'#6ac0ff');text(u.lvl>=TUNE.maxLvl?'MAX LEVEL':`${u.xp}/${hi} XP`,x+w,cy,C.mute,{al:'r'});cy+=9;}
+    const W=u.wpn&&WEAPONS[u.wpn];
+    if(W){cy+=secHead('WEAPON',x,cy,w);inset(x,cy,20,20,'#100b08');ctx.drawImage(weaponArt(W.id),x+2,cy+2);text(W.name,x+24,cy+2,C.gold);cy+=Math.max(22,10+rich(weaponText(W),x+24,cy+10,w-24,C.parch,{clip}))+3;}
     // trait
     const tr=Cc.trait,ci=tr.indexOf(':');
     cy+=secHead('TRAIT',x,cy,w);

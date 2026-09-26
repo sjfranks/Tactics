@@ -6,17 +6,17 @@ let RUN=null;
 const SAVE_KEY='emberwatch.v3.run',BEST_KEY='emberwatch.v3.best';
 const MAP_F=7,MAP_L=4;
 const NODE_INFO={
-  battle:{name:'Battle',desc:'A fight on the road. Win for gold, a level and a new power.'},
-  elite:{name:'Elite Battle',desc:'A dangerous champion and its guards. Win for gold, a level, a new power and a relic.'},
+  battle:{name:'Battle',desc:'A fight on the road. Win for gold, experience and a new power.'},
+  elite:{name:'Elite Battle',desc:'A dangerous champion and its guards. Win for gold, experience, a new power and treasure.'},
   event:{name:'Unknown',desc:'Something unusual lies ahead. Your skills may be tested.'},
   shop:{name:'Merchant',desc:'A travelling merchant. Spend gold on relics, training and healing.'},
   rest:{name:'Campfire',desc:'A safe camp. Rest to heal, or train a new power.'},
   treasure:{name:'Treasure',desc:'An unguarded cache. Choose a relic.'},
   boss:{name:'Boss',desc:''},
 };
-function newHeroes(){return ORDER.map(c=>({cls:c,lvl:1,maxHp:CLASSES[c].hp,hp:CLASSES[c].hp,powers:CLASSES[c].start.slice()}));}
+function newHeroes(){return ORDER.map(c=>({cls:c,lvl:1,xp:0,maxHp:CLASSES[c].hp,hp:CLASSES[c].hp,powers:CLASSES[c].start.slice(),weapon:START_WEAPON[c]}));}
 function newRun(){
-  RUN={v:7,act:0,map:genMap(0),pos:null,gold:40,heroes:newHeroes(),relics:[],stats:{wins:0,kills:0,battles:0,gold:0},stage:'map',pending:null,seen:[],shop:null,event:null,enc:null};
+  RUN={v:8,act:0,map:genMap(0),pos:null,gold:40,heroes:newHeroes(),relics:[],gear:[],stash:[],stats:{wins:0,kills:0,battles:0,gold:0},stage:'map',pending:null,seen:[],shop:null,event:null,enc:null};
   saveGame();
 }
 function genMap(act){
@@ -66,14 +66,14 @@ function travel(id){
     startRunBattle(genEncounter(f,type,{act:RUN.act,elite:n.type==='elite'}),n.type);
   }else if(n.type==='shop'){RUN.stage='shop';RUN.shop=genShop();saveGame();go(SHOP_SCREEN);}
   else if(n.type==='rest'){RUN.stage='rest';saveGame();go(REST_SCREEN);}
-  else if(n.type==='treasure'){RUN.stage='reward';RUN.pending={steps:['relic2'],gold:10+rnd(15),kind:'treasure'};RUN.gold+=RUN.pending.gold;saveGame();goReward();}
+  else if(n.type==='treasure'){RUN.stage='reward';RUN.pending={steps:['loot'],gold:10+rnd(15),kind:'treasure'};RUN.gold+=RUN.pending.gold;saveGame();goReward();}
   else if(n.type==='event'){
     let pool=EVENTS.filter(e=>!RUN.seen.includes(e.id));if(!pool.length){RUN.seen=[];pool=EVENTS.slice();}
     const ev=pick(pool);RUN.seen.push(ev.id);RUN.stage='event';RUN.event={id:ev.id,done:null};saveGame();go(EVENT_SCREEN);
   }
 }
 function startRunBattle(enc,kind){
-  CTX={mode:'run',relics:RUN.relics};
+  CTX={mode:'run',relics:RUN.gear};
   RUN.stage='battle';RUN.enc=enc;RUN.encKind=kind||'battle';
   for(const h of RUN.heroes)if(h.hp<=0)h.hp=1;
   setupBattle(enc,RUN.heroes);
@@ -84,9 +84,9 @@ function beginBattleScreen(onEnd){
   for(const k in VIS)delete VIS[k];FX.length=0;PARTS.length=0;B.flash=null;B.banner=null;SHK.m=0;
   scrollTo('card',0);
   go(BATTLE_SCREEN);
-  (async()=>{await sleep(300);await nextTurn();const u=playerUnit();if(u)selfPend(u);})();
+  (async()=>{await sleep(300);if(!AUTOPLAY&&G&&!G.tut&&(G.enc.type!=='rout'||G.enc.twist))await showObjective();await nextTurn();const u=playerUnit();if(u)selfPend(u);})();
 }
-function effMaxHp(h){return h.maxHp+(RUN&&RUN.relics.includes('heart')?8:0);}
+function effMaxHp(h){return h.maxHp+(RUN&&RUN.gear.includes('heart')?8:0);}
 function onRunBattleEnd(o){
   if(o==='win'){
     openModal(dialog({title:'VICTORY',body:`${G.enc.title} is won.`,closable:false,buttons:[{l:'CONTINUE',hot:true,fn:()=>{resolveVictory();goReward();}}]}));
@@ -100,20 +100,21 @@ function onRunBattleEnd(o){
 function resolveVictory(){
   const enc=G.enc,kind=RUN.encKind;
   RUN.stats.wins++;RUN.stats.battles++;RUN.stats.kills+=G.kills;
-  let gold=kind==='boss'?60+rnd(20):kind==='elite'?35+rnd(15):14+rnd(10)+RUN.act*4;
+  let gold=kind==='boss'?45+rnd(15):kind==='elite'?26+rnd(12):10+rnd(8)+RUN.act*3;
   if(enc.type==='loot'&&G.looted>=3)gold+=30;
-  if(RUN.relics.includes('coin'))gold=Math.round(gold*1.5);
+  if(RUN.gear.includes('coin'))gold=Math.round(gold*1.5);
   RUN.gold+=gold;RUN.stats.gold+=gold;
-  const heal=TUNE.healAfter+(RUN.relics.includes('waterskin')?.15:0);
+  const heal=TUNE.healAfter+(RUN.gear.includes('waterskin')?.15:0);
   for(const h of RUN.heroes){
     const u=G.units.find(x=>x.id==='h_'+h.cls);const mhp=effMaxHp(h);
     if(!u||u.dead)h.hp=Math.ceil(mhp*TUNE.fallenHp);
     else h.hp=Math.min(mhp,u.hp+Math.ceil(mhp*heal));
-    if(h.lvl<TUNE.maxLvl){const g=CLASSES[h.cls].grow;h.lvl++;h.maxHp+=g;h.hp=Math.min(effMaxHp(h),h.hp+g);}
   }
-  const steps=['train'];
-  if(kind==='elite'||kind==='boss')steps.push('relic');
-  RUN.pending={steps,gold,kind,lvl:RUN.heroes[0].lvl};
+  const xpList=awardXp(G.xp,kind);
+  const steps=['xp','train'];
+  if(kind==='elite')steps.push('loot');
+  if(kind==='boss')steps.push('relic');
+  RUN.pending={steps,gold,kind,xp:xpList};
   RUN.stage='reward';G=null;
   if(kind==='boss'){
     RUN.heroes.forEach(h=>h.hp=Math.min(effMaxHp(h),h.hp+Math.ceil(effMaxHp(h)*TUNE.actHeal)));
@@ -130,20 +131,63 @@ function powerOffers(n){
   return out;
 }
 function relicOffers(n){return shuffle(Object.keys(RELICS).filter(r=>!RUN.relics.includes(r))).slice(0,n);}
+/* Experience from a won battle: each hero's deeds plus a share for the victory. Levels apply at once. */
+function xpToLevel(x){let l=1;while(l<TUNE.maxLvl&&x>=XP_AT[l+1])l++;return l;}
+function awardXp(X,kind){
+  const out=[];
+  for(const h of RUN.heroes){
+    const d=(X&&X[h.cls])||{total:0,why:{}};const gain=Math.round(d.total+TUNE.winXp+(kind==='boss'?TUNE.bossXp:kind==='elite'?15:0));
+    const from=h.xp||0,lvl0=h.lvl;h.xp=from+gain;const lvl1=Math.max(lvl0,xpToLevel(h.xp));
+    for(let l=lvl0;l<lvl1;l++){const g=CLASSES[h.cls].grow;h.maxHp+=g;h.hp=Math.min(effMaxHp(h),h.hp+g);}
+    h.lvl=lvl1;
+    const why=Object.entries(d.why||{}).filter(e=>e[1]>=1).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,Math.round(v)]);
+    out.push({cls:h.cls,from,to:h.xp,gain,lvl0,lvl1,why});
+  }
+  return out;
+}
+/* What a level brings, for the level-up card. */
+function levelGains(cls,l0,l1){
+  const C=CLASSES[cls],a0=attrsFor(cls,l0),a1=attrsFor(cls,l1);const g=[`+${C.grow*(l1-l0)} health`];
+  for(const k in a1)if(a1[k]>a0[k])g.push(`${ATTR[k]} +${a1[k]-a0[k]}`);
+  return g;
+}
+function weaponOffers(n){
+  const tiers=RUN.act===0?[2,2,3]:RUN.act===1?[2,3,3,4]:[3,4,4];
+  const owned=new Set([...RUN.stash,...RUN.heroes.map(h=>h.weapon)]);
+  const pool=Object.values(WEAPONS).filter(w=>tiers.includes(w.tier)&&!owned.has(w.id));
+  return shuffle(pool).slice(0,n).map(w=>({weapon:w.id}));
+}
+/* A new weapon goes straight into the hand of a hero still using their starting one; otherwise into the pack. */
+function gainWeapon(id){
+  const w=WEAPONS[id];const h=RUN.heroes.find(q=>q.cls===w.cls);
+  if(h&&WEAPONS[h.weapon].tier<w.tier&&WEAPONS[h.weapon].tier===1){h.weapon=id;return `${CLASSES[w.cls].name} takes up the ${w.name}.`;}
+  RUN.stash.push(id);return `The ${w.name} goes into the pack. Equip it from the Equipment screen.`;
+}
+function equipWeapon(cls,id){const h=RUN.heroes.find(q=>q.cls===cls);if(!h||WEAPONS[id].cls!==cls)return;const i=RUN.stash.indexOf(id);if(i<0)return;RUN.stash.splice(i,1);RUN.stash.push(h.weapon);h.weapon=id;saveGame();}
+function toggleRelic(r,replace){
+  const i=RUN.gear.indexOf(r);
+  if(i>=0)RUN.gear.splice(i,1);
+  else if(RUN.gear.length<2)RUN.gear.push(r);
+  else if(replace!=null)RUN.gear[replace]=r;
+  RUN.heroes.forEach(h=>h.hp=Math.min(h.hp,effMaxHp(h)));
+  saveGame();
+}
 function nextRewardStep(){
   const P=RUN.pending;if(!P||!P.steps.length){return null;}
   const s=P.steps[0];
-  if(!P.offers){P.offers=s==='train'?powerOffers(3):s==='relic'?relicOffers(3):relicOffers(2);}
+  if(s==='xp')return P.xp?s:(P.steps.shift(),nextRewardStep());
+  if(!P.offers){P.offers=s==='train'?powerOffers(3):s==='relic'?relicOffers(3):s==='weapon'?weaponOffers(2):s==='loot'?relicOffers(2).concat(weaponOffers(1)):relicOffers(2);}
   if(!P.offers.length){P.steps.shift();P.offers=null;return nextRewardStep();}
   return s;
 }
 function takeReward(choice){
   const P=RUN.pending;const s=P.steps.shift();P.offers=null;
   if(s==='train'&&choice)RUN.heroes.find(h=>h.cls===choice.cls).powers.push(choice.id);
-  if((s==='relic'||s==='relic2')&&choice)gainRelic(choice);
+  if(choice&&choice.weapon)P.note=gainWeapon(choice.weapon);
+  else if((s==='relic'||s==='relic2'||s==='loot')&&choice)gainRelic(choice);
   saveGame();
 }
-function gainRelic(r){if(RUN.relics.includes(r))return;RUN.relics.push(r);if(r==='heart')RUN.heroes.forEach(h=>h.hp+=8);}
+function gainRelic(r){if(RUN.relics.includes(r))return;RUN.relics.push(r);if(RUN.gear.length<2){RUN.gear.push(r);if(r==='heart')RUN.heroes.forEach(h=>h.hp+=8);}}
 function finishRewards(){
   const P=RUN.pending;RUN.pending=null;
   if(P&&P.final){RUN.stage='won';try{localStorage.setItem(BEST_KEY,Math.max(+(localStorage.getItem(BEST_KEY)||0),RUN.stats.wins));}catch(e){}clearSave();go(END_SCREEN);return;}
@@ -155,6 +199,7 @@ function genShop(){
   const items=[];
   for(const r of relicOffers(3))items.push({kind:'relic',id:r,price:RELICS[r].price+rnd(20)-10});
   for(const o of powerOffers(2))items.push({kind:'power',cls:o.cls,id:o.id,price:55+POWERS[o.id].lv*5});
+  for(const o of weaponOffers(2))items.push({kind:'weapon',id:o.weapon,price:WEAPON_PRICE[WEAPONS[o.weapon].tier]+rnd(16)-8});
   items.push({kind:'heal',price:35});
   return {items};
 }
@@ -163,6 +208,7 @@ function buyItem(it){
   RUN.gold-=it.price;it.sold=true;sfx('coin');
   if(it.kind==='relic')gainRelic(it.id);
   if(it.kind==='power')RUN.heroes.find(h=>h.cls===it.cls).powers.push(it.id);
+  if(it.kind==='weapon')toast(gainWeapon(it.id));
   if(it.kind==='heal')RUN.heroes.forEach(h=>h.hp=Math.min(effMaxHp(h),h.hp+Math.ceil(effMaxHp(h)*.4)));
   saveGame();return true;
 }
@@ -184,9 +230,10 @@ function resolveEvent(opt){
   if(out.heal){RUN.heroes.forEach(h=>h.hp=Math.min(effMaxHp(h),h.hp+Math.ceil(effMaxHp(h)*out.heal)));lines.push(`{h:The party heals ${Math.round(out.heal*100)}%.}`);}
   if(out.dmg){RUN.heroes.forEach(h=>h.hp=Math.max(1,h.hp-out.dmg));lines.push(`{r:Everyone takes ${out.dmg} damage.}`);}
   if(out.relic)lines.push('{g:A relic awaits.}');
+  if(out.weapon)lines.push('{g:A weapon awaits.}');
   if(out.train)lines.push('{g:A hero can learn a new power.}');
   if(out.fight)lines.push('{r:A fight!}');
-  const res={text:lines.join('\n'),roll,label:opt.label,relic:!!out.relic,train:!!out.train,fight:out.fight};
+  const res={text:lines.join('\n'),roll,label:opt.label,relic:!!out.relic,weapon:!!out.weapon,train:!!out.train,fight:out.fight};
   saveGame();return res;
 }
 /* ---------------- saves ---------------- */
@@ -199,10 +246,10 @@ function saveGame(){
     localStorage.setItem(SAVE_KEY,JSON.stringify(d));
   }catch(e){}
 }
-function loadSave(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');return d&&d.RUN&&d.RUN.v===7?d:null;}catch(e){return null;}}
+function loadSave(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');return d&&d.RUN&&d.RUN.v===8?d:null;}catch(e){return null;}}
 function clearSave(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
 function continueRun(){
-  const d=loadSave();if(!d)return;RUN=d.RUN;CTX={mode:'run',relics:RUN.relics};
+  const d=loadSave();if(!d)return;RUN=d.RUN;CTX={mode:'run',relics:RUN.gear};
   if(RUN.stage==='battle'){
     if(d.G){G=d.G;HIST.length=0;G.await=true;pushSnap();B.onEnd=onRunBattleEnd;B.busy=false;B.pend=null;B.inspect=null;B.vkey='';B.gRef=null;for(const k in VIS)delete VIS[k];go(BATTLE_SCREEN);const u=playerUnit();if(u){B.pi=defaultPower(u);selfPend(u);}}
     else startRunBattle(RUN.enc,RUN.encKind);

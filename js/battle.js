@@ -60,7 +60,7 @@ function powerText(p,u){
   bits.push(ATTR[p.a]);
   bits.push(p.cost?`${p.cost} momentum`:'No cost');
   let s=bits.join(' · ')+(p.free?' · free action':'')+'.\n';
-  if(p.dmg&&!p.noDmg)s+=`Damage {w:${dmgLine(p.dmg,ab!=null?ab+(u.side==='hero'&&hasR('whetstone')?1:0):0)}}${ab==null?' + '+ATTR[p.a]:''}${p.hits>1?` x${p.hits}`:''}${p.radiant?' radiant':''}. `;
+  if(p.dmg&&!p.noDmg)s+=`Damage {w:${dmgLine(p.dmg,ab!=null?ab+(u.side==='hero'&&hasR('whetstone')?1:0)+(u.wpn?wBonus(u,p,'dmg'):0):0)}}${ab==null?' + '+ATTR[p.a]:''}${p.hits>1?` x${p.hits}`:''}${p.radiant?' radiant':''}. `;
   if(p.heal)s+=`Heals {h:${p.heal}${u&&u.cls==='cleric'?'+'+u.attrs.P:''}}. `;
   s+=p.desc;
   const et=effText(p.eff);if(et&&!/on a hit|on a crit/i.test(p.desc)&&!Object.keys(p.eff).some(k=>p.desc.toLowerCase().includes(EFF_NAME[k])))s+=' '+et;
@@ -283,6 +283,7 @@ H.spawn=u=>{const v=vis(u);v.dying=null;v.fade={t0:NOW,dur:300*spd(),out:false};
   const c={x:BX+u.x*TS+TS/2,y:BY+u.y*TS+TS/2};burst(c.x,c.y+TS*.3,{n:12,speed:20,up:10,cols:u.undead?ELEM.bone:ELEM.smoke,life:600,size:2,drag:2,jit:TS*.5});};
 H.save=()=>{if(typeof saveGame==='function')saveGame();};
 H.turn=async u=>{
+  if(isPlayer(u))tutEvent('turn',u);
   const v=vis(u);v.last={x:u.x*TS,y:u.y*TS};
   B.pend=null;B.inspect=null;
   const c=uc(u);ring({x:c.x,y:c.y+TS*.25},u.side==='enemy'?'#ff8a6a':'#8ac0ff',TS*.6,420);
@@ -290,7 +291,8 @@ H.turn=async u=>{
   else{sfx('foeturn');B.toast={t0:NOW,dur:700,text:`${u.name}`,col:u.side==='enemy'?C.red:C.blue};await sleep(300);}
 };
 H.banner=async(kind,b,va)=>{
-  if(kind==='round'){sfx('round');B.banner={t0:NOW,dur:1000*spd(),title:'ROUND '+G.round,sub:G.foeMom>0?`The foes gather momentum: ◆${G.foeMom}`:''};await sleep(780);}
+  if(kind==='round'){tutEvent('round');sfx('round');const T=G.threat&&THREATS[G.threat];B.banner={t0:NOW,dur:1000*spd(),title:'ROUND '+G.round,sub:T?`Foe momentum ◆${Math.max(0,G.foeMom)}/${T.cost}: next, ${threatName(G.threat)}`:''};await sleep(780);}
+  else if(kind==='threat'){shake(2,400);B.banner={t0:NOW,dur:1900*spd(),title:va.name.toUpperCase(),sub:va.desc,villain:true};await sleep(1600);}
   else if(kind==='villain'){shake(3,500);B.banner={t0:NOW,dur:2000*spd(),title:va.name,sub:va.desc,unit:b,villain:true};await sleep(1750);}
 };
 H.end=async o=>{
@@ -460,17 +462,20 @@ async function doMove(n){
   const u=playerUnit();if(!u||B.busy)return;
   B.busy=true;B.pend=null;
   try{await cmdMove(u,{x:n.x,y:n.y});}catch(e){console.error(e);}
+  tutEvent('move',u);
   await afterCmd(u);
 }
 async function confirmPend(){
   const u=playerUnit();const P=B.pend;if(!u||!P||B.busy)return;
   B.busy=true;
   try{await cmdAct(u,B.pi,P.T,P.O);}catch(e){console.error(e);}
+  if(u.acted)tutEvent('act',u);
   await afterCmd(u);
 }
 async function endTurnUI(){
   if(!G||!G.await||B.busy)return;
   B.busy=true;B.pend=null;B.inspect=null;
+  tutEvent('end');
   try{await playerEndTurn();}catch(e){console.error(e);}
   B.busy=false;B.vkey='';
   const u=playerUnit();if(u)selfPend(u);
@@ -527,6 +532,7 @@ function drawBattle(){
   B.preview=null;const pu=playerUnit();if(pu&&B.pend&&pu.kind==='pc'){const pp=powerOf(pu,B.pi);if(pp){try{const rows=forecast(pu,pp,B.pend.T,B.pend.O);B.preview={};for(const r of rows)if(r.dmg&&r.t.side!==pu.side)B.preview[r.t.id]=r.dmg[1];}catch(e){}}}
   drawBoardLayer();
   if(PORT)drawForecastOverlay();
+  if(G.tut)drawTutHint();
   if(B.banner)drawBanner();
 }
 /* Round, boss-surge and victory plates slide across the middle of the board. */
@@ -562,21 +568,33 @@ function drawBoardFrame(){
   rect(x,y,w,h,C.edge);rect(x+1,y+1,w-2,h-2,C.rim);rect(x+1,y+1,w-2,1,C.rim2);rect(x+1,y+1,1,h-2,'#8a6a40');rect(x+2,y+2,w-4,h-4,C.edge);
   for(const[cx,cy]of[[x,y],[x+w-4,y],[x,y+h-4],[x+w-4,y+h-4]]){rect(cx,cy,4,4,C.edge);rect(cx+1,cy+1,2,2,C.gold);rect(cx+1,cy+1,1,1,'#fff0b0');}
 }
+function openFoeMomInfo(){
+  const T=G.threat&&THREATS[G.threat];const L=threatList(G.enc);
+  const body=`The foes bank {r:◆} momentum every round (more as the battle drags on), and spend it on threats.\n\n`+
+    (T?`{r:Next: ${threatName(G.threat)}} at {r:◆${T.cost}} (they have ${Math.max(0,G.foeMom)}). ${T.desc}\n\n`:'')+
+    `{m:This battle they can unleash:}\n`+L.map(id=>`{r:${threatName(id)}} (◆${THREATS[id].cost}): ${THREATS[id].desc}`).join('\n')+
+    `\n\n{m:Deeper into the journey, foes learn nastier threats.} Some foes also spend momentum on their own special attacks.`;
+  msg('FOE MOMENTUM',body,null,200);
+}
 function drawTopBarP(){
   const E=G.enc,h=15;
   rect(0,0,SW,h,'#1a1310');rect(0,h-2,SW,1,'#2e241c');rect(0,h-1,SW,1,C.edge);
   const mb=15;button(SW-mb-2,1,mb,12,'≡',()=>openSettings(true),{});
   const rd=`ROUND ${G.round}`,rw=textW(rd)+10;let x=SW-mb-4-rw;
   chip(x,1,rw,12,'#241c16',C.rim);text(rd,x+rw/2,4,C.parch,{al:'c'});
-  const fm=String(Math.max(0,G.foeMom)),fw=textW(fm)+16;x-=fw+2;
-  chip(x,1,fw,12,'#2e1426','#8a3a6a');gem(x+3,3,'foe');text(fm,x+12,4,'#ffc8e0');
+  const T=G.threat&&THREATS[G.threat];const fm=T?`${Math.max(0,G.foeMom)}/${T.cost}`:String(Math.max(0,G.foeMom)),fw=textW(fm)+16;x-=fw+2;
+  const near=T&&G.foeMom+TUNE.foeMomRound+Math.floor((G.round+1)/2)>=T.cost;
+  chip(x,1,fw,12,'#2e1426',near&&Math.floor(NOW/300)%2?'#ff6a9a':'#8a3a6a');gem(x+3,3,'foe');text(fm,x+12,4,'#ffc8e0');
   hit(x,1,fw,12,{fn:openFoeMomInfo,id:'fm'});
   const ow=x-4;chip(2,1,ow,12,'#241c16',C.rim);
   text(fitText(objText(),ow-10),7,4,C.gold);
   hit(2,1,ow,12,{fn:openMissionInfo,id:'obj'});
 }
-function openMissionInfo(){const E=G.enc;msg(E.title||MISSIONS[E.type].name,`{g:${MISSIONS[E.type].name}.} `+(E.type==='boss'?BOSS_TXT[E.act]:MISSIONS[E.type].desc)+`\n\n{m:Objective: ${objText()}.}`);}
-function openFoeMomInfo(){msg('FOE MOMENTUM',`The foes share one pool of momentum, shown as {r:◆${Math.max(0,G.foeMom)}}. It grows every round. They spend it on brutal attacks (advantage), their special attacks and, when it runs high, reinforcements.`);}
+function missionBody(){const E=G.enc,M=MISSIONS[E.type],tw=E.twist&&Object.values(TWISTS).find(t=>t.id===E.twist);
+  return `{g:${M.name}.} `+(E.type==='boss'?BOSS_TXT[E.act]:(tw&&tw.desc)||M.desc)+(tw?`\n\n{r:Twist: ${tw.name}.} ${tw.text}`:'')+`\n\n{m:Objective: ${objText()}.}`+(E.type!=='rout'&&E.type!=='boss'?'\n{m:Foes will try to stop you.}':'');}
+function openMissionInfo(){const E=G.enc;msg(E.title||MISSIONS[E.type].name,missionBody(),null,200);}
+/* Shown when a battle begins, so the goal (and any twist) is clear before the first move. */
+function showObjective(){return new Promise(res=>{const E=G.enc;openModal(dialog({title:(E.title||MISSIONS[E.type].name).toUpperCase(),body:missionBody()+'\n\n{m:Tap the objective bar at the top to see this again.}',w:200,closable:false,buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 /* Name, health and momentum of the active (or inspected) unit. Tap for the full character sheet. */
 const MOMSEEN={};
 function drawInfoBarP(){
@@ -651,7 +669,7 @@ function drawHintP(){
 function fitRich(s,w){let t=s;while(t.length>4&&layoutRich(t+'…',w,C.parch).length>1)t=t.slice(0,-1);
   const open=(t.match(/\{[a-z]:/g)||[]).length,close=(t.match(/\}/g)||[]).length;return t+(open>close?'}':'')+'…';}
 function powerStat(u,p){
-  const b=(u.attrs[p.a]||0)+(u.side==='hero'&&hasR('whetstone')?1:0);
+  const b=(u.attrs[p.a]||0)+(u.side==='hero'&&hasR('whetstone')?1:0)+wBonus(u,p,'dmg');
   let a='';
   if(p.dmg&&!p.noDmg){const lo=p.dmg[0]+b,hi=p.dmg[2]+b;a=`${lo}-${hi}${p.hits>1?'×'+p.hits:''} dmg`;}
   else if(p.heal)a=`heal ${healAmt(u,p.heal)}`;
@@ -660,7 +678,7 @@ function powerStat(u,p){
   let r='';
   if(p.tgt==='self')r=p.area!=null?(p.area>=99?'all allies':`${p.area*2+1}x${p.area*2+1}`):'self';
   else if(p.tgt==='tile')r=p.area!=null?`${p.area*2+1}x${p.area*2+1}`:`range ${p.range}`;
-  else r=p.range===1?'melee':`range ${p.range}`;
+  else{const rr=p.range+(p.range===1?wBonus(u,p,'reach'):wBonus(u,p,'range'));r=rr===1?'melee':p.range===1?`reach ${rr}`:`range ${rr}`;}
   return a?a+' · '+r:r;
 }
 function drawTrayP(){
@@ -707,7 +725,7 @@ function drawTop(){
   text('· '+obj,6+ow,3,C.parch);
   hit(0,0,160,12,{fn:openMissionInfo,id:'obj'});
   text('ROUND '+G.round,SW/2+36,3,C.parch,{al:'c'});
-  const fm=Math.max(0,G.foeMom);text('Foes',SW-14-textW(String(fm)),3,C.mom,{al:'r'});gem(SW-12-textW(String(fm)),2,'foe');text(String(fm),SW-3,3,'#ffc8e0',{al:'r'});
+  const fm=Math.max(0,G.foeMom)+(G.threat?'/'+THREATS[G.threat].cost:'');text('Foes',SW-14-textW(String(fm)),3,C.mom,{al:'r'});gem(SW-12-textW(String(fm)),2,'foe');text(String(fm),SW-3,3,'#ffc8e0',{al:'r'});
   hit(SW-50,0,50,12,{fn:openFoeMomInfo,id:'fm'});
 }
 function objText(){
@@ -717,10 +735,10 @@ function objText(){
     case 'loot':return `Chests ${G.looted}/3`;
     case 'survive':return `Survive round ${Math.min(5,G.round)}/5`;
     case 'defend':return `Defend the wagon ${Math.min(5,G.round)}/5`;
-    case 'rescue':{const v=G.units.find(u=>u.npc==='villager');return v&&v.caged?'Reach the captive':'Lead the captive south';}
+    case 'rescue':{const v=G.units.find(u=>u.npc==='villager');return v&&v.carried?'Carry the captive to the bottom edge':v&&v.caged?'Reach the captive':'Lead the captive south';}
     case 'ritual':return G.ritualFailed?'Slay the Bound Horror':`Topple the pillars: ${G.ritual} rounds`;
     case 'breakout':return `Escape north: ${G.units.filter(u=>u.gone).length} out`;
-    case 'assassinate':return 'Slay the chief';
+    case 'assassinate':return E.twist==='flee'?`Slay the chief before round 7`:'Slay the chief';
     case 'boss':return 'Defeat '+E.title;
     default:return `${n} ${n===1?'foe':'foes'} left`;
   }

@@ -44,7 +44,7 @@ const POWER_ICON={
   twin:'twin',dance:'whirl',cripple:'arrow',deathmark:'skull:purple',cuts:'cut',sly:'dagger:gold',position:'bash',
   missile:'bolt',thunder:'wave',frost:'frost',fireball:'fireball',web:'web',blink:'blink',icewall:'icewall',repulse:'wave:purple',
   cloud:'cloud',chain:'lightning',hypno:'spiral',gravity:'vortex',meteor:'fireball:meteor',disint:'ray',scorch:'flame',daggers:'knives:arcane',
-  flame:'flame:holy',brand:'mace',healWord:'heart',bless:'halo',sanct:'shield:holyShield',inspire:'star',turn:'sun',burst:'sun',
+  flame:'flame:holy',brand:'mace',rally:'banner:gold',transpose:'swap',healWord:'heart',bless:'halo',sanct:'shield:holyShield',inspire:'star',turn:'sun',burst:'sun',
   guide:'bolt:gold',healStrike:'mace:gold',beacon:'beacon',massHeal:'heart',guardians:'halo',revive:'ankh',holy:'sun',
 };
 function powerIcon(p){const s=(POWER_ICON[p.id]||'sword').split(':');return icon16(s[0],s[1]);}
@@ -53,5 +53,11 @@ const MON_ACT_ICON={Stab:'dagger',Arrow:'arrow',Hatchet:'axe','Set Snare':'trap'
   'Paralyzing Claw':'cut','Venom Bite':'bite','Web Spit':'web','Acid Slam':'fist','Acid Spit':'cloud','Withering Curse':'skull:purple','Dark Offering':'skull',
   'Draining Touch':'skull','Necrotic Bolt':'bolt:necro','Grave Chill':'frost',Firebolt:'fireball',Flail:'mace',Scorch:'flame',Kindle:'flame',Firespit:'fireball',
   'Flame Breath':'flame',Greatclub:'hammer','Molten Fist':'fist:ember','Rending Claws':'cut','Tail Lash':'whirl','Fire Breath':'flame','Rending Tendrils':'chain',
-  Gnaw:'bite','Skittering Bites':'bite','Bone Claw':'cut','Grave Bolt':'bolt:necro','Venom Fangs':'bite','Web Spray':'web','Crushing Fists':'fist','Hurl Boulder':'quake'};
+  Gnaw:'bite','Jagged Blade':'dagger','Skittering Bites':'bite','Bone Claw':'cut','Grave Bolt':'bolt:necro','Venom Fangs':'bite','Web Spray':'web','Crushing Fists':'fist','Hurl Boulder':'quake'};
 function monActIcon(A){const s=(MON_ACT_ICON[A.name]||(A.range>1?'arrow':'sword')).split(':');return icon16(s[0],s[1]);}
+const WEAPON_ICON={longsword:'sword',warhammer:'hammer',halberd:'axe:steel',flameblade:'sword:ember',maul:'hammer:gold',
+  daggers:'dagger',serrated:'knives',rapier:'dagger:steel',shadowfang:'dagger:dark',kingslayer:'dagger:gold',
+  wand:'bolt',reachwand:'ray',emberstaff:'flame',frostorb:'frost',magistaff:'bolt:gold',
+  mace:'mace',blessedmace:'mace:gold',censer:'sun',sunflail:'sun:holy',dawn:'ankh'};
+function weaponArt(id){const s=(WEAPON_ICON[id]||'sword').split(':');return icon16(s[0],s[1]);}
+
