@@ -9,6 +9,24 @@ const MUSVOL=.34;
 /* iOS: by default play alongside other apps (Spotify etc.) and respect the silent switch.
    'Silent switch: Ignore' instead takes over the audio (pauses Spotify) so the game plays even on silent. */
 function auSession(){try{if(navigator.audioSession)navigator.audioSession.type=SET.loud?'playback':'ambient';}catch(e){}}
+/* A looping, silent <audio> element puts iOS in media-playback mode, which also makes Web Audio ignore
+   the silent switch. This covers iPhones without navigator.audioSession, and backs it up on newer ones. */
+let SILENT=null;
+function silentWav(){const n=4000,b=new Uint8Array(44+n),v=new DataView(b.buffer);const w=(o,s)=>{for(let i=0;i<s.length;i++)b[o+i]=s.charCodeAt(i);};
+  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);
+  let s='';for(let i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return 'data:audio/wav;base64,'+btoa(s);}
+function silentKeepAlive(){
+  try{
+    if(!SET.loud){if(SILENT&&!SILENT.paused)SILENT.pause();return;}
+    if(!SILENT){SILENT=document.createElement('audio');SILENT.src=silentWav();SILENT.loop=true;SILENT.setAttribute('playsinline','');SILENT.setAttribute('webkit-playsinline','');SILENT.preload='auto';}
+    if(SILENT.paused){const p=SILENT.play();if(p&&p.catch)p.catch(()=>{});}
+  }catch(e){}
+}
+/* Settings toggle: switch mode inside the tap, then rebuild audio so iOS applies it. */
+function setPlayOnSilent(on){
+  SET.loud=on;saveSet();auSession();silentKeepAlive();
+  try{musicPause();auMake();const p=AU.ctx&&AU.ctx.resume&&AU.ctx.resume();if(p&&p.catch)p.catch(()=>{});if(SET.music)musicStart();sfx('select');}catch(e){}
+}
 function impulse(c,dur,decay){const n=Math.floor(c.sampleRate*dur),b=c.createBuffer(2,n,c.sampleRate);for(let ch=0;ch<2;ch++){const d=b.getChannelData(ch);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,decay);}return b;}
 function auMake(){
   auSession();
@@ -31,6 +49,7 @@ function auMake(){
 /* Called on every tap. Starts audio, or wakes it after a phone call / another app / locking the screen. */
 function auInit(){
   try{
+    silentKeepAlive();
     if(!AU.ctx)auMake();
     const c=AU.ctx;if(!c)return;
     if(c.state!=='running'){
@@ -45,7 +64,7 @@ const auOK=()=>AU.ctx&&AU.ctx.state==='running';
 for(const ev of['pointerdown','touchend','click','keydown'])window.addEventListener(ev,auInit,{capture:true,passive:true});
 document.addEventListener('visibilitychange',()=>{
   if(!AU.ctx)return;
-  if(document.hidden){musicPause();try{AU.ctx.suspend();}catch(e){}}
+  if(document.hidden){musicPause();try{AU.ctx.suspend();}catch(e){}if(SILENT&&!SILENT.paused)SILENT.pause();}
   else{const p=AU.ctx.resume&&AU.ctx.resume();if(p&&p.catch)p.catch(()=>{});}
 });
 
