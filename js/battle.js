@@ -611,7 +611,7 @@ function openMissionInfo(){const E=G.enc;msg(E.title||MISSIONS[E.type].name,miss
 const COMBO_KEY='emberwatch.v3.combos';
 function comboSeen(){try{return !!localStorage.getItem(COMBO_KEY);}catch(e){return true;}}
 function showComboIntro(){return new Promise(res=>{try{localStorage.setItem(COMBO_KEY,'1');}catch(e){}
-  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Heroes and foes act in {g:initiative} order. Heroes {g:set up} attacks for each other, so watch who acts next. A foe that is shoved, dragged or knocked down is {g:staggered}: it loses its next turn, unless someone cashes it in with a sure (exploding) critical hit. {g:Exposed} foes take +3 damage from every hit, and {g:blessed} heroes attack with advantage.\n\nA set-up lasts until the foe\'s own turn, so cash it in with a hero who acts before it: that is a {g:combo}, +1 momentum for both, and more damage for the rest of the round. Chain them!\n\nTap {g:INTENT} to see whom each foe means to attack.',
+  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Heroes and foes act in {g:initiative} order. Heroes {g:set up} attacks for each other, so watch who acts next. A foe that is shoved, dragged or knocked down is {g:staggered}: it loses its next turn, unless someone cashes it in with a sure critical hit. {g:Exposed} foes take +3 damage from every hit, and {g:blessed} heroes attack with advantage.\n\nA set-up lasts until the foe\'s own turn, so cash it in with a hero who acts before it: that is a {g:combo}, +1 momentum for both, and more damage for the rest of the round. Chain them!\n\nTap {g:INTENT} to see whom each foe means to attack.',
     buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 function showObjective(){return new Promise(res=>{const E=G.enc;openModal(dialog({title:(E.title||MISSIONS[E.type].name).toUpperCase(),body:missionBody()+'\n\n{m:Tap the objective bar at the top to see this again.}',w:200,closable:false,buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 /* Name, health and momentum of the active (or inspected) unit. Tap for the full character sheet. */
@@ -991,7 +991,7 @@ function drawForecast(u,x,y0,w,h){
     if(!wide)y+=33;
     const kp=killP(r);
     const at=u.attrs[p.a]||0,dd=r.dice;
-    body+=r.ctrl?`Roll {w:1d${dd.s}}: 1 is a graze, ${dd.s} a critical hit.`:`Roll {w:${diceText(dd)}}{m: + ${ATTR[p.a]} ${at}}. Top number on the first die: {g:critical}, and it explodes.`;
+    body+=r.ctrl?`Roll {w:1d${dd.s}}: 1 is a graze, ${dd.s} a critical hit.`:`Roll {w:${diceText(dd)}}{m: + ${ATTR[p.a]} ${at}}. Top number on the first die: {g:critical}, roll one more.`;
     body+=`${r.net?` {${r.net>0?'h':'r'}:${Math.abs(r.net)>1?'Double ':''}${r.net>0?'advantage':'disadvantage'}: roll it ${Math.abs(r.net)+1} times, keep the ${r.net>0?'best':'worst'}.}`:''}${kp>0?`  {r:☠ ${Math.round(kp*100)}% kill}`:''}\n`;
     if(r.pro.length)body+=r.pro.map(s=>`{h:+ ${s}}`).join('  ')+'  ';
     if(r.con.length)body+=r.con.map(s=>`{r:− ${s}}`).join('  ');

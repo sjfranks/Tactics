@@ -165,7 +165,7 @@ function playback(all,play,n){
 function clearDice(){for(const o of DICE3D.objs){DICE3D.scene.remove(o.mesh);o.mats.forEach(m=>{if(m.map)m.map.dispose();m.dispose();});}DICE3D.objs=[];}
 
 /* Throw the dice of one attack roll: the first die (and any advantage re-rolls), the other dice, then each
-   exploding die in turn. The dropped re-rolls fade. A label on the board names the roll and its total. */
+   extra die a critical hit rolls, in turn. The dropped re-rolls fade. A label on the board names the roll and its total. */
 async function throwDice(u,t,r){
   const s=r.d.s,col=DIE_COL[u.cls]||'#806040',ink=DIE_INK[u.cls]||'#fff';
   clearDice();dice3dFit();
@@ -191,7 +191,7 @@ async function throwDice(u,t,r){
     DICE3D.r.render(DICE3D.scene,DICE3D.cam);
   };
   await throwSet(first);
-  if(r.res===3){label.crit=true;label.text=(r.stag?'STAGGERED: ':'')+'CRIT! It explodes…';sfx('crit');
+  if(r.res===3){label.crit=true;label.text=(r.stag?'STAGGERED: ':'')+'CRIT! Roll one more…';sfx('crit');
     for(const v of r.boom){await sleep(160);await throwSet([{v}]);sfx('gem');}}
   label.res=`${diceText(r.d)} = ${r.total}`+(r.res===3?' CRIT!':r.res===1?' graze':'');
   await sleep(420);
