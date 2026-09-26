@@ -6,7 +6,7 @@ A pixel-art tactics roguelite. Lead four heroes down a branching road through th
 
 [Play Emberwatch on GitHub Pages](https://sjfranks.github.io/Tactics/)
 
-By default, the game draws to a pixel canvas scaled up with crisp pixels: 320×180 on landscape screens, and at least 196 wide on portrait screens such as a phone held upright, where the 6×8 battle board uses 32×32 hand-drawn tiles. High resolution mode renders at twice that resolution. The portrait canvas matches the screen's shape, and the game switches layout when you rotate the device.
+The whole game draws to a pixel canvas scaled up with crisp pixels: 320×180 on landscape screens, and at least 196 wide on portrait screens such as a phone held upright, where the 6×8 battle board uses 32×32 hand-drawn tiles. The portrait canvas matches the screen's shape, and the game switches layout when you rotate the device.
 
 ## What is in the game
 
@@ -24,7 +24,7 @@ By default, the game draws to a pixel canvas scaled up with crisp pixels: 320×1
 - **Skirmish:** build a test fight against any monsters, or against a rival party of heroes whose powers you choose
 - **Character sheets:** attributes, skills, how each hero builds momentum, trait and every power as a card
 - **Skill challenges:** animated illustrations, the odds of each choice, and a 3d6 roll you watch land
-- **Presentation:** hand-drawn pixel art by default; Settings → High resolution mode switches to a colourful, illustrated fantasy style with painted terrain, smooth blue and gold interface panels, and brighter battle highlights. The setting is saved and reloads the game when changed. Particle effects, screen shake and a synthesized soundtrack accompany both modes.
+- **Presentation:** hand-drawn pixel art for heroes, monsters, terrain, power icons, relics and map nodes; particle effects, screen shake and a synthesized soundtrack with music for each place
 
 ## Development
 
