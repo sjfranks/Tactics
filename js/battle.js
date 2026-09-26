@@ -283,7 +283,6 @@ H.spawn=u=>{const v=vis(u);v.dying=null;v.fade={t0:NOW,dur:300*spd(),out:false};
   const c={x:BX+u.x*TS+TS/2,y:BY+u.y*TS+TS/2};burst(c.x,c.y+TS*.3,{n:12,speed:20,up:10,cols:u.undead?ELEM.bone:ELEM.smoke,life:600,size:2,drag:2,jit:TS*.5});};
 H.save=()=>{if(typeof saveGame==='function')saveGame();};
 H.turn=async u=>{
-  if(isPlayer(u))tutEvent('turn',u);
   const v=vis(u);v.last={x:u.x*TS,y:u.y*TS};
   B.pend=null;B.inspect=null;
   const c=uc(u);ring({x:c.x,y:c.y+TS*.25},u.side==='enemy'?'#ff8a6a':'#8ac0ff',TS*.6,420);
@@ -291,7 +290,7 @@ H.turn=async u=>{
   else{sfx('foeturn');B.toast={t0:NOW,dur:700,text:`${u.name}`,col:u.side==='enemy'?C.red:C.blue};await sleep(300);}
 };
 H.banner=async(kind,b,va)=>{
-  if(kind==='round'){tutEvent('round');sfx('round');const T=G.threat&&THREATS[G.threat];B.banner={t0:NOW,dur:1000*spd(),title:'ROUND '+G.round,sub:T?`Foe momentum ◆${Math.max(0,G.foeMom)}/${T.cost}: next, ${threatName(G.threat)}`:''};await sleep(780);}
+  if(kind==='round'){sfx('round');const T=G.threat&&THREATS[G.threat];B.banner={t0:NOW,dur:1000*spd(),title:'ROUND '+G.round,sub:T?`Foe momentum ◆${Math.max(0,G.foeMom)}/${T.cost}: next, ${threatName(G.threat)}`:''};await sleep(780);}
   else if(kind==='threat'){shake(2,400);B.banner={t0:NOW,dur:1900*spd(),title:va.name.toUpperCase(),sub:va.desc,villain:true};await sleep(1600);}
   else if(kind==='villain'){shake(3,500);B.banner={t0:NOW,dur:2000*spd(),title:va.name,sub:va.desc,unit:b,villain:true};await sleep(1750);}
 };
@@ -456,36 +455,44 @@ async function afterCmd(u){
   B.busy=false;B.pend=null;B.vkey='';
   if(!G||G.over)return;
   if(live(u)&&!u.acted)selfPend(u);
-  if(SET.autoEnd&&G.await&&G.cur===u.id&&turnDone(u)){await sleep(250);if(G&&G.await&&G.cur===u.id&&!B.busy)await endTurnUI();}
+  if(SET.autoEnd&&!G.tut&&G.await&&G.cur===u.id&&turnDone(u)){await sleep(250);if(G&&G.await&&G.cur===u.id&&!B.busy)await endTurnUI();}
 }
 async function doMove(n){
   const u=playerUnit();if(!u||B.busy)return;
-  B.busy=true;B.pend=null;
+  if(G.tut&&!tutAllow('move',n))return;
+  B.busy=true;B.pend=null;const was=K(u.x,u.y);
   try{await cmdMove(u,{x:n.x,y:n.y});}catch(e){console.error(e);}
-  tutEvent('move',u);
+  if(G&&G.tut&&K(u.x,u.y)!==was)tutEvent('moved');
   await afterCmd(u);
 }
 async function confirmPend(){
   const u=playerUnit();const P=B.pend;if(!u||!P||B.busy)return;
+  if(G.tut&&!tutAllow('confirm'))return;
   B.busy=true;
   try{await cmdAct(u,B.pi,P.T,P.O);}catch(e){console.error(e);}
-  if(u.acted)tutEvent('act',u);
+  if(G&&G.tut&&u.acted)tutEvent('acted');
   await afterCmd(u);
 }
 async function endTurnUI(){
   if(!G||!G.await||B.busy)return;
+  if(G.tut&&!tutAllow('end'))return;
   B.busy=true;B.pend=null;B.inspect=null;
-  tutEvent('end');
+  if(G.tut)tutEvent('ended');
   try{await playerEndTurn();}catch(e){console.error(e);}
   B.busy=false;B.vkey='';
   const u=playerUnit();if(u)selfPend(u);
 }
 function undoUI(){
-  if(B.busy||!canUndo())return;
+  if(B.busy||!canUndo()||(G&&G.tut))return;
   if(undo()){for(const k in VIS)delete VIS[k];PARTS.length=0;FX.length=0;sfx('whoosh');flashBoard('#8ab8ff',180,.18);B.pend=null;B.inspect=null;B.vkey='';const u=playerUnit();if(u){B.pi=Math.min(B.pi,Math.max(0,(u.powers||[]).length-1));selfPend(u);}saveGame();}
 }
 function boardTap(x,y){
   if(!G||G.over)return;
+  if(G.tut&&!tutAllow('tap',{x,y}))return;
+  boardTap0(x,y);
+  if(G&&G.tut)tutEvent('pend');
+}
+function boardTap0(x,y){
   const t=unitAt(x,y);const k=t&&SZ(t)>1?K(t.x,t.y):K(x,y);
   const u=playerUnit();
   if(!u||B.busy){if(t){B.inspect=t.id;}return;}
@@ -517,6 +524,7 @@ const boardInput={
 /* ---------------- drawing ---------------- */
 function drawBattle(){
   if(!G)return;
+  B.strikeR=null;
   battleLayout();
   if(B.drag&&!PTR.down){B.drag=null;B.dragTile=null;B.dragPos=null;}
   if(B.gRef!==G){B.gRef=G;const key=TS+G.enc.title+G.enc.f+G.tiles.map(t=>(t.ob||'')+(t.ter||'')).join();if(key!==B.terrKey){B.terrKey=key;B.terr=buildTerrain();}}
@@ -695,7 +703,7 @@ function drawTrayP(){
   for(let sl=0;sl<per;sl++){
     const i=B.page*per+sl;const x=3+(sl%2)*(pw+gap),y=py+3+Math.floor(sl/2)*(phh+gap);
     if(i>=n){rect(x,y,pw,phh,'#110c09');frame(x,y,pw,phh,'#1e1712');continue;}
-    powerPill(u,i,x,y,pw,phh);
+    powerPill(u,i,x,y,pw,phh);(B.cardR||(B.cardR={}))[i]={x,y,w:pw,h:phh};
     hit(x,y,pw,phh,Object.assign({fn:()=>cardTap(i),id:'card'+i},SWIPE));
   }
   if(pages>1){const bx=SW-side-1;button(bx,py+3,side-1,ph-6,'',()=>{B.page=(B.page+1)%pages;sfx('select');},{});
@@ -924,7 +932,7 @@ function drawForecast(u,x,y0,w,h){
   const bot=y0+h-15;
   const bh=richH(body,w-2);
   scrollArea('fc',x,y,w,bot-2-y,bh,(yy,clip)=>rich(body,x+1,yy,w-3,C.parch,{clip}));
-  button(x,bot,w-27,13,p.tgt==='enemy'?'STRIKE':'CONFIRM',confirmPend,{hot:true,disabled:B.busy});
+  B.strikeR={x,y:bot,w:w-27,h:13};button(x,bot,w-27,13,p.tgt==='enemy'?'STRIKE':'CONFIRM',confirmPend,{hot:true,disabled:B.busy});
   button(x+w-25,bot,25,13,'×',()=>{B.pend=null;},{});
 }
 function drawCtrlBar(){
@@ -933,7 +941,7 @@ function drawCtrlBar(){
   const bw=Math.floor((SW-4)*.2)+1;
   bs.forEach((b,i)=>button(2+i*(bw+2),y,bw,h,b[0],b[1],b[2]));
   const ex=2+3*(bw+2),done=!!pu&&turnDone(pu);
-  button(ex,y,SW-2-ex,h,pu?'END TURN':'…',endTurnUI,{hot:!!pu,disabled:!pu||B.busy,glow:done});
+  B.endR={x:ex,y,w:SW-2-ex,h};button(ex,y,SW-2-ex,h,pu?'END TURN':'…',endTurnUI,{hot:!!pu,disabled:!pu||B.busy,glow:done});
 }
 function drawRight(){
   panel(225,13,95,133,{});
@@ -954,7 +962,7 @@ function drawRight(){
   button(273,90,43,12,'LOG',openLog,{});
   button(229,104,42,12,'UNDO',undoUI,{disabled:B.busy||!canUndo()});
   button(273,104,43,12,'MENU',()=>openSettings(true),{});
-  button(229,120,87,22,pu?'END TURN':'…',endTurnUI,{hot:!!pu&&turnDone(pu),disabled:!pu||B.busy});
+  B.endR={x:229,y:120,w:87,h:22};button(229,120,87,22,pu?'END TURN':'…',endTurnUI,{hot:!!pu&&turnDone(pu),disabled:!pu||B.busy});
 }
 function drawHotbar(){
   const py=PORT?PL.trayY:146,ph=PORT?PL.trayH:34;
@@ -978,7 +986,7 @@ function drawHotbar(){
     if(p.cost){gem(x+cw-15,y+2,u.mom>=p.cost?'full':'empty');text(String(p.cost),x+cw-7,y+3,u.mom>=p.cost?'#e0c8ff':C.red);}
     else if(p.free)text('free',x+cw-2,y+3,ok?C.green:C.dim,{al:'r'});
     text(fitText(p.name,cw-4),x+cw/2,y+chh-8,on?C.gold:ok?C.parch:C.dim,{al:'c',sh:C.edge});
-    hit(x,y,cw,chh,Object.assign({fn:()=>cardTap(i),id:'card'+i},SWIPE));
+    (B.cardR||(B.cardR={}))[i]={x,y,w:cw,h:chh};hit(x,y,cw,chh,Object.assign({fn:()=>cardTap(i),id:'card'+i},SWIPE));
   }
   if(PORT){
     if(pages>1&&!PL.compact){for(let i=0;i<pages;i++){const dx=SW/2-(pages*6)/2+i*6;rect(dx,y0+chh+3,4,4,C.edge);rect(dx+1,y0+chh+4,2,2,i===B.page?C.gold:C.dim);hit(dx-1,y0+chh+1,6,8,{fn:()=>{B.page=i;},id:'dot'+i});}}
@@ -987,11 +995,13 @@ function drawHotbar(){
 }
 function cardTap(i){
   const u=playerUnit();if(!u||B.busy)return;
+  if(G.tut&&!tutAllow('power',i))return;
   const p=powerOf(u,i);
   if(i===B.pi&&B.pend&&(p.tgt==='self')){confirmPend();return;}
   if(i===B.pi&&p.tgt==='self'&&usable(u,p)&&!u.acted){selfPend(u);if(B.pend)confirmPend();return;}
   B.pi=i;B.pend=null;B.inspect=null;B.vkey='';sfx('select');
   selfPend(u);
+  if(G.tut)tutEvent('power');
 }
 function openOrder(){
   scrollTo('order',0);
