@@ -1,0 +1,298 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:390px;height:844px;overflow:hidden;background:#07050a;font-family:'Cormorant Garamond',serif;color:#f3e6c8}
+.scene{position:absolute;inset:0}
+.gold{background:linear-gradient(180deg,#fff3c4 0%,#f0c865 38%,#b07a26 62%,#f5d27a 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.frame{position:absolute;border:1px solid rgba(240,200,110,.55);box-shadow:0 0 0 1px rgba(0,0,0,.8),inset 0 0 0 1px rgba(0,0,0,.6),inset 0 0 24px rgba(0,0,0,.6),0 6px 18px rgba(0,0,0,.6);
+  background:linear-gradient(180deg,rgba(28,20,30,.92),rgba(12,8,14,.95));border-radius:10px}
+.frame:before{content:'';position:absolute;inset:3px;border:1px solid rgba(240,200,110,.18);border-radius:7px;pointer-events:none}
+/* top banner */
+.top{left:10px;right:10px;top:12px;height:58px}
+.loc{position:absolute;left:0;right:0;top:7px;text-align:center;font-family:Cinzel;font-weight:800;font-size:17px;letter-spacing:2.5px;filter:drop-shadow(0 1px 0 #000) drop-shadow(0 0 8px rgba(255,170,60,.35))}
+.sub{position:absolute;left:0;right:0;top:31px;text-align:center;font-size:13px;letter-spacing:1.5px;color:#d9c49a;font-style:italic}
+.round{position:absolute;left:10px;top:12px;width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#4a3322,#150c08);border:1.5px solid #e8bd62;box-shadow:0 0 10px rgba(255,180,80,.4);text-align:center;font-family:Cinzel;font-weight:800}
+.round b{display:block;font-size:15px;margin-top:4px}.round i{display:block;font-style:normal;font-size:7px;letter-spacing:1px;color:#c9a870;margin-top:-2px}
+.menu{position:absolute;right:10px;top:12px;width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#3a2a3e,#120a14);border:1.5px solid #e8bd62}
+.menu span{position:absolute;left:10px;right:10px;height:2px;background:#f0cf80;border-radius:2px}
+/* boss bar */
+.boss{position:absolute;left:24px;right:24px;top:80px;height:34px}
+.boss .name{font-family:Cinzel;font-weight:900;font-size:13px;letter-spacing:3px;text-align:center;color:#ffd9a8;text-shadow:0 0 10px rgba(255,90,30,.8),0 1px 0 #000}
+.bar{position:relative;margin-top:4px;height:12px;border-radius:7px;background:#1a0b0a;border:1px solid #c89a4a;box-shadow:0 0 12px rgba(255,80,20,.35),inset 0 1px 3px #000;overflow:hidden}
+.bar .fill{position:absolute;left:0;top:0;bottom:0;width:72%;background:linear-gradient(180deg,#ff9a5a,#d8301a 55%,#8a1208);box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
+.bar .lost{position:absolute;left:72%;top:0;bottom:0;width:9%;background:linear-gradient(180deg,#fff0c0,#ffb060);opacity:.7}
+.bar .t{position:absolute;right:8px;top:-1px;font-family:Cinzel;font-size:10px;font-weight:800;color:#fff;text-shadow:0 1px 2px #000}
+.pips{position:absolute;left:50%;transform:translateX(-50%);top:36px;display:flex;gap:4px}
+.pip{width:9px;height:9px;transform:rotate(45deg);background:linear-gradient(135deg,#ffb0e0,#c0308a);border:1px solid #3a0a2a;box-shadow:0 0 6px rgba(255,90,200,.7)}
+.pip.e{background:#1c1018;box-shadow:none;border-color:#5a3a4a}
+/* hero plate */
+.hero{left:10px;right:10px;top:606px;height:58px}
+.port{position:absolute;left:-2px;top:-10px;width:70px;height:70px;border-radius:50%;background:radial-gradient(circle at 50% 38%,#6aa0e0 0%,#23406a 45%,#0b1424 75%);border:2px solid #f0cc78;box-shadow:0 0 0 3px #1a1008,0 0 16px rgba(120,180,255,.5)}
+.hn{position:absolute;left:78px;top:6px;font-family:Cinzel;font-weight:800;font-size:15px;letter-spacing:1.5px}
+.hc{position:absolute;left:78px;top:24px;font-size:12px;color:#b9a784;font-style:italic}
+.hbar{position:absolute;left:78px;right:12px;top:40px;height:8px;border-radius:5px;background:#0c1a0c;border:1px solid #9a8448;overflow:hidden}
+.hbar div{height:100%;width:84%;background:linear-gradient(180deg,#c8ff9a,#3aa83a 60%,#1a6a1a)}
+.mom{position:absolute;right:12px;top:10px;display:flex;gap:3px}
+.gem{width:11px;height:11px;transform:rotate(45deg);background:linear-gradient(135deg,#e8d8ff,#8a5aff 50%,#3a1a8a);border:1px solid #1a0a3a;box-shadow:0 0 7px rgba(170,120,255,.9)}
+.gem.e{background:#150f22;box-shadow:none;border-color:#4a3a6a}
+/* abilities */
+.cards{position:absolute;left:8px;right:8px;top:676px;display:flex;gap:6px}
+.card{position:relative;flex:1;height:98px;border-radius:10px;background:linear-gradient(180deg,#2a1c22,#120b10);border:1px solid rgba(232,190,100,.6);box-shadow:inset 0 0 0 1px #000,0 4px 10px rgba(0,0,0,.6);overflow:hidden}
+.card.sel{border-color:#ffe29a;box-shadow:inset 0 0 0 1px #000,0 0 0 1px #ffd070,0 0 18px rgba(255,200,90,.55);transform:translateY(-6px)}
+.card .art{position:absolute;left:6px;right:6px;top:6px;height:52px;border-radius:6px;overflow:hidden;border:1px solid rgba(0,0,0,.8)}
+.card .nm{position:absolute;left:0;right:0;top:61px;text-align:center;font-family:Cinzel;font-weight:800;font-size:9.5px;letter-spacing:.6px;color:#f7e3b0}
+.card .st{position:absolute;left:0;right:0;top:75px;text-align:center;font-size:11px;color:#c9b48c}
+.card .cost{position:absolute;right:5px;top:5px;display:flex;gap:2px}
+.card .cost i{width:8px;height:8px;transform:rotate(45deg);background:linear-gradient(135deg,#e8d8ff,#8a5aff);border:1px solid #1a0a3a;box-shadow:0 0 5px #a080ff}
+/* action bar */
+.acts{position:absolute;left:8px;right:8px;top:786px;height:46px;display:flex;gap:6px}
+.btn{flex:1;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:Cinzel;font-weight:800;font-size:11px;letter-spacing:1.5px;color:#d8c49a;
+  background:linear-gradient(180deg,#2c2226,#140d10);border:1px solid rgba(232,190,100,.45);box-shadow:inset 0 1px 0 rgba(255,230,180,.15),0 3px 8px rgba(0,0,0,.6)}
+.btn.go{flex:1.7;color:#2a1404;font-size:13px;background:linear-gradient(180deg,#ffe6a0,#f0b44a 45%,#b8701e);border-color:#fff0c0;box-shadow:inset 0 1px 0 #fff,0 0 16px rgba(255,190,80,.45),0 3px 8px rgba(0,0,0,.6);text-shadow:0 1px 0 rgba(255,240,200,.6)}
+/* floating labels */
+.float{position:absolute;font-family:Cinzel;font-weight:900;text-align:center}
+.tip{position:absolute;left:222px;top:302px;width:160px;padding:6px 8px;border-radius:8px;background:rgba(14,8,10,.88);border:1px solid rgba(255,120,80,.6);box-shadow:0 0 14px rgba(255,80,40,.3);font-size:12px;line-height:1.25}
+.tip b{font-family:Cinzel;font-size:10px;letter-spacing:1px;color:#ffb08a}
+.tip .row{display:flex;justify-content:space-between;margin-top:3px;font-family:Cinzel;font-weight:800;font-size:10px}
+</style></head>
+<body>
+<div class="scene">
+<svg width="390" height="844" viewBox="0 0 390 844" style="position:absolute;inset:0">
+<defs>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#120a1c"/><stop offset=".35" stop-color="#3a1426"/><stop offset=".6" stop-color="#a0381c"/><stop offset=".75" stop-color="#ffb050"/><stop offset="1" stop-color="#3a1810"/>
+  </linearGradient>
+  <radialGradient id="sun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff4c0"/><stop offset=".25" stop-color="#ffb040" stop-opacity=".9"/><stop offset="1" stop-color="#ff5010" stop-opacity="0"/></radialGradient>
+  <filter id="clouds" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency=".008 .03" numOctaves="5" seed="7"/>
+    <feColorMatrix values="0 0 0 0 .08  0 0 0 0 .03  0 0 0 0 .06  0 0 0 1.6 -.72"/>
+  </filter>
+  <filter id="groundTex" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency=".03 .055" numOctaves="6" seed="11" result="n"/>
+    <feDiffuseLighting in="n" surfaceScale="2.4" lighting-color="#ffb070" result="l"><feDistantLight azimuth="235" elevation="38"/></feDiffuseLighting>
+    <feColorMatrix in="l" values=".62 0 0 0 0  0 .4 0 0 0  0 0 .3 0 0  0 0 0 1 0"/>
+  </filter>
+  <filter id="soft"><feGaussianBlur stdDeviation="6"/></filter>
+  <filter id="soft2"><feGaussianBlur stdDeviation="2.2"/></filter>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".85"/></linearGradient>
+  <radialGradient id="lava" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff0a0"/><stop offset=".35" stop-color="#ff8a20"/><stop offset=".75" stop-color="#b8280a"/><stop offset="1" stop-color="#3a0a04" stop-opacity="0"/></radialGradient>
+  <linearGradient id="dragonBody" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5a1a1a"/><stop offset=".5" stop-color="#26090c"/><stop offset="1" stop-color="#0a0305"/></linearGradient>
+  <linearGradient id="wing" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a1418" stop-opacity=".95"/><stop offset="1" stop-color="#12060a" stop-opacity=".98"/></linearGradient>
+  <linearGradient id="rim" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffc070"/><stop offset="1" stop-color="#ff6a20" stop-opacity="0"/></linearGradient>
+  <radialGradient id="base" cx=".5" cy=".5" r=".5"><stop offset=".55" stop-color="#000" stop-opacity=".0"/><stop offset=".7" stop-color="#8ac8ff" stop-opacity=".9"/><stop offset=".78" stop-color="#2a6ab0" stop-opacity=".5"/><stop offset="1" stop-color="#2a6ab0" stop-opacity="0"/></radialGradient>
+  <radialGradient id="baseR" cx=".5" cy=".5" r=".5"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset=".7" stop-color="#ff8a6a" stop-opacity=".95"/><stop offset=".78" stop-color="#b02a1a" stop-opacity=".5"/><stop offset="1" stop-color="#b02a1a" stop-opacity="0"/></radialGradient>
+  <linearGradient id="steel" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f4f0e8"/><stop offset=".5" stop-color="#9aa4b4"/><stop offset="1" stop-color="#3a4250"/></linearGradient>
+  <clipPath id="board"><path d="M78 300 L312 300 L382 598 L8 598 Z"/></clipPath>
+</defs>
+
+<!-- sky -->
+<rect width="390" height="844" fill="url(#sky)"/>
+<circle cx="250" cy="236" r="120" fill="url(#sun)" opacity=".85"/>
+<rect width="390" height="330" filter="url(#clouds)" opacity=".95"/>
+<!-- distant mountains / volcano -->
+<path d="M0 262 L40 230 L70 244 L112 200 L150 236 L186 214 L214 242 L250 170 L270 176 L300 232 L340 208 L390 240 L390 320 L0 320Z" fill="#2a0e14" opacity=".9"/>
+<path d="M250 170 L262 168 L270 176 L265 190 L255 186Z" fill="#ff7a20" filter="url(#glow)"/>
+<path d="M258 170 C252 140 270 120 262 90 C286 118 270 140 272 168Z" fill="#6a2a2a" opacity=".5" filter="url(#soft)"/>
+<path d="M0 290 L60 262 L110 280 L170 256 L230 282 L290 262 L350 280 L390 270 L390 330 L0 330Z" fill="#170709"/>
+
+<!-- ground plane -->
+<path d="M0 300 L390 300 L390 844 L0 844Z" fill="#1e0e0c"/>
+<rect x="0" y="296" width="390" height="320" filter="url(#groundTex)" opacity=".95"/>
+<rect x="0" y="296" width="390" height="40" fill="#170709" opacity=".55"/>
+<!-- lava rivers -->
+<g filter="url(#glow)">
+  <path d="M0 470 C40 462 70 480 110 474 C130 471 140 482 128 492 C110 506 60 500 0 512Z" fill="#ff6a14" opacity=".9"/>
+  <path d="M8 486 C40 480 80 490 112 486" stroke="#fff0a0" stroke-width="1.4" fill="none" opacity=".8"/>
+  <path d="M330 400 C352 396 372 404 390 400 L390 426 C370 430 346 424 330 418Z" fill="#ff5a10" opacity=".85"/>
+</g>
+<g stroke="#ff7a20" stroke-width="1.1" fill="none" opacity=".75" filter="url(#glow)">
+  <path d="M250 330 L262 346 L258 360 L270 374"/><path d="M40 360 L58 372 L54 390"/><path d="M300 470 L318 482 L312 500 L330 520"/><path d="M120 560 L140 572 L134 590"/></g>
+<ellipse cx="60" cy="490" rx="90" ry="40" fill="#ff5a10" opacity=".22" filter="url(#soft)"/>
+
+<!-- tactical grid in perspective: 6x6 visible -->
+<g clip-path="url(#board)">
+  <g stroke="#ffd9a0" stroke-opacity=".22" stroke-width="1" fill="none">
+    <path d="M78 300 L8 598 M117 300 L70 598 M156 300 L133 598 M195 300 L195 598 M234 300 L257 598 M273 300 L320 598 M312 300 L382 598"/>
+    <path d="M78 300 L312 300 M71 330 L319 330 M63 363 L327 363 M53 400 L337 400 M42 443 L348 443 M29 492 L361 492 M15 545 L375 545 M8 598 L382 598"/>
+  </g>
+  <!-- move range (blue) -->
+  <g fill="#4aa0ff" fill-opacity=".2" stroke="#9ad0ff" stroke-opacity=".55">
+    <path d="M53 400 L130 400 L126 443 L42 443Z"/><path d="M130 400 L195 400 L195 443 L126 443Z"/><path d="M195 400 L260 400 L264 443 L195 443Z"/>
+    <path d="M42 443 L126 443 L120 492 L29 492Z"/><path d="M264 443 L348 443 L361 492 L270 492Z"/>
+    <path d="M29 492 L120 492 L113 545 L15 545Z"/><path d="M270 492 L361 492 L375 545 L277 545Z"/>
+  </g>
+  <!-- attack targets (red) -->
+  <g fill="#ff4a2a" fill-opacity=".22" stroke="#ff9a7a" stroke-opacity=".7">
+    <path d="M117 330 L195 330 L195 400 L108 400Z" />
+    <path d="M195 330 L273 330 L282 400 L195 400Z"/>
+  </g>
+  <!-- path arrow -->
+  <path d="M166 568 L162 520 L170 470" stroke="#bfe4ff" stroke-width="4" fill="none" stroke-linecap="round" opacity=".85" filter="url(#glow)"/>
+  <path d="M162 468 L170 454 L178 468Z" fill="#dff2ff"/>
+</g>
+
+<!-- rock spire and ruined pillar -->
+<g>
+  <path d="M322 360 L334 300 L340 296 L352 356 L360 364 L316 366Z" fill="#170a0a"/>
+  <path d="M334 300 L340 296 L352 356 L344 360Z" fill="#3a1a14"/>
+  <path d="M336 312 L338 350" stroke="#ff6a20" stroke-width="1.2" opacity=".8" filter="url(#glow)"/>
+  <ellipse cx="338" cy="366" rx="26" ry="5" fill="#000" opacity=".5"/>
+</g>
+
+<!-- DRAGON (2x2 foe) -->
+<g>
+  <ellipse cx="195" cy="398" rx="96" ry="18" fill="url(#baseR)" opacity=".9"/>
+  <ellipse cx="195" cy="398" rx="78" ry="12" fill="#000" opacity=".55" filter="url(#soft2)"/>
+  <!-- wings -->
+  <path d="M170 300 C120 250 70 220 22 214 C44 232 50 246 46 262 C62 254 76 258 84 270 C96 262 110 266 118 280 C130 276 144 286 150 300 Z" fill="url(#wing)" stroke="#a0302a" stroke-width="1"/>
+  <path d="M170 300 C130 258 80 228 22 214" stroke="#ff9a5a" stroke-width="1.4" fill="none" opacity=".75"/>
+  <path d="M130 262 L46 262 M142 276 L84 270 M156 290 L118 280" stroke="#2a0a0a" stroke-width="1.6" opacity=".7"/>
+  <path d="M220 300 C270 244 322 212 372 204 C352 226 346 242 350 258 C334 250 320 256 312 268 C300 260 286 266 278 280 C266 276 252 288 246 300 Z" fill="url(#wing)" stroke="#a0302a" stroke-width="1"/>
+  <path d="M220 300 C262 250 318 216 372 204" stroke="#ff9a5a" stroke-width="1.4" fill="none" opacity=".75"/>
+  <path d="M262 258 L350 258 M252 272 L312 268 M238 288 L278 280" stroke="#2a0a0a" stroke-width="1.6" opacity=".7"/>
+  <!-- tail -->
+  <path d="M232 380 C270 388 300 380 310 362 C314 352 322 350 326 356 C318 378 292 398 240 394Z" fill="url(#dragonBody)"/>
+  <!-- body -->
+  <path d="M150 390 C140 360 150 318 180 300 C200 290 222 298 236 318 C252 342 250 376 240 392Z" fill="url(#dragonBody)"/>
+  <path d="M174 352 C176 330 186 316 198 312 C208 318 212 336 210 352 C206 372 186 380 174 352Z" fill="#7a3a22" opacity=".85"/>
+  <g stroke="#3a140c" stroke-width="1.2" opacity=".8"><path d="M178 330 L208 330 M176 340 L210 340 M176 350 L210 350 M180 360 L206 360"/></g>
+  <!-- legs -->
+  <path d="M152 380 C146 392 142 396 136 398 L166 398 C166 390 164 384 160 378Z" fill="#1a0608"/>
+  <path d="M236 380 C242 392 246 396 252 398 L222 398 C222 390 224 384 228 378Z" fill="#1a0608"/>
+  <g fill="#e8d8b0"><path d="M136 398 l-4 2 l5 0z M142 398 l-3 3 l5 -1z M246 398 l4 2 l-5 0z M252 398 l3 3 l-5 -1z"/></g>
+  <!-- neck + head: head swung low toward the heroes, jaws open and glowing -->
+  <path d="M206 312 C214 290 204 270 184 262 C168 256 156 262 150 272 L160 280 C168 272 180 272 188 280 C196 290 194 304 190 316Z" fill="url(#dragonBody)"/>
+  <g stroke="#e8c890" stroke-width="1" fill="#c8b088"><path d="M200 300 l6 -4 l-2 7z M204 286 l7 -3 l-3 7z M198 272 l6 -6 l-1 8z"/></g>
+  <path d="M154 262 C146 254 132 254 118 262 L104 272 C112 274 122 272 128 274 C136 276 146 282 156 282 C164 280 166 268 154 262Z" fill="#2a0a0c"/>
+  <path d="M104 272 L126 276 C122 286 112 290 100 288 Z" fill="#1a0606"/>
+  <path d="M106 276 C114 282 122 282 126 278 L124 284 C116 288 108 286 106 276Z" fill="#ff8a20" filter="url(#glow)"/>
+  <g fill="#f4ecd8"><path d="M110 273 l1 3 l1 -3z M115 274 l1 3 l1 -3z M120 275 l1 3 l1 -3z M112 285 l1 -3 l1 3z M118 285 l1 -3 l1 3z"/></g>
+  <path d="M146 262 C152 250 164 242 180 240 C170 246 162 254 158 264Z" fill="#d8c8a0"/>
+  <path d="M152 266 C162 258 176 258 188 262 C176 262 166 266 160 272Z" fill="#b8a888"/>
+  <path d="M132 264 L142 262 L138 268Z" fill="#ffe060" filter="url(#glow)"/>
+  <path d="M104 272 C118 262 136 254 154 262" stroke="#ffb060" stroke-width="1.3" fill="none" opacity=".8"/>
+  <!-- breath smoke curling from the jaws -->
+  <path d="M100 286 C88 292 86 304 96 308 C104 310 104 318 96 322" stroke="#ff9a40" stroke-width="2" fill="none" opacity=".55" filter="url(#soft2)"/>
+  <!-- rim light -->
+  <path d="M150 390 C140 360 150 318 180 300" stroke="#ffb060" stroke-width="1.6" fill="none" opacity=".7"/>
+  
+</g>
+
+<!-- ember imps -->
+<g>
+  <ellipse cx="86" cy="362" rx="18" ry="5" fill="url(#baseR)"/>
+  <path d="M80 360 C78 346 82 336 88 334 C94 336 96 346 92 360Z" fill="#2a0c08"/><circle cx="87" cy="331" r="6" fill="#3a1208"/>
+  <path d="M82 328 L80 320 L85 326Z M91 326 L95 319 L93 328Z" fill="#d8b890"/><circle cx="85" cy="331" r="1.3" fill="#ffe060"/><circle cx="89.5" cy="331" r="1.3" fill="#ffe060"/>
+  <path d="M86 340 C74 330 66 334 62 340 C70 340 76 344 80 348Z M90 340 C102 330 110 334 114 340 C106 340 100 344 96 348Z" fill="#5a1a10" opacity=".9"/>
+  <circle cx="87" cy="345" r="10" fill="#ff7a20" opacity=".25" filter="url(#soft2)"/>
+</g>
+
+<!-- heroes (backlit silhouettes with rim light) -->
+<!-- fighter, active -->
+<g>
+  <ellipse cx="166" cy="572" rx="34" ry="9" fill="url(#base)"/>
+  <ellipse cx="166" cy="572" rx="40" ry="11" fill="none" stroke="#ffe29a" stroke-width="1.3" stroke-dasharray="3 4" opacity=".9"/>
+  <path d="M152 570 L154 540 C150 526 152 512 160 506 C168 502 176 506 180 516 C184 528 182 542 178 552 L180 570Z" fill="#1a2030"/>
+  <path d="M158 506 C156 494 162 486 168 486 C176 486 180 494 178 504 C174 508 162 510 158 506Z" fill="#2a3244"/>
+  <path d="M164 486 C160 478 168 470 178 474" stroke="#d8302a" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M160 498 L178 498" stroke="#9ad0ff" stroke-width="1.2" opacity=".8"/>
+  <!-- shield -->
+  <path d="M138 516 L158 512 C160 530 156 546 148 552 C140 546 136 532 138 516Z" fill="#23407a" stroke="#e8c070" stroke-width="1.5"/>
+  <path d="M148 518 L148 546 M141 528 L155 526" stroke="#e8c070" stroke-width="1.5"/>
+  <!-- sword raised -->
+  <path d="M182 516 L200 470" stroke="url(#steel)" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M178 520 L188 512" stroke="#c89a40" stroke-width="3" stroke-linecap="round"/>
+  <path d="M199 472 L203 462" stroke="#fff" stroke-width="2" filter="url(#glow)"/>
+  <path d="M180 516 C184 530 182 546 178 556" stroke="#8ac8ff" stroke-width="1.2" fill="none" opacity=".8"/>
+</g>
+<!-- rogue -->
+<g opacity=".95">
+  <ellipse cx="236" cy="572" rx="26" ry="7" fill="url(#base)" opacity=".8"/>
+  <path d="M224 570 L226 540 C222 528 226 516 234 512 C242 514 248 524 246 540 L248 570Z" fill="#142018"/>
+  <path d="M228 516 C226 502 232 494 238 494 C246 496 248 506 246 516 C240 520 232 520 228 516Z" fill="#1c2c20"/>
+  <circle cx="236" cy="509" r="1.2" fill="#ffe060"/><circle cx="240" cy="509" r="1.2" fill="#ffe060"/>
+  <path d="M222 540 L212 552 M248 540 L258 552" stroke="url(#steel)" stroke-width="2.2" stroke-linecap="round"/>
+</g>
+<!-- wizard -->
+<g>
+  <ellipse cx="96" cy="522" rx="24" ry="6" fill="url(#base)" opacity=".8"/>
+  <path d="M84 520 C86 500 88 488 94 480 C100 488 104 500 108 520Z" fill="#2a1a4a"/>
+  <path d="M86 482 L96 452 L104 480Z" fill="#3a2a6a"/>
+  <path d="M112 520 L114 470" stroke="#6a4a2a" stroke-width="2.5"/>
+  <circle cx="114" cy="466" r="5" fill="#bfe8ff" filter="url(#glow)"/><circle cx="114" cy="466" r="12" fill="#6ac8ff" opacity=".3" filter="url(#soft2)"/>
+</g>
+<!-- cleric -->
+<g>
+  <ellipse cx="306" cy="522" rx="24" ry="6" fill="url(#base)" opacity=".8"/>
+  <path d="M294 520 C294 500 298 488 306 484 C314 488 318 500 318 520Z" fill="#e8e0cc" opacity=".92"/>
+  <circle cx="306" cy="478" r="7" fill="#f4ecd8"/>
+  <circle cx="306" cy="476" r="12" fill="none" stroke="#ffe29a" stroke-width="1.6" filter="url(#glow)"/>
+  <path d="M322 520 L324 474" stroke="#c89a40" stroke-width="2.2"/><circle cx="324" cy="470" r="4" fill="#ffe29a" filter="url(#glow)"/>
+</g>
+
+<!-- ember particles -->
+<g fill="#ffb050" filter="url(#glow)">
+  <circle cx="40" cy="420" r="1.3"/><circle cx="120" cy="300" r="1"/><circle cx="260" cy="330" r="1.4"/><circle cx="300" cy="280" r="1"/><circle cx="350" cy="450" r="1.2"/>
+  <circle cx="70" cy="560" r="1"/><circle cx="220" cy="460" r="1.1"/><circle cx="160" cy="240" r="1.2"/><circle cx="330" cy="340" r="1"/><circle cx="20" cy="330" r="1.1"/>
+</g>
+
+<!-- damage number -->
+<g font-family="Cinzel" font-weight="900" text-anchor="middle">
+  
+</g>
+
+<rect x="0" y="560" width="390" height="284" fill="url(#fade)"/>
+</svg>
+
+<!-- HUD -->
+<div class="frame top">
+  <div class="round"><b>3</b><i>ROUND</i></div>
+  <div class="loc gold">THE DRAGON'S MAW</div>
+  <div class="sub">Slay the Ashen Dragon</div>
+  <div class="menu"><span style="top:12px"></span><span style="top:17px"></span><span style="top:22px"></span></div>
+</div>
+<div class="boss">
+  <div class="name">ASHEN DRAGON</div>
+  <div class="bar"><div class="fill"></div><div class="lost"></div><div class="t">101 / 140</div></div>
+  <div class="pips"><div class="pip"></div><div class="pip"></div><div class="pip"></div><div class="pip e"></div><div class="pip e"></div></div>
+</div>
+<div class="tip"><b>RENDING STRIKE → DRAGON</b>
+  <div class="row"><span style="color:#c9b48c">GRAZE 6</span><span style="color:#f3e6c8">HIT 9</span><span style="color:#ffcf70">CRIT 13</span></div>
+  <div style="margin-top:3px;color:#9ad08a;font-size:11px">Advantage: flanking</div>
+</div>
+
+<div class="frame hero">
+  <svg class="port" viewBox="0 0 70 70" style="overflow:visible">
+    <defs><clipPath id="pc"><circle cx="35" cy="35" r="33"/></clipPath></defs>
+    <g clip-path="url(#pc)">
+      <circle cx="35" cy="35" r="33" fill="#1a2e4e"/>
+      <path d="M12 70 C12 52 22 44 35 44 C48 44 58 52 58 70Z" fill="#46526a"/>
+      <path d="M18 70 C20 56 26 50 35 50 C44 50 50 56 52 70Z" fill="#23407a"/>
+      <path d="M24 38 C22 22 28 14 35 14 C44 14 48 22 46 38 C42 44 28 44 24 38Z" fill="#9aa4b8"/>
+      <path d="M24 30 L46 30 L46 34 L24 34Z" fill="#1a1a24"/><path d="M27 32 L33 32 M37 32 L43 32" stroke="#9ad0ff" stroke-width="1.5"/>
+      <path d="M35 14 C30 6 40 0 48 6" stroke="#d8302a" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <path d="M26 20 C28 16 32 15 34 16" stroke="#fff" stroke-width="1.2" fill="none" opacity=".7"/>
+    </g>
+  </svg>
+  <div class="hn gold">BRAKKA</div>
+  <div class="hc">Fighter · Level 9</div>
+  <div class="mom"><div class="gem"></div><div class="gem"></div><div class="gem"></div><div class="gem e"></div><div class="gem e"></div></div>
+  <div class="hbar"><div></div></div>
+</div>
+
+<div class="cards">
+  <div class="card sel"><div class="art" style="background:radial-gradient(circle at 70% 30%,#ffe9b0,#e08a2a 30%,#5a1a0a 70%,#1a0806)"><svg viewBox="0 0 80 52" width="100%" height="100%"><path d="M14 46 L58 8" stroke="#fff" stroke-width="4" stroke-linecap="round"/><path d="M10 50 L20 40" stroke="#c89a40" stroke-width="5" stroke-linecap="round"/><path d="M30 44 C44 36 58 26 70 10" stroke="#fff8e0" stroke-width="1.5" fill="none" opacity=".8"/></svg></div><div class="nm">RENDING STRIKE</div><div class="st">7–13 · melee</div></div>
+  <div class="card"><div class="art" style="background:radial-gradient(circle at 50% 50%,#b8e0ff,#3a78c8 35%,#10224a 75%)"><svg viewBox="0 0 80 52" width="100%" height="100%"><path d="M40 6 L60 12 C60 30 52 42 40 48 C28 42 20 30 20 12Z" fill="#23407a" stroke="#ffe29a" stroke-width="2"/><path d="M40 12 L40 42 M28 22 L52 22" stroke="#ffe29a" stroke-width="2"/></svg></div><div class="nm">SHIELD WALL</div><div class="st">+6 shield</div><div class="cost"><i></i><i></i></div></div>
+  <div class="card"><div class="art" style="background:radial-gradient(circle at 50% 60%,#ffd0a0,#b0401a 40%,#2a0a08 80%)"><svg viewBox="0 0 80 52" width="100%" height="100%"><circle cx="40" cy="28" r="15" fill="none" stroke="#fff0c0" stroke-width="3" stroke-dasharray="20 8"/><path d="M40 8 L44 16 L36 16Z" fill="#fff0c0"/></svg></div><div class="nm">WHIRLWIND</div><div class="st">6–11 · all around</div><div class="cost"><i></i><i></i><i></i></div></div>
+</div>
+
+<div class="acts">
+  <div class="btn">↶ UNDO</div>
+  <div class="btn">LOG</div>
+  <div class="btn go">END TURN</div>
+</div>
+</div>
+</body></html>
