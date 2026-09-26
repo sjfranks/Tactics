@@ -231,10 +231,13 @@ function layoutRich0(s,w,col,nokw){
 function richH(s,w,nokw){return layoutRich(s,w,C.parch,nokw).length*LINE_H;}
 function rich(s,x,y,w,col,o){
   o=o||{};const lines=layoutRich(s,w,col||C.parch,o.nokw);
-  const clip=o.clip;
+  const clip=o.clip;let left=o.chars!=null?o.chars:1e9;
   lines.forEach((L,i)=>{
     const ly=y+i*LINE_H;if(clip&&(ly<clip[0]-6||ly>clip[1]))return;
     for(const a of L){
+      if(left<=0)return;
+      if(a.t.length>left){text(a.t.slice(0,left),x+a.x,ly,a.col,{sh:o.sh||C.edge});left=0;return;}
+      left-=a.t.length;
       text(a.t,x+a.x,ly,a.col,{sh:o.sh||C.edge});
       if(a.kw){const tw=textW(a.t);for(let d=0;d<tw;d+=2)rect(x+a.x+d,ly+6,1,1,C.kw);
         if(!o.nohit&&(!clip||(ly>=clip[0]&&ly<=clip[1]-4)))hit(x+a.x-1,ly-1,tw+2,9,{fn:()=>openGloss(a.kw),id:'kw'+a.kw+x+ly});}

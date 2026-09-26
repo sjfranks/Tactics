@@ -798,7 +798,7 @@ async function monTurn(e){
     for(const a of opts)for(const x of foesOf(e)){const d=man(e,x);if(d<1||d>effRange(a.range,e)||(d>1&&!los(e,x)))continue;const r=evMon(e,a,x,e);const s=r.ev+r.kill*20-(a.cost||0)*1.3;if(!bb||s>bb.s)bb={s,a,x};}
     if(bb){await H.pause(160);await monAttack(e,bb.a,bb.x);}
   }
-  if(m.skulk&&live(e)){const s=freeAdj(e,e).filter(t=>!Tt(t.x,t.y).haz).sort((a,b)=>minDist(b,e)-minDist(a,e))[0];if(s&&minDist(s,e)>minDist(e,e)){e.x=s.x;e.y=s.y;await H.step(e);}}
+  if(m.skulk&&live(e)&&!e.pinned){const s=freeAdj(e,e).filter(t=>!Tt(t.x,t.y).haz).sort((a,b)=>minDist(b,e)-minDist(a,e))[0];if(s&&minDist(s,e)>minDist(e,e)){e.x=s.x;e.y=s.y;await H.step(e);}}
   afterUnit(e);
 }
 function minDist(p,u){let m=99;for(const h of fighters(u))m=Math.min(m,man(h,p));return m;}

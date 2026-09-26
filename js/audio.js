@@ -120,6 +120,7 @@ function sfx(n){
   const t=AU.ctx.currentTime+.005,R=Math.random;
   switch(n){
     case 'click':tn(t,1500,1100,.035,.06,'square');break;
+    case 'tick':tn(t,760+R()*80,760,.025,.022,'square');break;
     case 'select':tn(t,880,880,.045,.05,'square');tn(t+.045,1320,1320,.06,.045,'square');break;
     case 'step':nz(t,.06,.4,'lowpass',700,220);tn(t,120,70,.05,.08,'sine');break;
     case 'slide':nz(t,.14,.35,'bandpass',700,300,1);break;
