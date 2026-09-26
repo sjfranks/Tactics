@@ -63,7 +63,7 @@ function attrsFor(cls,lvl){const C=CLASSES[cls];const a=Object.assign({},C.attrs
 const POWERS={
   /* ---- Basic attacks: every hero has one, and their damage dice come from the weapon in hand ---- */
   sword:{c:'fighter',lv:1,a:'M',name:'Sword',basic:true,cost:0,tgt:'enemy',range:1,dmg:[2,4,6],desc:'A plain weapon attack. Its damage comes from your weapon.'},
-  blades:{c:'rogue',lv:1,a:'F',name:'Blades',basic:true,cost:0,tgt:'enemy',range:1,dmg:[2,4,6],desc:'Quick knife work. Its damage comes from your weapon.'},
+  blades:{c:'rogue',lv:1,a:'F',name:'Blades',basic:true,cost:0,tgt:'enemy',range:1,dmg:[1,3,5],desc:'Quick knife work. Its damage comes from your weapon. Dual wielding: advantage on your first Blades attack each round.'},
   missile:{c:'wizard',lv:1,a:'W',name:'Bolt',basic:true,cost:0,tgt:'enemy',range:5,dmg:[2,4,5],proj:'#c39bff',desc:'Range 5. A dart of force. Its damage comes from your focus.'},
   mace:{c:'cleric',lv:1,a:'M',name:'Mace',basic:true,cost:0,tgt:'enemy',range:1,dmg:[2,4,6],desc:'A solid blow. Its damage comes from your weapon.'},
   /* ---- Fighter: staggers foes and makes them fight her ---- */
@@ -239,11 +239,11 @@ const WEAPONS={
   halberd:{dice:[1,8],cls:'fighter',tier:2,name:'Knight\'s Halberd',dmg:1,reach:1,desc:'Your basic attack reaches 2 squares.'},
   flameblade:{dice:[1,10],cls:'fighter',tier:3,name:'Flameforged Blade',dmg:2,burn:1,desc:'Your basic attack sets foes burning on a critical hit.'},
   maul:{dice:[2,8],cls:'fighter',tier:4,name:'Titan\'s Maul',dmg:3,push:1,desc:'Your basic attack pushes 1 square further.'},
-  daggers:{dice:[2,4],cls:'rogue',tier:1,name:'Twin Daggers',dmg:0,desc:'Quick and quiet.'},
-  serrated:{dice:[2,4],cls:'rogue',tier:2,name:'Serrated Knives',dmg:1,bleed:1,desc:'Your basic attack leaves foes bleeding on a hit.'},
-  rapier:{dice:[2,4],cls:'rogue',tier:2,name:'Duelist\'s Rapier',dmg:1,keen:1,desc:'+1 momentum whenever your basic attack lands a critical hit.'},
-  shadowfang:{dice:[3,4],cls:'rogue',tier:3,name:'Shadowfang',dmg:2,acc:1,desc:'Keen: +1 more damage.'},
-  kingslayer:{dice:[3,4],cls:'rogue',tier:4,name:'Kingslayer',dmg:3,bleed:1,desc:'Your basic attack leaves foes bleeding on a hit.'},
+  daggers:{dice:[1,4],dual:1,cls:'rogue',tier:1,name:'Twin Daggers',dmg:0,desc:'Quick and quiet.'},
+  serrated:{dice:[1,4],dual:1,cls:'rogue',tier:2,name:'Serrated Knives',dmg:1,bleed:1,desc:'Your basic attack leaves foes bleeding on a hit.'},
+  rapier:{dice:[1,6],cls:'rogue',tier:2,name:'Duelist\'s Rapier',dmg:2,keen:1,desc:'+1 momentum whenever your basic attack lands a critical hit.'},
+  shadowfang:{dice:[1,6],dual:1,cls:'rogue',tier:3,name:'Shadowfang',dmg:2,acc:1,desc:'Keen: +1 more damage.'},
+  kingslayer:{dice:[1,6],dual:1,cls:'rogue',tier:4,name:'Kingslayer',dmg:3,bleed:1,desc:'Your basic attack leaves foes bleeding on a hit.'},
   wand:{dice:[1,6],cls:'wizard',tier:1,name:'Apprentice Wand',dmg:0,desc:'Chipped, but it works.'},
   reachwand:{dice:[1,6],cls:'wizard',tier:2,name:'Wand of Reach',dmg:1,range:1,desc:'Your basic attack reaches 1 square further.'},
   emberstaff:{dice:[1,8],cls:'wizard',tier:2,name:'Emberstaff',dmg:1,burn:1,desc:'Your basic attack sets foes burning on a critical hit.'},
@@ -258,7 +258,7 @@ const WEAPONS={
 for(const k in WEAPONS)WEAPONS[k].id=k;
 const START_WEAPON={fighter:'longsword',rogue:'daggers',wizard:'wand',cleric:'mace'};
 const WEAPON_PRICE=[0,0,70,120,180];
-function weaponText(w){const b=[`${w.dice[0]}d${w.dice[1]}`];if(w.dmg)b.push(`+${w.dmg}`);if(w.acc)b.push(`+${w.acc}`);return `Basic attack: ${b.join(' ')} damage. `+w.desc;}
+function weaponText(w){const b=[`${w.dice[0]}d${w.dice[1]}`];if(w.dmg)b.push(`+${w.dmg}`);if(w.acc)b.push(`+${w.acc}`);return `Basic attack: ${b.join(' ')} damage. `+(w.dual?'Dual wield: advantage on your first basic attack each round. ':'')+w.desc;}
 /* Foe momentum buys threats. Which ones a battle can use grows with how deep into the journey it is. */
 const THREATS={
   bloodlust:{name:'Bloodlust',cost:3,desc:'Every foe has advantage on its attacks this round.'},
