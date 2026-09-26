@@ -791,7 +791,7 @@ const RIVAL_PAL={
 function spr(key,variant){
   const id=key+(variant?':'+variant:'');
   if(SPRC[id])return SPRC[id];
-  if(!SPR[key]&&SPR32[key])return SPRC[id]=sprM(key,variant);
+  if(!SPR[key]&&SPR32[key])return SPRC[id]=HIRES?sprM(key,variant):halfSprite(key,variant);
   const d=SPR[key]||SPR.villager;
   const pal=Object.assign({},d.pal||{},variant==='rival'?RIVAL_PAL[key]||{}:{});
   const c=buildSprite(d.rows,pal);
@@ -884,16 +884,26 @@ function hiCopy(src,fn){const c=fn(src);c._s=src._s;return c;}
 function spriteSet(c,top,bot,lft,rgt){return {c,f:hiCopy(c,flipped),wh:hiCopy(c,s=>silhouette(s,'#ffffff')),bk:hiCopy(c,s=>silhouette(s,'#000000')),top,bot,lft,rgt};}
 function bounds32(rows){let top=99,bot=0,lft=99,rgt=0;rows.forEach((row,y)=>{for(let x=0;x<row.length;x++)if(row[x]!=='.'){top=Math.min(top,y);bot=Math.max(bot,y);lft=Math.min(lft,x);rgt=Math.max(rgt,x);}});return {top,bot,lft,rgt};}
 const SPRH={},SPRM={};
+/* A half-size version of a 32×32 (or 64×64) figure for the small board, for creatures with no hand-drawn
+   16-pixel sprite: each 2×2 block keeps its most common colour, and outline wins where it frames the shape. */
+function halfSprite(key,variant){
+  const d=SPR32[key];const rows=d.rows,n=rows.length>>1;const pal=Object.assign({},d.pal,variant==='rival'?d.rival:{});
+  const out=[];for(let y=0;y<n;y++){let r='';for(let x=0;x<n;x++){const q=[rows[2*y][2*x],rows[2*y][2*x+1],rows[2*y+1][2*x],rows[2*y+1][2*x+1]];
+    const solid=q.filter(c=>c!=='.');if(solid.length<2){r+='.';continue;}const cnt={};let best=null;for(const c of solid){cnt[c]=(cnt[c]||0)+(c==='k'?.9:1);if(!best||cnt[c]>cnt[best])best=c;}r+=best;}out.push(r);}
+  const c=buildSprite(out,pal);const b=bounds32(out);
+  return {c,f:flipped(c),wh:silhouette(c,'#ffffff'),bk:silhouette(c,'#000000'),top:b.top,bot:b.bot,lft:b.lft,rgt:b.rgt};
+}
 /* sprH: the detailed sprite, 32 logical pixels square (64 device pixels). */
 function sprH(key,variant){
   const id=key+(variant?':'+variant:'');
   if(SPRH[id])return SPRH[id];
   const d=SPR32[key]||SPR32.villager;const b=bounds32(d.rows);
+  if(!HIRES){const c=buildSprite(d.rows,Object.assign({},d.pal,variant==='rival'?d.rival:{}));return SPRH[id]={c,f:flipped(c),wh:silhouette(c,'#ffffff'),bk:silhouette(c,'#000000'),top:b.top,bot:b.bot,lft:b.lft,rgt:b.rgt};}
   const c=enhance64(d.rows,Object.assign({},d.pal,variant==='rival'?d.rival:{}),d.hand);
   return SPRH[id]=spriteSet(c,b.top,b.bot,b.lft,b.rgt);
 }
 /* artH: a 32-pixel figure for lists and cards, whatever the creature's size on the board. */
-function artH(key){return SPR32[key]&&SPR32[key].rows.length>32?sprM(key):sprH(key);}
+function artH(key){const big=SPR32[key]&&SPR32[key].rows.length>32;return big?(HIRES?sprM(key):spr(key)):sprH(key);}
 /* sprM: the same art at 16 logical pixels (32 device pixels), for the landscape board and small slots. */
 function sprM(key,variant){
   const id=key+(variant?':'+variant:'');

@@ -5,7 +5,7 @@
 let SW=320,SH=180,PORT=false;
 /* The canvas stores twice as many pixels as its logical size: layout works in logical pixels, while art,
    text and fine lines can use the extra resolution. */
-const RES=2;
+const RES=HIRES?2:1;
 const cv=document.getElementById('game');
 let ctx=cv.getContext('2d');const MAINCTX=ctx;
 cv.width=SW*RES;cv.height=SH*RES;ctx.imageSmoothingEnabled=false;
@@ -101,7 +101,7 @@ window.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&MODALS.length){cons
 
 /* ---------------- primitives ---------------- */
 const hp=v=>Math.round(v*2)/2;
-function rect(x,y,w,h,c){ctx.fillStyle=c;const x0=hp(x),y0=hp(y);ctx.fillRect(x0,y0,hp(x+w)-x0,hp(y+h)-y0);}
+function rect(x,y,w,h,c){ctx.fillStyle=c;if(!HIRES){ctx.fillRect(x|0,y|0,w|0,h|0);return;}const x0=hp(x),y0=hp(y);ctx.fillRect(x0,y0,hp(x+w)-x0,hp(y+h)-y0);}
 function frame(x,y,w,h,c){rect(x,y,w,1,c);rect(x,y+h-1,w,1,c);rect(x,y,1,h,c);rect(x+w-1,y,1,h,c);}
 /* Gritty bevelled panel with bronze rim and corner rivets. */
 function panel(x,y,w,h,o){
@@ -187,8 +187,8 @@ function unitStatuses(u){
 }
 function statusRow(u,x,y,max){const L=unitStatuses(u).slice(0,max||6);L.forEach((k,i)=>{const c=statusIcon(k);if(c)ctx.drawImage(c,x+i*8,y);});return L.length*8;}
 /* Cards and tokens always want a figure about 32 pixels tall, so large creatures use their half-size image there. */
-function cardSprite(u,hi){const S=unitSprite(u,hi);return hi&&S.c.height>64?unitSprite(u,false):S;}
-function unitSprite(u,hi){const f=hi?sprH:sprM;if(u.kind==='pc')return f(u.cls,u.rival?'rival':null);if(u.kind==='npc')return f(u.npc);return f(MON[u.type].art);}
+function cardSprite(u,hi){const S=unitSprite(u,hi);return hi&&S.c.height/(S.c._s||1)>32?unitSprite(u,false):S;}
+function unitSprite(u,hi){const f=hi?sprH:HIRES?sprM:spr;if(u.kind==='pc')return f(u.cls,u.rival?'rival':null);if(u.kind==='npc')return f(u.npc);return f(MON[u.type].art);}
 
 /* ---------------- rich text with clickable keywords ---------------- */
 const KW_MAP={};const KW_LIST=[];
@@ -221,9 +221,9 @@ function layoutRich0(s,w,col,nokw){
     const a=atoms[i];
     if(a.nl){lines.push([]);x=0;continue;}
     let gw=textW(a.t);for(let j=i+1;j<atoms.length&&!atoms[j].nl&&!atoms[j].sp;j++)gw+=textW(atoms[j].t)+1;
-    const spw=a.sp&&x>0?2:0;
+    const spw=a.sp&&x>0?(HIRES?2:3):0;
     if(x>0&&a.sp&&x+spw+gw>w){lines.push([]);x=0;}
-    const gap=x>0?(a.sp?2:.5):0;
+    const gap=x>0?(HIRES?(a.sp?2:.5):(a.sp?3:1)):0;
     lines[lines.length-1].push({t:a.t,col:a.col,kw:a.kw,x:x+gap});x+=gap+textW(a.t);
   }
   return lines;

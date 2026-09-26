@@ -13,7 +13,7 @@ const OBST_PAL={"rock":{"m":"#9a9a92","w":"#c4c4ba","n":"#76766e","M":"#4e4e4a",
 for(const k in OBST32)SPR32[k]={pal:Object.assign({k:'#0e0a0a'},OBST_PAL[k]),rows:OBST32[k]};
 const ARTC={};
 /* Icons 16px and up get the same hi-res pass as the sprites: smoothed edges, a fine outline, soft shading. */
-function artCanvas(id,rows,pal){if(ARTC[id])return ARTC[id];return ARTC[id]=rows.length>=16?enhance64(rows,pal):buildSprite(rows,pal);}
+function artCanvas(id,rows,pal){if(ARTC[id])return ARTC[id];return ARTC[id]=HIRES&&rows.length>=16?enhance64(rows,pal):buildSprite(rows,pal);}
 /* Palette variants for reusing one icon shape in another element or colour. */
 const ICON_VAR={
   gold:{m:'#f4c848',w:'#fffbd0',M:'#9a6a18',p:'#f4c848',P:'#9a6a18'},

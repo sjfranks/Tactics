@@ -3,6 +3,9 @@
    EMBERWATCH — bitmap font. Caps are 5px tall, lowercase has a 4px
    x-height and a 1px descender. Rows are separated by '/'.
    ===================================================================== */
+/* The chunky 5px font is the game's look. Settings can switch on an experimental hi-res mode (a finer font,
+   smoothed sprites, painted terrain); it needs a reload because the canvas resolution changes with it. */
+const HIRES=(()=>{try{return !!JSON.parse(localStorage.getItem('emberwatch.v3.settings')||'{}').hires;}catch(e){return false;}})();
 const FONT_H=6,LINE_H=7;
 const GLYPH_SRC={
   A:'.#./#.#/###/#.#/#.#',B:'##./#.#/##./#.#/##.',C:'.##/#../#../#../.##',D:'##./#.#/#.#/#.#/##.',
@@ -63,11 +66,18 @@ function hfontAtlas(col){
   return HFONT_ATLAS[col]={c,pos};
 }
 /* advance of one character, in logical pixels */
-function chAdv(ch){const H=HGLYPHS[ch];if(H)return (H.w+1)/2;return glyphOf(ch).w+1;}
-function textW(s,sc){s=normText(s);sc=sc||1;let w=0;for(const ch of s)w+=chAdv(ch);return Math.max(0,w-.5)*sc;}
+function chAdv(ch){const H=HIRES&&HGLYPHS[ch];if(H)return (H.w+1)/2;return glyphOf(ch).w+1;}
+function textW(s,sc){s=normText(s);sc=sc||1;let w=0;for(const ch of s)w+=chAdv(ch);return Math.max(0,w-(HIRES?.5:1))*sc;}
 /* Draw a line of text. o: {sh: shadow colour, ol: outline colour, sc: scale, al: 'c'|'r'} */
 function text(s,x,y,col,o){
   o=o||{};s=normText(s);const sc=o.sc||1;
+  if(!HIRES){
+    if(o.al==='c')x-=Math.floor(textW(s,sc)/2);else if(o.al==='r')x-=textW(s,sc);
+    x=Math.round(x);y=Math.round(y);
+    if(o.ol){for(const[dx,dy]of[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,1],[-1,1],[1,-1]])rawText(s,x+dx,y+dy,o.ol,sc);}
+    else if(o.sh!==false)rawText(s,x+sc,y+sc,o.sh||'#0b0707',sc);
+    rawText(s,x,y,col,sc);return textW(s,sc);
+  }
   if(o.al==='c')x-=textW(s,sc)/2;else if(o.al==='r')x-=textW(s,sc);
   x=Math.round(x*2)/2;y=Math.round(y*2)/2;
   const d=.5*sc;
@@ -79,7 +89,7 @@ function text(s,x,y,col,o){
 function rawText(s,x,y,col,sc){
   let A=null,L=null;let cx=x;
   for(const ch of s){
-    const H=HGLYPHS[ch];
+    const H=HIRES&&HGLYPHS[ch];
     if(H){A=A||hfontAtlas(col);ctx.drawImage(A.c,A.pos[ch],0,H.w,HF_H,cx,y,H.w/2*sc,HF_H/2*sc);cx+=(H.w+1)/2*sc;}
     else{L=L||fontAtlas(col);const G=glyphOf(ch);const px=L.pos[GLYPHS[ch]?ch:'?'];ctx.drawImage(L.c,px,0,G.w,FONT_H,cx,y,G.w*sc,FONT_H*sc);cx+=(G.w+1)*sc;}
   }

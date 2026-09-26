@@ -418,6 +418,7 @@ function openSettings(inBattle,onMap){
     tog.push(['Music',SET.music,()=>{SET.music=!SET.music;auInit();SET.music?musicStart():musicStop();saveSet();}]);
     tog.push(['Sound effects',SET.sfx,()=>{SET.sfx=!SET.sfx;saveSet();}]);
     tog.push(['Play on silent',!!SET.loud,()=>setPlayOnSilent(!SET.loud)]);
+    tog.push(['Hi-res art (experimental)',!!SET.hires,()=>{SET.hires=!SET.hires;saveSet();location.reload();}]);
     tog.push(['Auto end turn',SET.autoEnd,()=>{SET.autoEnd=!SET.autoEnd;saveSet();}]);
     tog.push(['Animation speed',['Slow','Normal','Fast'][SET.speed],()=>{SET.speed=(SET.speed+1)%3;saveSet();}]);
     acts.push(['How to play',openHowTo]);

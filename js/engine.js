@@ -188,7 +188,7 @@ async function partingBlow(f,t){
   await H.strike(f,t,{free:true});
   NOTE=[];
   const dealt=await damage(f,t,d,{});
-  const ex=NOTE;NOTE=null;
+  const ex=NOTE||[];NOTE=null;
   log(`${f.name} lands a parting blow on ${t.name}: ${dealt} damage.${ex.length?' '+ex.join(' '):''}`,sideCol(f));
   if(f.kind==='pc'&&f.cls==='fighter'&&live(t)&&!t.object){t.stopped=true;applyMark(t,f);addMom(f,1);}
 }
@@ -440,7 +440,7 @@ async function pcStrike(u,p,t,C,fl){
       if(push)await forceMove(t,C,push+pushExtra(u),false,u,fl);
       if(pull&&live(t))await forceMove(t,C,pull+pushExtra(u),true,u,fl);
     }
-    const ex=NOTE;NOTE=null;
+    const ex=NOTE||[];NOTE=null;
     const why=(nb.pro.length?' +'+nb.pro.join(', +'):'')+(nb.con.length?' -'+nb.con.join(', -'):'');
     log(`${u.name}: ${p.name} → ${t.name}. ${rollText(r)}${why?' ('+why.trim()+')':''}. ${ex.join(' ')}`,sideCol(u));
   }
@@ -451,7 +451,7 @@ async function support(u,a,p,fl){
   if(p.shield){a.shield+=p.shield;H.pop(a,'⛨ '+p.shield,'shield');note(`${a.name} gains ${p.shield} shield.`);}
   if(p.empower){a.st.bless=Math.max(a.st.bless||0,p.empower+(G.cur===a.id?1:0));H.pop(a,'Blessed','gold');note(`${a.name} is blessed.`);}
   if(p.cleanse){cleanse(a);note('Conditions end.');}
-  const ex=NOTE;NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));
+  const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));
   H.upd(a);
 }
 async function usePower(u,p,T){
@@ -465,7 +465,7 @@ async function usePower(u,p,T){
     const pre={x:t.x,y:t.y};
     await pcStrike(u,p,t,{x:u.x,y:u.y},fl);
     if(p.follow&&live(u)&&!unitAt(pre.x,pre.y)&&man(u,pre)===1&&!blocked(pre.x,pre.y)){u.x=pre.x;u.y=pre.y;await H.step(u);await onEnter(u);}
-    if(p.cleave&&live(u)){const o=fighters(u).find(f=>f!==t&&man(f,u)===1);if(o){await H.strike(u,o,{});NOTE=[];await damage(u,o,u.attrs.M+(hasR('whetstone',u)?1:0),{});const ex=NOTE;NOTE=null;log(`Cleave hits ${o.name}: ${ex.join(' ')}`,sideCol(u));}}
+    if(p.cleave&&live(u)){const o=fighters(u).find(f=>f!==t&&man(f,u)===1);if(o){await H.strike(u,o,{});NOTE=[];await damage(u,o,u.attrs.M+(hasR('whetstone',u)?1:0),{});const ex=NOTE||[];NOTE=null;log(`Cleave hits ${o.name}: ${ex.join(' ')}`,sideCol(u));}}
     if(p.chain){
       let last=t;const done=new Set([t.id]);
       for(let i=0;i<p.chain;i++){
@@ -493,20 +493,20 @@ async function usePower(u,p,T){
     NOTE=[];
     if(p.pullFirst){for(const f of foesOf(u).filter(e=>cheb(e,C)<=p.area&&!e.object).sort((a,b)=>man(a,C)-man(b,C))){await forceMove(f,C,p.pullFirst,true,u,fl);if(live(f))applyMark(f,u);}}
     if(p.pullCenter){for(const f of foesOf(u).filter(e=>cheb(e,C)<=p.area&&!e.object).sort((a,b)=>man(a,C)-man(b,C)))await forceMove(f,C,p.pullCenter,true,u,fl);}
-    const pre=NOTE;NOTE=null;if(pre.length)log(pre.join(' '),sideCol(u));
+    const pre=NOTE||[];NOTE=null;if(pre.length)log(pre.join(' '),sideCol(u));
     let list=areaTargets(u,p,C);
     if(p.adjOnly)list=list.filter(t=>cheb(t,u)===1);
     const pushy=p.eff&&p.eff.push;
     list.sort((a,b)=>pushy?man(b,C)-man(a,C):man(a,C)-man(b,C));
     for(const t of list){if(p.aff==='ally')await support(u,t,p,fl);else await pcStrike(u,p,t,C,fl);}
-    if(p.allyHeal){NOTE=[];for(const a of allies(u).filter(a=>!a.object&&!a.caged&&cheb(a,C)<=p.area)){const g=heal(a,healAmt(u,p.allyHeal));if(g>0&&a!==u)fl.healedOther=true;}const ex=NOTE;NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));}
+    if(p.allyHeal){NOTE=[];for(const a of allies(u).filter(a=>!a.object&&!a.caged&&cheb(a,C)<=p.area)){const g=heal(a,healAmt(u,p.allyHeal));if(g>0&&a!==u)fl.healedOther=true;}const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));}
     if(p.zone)G.zones.push({x:C.x,y:C.y,r:p.zone.r!=null?p.zone.r:1,rounds:2,dmg:p.zone.dmg,eff:p.zone.eff,radiant:!!p.zone.radiant,fx:p.fx,side:u.side});
     if(p.igniteCenter){setHaz(C.x,C.y,'fire',3,u.side);log(`Fire takes hold at ${tileName(C.x,C.y)}.`,sideCol(u));}
     if(p.webArea)for(let y=C.y-1;y<=C.y+1;y++)for(let x=C.x-1;x<=C.x+1;x++)if(inB(x,y)&&!unitAt(x,y)&&!Tt(x,y).haz)setHaz(x,y,'web',3,u.side);
   }
-  if(p.selfHeal){NOTE=[];heal(u,p.selfHeal);const ex=NOTE;NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));}
+  if(p.selfHeal){NOTE=[];heal(u,p.selfHeal);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));}
   if(p.markAround)for(const f of fighters(u).filter(e=>cheb(e,u)<=p.markAround))applyMark(f,u);
-  if(p.healNear){const w=allies(u).filter(a=>!a.object&&!a.caged&&man(a,u)<=3&&a.hp<a.maxHp).sort((a,b)=>a.hp/a.maxHp-b.hp/b.maxHp)[0];if(w){NOTE=[];const g=heal(w,p.healNear);const ex=NOTE;NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));if(g>0&&w!==u)fl.healedOther=true;}}
+  if(p.healNear){const w=allies(u).filter(a=>!a.object&&!a.caged&&man(a,u)<=3&&a.hp<a.maxHp).sort((a,b)=>a.hp/a.maxHp-b.hp/b.maxHp)[0];if(w){NOTE=[];const g=heal(w,p.healNear);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));if(g>0&&w!==u)fl.healedOther=true;}}
   if(p.gainRes)addMom(u,p.gainRes);
   if(p.hide){u.hidden=true;H.pop(u,'Hidden','call');H.sfx('whoosh');}
   if(u.cls==='rogue'&&fl.sneak){addMom(u,1);H.pop(u,'+1 ◆','res');}
@@ -685,7 +685,7 @@ async function monAttack(e,A,t,isTile){
     return;
   }
   if(!live(t))return;
-  if(A.tgt==='ally'){await H.strike(e,t,{support:true});NOTE=[];heal(t,A.heal+G.dmgAdd);const ex=NOTE;NOTE=null;log(`${e.name} mends ${t.name}. ${ex.join(' ')}`,'e');return;}
+  if(A.tgt==='ally'){await H.strike(e,t,{support:true});NOTE=[];heal(t,A.heal+G.dmgAdd);const ex=NOTE||[];NOTE=null;log(`${e.name} mends ${t.name}. ${ex.join(' ')}`,'e');return;}
   if(A.rally){H.pop(e,'Rally!','call');log(`${e.name} rallies its allies!`,'e');for(const f of allies(e).filter(f=>f!==e&&!f.object&&man(f,e)<=3)){const h=fighters(f).find(h=>man(h,f)===1);if(h)await partingBlow(f,h);}return;}
   if(A.mom){H.pop(e,'Offering','call');NOTE=[];await damage(null,e,3,{});NOTE=null;G.foeMom+=A.mom;log(`${e.name} bleeds itself to feed the foes' momentum (+${A.mom}).`,'e');return;}
   await H.strike(e,t,{proj:A.range>1&&man(e,t)>1?(A.area?'#ff7a2a':'#ff9a7a'):null,monster:true,act:A});
@@ -706,7 +706,7 @@ async function monAttack(e,A,t,isTile){
       if(push)await forceMove(v,e,push,false,e,null);
       if(pull&&live(v))await forceMove(v,e,pull,true,e,null);
     }
-    const ex=NOTE;NOTE=null;
+    const ex=NOTE||[];NOTE=null;
     const why=(nb.pro.length?' +'+nb.pro.join(', +'):'')+(nb.con.length?' -'+nb.con.join(', -'):'');
     log(`${e.name}: ${A.name} → ${v.name}. ${r?rollText(r):'Swarm hit'}${why&&r?' ('+why.trim()+')':''}. ${ex.join(' ')}`,'e');
   }
@@ -849,7 +849,7 @@ async function villain(b){
       for(let x=0;x<COLS;x++)setHaz(x,y,'fire',2,b.side);
       break;}
   }
-  const ex=NOTE;NOTE=null;if(ex.length)log(ex.join(' '),'e');
+  const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),'e');
 }
 
 /* ---------------- SPAWNING ---------------- */
@@ -1015,11 +1015,11 @@ async function beginTurn(u){
   await H.turn(u);
   if(u.boss)await villain(u);
   if(!live(u))return;
-  if(u.st.bleed){H.pop(u,'Bleeding','bad');NOTE=[];await damage(null,u,u.bleedDmg||3,{});const ex=NOTE;NOTE=null;log(`${u.name} bleeds: ${ex.join(' ')}`,sideCol(u));}
-  if(live(u)&&u.st.burn&&!immuneFire(u)){H.pop(u,'Burning','bad');H.sfx('fire');NOTE=[];await damage(null,u,3,{});const ex=NOTE;NOTE=null;log(`${u.name} burns: ${ex.join(' ')}`,sideCol(u));}
-  if(live(u)){const h=Tt(u.x,u.y).haz;if(h&&!HAZ[h.t].once){NOTE=[];await applyHazard(u);const ex=NOTE;NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));}}
+  if(u.st.bleed){H.pop(u,'Bleeding','bad');NOTE=[];await damage(null,u,u.bleedDmg||3,{});const ex=NOTE||[];NOTE=null;log(`${u.name} bleeds: ${ex.join(' ')}`,sideCol(u));}
+  if(live(u)&&u.st.burn&&!immuneFire(u)){H.pop(u,'Burning','bad');H.sfx('fire');NOTE=[];await damage(null,u,3,{});const ex=NOTE||[];NOTE=null;log(`${u.name} burns: ${ex.join(' ')}`,sideCol(u));}
+  if(live(u)){const h=Tt(u.x,u.y).haz;if(h&&!HAZ[h.t].once){NOTE=[];await applyHazard(u);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));}}
   for(const z of G.zones){if(!live(u)||u.object||z.side===u.side||cheb(u,z)>z.r)continue;
-    NOTE=[];await damage(null,u,(z.radiant&&u.undead?2:1)*z.dmg,{radiant:z.radiant});if(live(u)&&z.eff){addSt(u,z.eff,1);note(ST_NAME[z.eff]+'.');}const ex=NOTE;NOTE=null;log(`${u.name} is caught in a zone: ${ex.join(' ')}`,sideCol(u));}
+    NOTE=[];await damage(null,u,(z.radiant&&u.undead?2:1)*z.dmg,{radiant:z.radiant});if(live(u)&&z.eff){addSt(u,z.eff,1);note(ST_NAME[z.eff]+'.');}const ex=NOTE||[];NOTE=null;log(`${u.name} is caught in a zone: ${ex.join(' ')}`,sideCol(u));}
   u.mp=live(u)?effSpeed(u):0;
   await checkEnd();
 }
