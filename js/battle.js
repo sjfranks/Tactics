@@ -286,12 +286,11 @@ H.turn=async u=>{
   const v=vis(u);v.last={x:u.x*TS,y:u.y*TS};
   B.pend=null;B.inspect=null;
   const c=uc(u);ring({x:c.x,y:c.y+TS*.25},u.side==='enemy'?'#ff8a6a':'#8ac0ff',TS*.6,420);
-  if(isPlayer(u)){B.pi=defaultPower(u);B.page=Math.floor(B.pi/(PORT?4:(u.powers.length>8?7:8)));B.vkey='';sfx('turn');B.toast={t0:NOW,dur:700,text:u.name,col:C.blue};}
+  if(isPlayer(u)){B.pi=defaultPower(u);B.page=Math.floor(B.pi/(PORT?4:(u.powers.length>8?7:8)));B.vkey='';sfx('turn');B.toast={t0:NOW,dur:900,text:`${u.name}'s turn`,col:C.blue};}
   else{sfx('foeturn');B.toast={t0:NOW,dur:700,text:`${u.name}`,col:u.side==='enemy'?C.red:C.blue};await sleep(300);}
 };
 H.banner=async(kind,b,va)=>{
-  if(kind==='round'){sfx('round');const T=G.threat&&THREATS[G.threat];B.banner={t0:NOW,dur:1050*spd(),title:'YOUR TURN',sub:`Round ${G.round}`+(T?` · foes ◆${Math.max(0,G.foeMom)}/${T.cost}: next, ${threatName(G.threat)}`:'')};await sleep(800);}
-  else if(kind==='foes'){sfx('foes');B.banner={t0:NOW,dur:850*spd(),title:"FOES' TURN",foes:true};await sleep(640);}
+  if(kind==='round'){sfx('round');const T=G.threat&&THREATS[G.threat];B.banner={t0:NOW,dur:1000*spd(),title:'ROUND '+G.round,sub:T?`Foe momentum ◆${Math.max(0,G.foeMom)}. At ◆${T.cost}: ${threatName(G.threat)}`:''};await sleep(780);}
   else if(kind==='threat'){shake(2,400);B.banner={t0:NOW,dur:1900*spd(),title:va.name.toUpperCase(),sub:va.desc,villain:true};await sleep(1600);}
   else if(kind==='villain'){shake(3,500);B.banner={t0:NOW,dur:2000*spd(),title:va.name,sub:va.desc,unit:b,villain:true};await sleep(1750);}
 };
@@ -457,25 +456,11 @@ function setPend(k){
   B.pend={k,T,O};B.inspect=null;sfx('select');
 }
 function selfPend(u){const p=powerOf(u,B.pi);if(p&&p.tgt==='self'&&usable(u,p)&&!u.acted)B.pend={k:K(u.x,u.y),T:{x:u.x,y:u.y},O:{x:u.x,y:u.y,s:0,prov:0,haz:0,prev:null}};}
-/* After a hero finishes, hand over to the next hero who can still act (or end the turn if nobody can). */
 async function afterCmd(u){
   B.busy=false;B.pend=null;B.vkey='';
   if(!G||G.over)return;
   if(live(u)&&!u.acted)selfPend(u);
-  if(!G.await||G.phase!=='heroes'||G.cur!==u.id||ready(u))return;
-  const nx=nextReady(u);
-  if(nx){await sleep(220);if(G&&G.await&&!B.busy&&G.cur===u.id&&ready(nx))pickHero(nx,true);}
-  else if(SET.autoEnd&&!G.tut){await sleep(250);if(G&&G.await&&!B.busy)await endTurnUI(true);}
-}
-function nextReady(u){const L=heroSide();const i=L.indexOf(u);for(let k=1;k<=L.length;k++){const h=L[(i+k+L.length)%L.length];if(h!==u&&ready(h))return h;}return null;}
-/* Switch to another hero who can still act this turn. */
-function pickHero(h,auto){
-  if(!G||!G.await||B.busy||!h||!ready(h))return false;
-  if(G.tut&&!auto&&!tutAllow('select',h))return false;
-  if(!selectHero(h))return false;
-  B.vkey='';B.pend=null;selfPend(h);
-  if(G.tut)tutEvent('select');
-  return true;
+  if(SET.autoEnd&&!G.tut&&G.await&&G.cur===u.id&&turnDone(u)){await sleep(250);if(G&&G.await&&G.cur===u.id&&!B.busy)await endTurnUI();}
 }
 async function doMove(n){
   const u=playerUnit();if(!u||B.busy)return;
@@ -493,16 +478,9 @@ async function confirmPend(){
   if(G&&G.tut&&u.acted)tutEvent('acted');
   await afterCmd(u);
 }
-async function endTurnUI(sure){
+async function endTurnUI(){
   if(!G||!G.await||B.busy)return;
   if(G.tut&&!tutAllow('end'))return;
-  const idle=heroSide().filter(h=>h.kind==='pc'&&ready(h)&&!h.acted);
-  if(!sure&&!G.tut&&idle.length){
-    const who=idle.map(h=>h.name);const list=who.length>1?who.slice(0,-1).join(', ')+' and '+who[who.length-1]:who[0];
-    openModal(dialog({title:'END YOUR TURN?',w:190,body:`${list} ${idle.length>1?'have':'has'} not acted yet. The foes will take their turn.`,
-      buttons:[{l:'END TURN',hot:true,fn:()=>endTurnUI(true)},{l:'NOT YET'}]}));
-    return;
-  }
   B.busy=true;B.pend=null;B.inspect=null;
   if(G.tut)tutEvent('ended');
   try{await playerEndTurn();}catch(e){console.error(e);}
@@ -531,7 +509,6 @@ function boardTap0(x,y){
     if(p.tgt==='self'&&t===u)return setPend(k);
   }
   if(V.moves.has(k)&&!t)return doMove(V.moves.get(k));
-  if(t&&t!==u&&t.side==='hero'&&ready(t)){pickHero(t);return;}
   if(t&&t!==u){B.inspect=t.id;B.pend=null;return;}
   if(t===u){B.inspect=null;selfPend(u);return;}
   B.pend=null;B.inspect=null;
@@ -606,7 +583,7 @@ function drawBoardFrame(){
 }
 function openFoeMomInfo(){
   const T=G.threat&&THREATS[G.threat];const L=threatList(G.enc);
-  const body=`The foes bank {r:◆} momentum every round (more as the battle drags on), and spend it on threats.\n\n`+
+  const body=`The foes bank {r:◆} momentum every round, with no limit, and spend it on threats. They have {r:◆${Math.max(0,G.foeMom)}} now.\n\n`+
     (T?`{r:Next: ${threatName(G.threat)}} at {r:◆${T.cost}} (they have ${Math.max(0,G.foeMom)}). ${T.desc}\n\n`:'')+
     `{m:This battle they can unleash:}\n`+L.map(id=>`{r:${threatName(id)}} (◆${THREATS[id].cost}): ${THREATS[id].desc}`).join('\n')+
     `\n\n{m:Deeper into the journey, foes learn nastier threats.} Some foes also spend momentum on their own special attacks.`;
@@ -618,8 +595,8 @@ function drawTopBarP(){
   const mb=15;button(SW-mb-2,1,mb,12,'≡',()=>openSettings(true),{});
   const rd=`ROUND ${G.round}`,rw=textW(rd)+10;let x=SW-mb-4-rw;
   chip(x,1,rw,12,'#241c16',C.rim);text(rd,x+rw/2,4,C.parch,{al:'c'});
-  const T=G.threat&&THREATS[G.threat];const fm=T?`${Math.max(0,G.foeMom)}/${T.cost}`:String(Math.max(0,G.foeMom)),fw=textW(fm)+16;x-=fw+2;
-  const near=T&&G.foeMom+TUNE.foeMomRound+Math.floor((G.round+1)/2)>=T.cost;
+  const T=G.threat&&THREATS[G.threat];const fm=String(Math.max(0,G.foeMom)),fw=textW(fm)+16;x-=fw+2;
+  const near=T&&G.foeMom+TUNE.foeMomRound>=T.cost;
   chip(x,1,fw,12,'#2e1426',near&&Math.floor(NOW/300)%2?'#ff6a9a':'#8a3a6a');gem(x+3,3,'foe');text(fm,x+12,4,'#ffc8e0');
   hit(x,1,fw,12,{fn:openFoeMomInfo,id:'fm'});
   const ow=x-4;chip(2,1,ow,12,'#241c16',C.rim);
@@ -634,7 +611,7 @@ function openMissionInfo(){const E=G.enc;msg(E.title||MISSIONS[E.type].name,miss
 const COMBO_KEY='emberwatch.v3.combos';
 function comboSeen(){try{return !!localStorage.getItem(COMBO_KEY);}catch(e){return true;}}
 function showComboIntro(){return new Promise(res=>{try{localStorage.setItem(COMBO_KEY,'1');}catch(e){}
-  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Each round {g:your heroes act first}, in any order: tap a hero to pick them. Then the foes act. Red lines show each foe\'s {g:intent}: whom it will attack.\n\nHeroes {g:set up} attacks for each other. A foe that is shoved, dragged or knocked down is {g:staggered}: the next attack on it is a sure critical hit. {g:Exposed} foes take +3 damage from every hit, and {g:blessed} heroes attack with advantage.\n\nCash in another hero\'s set-up for a {g:combo}: +1 momentum for both, and more damage for the rest of the turn. Chain them!',
+  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Heroes and foes act in {g:initiative} order. Heroes {g:set up} attacks for each other, so watch who acts next. A foe that is shoved, dragged or knocked down is {g:staggered}: the next attack on it is a sure critical hit. {g:Exposed} foes take +3 damage from every hit, and {g:blessed} heroes attack with advantage.\n\nA set-up lasts until the foe\'s own turn, so cash it in with a hero who acts before it: that is a {g:combo}, +1 momentum for both, and more damage for the rest of the round. Chain them!\n\nTap {g:INTENT} to see whom each foe means to attack.',
     buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 function showObjective(){return new Promise(res=>{const E=G.enc;openModal(dialog({title:(E.title||MISSIONS[E.type].name).toUpperCase(),body:missionBody()+'\n\n{m:Tap the objective bar at the top to see this again.}',w:200,closable:false,buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 /* Name, health and momentum of the active (or inspected) unit. Tap for the full character sheet. */
@@ -667,15 +644,12 @@ function drawInfoBarP(){
   hit(0,y,rx-(pc?gw:0),h,{fn:()=>openUnitInfo(show),id:'infoline'});
   if(insp)button(w-14,y+6,12,12,'×',()=>{B.inspect=null;},{});
 }
-/* "YOUR TURN · 2 TO ACT" (or the acting foe's name) in the space above the board. */
-function heroesToAct(){return G?heroSide().filter(h=>h.kind==='pc'&&ready(h)&&!h.acted).length:0;}
+/* "ORIN'S TURN" plate in the space above the board. */
 function drawTurnPlate(){
-  if(!PL.plate||!G)return;
-  const cur=activeUnit();const mine=G.phase==='heroes';
-  if(!mine&&(!cur||!live(cur)))return;
-  const foe=!mine;
-  const n=heroesToAct();
-  const t=mine?(G.await?`YOUR TURN · ${n?n+' TO ACT':'ALL DONE'}`:'YOUR TURN'):cur.name.toUpperCase();
+  const cur=activeUnit();
+  if(!PL.plate||!cur||!live(cur))return;
+  const foe=cur.side==='enemy';
+  const t=(isPlayer(cur)?cur.name+"'s turn":cur.name).toUpperCase();
   const w=textW(t)+24,x=Math.floor((SW-w)/2),y=PL.plate.y;
   rect(x,y,w,11,C.edge);rect(x+1,y+1,w-2,9,foe?'#5a1a14':'#1a2e5a');rect(x+1,y+1,w-2,1,foe?'#a03a2a':'#4a6ab0');
   rect(x-4,y+5,4,1,foe?'#a03a2a':'#4a6ab0');rect(x+w,y+5,4,1,foe?'#a03a2a':'#4a6ab0');
@@ -687,11 +661,10 @@ function hintLines(){
   const u=playerUnit(),au=activeUnit();
   if(G.over)return [G.result==='win'?'{g:Victory!}':'{r:Defeat.}'];
   if(!u){return au&&live(au)?[(au.side==='enemy'?'{r:':'{b:')+au.name+'} is acting…']:['…'];}
-  const others=heroSide().some(h=>h!==u&&ready(h));
-  if(u.kind==='npc')return ['Tap a blue square to move the captive.',others?'Tap another hero to switch, or {g:End Turn}.':'Then tap {g:End Turn}.'];
+  if(u.kind==='npc')return ['Tap a blue square to move the captive, then {g:End Turn}.'];
   const p=powerOf(u,B.pi);const V=view();
   if(B.pend&&p)return [p.tgt==='enemy'?'Tap the target again or press {g:STRIKE}.':'Tap again or press {g:CONFIRM} to use it.',p.desc];
-  if(u.acted){const mv=V&&V.moves.size>1;return others?[(mv?'Move on, or tap':'Tap')+' another hero to act.','Or tap {g:End Turn} to let the foes move.']:mv?['Move with your remaining steps, or {g:End Turn}.']:['Everyone has acted. Tap {g:End Turn}.'];}
+  if(u.acted){return V&&V.moves.size>1?['Move with your remaining steps, or {g:End Turn}.']:['Nothing left to do. Tap {g:End Turn}.'];}
   if(p&&!usable(u,p))return [`{r:${p.name} needs ◆${p.cost}.} You have ◆${u.mom}.`,'Pick another power, or move.'];
   if(p){
     const how=p.tgt==='enemy'?'Tap a red foe to attack, or a blue square to move.':p.tgt==='ally'?'Tap a green ally, or a blue square to move.':p.tgt==='tile'?(p.area!=null?'Tap an orange square to aim, or move.':'Tap a purple square, or move.'):'Tap the card again to use it, or move.';
@@ -732,7 +705,7 @@ function drawTrayP(){
   rect(0,py,SW,ph,'#140e0b');rect(0,py,SW,1,C.edge);rect(0,py+1,SW,1,'#2e241c');
   const u=playerUnit();
   if(!u){const au=activeUnit();if(au&&live(au)){portrait(au,SW/2-11,py+Math.floor((ph-22)/2),22);}return;}
-  if(u.kind==='npc'){rich('The captive can only move. Tap a blue square, then another hero or End Turn.',8,py+8,SW-16,C.parch);return;}
+  if(u.kind==='npc'){rich('The captive can only move. Tap a blue square, then End Turn.',8,py+8,SW-16,C.parch);return;}
   const n=u.powers.length,per=4,pages=Math.ceil(n/per);B.page=clamp(B.page,0,Math.max(0,pages-1));
   const side=pages>1?11:0;
   const gap=3,pw=Math.floor((SW-6-gap-side)/2),phh=Math.floor((ph-5-gap)/2);
@@ -771,7 +744,7 @@ function drawTop(){
   text('· '+obj,6+ow,3,C.parch);
   hit(0,0,160,12,{fn:openMissionInfo,id:'obj'});
   text('ROUND '+G.round,SW/2+36,3,C.parch,{al:'c'});
-  const fm=Math.max(0,G.foeMom)+(G.threat?'/'+THREATS[G.threat].cost:'');text('Foes',SW-14-textW(String(fm)),3,C.mom,{al:'r'});gem(SW-12-textW(String(fm)),2,'foe');text(String(fm),SW-3,3,'#ffc8e0',{al:'r'});
+  const fm=Math.max(0,G.foeMom);text('Foes',SW-14-textW(String(fm)),3,C.mom,{al:'r'});gem(SW-12-textW(String(fm)),2,'foe');text(String(fm),SW-3,3,'#ffc8e0',{al:'r'});
   hit(SW-50,0,50,12,{fn:openFoeMomInfo,id:'fm'});
 }
 function objText(){
@@ -816,10 +789,10 @@ function drawBoard(){
   if(B.toast&&PORT&&PL.plate)B.toast=null;
   if(B.toast){const p=(NOW-B.toast.t0)/B.toast.dur;if(p>=1)B.toast=null;else{ctx.globalAlpha=Math.min(1,(1-p)*3);const w=textW(B.toast.text)+10;rect(BX+COLS*TS/2-w/2,BY+1,w,9,'rgba(10,6,4,.8)');text(B.toast.text,BX+COLS*TS/2,BY+3,B.toast.col,{al:'c'});ctx.globalAlpha=1;}}
 }
-/* ---------------- foe intents: during your turn, what each foe means to do on its turn ---------------- */
+/* ---------------- foe intents: what each foe means to do on its next turn ---------------- */
 const INT={key:'',list:[]};
 function foeIntents(){
-  if(!G||G.phase!=='heroes'||G.over)return [];
+  if(!G||G.over)return [];
   const key=G.cmd+'|'+G.round+'|'+G.foeMom+'|'+G.units.map(u=>u.id+':'+u.x+','+u.y+':'+u.hp+(live(u)?'':'d')+Object.keys(u.st).join('')+(u.marker||'')).join(';');
   if(key===INT.key)return INT.list;
   INT.key=key;INT.list=[];
@@ -846,32 +819,32 @@ function dline(x1,y1,x2,y2,col,dash,ph){
   const n=Math.max(1,Math.round(Math.max(Math.abs(x2-x1),Math.abs(y2-y1))));
   for(let i=0;i<=n;i++){if(dash&&((i+ph)%dash)>=dash/2)continue;rect(Math.round(x1+(x2-x1)*i/n),Math.round(y1+(y2-y1)*i/n),Q,Q,col);}
 }
+function toggleIntents(){SET.showIntents=SET.showIntents!==true;saveSet();sfx('select');}
+/* Shown only when the INTENT button is on: a faint dotted line from each foe to whom it means to attack,
+   red corner brackets on that hero, and a small tag with the damage heading their way. */
 function drawIntents(){
-  if(SET.intents===false)return;
+  if(SET.showIntents!==true)return;
   const pu=playerUnit();if(!pu||B.busy||G.over)return;
   const L=foeIntents();if(!L.length)return;
-  const ph=Math.floor(NOW/90);const tot={};
+  const ph=Math.floor(NOW/120);const tot={};
   for(const it of L){
-    const insp=B.inspect===it.e.id;const a=insp?1:.55;
-    const c0=uc(it.e),n={x:BX+it.node.x*TS+TS*SZ(it.e)/2,y:BY+it.node.y*TS+TS*SZ(it.e)/2};
-    ctx.globalAlpha=a*.7;
-    if(n.x!==c0.x||n.y!==c0.y)dline(c0.x,c0.y,n.x,n.y,'#ffb0a0',4*Q,ph);
-    ctx.globalAlpha=a;
-    if(it.tile){const tx=BX+it.tile.x*TS,ty=BY+it.tile.y*TS;dline(n.x,n.y,tx+TS/2,ty+TS/2,'#ff5a40',0,0);
-      for(let i=0;i<TS/3;i++){rect(tx+TS/3+i,ty+TS/3+i,Q,Q,'#ff5a40');rect(tx+2*TS/3-i,ty+TS/3+i,Q,Q,'#ff5a40');}}
-    else{const tc0=uc(it.t);dline(n.x,n.y,tc0.x,tc0.y,insp?'#ff3a2a':'#ff5a40',0,0);
-      rect(tc0.x-Q,tc0.y-Q,3*Q,3*Q,'#ff3a2a');
-      const T=tot[it.t.id]||(tot[it.t.id]={t:it.t,ev:0,kill:0,n:0});T.ev+=it.ev;T.kill=Math.max(T.kill,it.kill);T.n++;}
+    const insp=B.inspect===it.e.id;
+    const c0=uc(it.e);const to=it.tile?{x:BX+it.tile.x*TS+TS/2,y:BY+it.tile.y*TS+TS/2}:uc(it.t);
+    ctx.globalAlpha=insp?.9:.45;
+    const n=Math.max(1,Math.round(Math.hypot(to.x-c0.x,to.y-c0.y)/3));
+    for(let i=1;i<n;i++){if((i+ph)%3===0)continue;rect(Math.round(c0.x+(to.x-c0.x)*i/n),Math.round(c0.y+(to.y-c0.y)*i/n),1,1,'#ff8a70');}
     ctx.globalAlpha=1;
+    if(it.tile)continue;
+    const T=tot[it.t.id]||(tot[it.t.id]={t:it.t,ev:0,kill:0});T.ev+=it.ev;T.kill=Math.max(T.kill,it.kill);
   }
-  // the damage each hero is about to take, over their head
-  for(const k in tot){const T=tot[k];const p=uPos(T.t);const X=BX+p.x,Y=BY+p.y;const lab=(T.kill>=.3?'☠':'')+'-'+Math.round(T.ev);
-    const w=textW(lab)+4;const blink=T.kill>=.3&&Math.floor(NOW/300)%2;
-    rect(X,Y,w,9,C.edge);rect(X+1,Y+1,w-2,7,blink?'#a01a10':'#6a120c');text(lab,X+2,Y+2,'#ffd8d0');}
+  for(const k in tot){const T=tot[k];const p=uPos(T.t);const X=BX+p.x,Y=BY+p.y,S=TS*SZ(T.t),L2=3+Q;
+    for(const[dx,dy,sx,sy]of[[0,0,1,1],[S-1,0,-1,1],[0,S-1,1,-1],[S-1,S-1,-1,-1]]){rect(X+dx+(sx<0?-L2+1:0),Y+dy,L2,1,'#ff6a50');rect(X+dx,Y+dy+(sy<0?-L2+1:0),1,L2,'#ff6a50');}
+    const lab=(T.kill>=.3?'☠':'')+Math.round(T.ev);const w=textW(lab)+4;
+    rect(X+S-w-1,Y+1,w,8,'rgba(40,6,4,.85)');text(lab,X+S-w+1,Y+2,T.kill>=.3?'#ffb0a0':'#ffd8d0');}
 }
-/* "COMBO ×2 · +2" while a chain is running on your turn. */
+/* "COMBO ×2 · +2" while a chain is running this round. */
 function drawComboChip(){
-  if(!G||G.phase!=='heroes'||!G.combo)return;
+  if(!G||!G.combo)return;
   const lab=`COMBO ×${G.combo}`,sub=`+${comboBonus(G.combo)} dmg`;const w=textW(lab)+textW(sub)+14,h=11;
   const x=BX+COLS*TS-w-2,y=BY+2;const pop=B.comboT&&NOW-B.comboT<300?1:0;
   rect(x-1-pop,y-1-pop,w+2+2*pop,h+2+2*pop,C.edge);rect(x,y,w,h,'#5a3a08');rect(x,y,w,1,'#c89030');
@@ -883,7 +856,6 @@ function drawUnit(u){
   if(v.dying){const q=(NOW-v.dying.t0)/v.dying.dur;a=Math.max(0,1-q*1.4);}
   if(v.fade){const q=(NOW-v.fade.t0)/v.fade.dur;if(q>=1)v.fade=null;else a*=v.fade.out?1-q:q;}
   if(u.hidden)a*=.5;
-  if(G.phase==='heroes'&&G.await&&u.side==='hero'&&live(u)&&!u.object&&!u.caged&&(u.kind==='pc'||u.kind==='npc')&&!ready(u))a*=.55;
   const flash=v.flash&&NOW<v.flash;
   const idle=!v.anim&&!v.dying&&live(u);
   const seed=u.id.charCodeAt(u.id.length-1);
@@ -1044,37 +1016,33 @@ function drawForecast(u,x,y0,w,h){
 }
 function drawCtrlBar(){
   const y=PL.ctrlY,h=PL.ctrlH,pu=playerUnit();
-  const bs=[['↶ UNDO',undoUI,{disabled:B.busy||!canUndo()}],['LOG',openLog,{}],['TURNS',openOrder,{}]];
-  const bw=Math.floor((SW-4)*.2)+1;
+  const bs=[['↶ UNDO',undoUI,{disabled:B.busy||!canUndo()}],['LOG',openLog,{}],['TURNS',openOrder,{}],['INTENT',toggleIntents,{on:SET.showIntents===true}]];
+  const bw=Math.floor((SW-4)*.165);
   bs.forEach((b,i)=>button(2+i*(bw+2),y,bw,h,b[0],b[1],b[2]));
-  const ex=2+3*(bw+2),done=!!pu&&G.phase==='heroes'&&!heroesToAct();
+  const ex=2+4*(bw+2),done=!!pu&&turnDone(pu);
   B.endR={x:ex,y,w:SW-2-ex,h};button(ex,y,SW-2-ex,h,pu?'END TURN':'…',()=>endTurnUI(),{hot:!!pu,disabled:!pu||B.busy,glow:done});
 }
 function drawRight(){
   panel(225,13,95,133,{});
   text('TURN ORDER',272,16,C.gold,{al:'c'});
-  const list=upcoming(7);let y=24,lastR=G.round,lastH=list.length&&list[0].hero;
+  const list=upcoming(6);let y=24,lastR=G.round;
   for(const e of list){
-    if(y>78)break;
+    if(y>66)break;
     if(e.round!==lastR){rect(230,y+1,84,1,C.dim);text('Round '+e.round,272,y-1,C.mute,{al:'c',sh:C.panel});y+=5;lastR=e.round;}
-    else if(!e.hero&&lastH){rect(230,y+1,84,1,C.dim);text('Foes',272,y-1,'#ff9a80',{al:'c',sh:C.panel});y+=5;}
-    lastH=e.hero;
-    if(y>82)break;
+    if(y>68)break;
     const u=e.u;if(e.now){rect(229,y-1,88,12,'#3a2e1a');}
-    if(e.done)ctx.globalAlpha=.5;
     token(u,235,y+5,5);
     text(u.name.length>13?u.name.slice(0,12)+'…':u.name,243,y+3,e.now?C.gold:u.side==='enemy'?'#ff9a80':C.parch);
-    ctx.globalAlpha=1;
-    if(e.hero&&e.round===G.round)text(e.done?'done':'ready',314,y+3,e.done?C.dim:C.green,{al:'r'});
-    hit(229,y-1,88,12,{fn:()=>{if(e.hero&&!e.done&&e.round===G.round&&pickHero(u))return;B.inspect=u.id;},id:'to'+u.id+y});
+    hit(229,y-1,88,12,{fn:()=>{B.inspect=u.id;},id:'to'+u.id+y});
     y+=12;
   }
   const pu=playerUnit();
+  button(229,76,87,12,'FOE INTENTS',toggleIntents,{on:SET.showIntents===true});
   button(229,90,42,12,'ORDER',openOrder,{});
   button(273,90,43,12,'LOG',openLog,{});
   button(229,104,42,12,'UNDO',undoUI,{disabled:B.busy||!canUndo()});
   button(273,104,43,12,'MENU',()=>openSettings(true),{});
-  B.endR={x:229,y:120,w:87,h:22};button(229,120,87,22,pu?'END TURN':'…',()=>endTurnUI(),{hot:!!pu&&!heroesToAct(),disabled:!pu||B.busy});
+  B.endR={x:229,y:120,w:87,h:22};button(229,120,87,22,pu?'END TURN':'…',()=>endTurnUI(),{hot:!!pu&&turnDone(pu),disabled:!pu||B.busy});
 }
 function drawHotbar(){
   const py=PORT?PL.trayY:146,ph=PORT?PL.trayH:34;
@@ -1119,25 +1087,20 @@ function openOrder(){
   scrollTo('order',0);
   openModal({closable:true,draw(){
     dim();const w=Math.min(200,SW-8),h=PORT?SH-24:164,x=Math.floor((SW-w)/2),y=Math.floor((SH-h)/2);panel(x,y,w,h,{title:'TURN ORDER'});
-    text('Your heroes act in any order, then the foes.',x+w/2,y+9,C.mute,{al:'c'});
-    const list=upcoming(24);const RH=26;let ch=0;let lr=G.round,lh=list.length&&list[0].hero;for(const e of list){if(e.round!==lr||(!e.hero&&lh)){ch+=11;lr=e.round;}lh=e.hero;ch+=RH;}
-    scrollArea('order',x+5,y+18,w-9,h-38,ch,(yy,clip)=>{let cy=yy,lr2=G.round,lh2=list.length&&list[0].hero;
-      const sep=t=>{rect(x+10,cy+5,w-20,1,C.dim);rect(x+w/2-textW(t)/2,cy+2,textW(t),7,C.panel);text(t,x+w/2,cy+3,C.mute,{al:'c'});cy+=11;};
+    text('Initiative: d20 + Finesse, highest first.',x+w/2,y+9,C.mute,{al:'c'});
+    const list=upcoming(24);const RH=26;let ch=0;let lr=G.round;for(const e of list){if(e.round!==lr){ch+=11;lr=e.round;}ch+=RH;}
+    scrollArea('order',x+5,y+18,w-9,h-38,ch,(yy,clip)=>{let cy=yy,lr2=G.round;
       for(const e of list){
-        if(e.round!==lr2){sep(' ROUND '+e.round+' · YOUR TURN ');lr2=e.round;}
-        else if(!e.hero&&lh2)sep(" FOES' TURN ");
-        lh2=e.hero;
-        const u=e.u,foe=u.side==='enemy',mine=e.hero&&e.round===G.round;
+        if(e.round!==lr2){rect(x+10,cy+5,w-20,1,C.dim);const t=' ROUND '+e.round+' ';rect(x+w/2-textW(t)/2,cy+2,textW(t),7,C.panel);text(t,x+w/2,cy+3,C.mute,{al:'c'});cy+=11;lr2=e.round;}
+        const u=e.u,foe=u.side==='enemy';
         if(cy+RH>=clip[0]&&cy<=clip[1]){
           if(e.now){rect(x+6,cy,w-15,RH-2,'#3e3018');frame(x+6,cy,w-15,RH-2,C.gold);}else rect(x+6,cy,w-15,RH-2,'#1e1713');
-          if(e.done)ctx.globalAlpha=.5;
           portrait(u,x+8,cy+1,22);
           text(u.name,x+33,cy+3,e.now?C.gold:foe?'#ff9a80':C.parch);
-          ctx.globalAlpha=1;
-          text(mine?(e.done?'DONE':e.now?'SELECTED':'READY'):e.now?'NOW':e.extra?'EXTRA TURN':e.hero?'':'Init '+u.init,x+w-12,cy+3,mine?(e.done?C.dim:e.now?C.gold:C.green):e.now?C.gold:C.mute,{al:'r'});
+          text(e.now?'NOW':e.extra?'EXTRA TURN':'Init '+u.init,x+w-12,cy+3,e.now?C.gold:C.mute,{al:'r'});
           const f=Math.max(0,u.hp)/u.maxHp;bar(x+33,cy+12,54,6,f,foe?'#d04030':'#50c050');text(`${Math.max(0,u.hp)}/${u.maxHp}`,x+90,cy+12,C.parch);
           statusRow(u,x+w-12-Math.min(4,unitStatuses(u).length)*8,cy+11,4);
-          hit(x+6,Math.max(cy,clip[0]),w-15,RH-2,{fn:()=>{if(mine&&!e.done&&G.await){closeModal();pickHero(u);return;}openUnitInfo(u);},id:'ord'+cy});
+          hit(x+6,Math.max(cy,clip[0]),w-15,RH-2,{fn:()=>openUnitInfo(u),id:'ord'+cy});
         }
         cy+=RH;
       }});

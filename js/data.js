@@ -9,10 +9,10 @@ const SKILLS={Athletics:'M',Acrobatics:'F',Stealth:'F',Thievery:'F',Magic:'W',Lo
 const RESULT=['Graze','Hit','Critical hit'];
 const RESULT_SHORT=['Graze','Hit','Crit'];
 /* Difficulty, tuned with tools/sim.js (whole journeys played by the autoplay AI). actMul scales each region's encounter budget. */
-const TUNE={budget0:11,budgetSlope:.9,hpSlope:.06,dmgSlope:.3,rollStep:4,bossHp:.8,foeMomRound:1,summonAt:8,actMul:[1,1.1,.65],
-  healAfter:.05,bossEscort:.4,pbBonus:3,fallenHp:.25,momTurn:1,momStart:0,actHeal:.6,maxLvl:10,winXp:20,bossXp:50,sneak:3,aiSetup:1.5,aiCombo:1};
+const TUNE={budget0:10,budgetSlope:.9,hpSlope:.05,dmgSlope:.25,rollStep:4,bossHp:.8,foeMomRound:1,foeMomRamp:0,eliteMul:[1,.8,1],summonAt:8,actMul:[1,1.1,.65],
+  healAfter:.05,bossEscort:.4,pbBonus:3,fallenHp:.25,momTurn:1,momStart:0,actHeal:.6,maxLvl:12,winXp:20,bossXp:50,sneak:3,aiCombo:1};
 /* Experience needed to reach each level (index = level). Heroes earn it by doing their job in battle. */
-const XP_AT=[0,0,60,140,240,360,500,660,840,1040,1260];
+const XP_AT=[0,0,55,125,210,315,440,580,740,910,1100,1320,1560];
 /* How much each kind of deed is worth to each role: defenders shove foes around and soak blows, strikers
    deal damage and finish foes, controllers catch many foes and hinder them, leaders mend and empower. Everyone
    earns some for combos: setting one up for a friend (setup) or cashing in a friend's set-up (combo). */
@@ -54,8 +54,8 @@ const CLASSES={
     pro:'she',mom:['+1 when one of her powers heals, blesses, shields or moves an ally.']},
 };
 const ORDER=['fighter','rogue','wizard','cleric'];
-/* Levels raise the main attribute at 3, 6 and 9 and the second one at 5 and 8: better rolls and harder hits. */
-function attrsFor(cls,lvl){const C=CLASSES[cls];const a=Object.assign({},C.attrs);a[C.prime]+=(lvl>=3)+(lvl>=6)+(lvl>=9);a[C.second]+=(lvl>=5)+(lvl>=8);return a;}
+/* Levels (up to 12, about 3 per land) raise the main attribute at 3, 6, 9 and 12 and the second one at 5, 8 and 11. */
+function attrsFor(cls,lvl){const C=CLASSES[cls];const a=Object.assign({},C.attrs);a[C.prime]+=(lvl>=3)+(lvl>=6)+(lvl>=9)+(lvl>=12);a[C.second]+=(lvl>=5)+(lvl>=8)+(lvl>=11);return a;}
 
 /* a: attribute used. dmg: damage by result (Graze/Hit/Critical hit) before the attribute is added. eff values are by result too.
    Set-ups: push/pull/stag stagger a foe (the next attack on it is a critical hit), expose adds damage to every hit,
@@ -66,9 +66,9 @@ const POWERS={
   grind:{c:'fighter',lv:1,a:'M',name:'Grinding Strike',cost:0,tgt:'enemy',range:1,dmg:[3,6,9],mark:1,eff:{push:[0,0,1]},desc:'A heavy blow. Mark the foe. On a crit: push 1.'},
   hook:{c:'fighter',lv:1,a:'M',name:'Hook Chain',cost:2,tgt:'enemy',range:3,reach:true,dmg:[2,4,6],mark:1,eff:{pull:[1,2,3],slow:[0,1,1]},desc:'Range 3. Drag the foe toward you, leaving it staggered, and mark it. On a hit: slowed.'},
   cleave:{c:'fighter',lv:1,a:'M',name:'Cleave',cost:0,tgt:'enemy',range:1,dmg:[2,4,6],mark:1,cleave:true,desc:'Mark the foe. Another foe beside you takes damage equal to your Might.'},
-  sweep:{c:'fighter',lv:1,a:'M',name:'Sweeping Blow',cost:2,tgt:'self',area:1,aff:'foe',dmg:[2,4,6],mark:1,eff:{stag:[0,0,1]},desc:'Strike every foe around you, diagonals too, and mark them all. On a crit: staggered.'},
+  sweep:{c:'fighter',lv:1,a:'M',name:'Sweeping Blow',cost:3,tgt:'self',area:1,aff:'foe',dmg:[2,4,6],mark:1,eff:{stag:[0,0,1]},desc:'Strike every foe around you, diagonals too, and mark them all. On a crit: staggered.'},
   shieldWall:{c:'fighter',lv:1,a:'M',name:'Shield Wall',cost:2,tgt:'self',area:1,aff:'ally',shield:6,markAround:1,desc:'You and allies around you gain 6 shield. Mark adjacent foes.'},
-  cagi:{c:'fighter',lv:1,a:'P',name:'Come and Get It',cost:3,tgt:'self',area:2,aff:'foe',pullFirst:2,noDmg:true,desc:'Drag every foe within 2 up to 2 squares toward you. They are staggered and marked: they must fight you.'},
+  cagi:{c:'fighter',lv:1,a:'P',name:'Come and Get It',cost:2,tgt:'self',area:2,aff:'foe',pullFirst:2,noDmg:true,desc:'Drag every foe within 2 up to 2 squares toward you. They are staggered and marked: they must fight you.'},
   spin:{c:'fighter',lv:3,a:'M',name:'Leg Sweep',cost:1,tgt:'enemy',range:1,dmg:[3,5,7],mark:1,eff:{stag:[1,1,1]},desc:'Knock the foe down: it is staggered. Mark it.'},
   crush:{c:'fighter',lv:3,a:'M',name:'Crushing Blow',cost:3,tgt:'enemy',range:1,dmg:[5,8,11],mark:1,eff:{stag:[0,1,1],daze:[0,0,1]},desc:'Mark the foe. On a hit: staggered. On a crit: also dazed.'},
   hurl:{c:'fighter',lv:3,a:'M',name:'Hurl',cost:2,tgt:'enemy',range:1,dmg:[2,4,6],eff:{push:[2,3,4]},desc:'Heave the foe away, leaving it staggered. Perfect for throwing it into fire, or into another foe.'},
@@ -88,7 +88,7 @@ const POWERS={
   position:{c:'rogue',lv:3,a:'F',name:'Positioning Strike',cost:1,tgt:'enemy',range:1,dmg:[2,4,6],eff:{push:[1,2,3]},desc:'Shove the foe where you want it, leaving it staggered for a friend.'},
   barrage:{c:'rogue',lv:3,a:'F',name:'Blinding Barrage',cost:3,tgt:'self',area:1,aff:'foe',dmg:[2,4,6],eff:{daze:[0,1,1]},desc:'Strike every foe around you. On a hit: dazed.'},
   vanish:{c:'rogue',lv:3,a:'F',name:'Vanish',cost:2,tgt:'self',free:true,hide:true,freeMove:2,desc:'Free action. Become hidden and gain 2 more movement.'},
-  assassinate:{c:'rogue',lv:5,a:'F',name:'Assassinate',cost:4,tgt:'enemy',range:1,dmg:[6,10,14],execute:true,desc:'Double damage against a foe at half health or less.'},
+  assassinate:{c:'rogue',lv:5,a:'F',name:'Assassinate',cost:5,tgt:'enemy',range:1,dmg:[6,10,14],execute:true,desc:'Double damage against a foe at half health or less.'},
   twin:{c:'rogue',lv:5,a:'F',name:'Twin Fangs',cost:4,tgt:'enemy',range:1,dmg:[3,5,7],hits:2,desc:'Strike twice.'},
   dance:{c:'rogue',lv:7,a:'F',name:'Dance of Blades',cost:5,tgt:'self',area:1,aff:'foe',dmg:[4,7,10],canto:3,desc:'Strike every foe around you, then move 3.'},
   cripple:{c:'rogue',lv:7,a:'F',name:'Crippling Shot',cost:3,tgt:'enemy',range:5,dmg:[3,5,8],eff:{slow:[1,1,0],root:[0,0,1],expose:[1,1,1]},proj:'#e6ecf2',desc:'Range 5. The foe is exposed and slowed. On a crit: rooted instead of slowed.'},
@@ -160,7 +160,7 @@ const MON={
   ooze:{name:'Grave Ooze',role:'Brute',act:1,art:'ooze',hp:26,speed:2,attrs:{M:2,F:0,W:0,P:0},cost:3,acidDeath:true,acts:[{name:'Acid Slam',a:'M',range:1,dmg:[3,5,7],eff:{weak:[0,1,1]}},{name:'Acid Spit',a:'M',range:3,dmg:[1,2,3],cost:2,hazard:'acid'}],note:'Spits pools of acid. Leaves acid where it dies.'},
   cultist:{name:'Grave Cultist',role:'Hexer',act:1,art:'cultist',hp:14,speed:3,attrs:{M:0,F:1,W:2,P:1},cost:3,acts:[{name:'Withering Curse',a:'W',range:4,dmg:[2,4,6],eff:{weak:[0,1,1],bleed:[0,0,2]}},{name:'Dark Offering',tgt:'self',mom:2}],note:'Can bleed itself to feed the foes\' momentum.'},
   wight:{name:'Barrow Wight',role:'Champion',act:1,art:'wight',hp:44,speed:3,attrs:{M:3,F:1,W:1,P:2},steady:1,armor:2,undead:true,drain:true,aura:true,cost:6,acts:[{name:'Draining Touch',a:'M',range:1,dmg:[4,7,10],eff:{weak:[1,1,1]}}],note:'Heals half the damage it deals. Aura: allies within 2 gain advantage.'},
-  lich:{name:'The Lich',role:'Boss',act:1,art:'lich',hp:65,speed:3,attrs:{M:0,F:1,W:4,P:3},steady:2,undead:true,boss:true,attacks:2,summon:'bones',summonN:2,summonCap:6,acts:[{name:'Necrotic Bolt',a:'W',range:5,dmg:[4,7,10],eff:{weak:[0,0,1]}},{name:'Grave Chill',a:'W',range:4,area:1,dmg:[3,5,7],eff:{slow:[1,1,1]},cost:3}],va:['raise','siphon','nova'],note:'Casts twice. Raises the dead every other round. Boss surges on rounds 1, 3 and 5.'},
+  lich:{name:'The Lich',role:'Boss',act:1,art:'lich',hp:160,speed:3,attrs:{M:0,F:1,W:4,P:3},steady:2,undead:true,boss:true,attacks:1,summon:'bones',summonN:3,summonCap:6,acts:[{name:'Necrotic Bolt',a:'W',range:5,dmg:[4,7,10],eff:{weak:[0,0,1]}},{name:'Grave Chill',a:'W',range:4,area:1,dmg:[3,5,7],eff:{slow:[1,1,1]},cost:3}],va:['raise','siphon','nova'],note:'Raises three dead every other round. Boss surges on rounds 1, 3 and 5.'},
   imp:{name:'Ember Imp',plural:'ember imps',role:'Minion',act:2,art:'imp',hp:1,speed:5,attrs:{M:0,F:2,W:1,P:0},minion:true,nimble:true,fireDeath:true,cost:.5,acts:[{name:'Firebolt',range:3,flat:3}],note:'Bursts into fire when slain.'},
   gnoll:{name:'Gnoll Marauder',role:'Harrier',act:2,art:'gnoll',hp:24,speed:4,attrs:{M:3,F:1,W:0,P:0},armor:1,savage:true,cost:3,acts:[{name:'Flail',a:'M',range:1,dmg:[3,6,8],eff:{bleed:[0,0,2]}}],note:'Savage: +2 damage to heroes at half health or less.'},
   priest:{name:'Cinder Priest',role:'Leader',act:2,art:'firePriest',hp:22,speed:3,attrs:{M:0,F:1,W:2,P:3},aura:true,cost:4,acts:[{name:'Scorch',a:'P',range:4,dmg:[3,5,7],eff:{burn:[1,1,2]}},{name:'Kindle',range:4,trap:'fire',cd:2},{name:'Mend',tgt:'ally',range:4,heal:8}],note:'Sets the ground on fire. Aura: allies within 2 gain advantage.'},
@@ -223,7 +223,7 @@ const RELICS={
   scale:{name:'Salamander Scale',price:100,desc:'Heroes ignore fire and lava damage and cannot be set burning.'},
   gauntlet:{name:'Gauntlet of Force',price:120,desc:'Hero pushes and pulls move 1 extra square.'},
   fenboots:{name:'Fenwalker Boots',price:90,desc:'Heroes ignore difficult terrain.'},
-  hourglass:{name:'Hourglass of Haste',price:80,desc:'Heroes move 2 extra squares in the first round of every battle.'},
+  hourglass:{name:'Hourglass of Haste',price:80,desc:'Heroes add 3 to their initiative rolls.'},
   coin:{name:'Lucky Coin',price:70,desc:'Earn 50% more gold.'},
   waterskin:{name:'Healer\'s Satchel',price:90,desc:'Heroes heal an extra 15% after every battle.'},
 };
@@ -258,7 +258,7 @@ function weaponText(w){const b=[];if(w.dmg)b.push(`+${w.dmg} damage`);if(w.acc)b
 /* Foe momentum buys threats. Which ones a battle can use grows with how deep into the journey it is. */
 const THREATS={
   bloodlust:{name:'Bloodlust',cost:3,desc:'Every foe has advantage on its attacks this round.'},
-  hazard:{name:'Hazard',forms:['hazards','hazard'],text:'Fire, acid, lava, snares and webs. Creatures suffer a hazard when they enter it (even when pushed or pulled in) and when they end their turn in it.'},
+  hazard:{name:'Eruption',cost:5,desc:'The ground erupts beneath heroes. Move off it or suffer!',names:['Wildfire','Acid Seep','Eruption']},
   reinforce:{name:'Reinforcements',cost:7,desc:'A horde of minions pours in from the edges.'},
   rite:{name:'Dark Rite',cost:6,desc:'Every foe is wrapped in shield.'},
 };
@@ -294,12 +294,12 @@ const TWISTS={
   'breakout:2':{id:'collapse',name:'Collapsing Cavern',text:'From round 2, lava rises from the bottom edge, one row each round.'},
 };
 const MISSION_BY_ACT=[['rout','ambush','hold','rescue','loot'],['rout','hold','rescue','loot','survive','assassinate','ritual'],['rout','ambush','survive','assassinate','ritual','defend','breakout','loot']];
-const BOSS_TXT=['The Orc Warlord attacks twice, pushes heroes aside and calls in his horde.','The Lich casts twice, raises the dead and drains the living.','The Ashen Dragon attacks twice, breathes fire and scatters heroes with its wings.'];
+const BOSS_TXT=['The Orc Warlord attacks twice, pushes heroes aside and calls in his horde.','The Lich raises the dead in threes and drains the living.','The Ashen Dragon attacks twice, breathes fire and scatters heroes with its wings.'];
 
 /* ---------------- GLOSSARY (clickable keywords) ---------------- */
 const GLOSS={
   might:{name:'Might',forms:['might'],text:'Force, endurance and heavy melee powers. Skill: Athletics.'},
-  finesse:{name:'Finesse',forms:['finesse'],text:'Precision, agility, stealth and ranged weapons. A foe\'s Finesse also adds to its initiative. Skills: Acrobatics, Stealth, Thievery.'},
+  finesse:{name:'Finesse',forms:['finesse'],text:'Precision, agility, stealth and ranged weapons. Also adds to initiative. Skills: Acrobatics, Stealth, Thievery.'},
   wits:{name:'Wits',forms:['wits'],text:'Reasoning, magic and reading the environment. Skills: Magic, Lore, Survival.'},
   presence:{name:'Presence',forms:['presence'],text:'Conviction, leadership and reading people. Skills: Insight, Influence.'},
   attack:{name:'Attack Roll',forms:['attack roll','attack rolls'],text:'Roll three six-sided dice (3d6) and add the attribute the power uses. A total of 10 or less is a Graze, 11 to 14 is a Hit, and 15 or more is a Critical hit. Rolling 16 or more on the dice alone is always a Critical hit. Advantage adds 2 and disadvantage subtracts 2, up to twice each.'},
@@ -309,7 +309,7 @@ const GLOSS={
   advantage:{name:'Advantage',forms:['double advantage','advantage'],text:'+2 to the attack roll for each source, up to +4. Advantage comes from flanking, high ground, dazed or rooted targets, being blessed or hidden, and some powers. Advantage and disadvantage cancel out one for one.'},
   disadvantage:{name:'Disadvantage',forms:['disadvantage'],text:'-2 to the attack roll for each source, down to -4. Disadvantage comes from being weakened or marked by someone else, a target in cover, or shooting while a foe stands beside you.'},
   momentum:{name:'Momentum',forms:['momentum'],text:'Every hero starts a battle with none. They gain 1 each turn plus more for doing their job (see each hero\'s sheet), and spend it on stronger powers. Foes share a pool that grows each round and spend it on threats (shown in the top bar) and on their own special attacks.'},
-  initiative:{name:'Initiative',forms:['initiative'],text:'Foes roll d20 + Finesse when a battle starts. On the foes\' turn they act from highest to lowest, every round. Your heroes act first, in any order you like.'},
+  initiative:{name:'Initiative',forms:['initiative'],text:'At the start of a battle everyone rolls d20 + Finesse. Turns go from highest to lowest, heroes and foes mixed together, and the order repeats every round.'},
   parting:{name:'Parting Blow',forms:['parting blows','parting blow'],text:'When a creature moves out of a square beside a foe, that foe may use its reaction to strike it for free. Nimble creatures never provoke. Staggered and dazed creatures can\'t make parting blows.'},
   reaction:{name:'Reaction',forms:['reaction'],text:'Each creature has one reaction per round, used for parting blows. It returns at the start of its turn. Staggered and dazed creatures can\'t use it.'},
   mark:{name:'Marked',forms:['marks','marked','mark'],text:'A marked creature has disadvantage on attacks that don\'t include whoever marked it. A foe the fighter marks can only attack her while it can reach her.'},
@@ -339,10 +339,10 @@ const GLOSS={
   snare:{name:'Snare',forms:['snares','snare'],text:HAZ.trap.desc},
   web:{name:'Web',forms:['web'],text:HAZ.web.desc},
   sneak:{name:'Sneak Attack',forms:['sneak attacks','sneak attack'],text:'The rogue deals 3 extra damage (more at higher levels) against a foe that is set up: staggered, exposed, rooted or dazed, or with one of her allies beside it. Attacks from hiding count too.'},
-  combo:{name:'Combo',forms:['combos','combo'],text:'When a hero cashes in a set-up another hero made this turn (attacks a foe they staggered or exposed, or attacks with their blessing), it is a combo. Both heroes gain 1 momentum, and every hero hit for the rest of your turn deals +1 damage per combo so far (up to +3). Chain them!'},
+  combo:{name:'Combo',forms:['combos','combo'],text:'When a hero cashes in a set-up another hero made (attacks a foe they staggered or exposed, or attacks with their blessing), it is a combo. Both heroes gain 1 momentum, and every hero hit for the rest of the round deals +1 damage per combo so far (up to +3). Set-ups on a foe fade when its own turn ends, so line up heroes who act before it.'},
   setup:{name:'Set-up',forms:['set-ups','set-up','set up'],text:'A foe is set up when it is staggered, exposed, rooted or dazed, or has a hero beside it. Sneak attacks need a set-up. Staggers, exposes and blessings made by one hero give the others combos.'},
   armor:{name:'Armored',forms:['armored','armor'],text:'Takes 2 or 3 less damage from every attack that isn\'t a critical hit (never less than 1). Critical hits go straight through: stagger it first, or attack with advantage.'},
-  intent:{name:'Intent',forms:['intents','intent'],text:'During your turn, red lines show what each foe means to do on its turn: whom it will attack, and roughly how much damage it will deal. They change as you shove foes around, taunt them or get out of reach.'},
+  intent:{name:'Intent',forms:['intents','intent'],text:'Tap INTENT during a hero\'s turn to see what each foe means to do on its next turn: whom it will attack, and roughly how much damage it will deal. They change as you shove foes around, taunt them or get out of reach.'},
   nimble:{name:'Nimble',forms:['nimble'],text:'Never provokes parting blows.'},
   swarm:{name:'Swarm',forms:['swarms','swarm'],text:'Up to four tiny critters sharing one square and one pool of health. You attack the swarm as a single foe. Area attacks deal double damage to it, and it deals less damage as its critters fall. Its attacks never roll.'},
   minion:{name:'Minion',forms:['minions','minion'],text:'A foe with a single hit point: any hit, even a graze, slays it. Minions come in hordes, often raised or rallied by a boss or summoner. Their attacks never roll.'},
@@ -350,7 +350,7 @@ const GLOSS={
   undead:{name:'Undead',forms:['undead'],text:'Radiant damage is doubled against undead.'},
   radiant:{name:'Radiant',forms:['radiant'],text:'Holy damage. Doubled against undead and stops skeletons reassembling.'},
   surge:{name:'Boss Surge',forms:['boss surges','boss surge'],text:'A boss unleashes a special action at the start of its turn on rounds 1, 3 and 5.'},
-  threat:{name:'Foe Threat',forms:['threats','threat'],text:'Foes bank momentum every round. When they have enough, they unleash their next threat, shown in the top bar: bloodlust at first, and deeper into the journey eruptions of hazards, reinforcements and dark rites.'},
+  threat:{name:'Foe Threat',forms:['threats','threat'],text:'Foes bank 1 momentum every round, with no limit (shown in the top bar). When they have enough, they unleash their next threat: bloodlust at first, and deeper into the journey eruptions of hazards, reinforcements and dark rites.'},
   zone:{name:'Zone',forms:['zone'],text:'A lingering area. It affects foes that start their turn inside it.'},
   teleport:{name:'Teleport',forms:['teleport'],text:'Move instantly without provoking parting blows.'},
   free:{name:'Free Action',forms:['free action'],text:'Does not use up your action for the turn.'},
