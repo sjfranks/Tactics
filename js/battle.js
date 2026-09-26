@@ -60,7 +60,7 @@ function powerText(p,u){
   bits.push(ATTR[p.a]);
   bits.push(p.cost?`${p.cost} momentum`:'No cost');
   let s=bits.join(' · ')+(p.free?' · free action':'')+'.\n';
-  if(p.dmg&&!p.noDmg)s+=`Damage {w:${dmgLine(p.dmg,ab!=null?ab+(u.side==='hero'&&hasR('whetstone')?1:0)+(u.wpn?wBonus(u,p,'dmg'):0):0)}}${ab==null?' + '+ATTR[p.a]:''}${p.hits>1?` x${p.hits}`:''}${p.radiant?' radiant':''}. `;
+  if(p.dmg&&!p.noDmg)s+=`Damage {w:${diceText(powDice(p,u))}${ab!=null?'+'+(ab+(u.side==='hero'&&hasR('whetstone')?1:0)+(u.wpn?wBonus(u,p,'dmg')+wBonus(u,p,'acc'):0)):''}}${ab==null?' + '+ATTR[p.a]:''}${p.hits>1?` x${p.hits}`:''}${p.radiant?' radiant':''}. `;
   if(p.heal)s+=`Heals {h:${p.heal}${u&&u.cls==='cleric'?'+'+u.attrs.P:''}}. `;
   s+=p.desc;
   const et=effText(p.eff);if(et&&!/on a hit|on a crit/i.test(p.desc)&&!Object.keys(p.eff).some(k=>p.desc.toLowerCase().includes(EFF_NAME[k])))s+=' '+et;
@@ -72,7 +72,7 @@ function monActText(A){
   if(A.mom)return `{g:${A.name}}: takes 3 damage to give the foes ${A.mom} momentum.`;
   if(A.trap)return `{g:${A.name}}: ${A.trap==='trap'?'hide a snare':'set fire'} on a square within ${A.range}. Every ${A.cd} rounds.`;
   const rng=A.range===1?'melee':`range ${A.range}`;
-  const dm=A.flat!=null?`${A.flat} damage, never rolls`:`${A.dmg.join('/')} damage`;
+  const dm=A.flat!=null?`${A.flat} damage, never rolls`:`${diceText(atkDice({kind:'mon'},A))} damage`;
   return `{g:${A.name}} (${A.a?ATTR[A.a]+', ':''}${rng}${A.area?`, ${A.area*2+1}x${A.area*2+1} area`:''}${A.cost?`, ${A.cost} momentum`:''}): ${dm}. ${effText(A.eff)}${A.hazard?` Leaves ${A.hazard==='web'?'web':A.hazard}.`:''}`;
 }
 function monBlock(m){
@@ -544,7 +544,7 @@ function drawBattle(){
   }
   B.preview=null;const pu=playerUnit();if(pu&&B.pend&&pu.kind==='pc'){const pp=powerOf(pu,B.pi);if(pp){try{const rows=forecast(pu,pp,B.pend.T,B.pend.O);B.preview={};for(const r of rows)if(r.dmg&&r.t.side!==pu.side)B.preview[r.t.id]=r.dmg[1];}catch(e){}}}
   drawBoardLayer();
-  if(PORT)drawForecastOverlay();
+  if(PORT&&!B.busy)drawForecastOverlay();
   if(G.tut)drawTutHint();
   if(B.banner)drawBanner();
 }
@@ -611,7 +611,7 @@ function openMissionInfo(){const E=G.enc;msg(E.title||MISSIONS[E.type].name,miss
 const COMBO_KEY='emberwatch.v3.combos';
 function comboSeen(){try{return !!localStorage.getItem(COMBO_KEY);}catch(e){return true;}}
 function showComboIntro(){return new Promise(res=>{try{localStorage.setItem(COMBO_KEY,'1');}catch(e){}
-  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Heroes and foes act in {g:initiative} order. Heroes {g:set up} attacks for each other, so watch who acts next. A foe that is shoved, dragged or knocked down is {g:staggered}: the next attack on it is a sure critical hit. {g:Exposed} foes take +3 damage from every hit, and {g:blessed} heroes attack with advantage.\n\nA set-up lasts until the foe\'s own turn, so cash it in with a hero who acts before it: that is a {g:combo}, +1 momentum for both, and more damage for the rest of the round. Chain them!\n\nTap {g:INTENT} to see whom each foe means to attack.',
+  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Heroes and foes act in {g:initiative} order. Heroes {g:set up} attacks for each other, so watch who acts next. A foe that is shoved, dragged or knocked down is {g:staggered}: it loses its next turn, unless someone cashes it in with a sure (exploding) critical hit. {g:Exposed} foes take +3 damage from every hit, and {g:blessed} heroes attack with advantage.\n\nA set-up lasts until the foe\'s own turn, so cash it in with a hero who acts before it: that is a {g:combo}, +1 momentum for both, and more damage for the rest of the round. Chain them!\n\nTap {g:INTENT} to see whom each foe means to attack.',
     buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 function showObjective(){return new Promise(res=>{const E=G.enc;openModal(dialog({title:(E.title||MISSIONS[E.type].name).toUpperCase(),body:missionBody()+'\n\n{m:Tap the objective bar at the top to see this again.}',w:200,closable:false,buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 /* Name, health and momentum of the active (or inspected) unit. Tap for the full character sheet. */
@@ -690,7 +690,7 @@ function fitRich(s,w){let t=s;while(t.length>4&&layoutRich(t+'…',w,C.parch).le
 function powerStat(u,p){
   const b=(u.attrs[p.a]||0)+(u.side==='hero'&&hasR('whetstone')?1:0)+wBonus(u,p,'dmg');
   let a='';
-  if(p.dmg&&!p.noDmg){const lo=p.dmg[0]+b,hi=p.dmg[2]+b;a=`${lo}-${hi}${p.hits>1?'×'+p.hits:''} dmg`;}
+  if(p.dmg&&!p.noDmg){a=`${diceText(powDice(p,u))}${b?'+'+b:''}${p.hits>1?'×'+p.hits:''}`;}
   else if(p.heal)a=`heal ${healAmt(u,p.heal)}`;
   else if(p.shield)a=`${p.shield}⛨`;
   else if(p.selfHeal)a=`heal ${p.selfHeal}`;
@@ -796,7 +796,7 @@ function foeIntents(){
   const key=G.cmd+'|'+G.round+'|'+G.foeMom+'|'+G.units.map(u=>u.id+':'+u.x+','+u.y+':'+u.hp+(live(u)?'':'d')+Object.keys(u.st).join('')+(u.marker||'')).join(';');
   if(key===INT.key)return INT.list;
   INT.key=key;INT.list=[];
-  for(const e of G.units.filter(u=>u.side==='enemy'&&live(u)&&!u.object&&!u.caged)){
+  for(const e of G.units.filter(u=>u.side==='enemy'&&live(u)&&!u.object&&!u.caged&&!losesTurn(u))){
     const mp0=e.mp,ac0=e.acted;
     try{
       e.mp=effSpeed(e);e.acted=false;
@@ -986,20 +986,22 @@ function drawForecast(u,x,y0,w,h){
     for(let i=0;i<3;i++){const bx=bx0+i*29;const best=r.probs[i]===Math.max(...r.probs);
       rect(bx,by,27,30,C.edge);rect(bx+1,by+1,25,28,i===2?'#3e2c0e':'#1e1712');rect(bx+1,by+1,25,1,i===2?'#8a6a2a':'#3a2e24');if(best)frame(bx,by,27,30,i===2?C.gold:C.rim2);
       text(labels[i],bx+14,by+3,i===2?C.gold:i===1?C.parch:C.mute,{al:'c'});
-      text(r.ctrl?'—':String(r.dmg[i]),bx+14,by+10,i===2?'#ffd040':C.white,{al:'c',sc:2,sh:C.edge});
+      text(r.ctrl?'—':String(Math.round(r.dmg[i]))+(i===2&&!r.ctrl?'+':''),bx+14,by+10,i===2?'#ffd040':C.white,{al:'c',sc:2,sh:C.edge});
       text(Math.round(r.probs[i]*100)+'%',bx+14,by+22,i===2?'#ffe8a0':C.parch,{al:'c'});}
     if(!wide)y+=33;
     const kp=killP(r);
-    const at=u.attrs[p.a]||0,extra=r.mod-2*r.net-at;
-    body+=`Roll 3d6 {w:${r.mod>=0?'+':''}${r.mod}}{m: (${ATTR[p.a]} ${at>=0?'+':''}${at}${extra?`, relic +${extra}`:''}${r.net?`, ${r.net>0?'+':''}${r.net*2} from ${r.net>0?'advantage':'disadvantage'}`:''})}${kp>0?`  {r:☠ ${Math.round(kp*100)}% kill}`:''}\n`;
+    const at=u.attrs[p.a]||0,dd=r.dice;
+    body+=r.ctrl?`Roll {w:1d${dd.s}}: 1 is a graze, ${dd.s} a critical hit.`:`Roll {w:${diceText(dd)}}{m: + ${ATTR[p.a]} ${at}}. Top number on the first die: {g:critical}, and it explodes.`;
+    body+=`${r.net?` {${r.net>0?'h':'r'}:${Math.abs(r.net)>1?'Double ':''}${r.net>0?'advantage':'disadvantage'}: roll it ${Math.abs(r.net)+1} times, keep the ${r.net>0?'best':'worst'}.}`:''}${kp>0?`  {r:☠ ${Math.round(kp*100)}% kill}`:''}\n`;
     if(r.pro.length)body+=r.pro.map(s=>`{h:+ ${s}}`).join('  ')+'  ';
     if(r.con.length)body+=r.con.map(s=>`{r:− ${s}}`).join('  ');
     if(r.pro.length||r.con.length)body+='\n';
-    if(r.stag)body+=tgt.boss?'{g:Staggered: the result is one step better.}\n':'{g:Staggered: a sure critical hit!}\n';
+    if(r.stag)body+=tgt.boss?'{g:Staggered: double advantage.}\n':'{g:Staggered: a sure critical hit!} {m:But it snaps out of it and keeps its turn.}\n';
     const bits=[];if(r.expose)bits.push('{g:exposed +3}');if(r.sneak)bits.push(`{g:sneak attack +${sneakBonus(u)}}`);if(rows.combo)bits.push(`{g:combo +${comboBonus(rows.combo)}}`);
     if(bits.length)body+='Damage includes '+bits.join(', ')+'.\n';
     if(rows.by&&rows.by.length)body+=`{g:COMBO!} ${rows.by.map(id=>U(id).name).join(' and ')} set this up: +1 {p:◆} each.\n`;
     if(tgt.armor)body+=`{m:Armored ${tgt.armor}: blows short of a critical hit lose ${tgt.armor}.}\n`;
+    if(p.eff&&(tv(p.eff.push,2)||tv(p.eff.pull,2)||tv(p.eff.stag,3))&&!tgt.boss&&!tgt.st.steady&&!r.stag)body+='{g:If it is staggered, it loses its next turn.}\n';
     const fp=forcedPreview(u,p,tgt,P.O);if(fp)body+=fp+'\n';
   }else if(r){
     body+=(r.heal?`Heals {h:${r.heal}}. `:'')+(r.shield?`Shield {b:${r.shield}}. `:'')+(r.empower?'Blessed. ':'')+(r.refresh?'Can move and act again. ':'')+'\n';
