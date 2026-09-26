@@ -28,7 +28,7 @@ const _rp={};
 function resProbs(mod){if(_rp[mod])return _rp[mod];const p=[0,0,0];for(let s=3;s<=18;s++)p[resOf(s,mod)-1]+=D3[s]/216;return _rp[mod]=p;}
 function roll3(mod){const d=[1+rnd(6),1+rnd(6),1+rnd(6)];const nat=d[0]+d[1]+d[2];return {d,nat,mod,total:nat+mod,res:resOf(nat,mod)};}
 function rollText(r){return `3d6 (${r.d.join('+')})${r.mod>=0?'+':''}${r.mod} = ${r.total}: ${RESULT[r.res-1]}`;}
-/* "2d4: [4] 2, one more 4 3 = 13: Critical hit" */
+/* "1d4: [4], one more 4 3 = 11: Critical hit" */
 function diceLog(r){const kept=r.stag?`[${r.prim}]`:r.tries.length>1?`[${r.tries.join('/')}→${r.prim}]`:`[${r.prim}]`;return `${diceText(r.d)}: ${kept}${r.rest.length?' '+r.rest.join(' '):''}${r.boom.length?', one more '+r.boom.join(' '):''} = ${r.total}: ${RESULT[r.res-1]}${r.stag?' (staggered)':''}`;}
 
 /* ---------------- STATE HELPERS ---------------- */
@@ -317,6 +317,7 @@ function netBoon(a,t,p,O){
   if(a.st.bless)pro.push('Blessed');
   if(a.hidden)pro.push('Hidden','Hidden');
   if(p.edge)pro.push(p.name);
+  if(a.kind==='pc'&&basicP(p)&&(wpnOf(a)||WEAPONS[START_WEAPON[a.cls]]||{}).dual&&a.dualR!==G.round)pro.push('Dual wield');
   if(t.st.root)pro.push('Rooted');else if(t.st.daze)pro.push('Dazed');
   if(melee&&!t.object){
     if(a.kind==='pc'&&a.cls==='rogue'){if(allies(a).some(h=>h!==a&&!h.object&&man(h,t)===1))pro.push('Ally beside');}
@@ -544,6 +545,7 @@ async function pcStrike(u,p,t,C,fl){
     const st=t.st.stag&&!p.noDmg&&p.dmg&&!t.object;
     const r=rollDice(dd,st?stagNet(t,nb.net):nb.net,st&&!t.boss,u.side==='hero'&&hasR('dice'));
     if(nb.pro.includes('Blessed'))fl.usedBless=true;
+    if(nb.pro.includes('Dual wield'))u.dualR=G.round;
     if(st){delete t.st.stag;t.stagBy=null;H.pop(t,'Off balance!','call');}
     await H.dice(u,t,r);
     const d=p.dmg?pcDmg(u,p,t,r.res,{sneak:sn,dice:r.total}):0;

@@ -535,7 +535,7 @@ const HOWTO=`{g:Turn order.} Everyone rolls initiative (d20 + Finesse) when a ba
 
 {g:The roles.} Brakka throws foes off balance and makes them fight her: foes she marks can only attack her. Orin does it to whole groups. Sela blesses her friends and exposes foes. Vex cashes it all in with sneak attacks on set-up foes.
 
-{g:Damage dice.} Every attack rolls damage dice and adds an attribute. Each hero's basic attack (Sword, Blades, Bolt, Mace) rolls their weapon's dice; powers roll the hero's own die: Brakka d8s, Orin and Sela d6s, Vex d4s. The first die decides the result: a 1 is a graze, the top number is a critical hit, anything else a hit. A critical hit rolls one more die and adds it, and one more again each time the top number comes up. Small dice crit more often. {g:Armored} foes shrug off part of every blow except critical hits.
+{g:Damage dice.} Every attack rolls damage dice and adds an attribute. Each hero's basic attack (Sword, Blades, Bolt, Mace) rolls their weapon's dice; powers roll the hero's own die: Brakka d8s, Orin and Sela d6s, Vex d4s. The first die decides the result: a 1 is a graze, the top number is a critical hit, anything else a hit. A critical hit rolls one more die and adds it, and one more again each time the top number comes up. Small dice crit more often. Vex fights with two knives: dual wielding gives advantage on the first Blades attack each round. {g:Armored} foes shrug off part of every blow except critical hits.
 
 {g:Advantage and disadvantage.} Advantage rolls the first die again and keeps the best; disadvantage keeps the worst. Flanking, high ground, blessings and dazed or rooted targets give advantage. Cover, being weakened and shooting with a foe beside you give disadvantage.
 
