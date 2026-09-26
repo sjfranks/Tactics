@@ -498,7 +498,8 @@ function openSettings(inBattle,onMap){
     dim();const w=Math.min(190,SW-8),tog=[],acts=[];
     tog.push(['Music',SET.music,()=>{SET.music=!SET.music;auInit();SET.music?musicStart():musicStop();saveSet();}]);
     tog.push(['Sound effects',SET.sfx,()=>{SET.sfx=!SET.sfx;saveSet();}]);
-    tog.push(['Play on silent',!!SET.loud,()=>setPlayOnSilent(!SET.loud)]);
+    tog.push(["Other apps' audio",SET.takeOver?'PAUSE THEM':'KEEP PLAYING',()=>{setPlayOnSilent(!SET.takeOver);
+      openModal(dialog({title:"OTHER APPS' AUDIO",w:200,body:SET.takeOver?'The game now takes over the sound: music from Spotify and other apps pauses, and the game plays even when your phone is on silent.':'Spotify and other apps keep playing under the game. Game sounds play too, but on an iPhone only while the ring/silent switch is on ring: iOS mutes any app that mixes with other audio when the phone is on silent.\n\nTip: turn off the game\'s Music and keep Sound effects on.'}));}]);
     tog.push(['Hi-res art (experimental)',!!SET.hires,()=>{SET.hires=!SET.hires;saveSet();location.reload();}]);
     tog.push(['Auto end turn',SET.autoEnd,()=>{SET.autoEnd=!SET.autoEnd;saveSet();}]);
     tog.push(['3D dice',SET.dice3d!==false,()=>{SET.dice3d=SET.dice3d===false;saveSet();}]);
