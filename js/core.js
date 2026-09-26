@@ -59,7 +59,7 @@ const MC={g:C.gold,r:C.red,h:C.green,b:C.blue,m:C.mute,p:C.mom,w:C.white,o:C.ora
 
 /* ---------------- time & sleep ---------------- */
 let NOW=0;
-const SET={music:true,sfx:true,speed:1,autoEnd:true};
+const SET={music:true,sfx:true,speed:1,autoEnd:true,intents:true};
 try{Object.assign(SET,JSON.parse(localStorage.getItem('emberwatch.v3.settings')||'{}'));}catch(e){}
 function saveSet(){try{localStorage.setItem('emberwatch.v3.settings',JSON.stringify(SET));}catch(e){}}
 const spd=()=>(SET.speed===2?.45:SET.speed===0?1.5:1)*(window.__SPEED!=null?window.__SPEED:1);

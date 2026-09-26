@@ -16,7 +16,7 @@ const DIRS=[[0,-1],[1,0],[0,1],[-1,0]];
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const tv=(arr,t)=>arr?(arr[t-1]||0):0;
 const _n=()=>{},_a=async()=>{};
-const H={step:_a,strike:_a,area:_a,tele:_a,death:_a,banner:_a,pause:_a,turn:_a,end:_a,pop:_n,result:_n,sfx:_n,upd:_n,spawn:_n,save:_n};
+const H={step:_a,strike:_a,area:_a,tele:_a,death:_a,banner:_a,pause:_a,turn:_a,end:_a,pop:_n,result:_n,sfx:_n,upd:_n,spawn:_n,save:_n,combo:_n};
 let G=null,CTX={mode:'run',relics:[]};
 let AUTOPLAY=false;
 const HIST=[];
@@ -27,7 +27,7 @@ function resOf(nat,mod){if(nat>=16)return 3;const v=nat+mod;return v<=10?1:v<=14
 const _rp={};
 function resProbs(mod){if(_rp[mod])return _rp[mod];const p=[0,0,0];for(let s=3;s<=18;s++)p[resOf(s,mod)-1]+=D3[s]/216;return _rp[mod]=p;}
 function roll3(mod){const d=[1+rnd(6),1+rnd(6),1+rnd(6)];const nat=d[0]+d[1]+d[2];return {d,nat,mod,total:nat+mod,res:resOf(nat,mod)};}
-function rollText(r){return `3d6 (${r.d.join('+')})${r.mod>=0?'+':''}${r.mod} = ${r.total}: ${RESULT[r.res-1]}${r.nat>=16&&r.total<15?' (16+ on the dice)':''}`;}
+function rollText(r){return `3d6 (${r.d.join('+')})${r.mod>=0?'+':''}${r.mod} = ${r.total}: ${RESULT[r.res-1]}${r.stag?' (staggered)':r.nat>=16&&r.total<15?' (16+ on the dice)':''}`;}
 
 /* ---------------- STATE HELPERS ---------------- */
 const U=id=>G.units.find(u=>u.id===id);
@@ -83,11 +83,11 @@ function effSpeed(u){
   if(u.object||u.caged)return 0;
   let m=u.speed+(u.side==='hero'&&u.kind==='pc'&&hasR('boots')?1:0);
   if(u.st.slow)m=Math.min(m,1);
-  if(u.st.prone)m=Math.floor(m/2);
+  if(u.st.stag)m=Math.floor(m/2);
   if(u.st.root)m=0;
   return m;
 }
-function canReact(f){return live(f)&&!f.object&&!f.caged&&f.kind!=='npc'&&f.react&&!f.st.daze;}
+function canReact(f){return live(f)&&!f.object&&!f.caged&&f.kind!=='npc'&&f.react&&!f.st.daze&&!f.st.stag;}
 function passable(u,x,y){
   for(const t of foot(u,x,y)){
     if(!inB(t.x,t.y)||blocked(t.x,t.y))return false;
@@ -195,11 +195,13 @@ async function partingBlow(f,t){
   log(`${f.name} lands a parting blow on ${t.name}: ${dealt} damage.${ex.length?' '+ex.join(' '):''}`,sideCol(f));
   if(f.kind==='pc'&&f.cls==='fighter'&&live(t)&&!t.object){t.stopped=true;applyMark(t,f);addMom(f,1);}
 }
+/* Pushes and pulls throw a creature off balance: once it has been moved (or slammed into something) it is
+   staggered. A creature slammed into another creature knocks that one off balance too. */
 async function forceMove(t,from,n,pull,src,fl){
   if(t.object||!live(t))return;
   n-=(t.steady||0);
   if(n<=0){H.pop(t,'Holds firm','call');note(`${t.name} holds firm.`);return;}
-  let moved=0;
+  let moved=0,slam=false;
   for(let i=0;i<n&&live(t);i++){
     let dx=t.x-from.x,dy=t.y-from.y;if(pull){dx=-dx;dy=-dy;}
     let sx=0,sy=0;
@@ -207,14 +209,22 @@ async function forceMove(t,from,n,pull,src,fl){
     const nx=t.x+sx,ny=t.y+sy;
     if(pull&&man({x:nx,y:ny,sz:SZ(t)},from)===0)break;
     if(!fits(t,nx,ny)){
-      if(!pull){const sd=2+(n-i-1);H.pop(t,'Slam!','call');H.sfx('slam');if(fl)fl.slam=true;note(`${pull?'Pulled':'Pushed'} ${moved}, slams for ${sd}.`);moved=-1;await damage(src,t,sd,{});}
+      if(!pull){
+        const sd=2+(n-i-1);slam=true;H.pop(t,'Slam!','call');H.sfx('slam');if(fl)fl.slam=true;
+        const o=foot(t,nx,ny).map(q=>inB(q.x,q.y)?unitAt(q.x,q.y):null).find(q=>q&&q!==t&&!q.object);
+        note(`${moved?'Pushed '+moved+', s':'S'}lams ${o?'into '+o.name+' ':''}for ${sd}.`);
+        await damage(src,t,sd,{});
+        if(o&&live(o)){await damage(src,o,2,{});if(live(o)){stagger(o,src);note(`${o.name} is knocked off balance.`);}}
+      }
       break;
     }
     t.x=nx;t.y=ny;moved++;await H.step(t,true);
     await onEnter(t);
   }
-  if(moved>0){note(`${pull?'Pulled':'Pushed'} ${moved}.`);if(src&&src.side!==t.side)xp(src,moved,'control');}
-  if(moved<0&&src&&src.side!==t.side)xp(src,2,'control');
+  if(moved>0)note(`${pull?'Pulled':'Pushed'} ${moved}.`);
+  if((moved>0||slam)&&live(t)){stagger(t,src);note('Staggered.');if(fl&&fl.stagIds&&src&&src.side!==t.side)fl.stagIds.add(t.id);}
+  if(moved>0&&src&&src.side!==t.side)xp(src,moved,'control');
+  if(slam&&src&&src.side!==t.side)xp(src,2,'control');
 }
 async function teleport(u,to){await H.tele(u,to);u.x=to.x;u.y=to.y;H.upd(u);await onEnter(u);}
 
@@ -264,17 +274,21 @@ async function kill(t,src,o){
 function applyMark(t,src){
   if(t.object)return;
   if(!t.st.mark||t.marker!==src.id)xp(src,1,'mark');
-  t.st.mark=Math.max(t.st.mark||0,1+(G.cur===t.id?1:0));t.marker=src.id;
+  t.st.mark=Math.max(t.st.mark||0,1+(G.cur===t.id&&G.phase!=='heroes'?1:0));t.marker=src.id;
 }
 function addSt(t,k,v){
   if(!live(t)||t.object)return;
   if(t.boss&&(k==='daze'||k==='root'))return;
   if(k==='burn'&&immuneFire(t))return;
-  if(G.cur===t.id)v+=1;
+  if(G.cur===t.id&&G.phase!=='heroes')v+=1;
   t.st[k]=Math.max(t.st[k]||0,v);
   H.upd(t);
 }
-const ST_NAME={slow:'slowed',root:'rooted',prone:'prone',daze:'dazed',weak:'weakened',bleed:'bleeding',burn:'burning',expose:'exposed',mark:'marked',bless:'blessed'};
+/* Set-ups remember which hero made them, so the hero who cashes one in scores a combo with them. */
+const byHero=s=>s&&s.kind==='pc'&&s.side==='hero'?s.id:null;
+function stagger(t,src){if(!live(t)||t.object)return;addSt(t,'stag',1);t.stagBy=byHero(src);}
+function blessUnit(a,src){if(!live(a)||a.object)return;a.st.bless=Math.max(a.st.bless||0,2);a.blessBy=byHero(src);H.pop(a,'Blessed','gold');H.upd(a);}
+const ST_NAME={slow:'slowed',root:'rooted',stag:'staggered',daze:'dazed',weak:'weakened',bleed:'bleeding',burn:'burning',expose:'exposed',mark:'marked',bless:'blessed'};
 function applyEff(src,t,eff,res){
   if(!eff||!live(t)||t.object)return;
   for(const k in eff){
@@ -284,10 +298,12 @@ function applyEff(src,t,eff,res){
     if(t.boss&&(k==='daze'||k==='root')){note(`${t.name} shrugs off ${ST_NAME[k]}.`);continue;}
     if(k==='burn'&&immuneFire(t))continue;
     if(k==='bleed')t.bleedDmg=src.side==='hero'?3:2+G.act;
-    addSt(t,k,v);note(ST_NAME[k][0].toUpperCase()+ST_NAME[k].slice(1)+'.');if(t.side!==src.side)xp(src,1,'control');
+    if(k==='stag')stagger(t,src);else addSt(t,k,v);
+    if(k==='expose')t.exposeBy=byHero(src);
+    note(ST_NAME[k][0].toUpperCase()+ST_NAME[k].slice(1)+'.');if(t.side!==src.side)xp(src,1,'control');
   }
 }
-function cleanse(t){for(const k of['slow','root','weak','bleed','burn','daze','prone','mark'])delete t.st[k];H.upd(t);}
+function cleanse(t){for(const k of['slow','root','weak','bleed','burn','daze','stag','mark'])delete t.st[k];H.upd(t);}
 function decSt(u){for(const k in u.st){u.st[k]--;if(u.st[k]<=0){delete u.st[k];if(k==='mark')u.marker=null;}}}
 
 /* ---------------- ADVANTAGE & DISADVANTAGE ---------------- */
@@ -297,7 +313,7 @@ function netBoon(a,t,p,O){
   if(a.st.bless)pro.push('Blessed');
   if(a.hidden)pro.push('Hidden','Hidden');
   if(p.edge)pro.push(p.name);
-  if(t.st.expose)pro.push('Exposed');else if(t.st.root)pro.push('Rooted');else if(t.st.daze)pro.push('Dazed');else if(t.st.prone&&melee)pro.push('Prone');
+  if(t.st.root)pro.push('Rooted');else if(t.st.daze)pro.push('Dazed');
   if(melee&&!t.object){
     if(a.kind==='pc'&&a.cls==='rogue'){if(allies(a).some(h=>h!==a&&!h.object&&man(h,t)===1))pro.push('Ally beside');}
     else if(SZ(t)===1&&SZ(a)===1){if(inB(2*t.x-O.x,2*t.y-O.y)){const h=unitAt(2*t.x-O.x,2*t.y-O.y);if(h&&h!==a&&h.side===a.side&&!h.object)pro.push('Flanking');}}
@@ -312,7 +328,6 @@ function netBoon(a,t,p,O){
   if(a.side==='enemy'&&G.hordeBoon)pro.push('Bloodlust');
   if(a.side==='enemy'&&t.side==='hero'&&hasR('ward')&&!(t.warded||{})[a.id])con.push('Warding Charm');
   if(a.st.weak)con.push('Weakened');
-  if(a.st.prone)con.push('Prone');
   if(a.st.mark&&a.marker&&a.marker!==t.id&&live(U(a.marker)))con.push('Marked');
   if(!melee){
     if(adjFoe(O,a))con.push('Foe beside you');
@@ -322,24 +337,41 @@ function netBoon(a,t,p,O){
   return {net,pro,con};
 }
 function attackMod(a,attr){let m=(a.attrs&&a.attrs[attr])||0;if(a.kind==='mon')m+=G.rollAdd;if(a.side==='hero'&&a.kind==='pc'&&hasR('dice'))m++;return m;}
-const sneakBonus=a=>2+Math.floor(a.lvl/3);
-function pcDmg(a,p,t,res,net){
+const sneakBonus=a=>TUNE.sneak+Math.floor(a.lvl/3);
+/* A foe is "set up" when an ally has thrown it off balance, exposed it, pinned it or stands beside it. */
+function setUp(a,t){return !t.object&&(!!t.st.stag||!!t.st.expose||!!t.st.root||!!t.st.daze||allies(a).some(h=>h!==a&&!h.object&&man(h,t)===1));}
+function sneakOn(a,t){return a.kind==='pc'&&a.cls==='rogue'&&(!!a.hidden||setUp(a,t));}
+/* Exposed: every hit against it deals extra damage until the end of its next turn. */
+const EXPOSE_DMG=3;
+/* The combo bonus heroes add to every hit for the rest of their turn. */
+function comboBonus(n){return Math.min(3,n||0);}
+/* Damage of a hero-kit power. o.sneak and o.combo override what the current state says (used while a strike
+   is resolving, after the set-up it used is gone). */
+function pcDmg(a,p,t,res,o){
+  o=o||{};
   if(p.noDmg||!p.dmg)return 0;
   let d=p.dmg[res-1]+(a.attrs[p.a]||0)+wBonus(a,p,'dmg');
   if(a.side==='hero'&&hasR('whetstone'))d+=1;
   d+=a.side==='hero'?(G.pcDmgAdd||0):(G.foeDmgAdd||0);
-  if(a.cls==='rogue'&&net>0)d+=sneakBonus(a);
+  if(o.sneak!=null?o.sneak:sneakOn(a,t))d+=sneakBonus(a);
+  if(t.st.expose)d+=EXPOSE_DMG;
+  if(a.side==='hero')d+=comboBonus(o.combo!=null?o.combo:G.phase==='heroes'?G.combo:0);
   if((p.radiant||wBonus(a,p,'radiant'))&&t.undead)d*=2;
   if(p.execute&&t.hp<=t.maxHp/2)d*=2;
+  if(t.armor&&res<3)d=Math.max(1,d-t.armor);
   return Math.max(0,d);
 }
+/* What an attack on a staggered creature becomes: a critical hit (bosses: one step better). */
+function stagRes(t,res){return t.boss?Math.min(3,res+1):3;}
+function stagProbs(t,probs){return t.boss?[0,probs[0],probs[1]+probs[2]]:[0,0,1];}
 /* How many of a tiny swarm's critters are still standing (1-4). */
 function alive4(u){return u.tiny?Math.max(1,Math.ceil(u.tiny*u.hp/u.maxHp)):1;}
 function monDmg(a,A,t,res){
-  if(A.flat!=null)return Math.max(1,(A.per?A.flat*alive4(a):A.flat)+Math.floor(G.dmgAdd/2));
+  const ex=t.st&&t.st.expose?EXPOSE_DMG:0;
+  if(A.flat!=null)return Math.max(1,(A.per?A.flat*alive4(a):A.flat)+Math.floor(G.dmgAdd/2))+ex;
   let d=Math.max(1,A.dmg[res-1]+G.dmgAdd);
   if(mon(a).savage&&t.hp<=t.maxHp/2)d+=2;
-  return d;
+  return d+ex;
 }
 
 /* ---------------- POWERS (heroes and rival heroes) ---------------- */
@@ -358,6 +390,7 @@ function targetsFrom(u,p,O){
     for(const a of allies(u)){
       if(a.object||(a.caged&&!p.heal))continue;
       if(a===u){if(!p.noSelf&&O.x===u.x&&O.y===u.y)R.push({x:u.x,y:u.y});continue;}
+      if(p.refresh&&G.phase==='heroes'&&a.side==='hero'&&!a.acted)continue;
       if(man(O,a)<=p.range&&!(O.x===a.x&&O.y===a.y))R.push({x:a.x,y:a.y});
     }
   }else if(p.tgt==='tile'){
@@ -411,22 +444,42 @@ function areaTargets(u,p,C){
 }
 function healAmt(u,base){return base+(u.cls==='cleric'?u.attrs.P:0);}
 /* Forecast rows used by the UI and by the AI. */
+/* The foes a power would roll against, aimed at T from O (before any pulls it makes). */
+function strikeTargets(u,p,T,O){
+  if(p.tgt==='enemy'){
+    const t=unitAt(T.x,T.y);if(!t)return [];const L=[t];
+    if(p.chain){let last=t;const done=new Set([t.id]);for(let i=0;i<p.chain;i++){const nx=foesOf(u).filter(e=>!done.has(e.id)&&man(e,last)<=3).sort((a,b)=>man(a,last)-man(b,last))[0];if(!nx)break;done.add(nx.id);L.push(nx);last=nx;}}
+    return L;
+  }
+  if((p.tgt==='self'||p.tgt==='tile')&&p.area!=null&&p.aff!=='ally'){let L=areaTargets(u,p,p.tgt==='self'?O:T);if(p.adjOnly)L=L.filter(t=>cheb(t,O)===1);return L;}
+  return [];
+}
+/* COMBO: a hero cashes in a set-up another hero made this turn: a foe they staggered or exposed, or their blessing. */
+function comboSetters(u,p,list){
+  if(u.side!=='hero'||u.kind!=='pc'||G.phase!=='heroes'||p.noDmg||!p.dmg||!list.length)return [];
+  const by=new Set();
+  for(const t of list){if(t.st.stag&&t.stagBy&&t.stagBy!==u.id)by.add(t.stagBy);if(t.st.expose&&t.exposeBy&&t.exposeBy!==u.id)by.add(t.exposeBy);}
+  if(u.st.bless&&u.blessBy&&u.blessBy!==u.id)by.add(u.blessBy);
+  return [...by].filter(id=>{const s=U(id);return s&&s.side==='hero';});
+}
 function forecast(u,p,T,O){
   O=O||u;const rows=[];
-  const mk=t=>{const nb=netBoon(u,t,p,O);const mod=attackMod(u,p.a)+wBonus(u,p,'acc')+2*nb.net;const probs=resProbs(mod);
-    return {t,net:nb.net,pro:nb.pro,con:nb.con,mod,probs,dmg:[1,2,3].map(r=>pcDmg(u,p,t,r,nb.net)*(p.hits||1)),ctrl:!!p.noDmg};};
+  const by=comboSetters(u,p,strikeTargets(u,p,T,O));
+  const combo=u.side==='hero'&&G.phase==='heroes'?(G.combo||0)+(by.length?1:0):0;
+  rows.by=by;rows.combo=combo;
+  const mk=t=>{const nb=netBoon(u,t,p,O);const mod=attackMod(u,p.a)+wBonus(u,p,'acc')+2*nb.net;let probs=resProbs(mod);
+    const st=!!t.st.stag&&!p.noDmg&&!!p.dmg&&!t.object;if(st)probs=stagProbs(t,probs);
+    return {t,net:nb.net,pro:nb.pro,con:nb.con,mod,probs,stag:st,expose:!!t.st.expose,sneak:sneakOn(u,t)&&!!p.dmg&&!p.noDmg,dmg:[1,2,3].map(r=>pcDmg(u,p,t,r,{combo})*(p.hits||1)),ctrl:!!p.noDmg};};
   if(p.tgt==='enemy'){
-    const t=unitAt(T.x,T.y);if(!t)return rows;
-    rows.push(mk(t));
-    if(p.chain){let last=t;const done=new Set([t.id]);for(let i=0;i<p.chain;i++){const nx=foesOf(u).filter(e=>!done.has(e.id)&&man(e,last)<=3).sort((a,b)=>man(a,last)-man(b,last))[0];if(!nx)break;done.add(nx.id);rows.push(mk(nx));last=nx;}}
+    for(const t of strikeTargets(u,p,T,O))rows.push(mk(t));
   }else if(p.tgt==='ally'){
-    const a=(T.x===u.x&&T.y===u.y)?u:unitAt(T.x,T.y);
+    const a=(T.x===u.x&&T.y===u.y)||(T.x===O.x&&T.y===O.y)?u:unitAt(T.x,T.y);
     if(a)rows.push({t:a,heal:p.heal?healAmt(u,p.heal):0,shield:p.shield||0,refresh:p.refresh});
   }else if(p.tgt==='self'||(p.tgt==='tile'&&p.area!=null)){
     const C=p.tgt==='self'?O:T;
     if(p.area!=null){
       if(p.aff==='ally')for(const a of areaTargets(u,p,C))rows.push({t:a,heal:p.heal?healAmt(u,p.heal):0,shield:p.shield||0,empower:p.empower});
-      else for(const t of areaTargets(u,p,C))rows.push(mk(t));
+      else for(const t of strikeTargets(u,p,T,O))rows.push(mk(t));
     }
   }
   return rows;
@@ -439,9 +492,13 @@ async function pcStrike(u,p,t,C,fl){
   const hits=p.hits||1;
   for(let h=0;h<hits&&live(t);h++){
     const nb=netBoon(u,t,p,u);
+    const sn=sneakOn(u,t);
     const r=roll3(attackMod(u,p.a)+wBonus(u,p,'acc')+2*nb.net);
-    const d=pcDmg(u,p,t,r.res,nb.net);
-    if(u.cls==='rogue'&&nb.net>0&&d>0)fl.sneak=true;
+    if(nb.pro.includes('Blessed'))fl.usedBless=true;
+    // a staggered creature can't defend itself: the attack is a critical hit (a boss's is one step better)
+    if(t.st.stag&&!p.noDmg&&p.dmg&&!t.object){r.res=stagRes(t,r.res);r.stag=true;delete t.st.stag;t.stagBy=null;H.pop(t,'Off balance!','call');}
+    const d=pcDmg(u,p,t,r.res,{sneak:sn});
+    if(sn&&d>0)fl.sneak=true;
     H.result(t,r);
     NOTE=[];
     if(u.hidden&&h===0){u.hidden=false;}
@@ -450,6 +507,7 @@ async function pcStrike(u,p,t,C,fl){
     if(live(t)){
       if(p.mark){applyMark(t,u);note('Marked.');}
       applyEff(u,t,p.eff,r.res);
+      if(fl.stagIds&&t.st.stag&&t.stagBy===u.id)fl.stagIds.add(t.id);
       const w=basicP(p)&&wpnOf(u);
       if(w&&live(t)){
         if(w.burn&&r.res===3)applyEff(u,t,{burn:[0,0,2]},3);
@@ -471,7 +529,7 @@ async function support(u,a,p,fl){
   NOTE=[];
   if(p.heal){const g=heal(a,healAmt(u,p.heal));if(g>0&&a!==u)fl.healedOther=true;}
   if(p.shield){a.shield+=p.shield;H.pop(a,'⛨ '+p.shield,'shield');note(`${a.name} gains ${p.shield} shield.`);if(a!==u){xp(u,p.shield/2,'support');fl.healedOther=true;}}
-  if(p.empower){a.st.bless=Math.max(a.st.bless||0,p.empower+(G.cur===a.id?1:0));H.pop(a,'Blessed','gold');note(`${a.name} is blessed.`);if(a!==u){xp(u,4,'support');fl.healedOther=true;}}
+  if(p.empower){blessUnit(a,u);note(`${a.name} is blessed.`);if(a!==u){xp(u,4,'support');fl.healedOther=true;}}
   if(p.cleanse){cleanse(a);note('Conditions end.');}
   const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));
   H.upd(a);
@@ -483,12 +541,25 @@ async function usePower(u,p,T){
 function blessNear(u,r,fl){
   const c=allies(u).filter(a=>a!==u&&!a.object&&!a.caged&&a.kind!=='npc'&&man(a,u)<=r);if(!c.length)return;
   const fo=fighters(u);const score=a=>Math.min(9,...fo.map(f=>man(f,a)));c.sort((a,b)=>score(a)-score(b));const a=c[0];
-  a.st.bless=Math.max(a.st.bless||0,1);H.pop(a,'Blessed','gold');log(`${a.name} is blessed.`,sideCol(u));xp(u,4,'support');fl.healedOther=true;H.upd(a);
+  blessUnit(a,u);log(`${a.name} is blessed.`,sideCol(u));xp(u,4,'support');fl.healedOther=true;
+}
+/* A combo: +1 momentum for the hero who cashed in the set-up and for each hero who made it, and every hero hit
+   for the rest of the turn deals +1 damage per combo so far (up to +3). One per action. */
+function comboHit(u,by,fl){
+  if(fl.combo)return;fl.combo=true;
+  G.combo=(G.combo||0)+1;G.combos=(G.combos||0)+1;
+  addMom(u,1);xp(u,1,'combo');
+  const names=[];
+  for(const id of by){const s=U(id);if(!s||s===u)continue;if(live(s))addMom(s,1);xp(s,1,'setup');names.push(s.name);}
+  H.combo(u,G.combo,by);
+  log(`Combo ×${G.combo}! ${names.join(' and ')} set it up for ${u.name}: +1 momentum each. Hero hits deal +${comboBonus(G.combo)} damage for the rest of the turn.`,'g');
 }
 async function usePower0(u,p,T){
   u.mom-=p.cost;
-  const fl={hitIds:new Set(),sneak:false,healedOther:false,slam:false};
+  const fl={hitIds:new Set(),stagIds:new Set(),sneak:false,healedOther:false,slam:false,combo:false,usedBless:false};
   if(p.tgt!=='enemy'||p.area!=null)log(`${u.name} uses ${p.name}.`,sideCol(u));
+  const by=comboSetters(u,p,strikeTargets(u,p,T,{x:u.x,y:u.y}));
+  if(by.length)comboHit(u,by,fl);
   if(p.tgt==='enemy'){
     const t=unitAt(T.x,T.y);if(!t)return;
     if(p.teleportAdj){const spot=freeAdj(t,u).sort((a,b)=>man(a,u)-man(b,u))[0];if(spot)await teleport(u,spot);}
@@ -508,7 +579,7 @@ async function usePower0(u,p,T){
   }else if(p.tgt==='ally'){
     const a=(T.x===u.x&&T.y===u.y)?u:unitAt(T.x,T.y);if(!a)return;
     if(p.swap){const ux=u.x,uy=u.y;u.x=a.x;u.y=a.y;a.x=ux;a.y=uy;await H.tele(u,u,true);H.upd(a);if(p.shield){u.shield+=p.shield;H.pop(u,'⛨ '+p.shield,'shield');}xp(u,3,'support');fl.healedOther=true;await onEnter(u);if(live(a))await onEnter(a);}
-    if(p.refresh){xp(u,8,'support');if(!G.extra.includes(a.id))G.extra.push(a.id);H.pop(a,'Inspired!','gold');H.sfx('holy');log(`${a.name} will take an extra turn.`,sideCol(u));}
+    if(p.refresh){xp(u,8,'support');if(G.phase==='heroes'&&a.side==='hero'){a.acted=false;a.moved=false;a.waited=false;a.mp=effSpeed(a);}else if(!G.extra.includes(a.id))G.extra.push(a.id);H.pop(a,'Inspired!','gold');H.sfx('holy');log(`${a.name} can move and act again.`,sideCol(u));}
     await support(u,a,p,fl);
   }else if(p.teleport){
     await teleport(u,T);
@@ -528,6 +599,7 @@ async function usePower0(u,p,T){
     const pre=NOTE||[];NOTE=null;if(pre.length)log(pre.join(' '),sideCol(u));
     let list=areaTargets(u,p,C);
     if(p.adjOnly)list=list.filter(t=>cheb(t,u)===1);
+    if(p.noDmg&&!p.eff&&!p.mark)list=[];
     const pushy=p.eff&&p.eff.push;
     list.sort((a,b)=>pushy?man(b,C)-man(a,C):man(a,C)-man(b,C));
     for(const t of list){if(p.aff==='ally')await support(u,t,p,fl);else await pcStrike(u,p,t,C,fl);}
@@ -541,8 +613,9 @@ async function usePower0(u,p,T){
   if(p.healNear){const w=allies(u).filter(a=>!a.object&&!a.caged&&man(a,u)<=3&&a.hp<a.maxHp).sort((a,b)=>a.hp/a.maxHp-b.hp/b.maxHp)[0];if(w){NOTE=[];const g=heal(w,p.healNear);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));if(g>0&&w!==u)fl.healedOther=true;}}
   if(p.gainRes)addMom(u,p.gainRes);
   if(p.hide){u.hidden=true;H.pop(u,'Hidden','call');H.sfx('whoosh');}
+  if(fl.usedBless){delete u.st.bless;u.blessBy=null;}
   if(u.cls==='rogue'&&fl.sneak){addMom(u,1);H.pop(u,'+1 ◆','res');}
-  if(u.cls==='wizard'&&(fl.hitIds.size>=2||fl.slam)){addMom(u,1);H.pop(u,'+1 ◆','res');}
+  if(u.cls==='wizard'&&(fl.stagIds.size>=2||fl.slam)){addMom(u,1);H.pop(u,'+1 ◆','res');}
   if(u.cls==='cleric'&&fl.healedOther){addMom(u,1);H.pop(u,'+1 ◆','res');}
   H.upd(u);
 }
@@ -587,7 +660,7 @@ function turnDone(u){return !live(u)||(u.acted&&u.mp<=0)||(u.kind==='npc'&&u.mp<
 
 /* ---------------- UNDO ---------------- */
 function snapG(){return JSON.stringify(G);}
-function stateKey(){return JSON.stringify(G,(k,v)=>k==='log'||k==='await'?undefined:v);}
+function stateKey(){return JSON.stringify(G,(k,v)=>k==='log'||k==='await'||k==='cur'?undefined:v);}
 function pushSnap(){const k=stateKey();if(HIST.length&&HIST[HIST.length-1].k===k)return;HIST.push({s:snapG(),k,cur:G.cur});if(HIST.length>80)HIST.shift();}
 let _uc={key:'',v:false};
 function canUndo(){
@@ -602,7 +675,7 @@ function undo(){
   while(HIST.length&&HIST[HIST.length-1].k===k)HIST.pop();
   const e=HIST.pop();if(!e)return false;
   G=JSON.parse(e.s);G.await=true;
-  G.log.push({m:`Undone: back to ${U(G.cur)?U(G.cur).name:'?'}'s turn.`,c:'g'});
+  G.log.push({m:'Undone.',c:'g'});
   _uc.key='';
   return true;
 }
@@ -616,7 +689,8 @@ function distField(sources){
 }
 function evMon(e,A,t,O){
   const nb=netBoon(e,t,A,O);
-  const probs=A.flat!=null?[0,1,0]:resProbs(attackMod(e,A.a)+2*nb.net);
+  let probs=A.flat!=null?[0,1,0]:resProbs(attackMod(e,A.a)+2*nb.net);
+  if(A.flat==null&&t.st.stag)probs=stagProbs(t,probs);
   const hp=t.hp+t.shield;let ev=0,kp=0;
   for(let i=0;i<3;i++){const d=monDmg(e,A,t,i+1);ev+=probs[i]*Math.min(hp,d);if(d>=hp)kp+=probs[i];}
   return {ev,kill:kp,net:nb.net};
@@ -661,6 +735,9 @@ function objBonus(u,O){
   if(E.type==='breakout'&&(G.round>=2||fighters(u).length<3))b+=(u.y-O.y)*1.5+(O.y===0?6:0);
   return b;
 }
+/* Taunt: a foe the fighter has marked can only attack her while it can reach her. */
+function tauntOf(e){if(!e.st.mark||!e.marker)return null;const F=U(e.marker);return F&&live(F)&&F.kind==='pc'&&F.cls==='fighter'&&F.side!==e.side?F:null;}
+function canHitFrom(A,t,n){const d=man(n,t);return d>=1&&d<=effRange(A.range,n)&&(d===1||los(n,t));}
 function monCanAct(A,e){return (!A.cost||G.foeMom>=A.cost)&&!(A.cd&&(e.cd||{})[A.name]>G.round);}
 function planMon(e){
   const m=mon(e);const R=reach(e,e.mp);
@@ -675,6 +752,8 @@ function planMon(e){
   const field=distField(srcs);
   const provCost=e.hp<=8?14:6;
   const ranged=m.acts[0]&&m.acts[0].range>1;
+  const taunt=tauntOf(e);let tauntOK=false;
+  if(taunt)for(const n of R.values()){if(e.st.daze&&(n.x!==e.x||n.y!==e.y))continue;if(acts.some(A=>!A.tgt&&!A.trap&&canHitFrom(A,taunt,n))){tauntOK=true;break;}}
   let best={s:-1e9,node:null,act:null,target:null};
   for(const n of R.values()){
     const moved=n.x!==e.x||n.y!==e.y;
@@ -710,6 +789,7 @@ function planMon(e){
         continue;
       }
       for(const t of targets){
+        if(tauntOK&&t!==taunt)continue;
         const d=man(n,t);if(d<1||d>effRange(A.range,n))continue;if(d>1&&!los(n,t))continue;
         const r=evMon(e,A,t,n);
         let s=base+r.ev*(t.kind==='pc'?1+(1-t.hp/t.maxHp)*.5+(t.cls==='wizard'||t.cls==='cleric'?.25:0):1.3)+r.kill*(t.kind==='pc'?22:35);
@@ -747,6 +827,7 @@ async function monAttack(e,A,t,isTile){
     if(!live(v))continue;
     const nb=netBoon(e,v,A,e);
     const r=A.flat!=null?null:roll3(attackMod(e,A.a)+2*nb.net);
+    if(r&&v.st.stag){r.res=stagRes(v,r.res);r.stag=true;delete v.st.stag;v.stagBy=null;H.pop(v,'Off balance!','call');}
     const res=r?r.res:2;
     if(v.side==='hero'&&hasR('ward')){v.warded=v.warded||{};v.warded[e.id]=1;}
     if(r)H.result(v,r);
@@ -766,7 +847,6 @@ async function monAttack(e,A,t,isTile){
     if(A.area){for(let y=t.y-A.area;y<=t.y+A.area;y++)for(let x=t.x-A.area;x<=t.x+A.area;x++)if(inB(x,y))setHaz(x,y,A.hazard,3,e.side);}
     else setHaz(t.x,t.y,A.hazard,3,e.side);
   }
-  if(e.st.mark&&e.marker&&e.marker!==t.id&&live(e)){const F=U(e.marker);if(live(F)&&F.kind==='pc'&&F.cls==='fighter'&&man(F,e)===1&&canReact(F)){F.react=false;H.pop(F,'Sentinel!','call');await partingBlow(F,e);}}
 }
 async function monTurn(e){
   const m=mon(e);
@@ -784,7 +864,8 @@ async function monTurn(e){
     if(plan.tile){if(man(e,t)<=A.range)await monAttack(e,A,t,true);}
     else{
       if(!A.tgt&&(!live(t)||man(e,t)>effRange(A.range,e)||man(e,t)<1)){
-        t=foesOf(e).filter(x=>{const d=man(e,x);return d>=1&&d<=effRange(A.range,e)&&(d===1||los(e,x));}).sort((a,b)=>a.hp-b.hp)[0];
+        const c=foesOf(e).filter(x=>canHitFrom(A,x,e)).sort((a,b)=>a.hp-b.hp);const tt=tauntOf(e);
+        t=tt&&c.includes(tt)?tt:c[0];
       }
       if(t||A.tgt)await monAttack(e,A,t||e);
     }
@@ -795,7 +876,8 @@ async function monTurn(e){
   for(let i=0;i<extra&&live(e)&&!G.over&&!e.st.daze;i++){
     const opts=m.acts.filter(a=>!a.tgt&&!a.trap&&monCanAct(a,e));
     let bb=null;
-    for(const a of opts)for(const x of foesOf(e)){const d=man(e,x);if(d<1||d>effRange(a.range,e)||(d>1&&!los(e,x)))continue;const r=evMon(e,a,x,e);const s=r.ev+r.kill*20-(a.cost||0)*1.3;if(!bb||s>bb.s)bb={s,a,x};}
+    const tt=tauntOf(e),mustT=!!tt&&opts.some(a=>canHitFrom(a,tt,e));
+    for(const a of opts)for(const x of foesOf(e)){if(mustT&&x!==tt)continue;if(!canHitFrom(a,x,e))continue;const r=evMon(e,a,x,e);const s=r.ev+r.kill*20-(a.cost||0)*1.3;if(!bb||s>bb.s)bb={s,a,x};}
     if(bb){await H.pause(160);await monAttack(e,bb.a,bb.x);}
   }
   if(m.skulk&&live(e)&&!e.pinned){const s=freeAdj(e,e).filter(t=>!Tt(t.x,t.y).haz).sort((a,b)=>minDist(b,e)-minDist(a,e))[0];if(s&&minDist(s,e)>minDist(e,e)){e.x=s.x;e.y=s.y;await H.step(e);}}
@@ -805,48 +887,105 @@ function minDist(p,u){let m=99;for(const h of fighters(u))m=Math.min(m,man(h,p))
 
 /* ---------------- HERO-KIT AI (rival parties, autoplay) ---------------- */
 function threatened(t){return foesOf(t).some(f=>!f.object&&man(f,t)<=5);}
+/* ---- set-ups, as the hero AI sees them: a set-up is worth the extra damage the best hero still to act this turn
+   would get by cashing it in, plus the momentum the combo pays. Cached for the length of one planPc call. ---- */
+let SETUP_C=null;
+function payers(u){return u.side==='hero'&&G.phase==='heroes'?readyHeroes().filter(h=>h!==u&&h.kind==='pc'&&!h.acted):[];}
+function payoffGain(h,t,kind){
+  let best=0;
+  for(const id of h.powers){
+    const q=POWERS[id];if(!q.dmg||q.noDmg||q.tgt!=='enemy'||!usable(h,q))continue;
+    const rng=q.range+(q.range===1?wBonus(h,q,'reach'):wBonus(h,q,'range'));
+    if(man(h,t)>h.mp+rng)continue;
+    const pr=resProbs(attackMod(h,q.a)+wBonus(h,q,'acc'));const d=[1,2,3].map(r=>pcDmg(h,q,t,r));
+    const exp=pr[0]*d[0]+pr[1]*d[1]+pr[2]*d[2];
+    let g=kind==='stag'?(t.boss?pr[0]*(d[1]-d[0])+pr[1]*(d[2]-d[1]):d[2]-exp):kind==='expose'?EXPOSE_DMG*(q.hits||1):(pr[0]*.4+pr[1]*.4)*(d[2]-d[0])*.6;
+    if(h.cls==='rogue'&&kind!=='bless'&&!sneakOn(h,t))g+=sneakBonus(h);
+    best=Math.max(best,g);
+  }
+  return best;
+}
+function setupWorth(u,t,kind){
+  const key=u.id+t.id+kind;if(SETUP_C&&key in SETUP_C)return SETUP_C[key];
+  const P=payers(u);let v=0;
+  if(P.length&&live(t)&&!t.object){
+    const g=P.map(h=>payoffGain(h,t,kind));
+    v=kind==='expose'?g.reduce((a,b)=>a+b,0):Math.max(0,...g);
+    if(v>0)v=v*.85+2;
+  }
+  if(SETUP_C)SETUP_C[key]=v;
+  return v;
+}
+/* How much the fighter gains by taunting t: it would otherwise go after one of her softer friends. */
+function tauntWorth(u,t){
+  if(u.kind!=='pc'||u.cls!=='fighter'||(t.st.mark&&t.marker===u.id)||t.object)return 0;
+  const rng=t.kind==='mon'?Math.max(1,...mon(t).acts.filter(a=>!a.tgt&&!a.trap).map(a=>a.range)):2;
+  return allies(u).some(h=>h!==u&&!h.object&&man(h,t)<=effSpeed(t)+rng)?2:.5;
+}
+let VP_SETUP=0;
 function valuePower(u,p,T,O){
   const rows=forecast(u,p,T,O);let v=0,hits=0;
+  const P=payers(u).length>0;const v0=[0];
+  const sv=x=>{if(!TUNE.aiCombo)return;v+=x;v0[0]+=x;};
   for(const r of rows){
     if(r.dmg){
       if(r.t.side===u.side)continue;hits++;
       v+=evRow(r)+killP(r)*(r.t.boss?10:r.t.kind==='npc'?25:18)+(r.t.pillar?5:0)+(r.t.leader&&G.enc.type==='assassinate'?evRow(r)*.8+killP(r)*30:0)+(r.t.pillar?evRow(r)*.5:0);
       if(p.eff)v+=Object.keys(p.eff).filter(k=>k!=='push'&&k!=='pull').length*1.2;
-      if(p.mark)v+=.5;
-      if(p.blessNear&&allies(u).some(a=>a!==u&&!a.object&&a.kind==='pc'&&man(a,O)<=p.blessNear))v+=2;
+      if(p.mark)v+=.5+tauntWorth(u,r.t)*(1-killP(r));
       if(p.eff&&(p.eff.push||p.eff.pull))v+=forcedValue(u,r.t,p.tgt==='enemy'?O:(p.tgt==='self'?O:T),tv(p.eff.push||p.eff.pull,2)+pushExtra(u,p),!!p.eff.pull);
+      if(P){
+        const alive=1-killP(r),e=p.eff||{};
+        const fm=(tv(e.push,2)||tv(e.pull,2))?(tv(e.push,2)||tv(e.pull,2))+pushExtra(u,p)-(r.t.steady||0):0;
+        if(fm>0||tv(e.stag,2))sv(alive*setupWorth(u,r.t,'stag')*(rows.length>1?.6:1));
+        if(tv(e.expose,2))sv(alive*setupWorth(u,r.t,'expose'));
+      }
+      if(r.stag)v+=1;
     }else{
       const t=r.t,miss=t.maxHp-t.hp;
       if(r.heal)v+=miss>=4?Math.min(miss,r.heal)*1.1:0;
       if(r.shield)v+=r.shield*(threatened(t)?.5:.05);
-      if(r.empower)v+=1.5;
-      if(r.refresh&&t.id!==u.id)v+=7;
+      if(r.empower){if(t!==u&&P&&payers(u).includes(t)&&fighters(t).some(f=>man(f,t)<=t.mp+2))sv(4);else v+=1;}
+      if(r.refresh&&t.id!==u.id)v+=8;
       if(p.swap&&t.id!==u.id){const ta=threatened(t),tu=threatened(u);v+=(ta&&t.hp<t.maxHp*.5?5:0)+(u.cls==='cleric'&&!tu&&ta?1:0)-(t.kind==='pc'&&t.cls==='wizard'&&!ta?2:0);}
     }
   }
+  // Come and Get It and Gravity Well drag foes in, leaving them staggered for the heroes still to act
+  if(p.pullFirst||p.pullCenter){const C=p.tgt==='self'?O:T;for(const f of foesOf(u).filter(e=>cheb(e,C)<=p.area&&!e.object&&man(e,C)>0&&(e.steady||0)<(p.pullFirst||p.pullCenter))){hits++;if(P)sv(setupWorth(u,f,'stag')*.7);if(p.pullFirst)v+=tauntWorth(u,f);}}
+  if(p.blessNear&&hits){const c=allies(u).filter(a=>a!==u&&!a.object&&!a.caged&&a.kind!=='npc'&&man(a,O)<=p.blessNear);if(c.length){const fo=fighters(u);const sc=a=>Math.min(9,...fo.map(f=>man(f,a)));c.sort((a,b)=>sc(a)-sc(b));if(P&&payers(u).includes(c[0])&&sc(c[0])<=c[0].mp+2)sv(4);else v+=1;}}
   if(p.tgt!=='ally'&&p.aff!=='ally'&&!hits&&!p.revive&&!p.selfHeal)return -99;
   if(p.zone)v+=3*hits;
   if(p.igniteCenter)v+=1;
   if(p.revive)v+=25;
   if(p.selfHeal)v+=Math.min(u.maxHp-u.hp,p.selfHeal)*.8;
+  VP_SETUP=v0[0];
   return v-p.cost*.9;
 }
 function planPc(u,stayOnly){
   const nodes=stayOnly||!canMoveNow(u)?[{x:u.x,y:u.y,s:0,prov:0,haz:0,prev:null}]:[...reach(u,u.mp).values()];
   let best={s:.5,O:null,pi:-1,T:null};
   const foes=fighters(u);
-  for(let pi=0;pi<u.powers.length;pi++){
-    const p=powerOf(u,pi);if(!usable(u,p)||u.acted||p.teleport||p.wall||p.hide)continue;
-    const org=(p.tgt==='enemy'||p.tgt==='ally'||p.tgt==='self')&&!u.st.daze?nodes:nodes.filter(n=>n.x===u.x&&n.y===u.y);
-    for(const O of org){
-      let pen=O.prov*8+O.haz*1.5+hazCost(u,O.x,O.y)*1.2-objBonus(u,O);
-      const ranged=p.tgt==='enemy'&&p.range>1||p.tgt==='tile'||p.tgt==='ally';
-      if(ranged&&foes.some(f=>man(f,O)===1))pen+=2.5;
-      let T=targetsFrom(u,p,O);
-      if(p.tgt==='tile')T=T.filter(t=>foes.some(f=>cheb(f,t)<=(p.area||0)));
-      for(const t of T){const s=valuePower(u,p,t,O)-pen;if(s>best.s)best={s,O,pi,T:t};}
+  const taunt=u.side==='enemy'?tauntOf(u):null;
+  SETUP_C={};
+  try{
+    for(let pi=0;pi<u.powers.length;pi++){
+      const p=powerOf(u,pi);if(!usable(u,p)||u.acted||p.teleport||p.wall||p.hide)continue;
+      const org=(p.tgt==='enemy'||p.tgt==='ally'||p.tgt==='self')&&!u.st.daze?nodes:nodes.filter(n=>n.x===u.x&&n.y===u.y);
+      // a rival the fighter has taunted must attack her with any power that can reach her
+      const mustT=taunt&&p.tgt==='enemy'&&org.some(O=>targetsFrom(u,p,O).some(q=>covers(taunt,q.x,q.y)));
+      for(const O of org){
+        let pen=O.prov*8+O.haz*1.5+hazCost(u,O.x,O.y)*1.2-objBonus(u,O);
+        const ranged=p.tgt==='enemy'&&p.range>1||p.tgt==='tile'||p.tgt==='ally';
+        if(ranged&&foes.some(f=>man(f,O)===1))pen+=2.5;
+        let T=targetsFrom(u,p,O);
+        if(p.tgt==='tile')T=T.filter(t=>foes.some(f=>cheb(f,t)<=(p.area||0)));
+        if(mustT)T=T.filter(q=>covers(taunt,q.x,q.y));
+        // the AI may move first and then use a power on itself
+        if(p.tgt==='ally'&&!p.noSelf&&(O.x!==u.x||O.y!==u.y))T=T.concat([{x:O.x,y:O.y}]);
+        for(const t of T){const s=valuePower(u,p,t,O)-pen;if(s>best.s)best={s,O,pi,T:t,setup:VP_SETUP};}
+      }
     }
-  }
+  }finally{SETUP_C=null;}
   return best;
 }
 async function pcTurn(u){
@@ -892,7 +1031,7 @@ async function villain(b){
     case 'siphon':{let tot=0;for(const h of hs.filter(h=>man(h,b)<=4)){tot+=await damage(b,h,4,{});}heal(b,tot);break;}
     case 'nova':for(const h of hs){await damage(b,h,5,{});}break;
     case 'presence':for(const h of hs)addSt(h,'weak',1);G.foeMom+=4;break;
-    case 'buffet':for(const h of hs.filter(h=>cheb(h,b)<=2)){await damage(b,h,5,{});await forceMove(h,b,2,false,b,null);addSt(h,'prone',1);}break;
+    case 'buffet':for(const h of hs.filter(h=>cheb(h,b)<=2)){await damage(b,h,5,{});await forceMove(h,b,2,false,b,null);stagger(h,b);}break;
     case 'inferno':{
       const rows={};for(const h of hs)rows[h.y]=(rows[h.y]||0)+1;
       const y=+Object.keys(rows).sort((a,c)=>rows[c]-rows[a])[0];
@@ -945,19 +1084,19 @@ function edgeSpot(where,side){
   }
   return c.length?pick(c):null;
 }
-function initRoll(u){return 1+rnd(20)+(u.attrs.F||0)+(u.side==='hero'&&hasR('hourglass')?3:0);}
+function initRoll(u){return 1+rnd(20)+(u.attrs.F||0);}
 function ordCmp(a,b){return b.init-a.init||((a.side==='hero'?0:1)-(b.side==='hero'?0:1))||((b.attrs.F||0)-(a.attrs.F||0));}
 function insertOrder(u){
-  u.init=initRoll(u);
+  u.init=initRoll(u);if(u.side==='hero')return;
   let i=G.order.findIndex(id=>{const o=U(id);return o&&ordCmp(u,o)<0;});if(i<0)i=G.order.length;
   G.order.splice(i,0,u.id);if(i<=G.ti)G.ti++;
 }
 function makeMon(type,x,y,extra){
   extra=extra||{};const m=MON[type];const f=G.enc.f;
   const mult=(m.boss?TUNE.bossHp*(1+.03*f):(m.object?1+.08*f:1+TUNE.hpSlope*f))*(m.object?1:G.foeHp||1);
-  const hp=m.minion?1:Math.round(m.hp*(m.tiny||1)*mult*(extra.leader?1.6:1)*(extra.elite?1.3:1));
+  const hp=m.minion?1:Math.round(m.hp*(m.tiny||1)*mult*(extra.leader?1.3:1)*(extra.elite?1.3:1));
   return {id:'e'+(G.uid++),side:extra.side||'enemy',kind:'mon',type,name:(extra.leader?'Chief ':'')+m.name,x,y,hp,maxHp:hp,speed:m.speed,
-    attrs:Object.assign({},m.attrs),steady:m.steady||0,st:{},shield:0,react:true,mp:0,
+    attrs:Object.assign({},m.attrs),steady:m.steady||0,armor:m.armor||0,st:{},shield:0,react:true,mp:0,
     undead:!!m.undead,boss:!!m.boss,swarm:!!m.swarm,minion:!!m.minion,tiny:m.tiny||0,sz:m.sz||1,nimble:!!m.nimble,object:!!m.object,leader:!!extra.leader,pillar:type==='pillar',cd:{}};
 }
 function spawnMon(type,spot,extra){const e=makeMon(type,spot.x,spot.y,extra);G.units.push(e);if(!e.object)insertOrder(e);H.spawn(e);return e;}
@@ -1092,10 +1231,11 @@ function setupBattle(enc,party){
   }
   if(hasR('bulwark'))G.units.filter(u=>u.side==='hero'&&u.kind==='pc').forEach(h=>h.shield=8);
   for(const u of G.units)if(!u.object)u.init=initRoll(u);
-  G.order=G.units.filter(u=>!u.object).sort(ordCmp).map(u=>u.id);
+  G.order=G.units.filter(u=>!u.object&&u.side!=='hero').sort(ordCmp).map(u=>u.id);
+  G.phase='heroes';G.phaseOn=false;G.ti=-1;G.combo=0;
   if(enc.twist==='ring')ringFire();
   log(`${enc.title}: ${MISSIONS[enc.type].name}.`,'g');
-  log('Initiative: '+G.order.map(id=>{const u=U(id);return `${u.name} ${u.init}`;}).join(', ')+'.','g');
+  if(G.order.length)log('Foes act in order: '+G.order.map(id=>{const u=U(id);return `${u.name} ${u.init}`;}).join(', ')+'.','g');
   log('— Round 1 —','g');
 }
 function isPlayer(u){return u.side==='hero'&&(u.kind==='pc'||u.kind==='npc')&&!AUTOPLAY;}
@@ -1108,13 +1248,13 @@ async function beginTurn(u){
   if(!live(u))return;
   if(u.st.bleed){H.pop(u,'Bleeding','bad');NOTE=[];await damage(null,u,u.bleedDmg||3,{});const ex=NOTE||[];NOTE=null;log(`${u.name} bleeds: ${ex.join(' ')}`,sideCol(u));}
   if(live(u)&&u.st.burn&&!immuneFire(u)){H.pop(u,'Burning','bad');H.sfx('fire');NOTE=[];await damage(null,u,3,{});const ex=NOTE||[];NOTE=null;log(`${u.name} burns: ${ex.join(' ')}`,sideCol(u));}
-  if(live(u)){const h=Tt(u.x,u.y).haz;if(h&&!HAZ[h.t].once){NOTE=[];await applyHazard(u);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));}}
   for(const z of G.zones){if(!live(u)||u.object||z.side===u.side||cheb(u,z)>z.r)continue;
     NOTE=[];await damage(null,u,(z.radiant&&u.undead?2:1)*z.dmg,{radiant:z.radiant});if(live(u)&&z.eff){addSt(u,z.eff,1);note(ST_NAME[z.eff]+'.');}const ex=NOTE||[];NOTE=null;log(`${u.name} is caught in a zone: ${ex.join(' ')}`,sideCol(u));}
   u.mp=live(u)?effSpeed(u):0;
   await checkEnd();
 }
 async function endTurn(u){
+  if(u&&live(u)){const h=Tt(u.x,u.y).haz;if(h&&!HAZ[h.t].once){NOTE=[];await applyHazard(u);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));}}
   if(u&&live(u))decSt(u);
   if(u)u.brutal=false;
   G.cur=null;G.await=false;
@@ -1155,23 +1295,72 @@ async function roundEnd(){
   }
   if(G.threat&&G.foeMom>=THREATS[G.threat].cost){const id=G.threat;G.foeMom-=THREATS[id].cost;G.threatN=(G.threatN||0)+1;G.threat=nextThreat();await fireThreat(id);if(await checkEnd())return;}
   log(`— Round ${G.round} —`,'g');
-  await H.banner('round');
 }
+/* ---------------- ROUNDS: your turn (every hero, in any order), then the foes' turn ---------------- */
+function heroSide(){return G.units.filter(u=>u.side==='hero'&&live(u)&&!u.object&&!u.caged&&(u.kind==='pc'||u.kind==='npc'));}
+function ready(u){return !!u&&u.side==='hero'&&live(u)&&!u.caged&&!u.object&&!u.waited&&!turnDone(u);}
+function readyHeroes(){return heroSide().filter(ready);}
+async function startHeroPhase(){
+  G.phase='heroes';G.phaseOn=true;G.combo=0;
+  for(const u of heroSide()){
+    if(G.round>1)u.shield=0;
+    u.react=true;u.acted=false;u.moved=false;u.waited=false;
+    if(u.kind==='pc')u.mom=Math.min(10,u.mom+TUNE.momTurn+(hasR('map')?1:0));
+  }
+  await H.banner('round');
+  for(const u of heroSide()){
+    if(u.st.bleed){H.pop(u,'Bleeding','bad');NOTE=[];await damage(null,u,u.bleedDmg||3,{});const ex=NOTE||[];NOTE=null;log(`${u.name} bleeds: ${ex.join(' ')}`,sideCol(u));}
+    if(live(u)&&u.st.burn&&!immuneFire(u)){H.pop(u,'Burning','bad');H.sfx('fire');NOTE=[];await damage(null,u,3,{});const ex=NOTE||[];NOTE=null;log(`${u.name} burns: ${ex.join(' ')}`,sideCol(u));}
+    for(const z of G.zones){if(!live(u)||z.side===u.side||cheb(u,z)>z.r)continue;
+      NOTE=[];await damage(null,u,z.dmg,{});if(live(u)&&z.eff){addSt(u,z.eff,1);note(ST_NAME[z.eff]+'.');}const ex=NOTE||[];NOTE=null;log(`${u.name} is caught in a zone: ${ex.join(' ')}`,sideCol(u));}
+    if(G.over)return;
+  }
+  for(const u of heroSide())u.mp=effSpeed(u)+(G.round===1&&hasR('hourglass')&&u.kind==='pc'&&effSpeed(u)>0?2:0);
+  await checkEnd();
+}
+/* End of your turn: the heroes' conditions tick down, then any hero standing in a hazard suffers it. */
+async function endHeroPhase(){
+  for(const u of G.units)if(u.side==='hero'&&live(u))decSt(u);
+  for(const u of heroSide()){const h=Tt(u.x,u.y).haz;if(h&&!HAZ[h.t].once&&live(u)){NOTE=[];await applyHazard(u);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));}}
+  G.phase='foes';G.phaseOn=false;G.cur=null;G.await=false;G.ti=-1;G.combo=0;
+  if(await checkEnd())return;
+  await H.banner('foes');
+}
+/* Picks a hero to act: the one whose best move is worth most (setups count the payoff they enable). */
+async function autoHeroPhase(){
+  for(let guard=0;guard<16&&!G.over;guard++){
+    const R=readyHeroes();if(!R.length)return;
+    let best=null;
+    for(const u of R){const P=u.kind==='npc'?{s:-5,setup:0}:planPc(u);const s=P.s+(P.setup||0)*TUNE.aiSetup;if(!best||s>best.s)best={u,s};}
+    const u=best.u;G.cur=u.id;await H.turn(u);
+    await pcTurn(u);
+    if(G.over)return;
+    u.waited=true;
+    await checkEnd();
+  }
+}
+function selectHero(u){if(!G||!G.await||G.phase!=='heroes'||!ready(u))return false;G.cur=u.id;H.turn(u);return true;}
 async function nextTurn(){
   while(G&&!G.over){
+    if(G.phase==='heroes'){
+      if(!G.phaseOn){await startHeroPhase();if(G.over)return;}
+      if(AUTOPLAY){await autoHeroPhase();if(G.over)return;await endHeroPhase();continue;}
+      const R=readyHeroes();
+      if(R.length){if(!R.some(u=>u.id===G.cur))G.cur=R[0].id;G.await=true;pushSnap();H.upd();H.save();await H.turn(U(G.cur));return;}
+      await endHeroPhase();continue;
+    }
     let u=null;
     if(G.extra.length){u=U(G.extra.shift());if(!live(u)||u.caged)continue;}
     else{
       G.ti++;
-      if(G.ti>=G.order.length){await roundEnd();if(G.over)return;G.ti=0;}
+      if(G.ti>=G.order.length){await roundEnd();if(G.over)return;G.phase='heroes';G.phaseOn=false;G.ti=-1;continue;}
       u=U(G.order[G.ti]);
-      if(!u||!live(u)||u.object||u.caged)continue;
+      if(!u||!live(u)||u.object||u.caged||u.side==='hero')continue;
     }
     G.cur=u.id;
     await beginTurn(u);
     if(G.over)return;
     if(!live(u)){G.cur=null;continue;}
-    if(isPlayer(u)){G.await=true;pushSnap();H.upd();H.save();return;}
     G.await=false;
     try{await (u.kind==='mon'?monTurn(u):pcTurn(u));}catch(e){console.error(e);}
     if(G.over)return;
@@ -1180,25 +1369,20 @@ async function nextTurn(){
     await H.pause(80);
   }
 }
+/* END TURN: every hero is finished for this round; the foes take their turn. */
 async function playerEndTurn(){
   if(!G||!G.await||G.over)return;
-  const u=U(G.cur);G.await=false;
-  await endTurn(u);
+  G.await=false;
+  await endHeroPhase();
   if(!G.over)await nextTurn();
 }
-/* Upcoming turns from the active one onward, wrapping into later rounds. */
+/* Who acts next: during your turn the heroes (ready or done), then the foes in order; then next round. */
 function upcoming(n){
   const out=[];if(!G)return out;
-  const cur=G.cur?U(G.cur):null;
-  if(cur&&live(cur))out.push({u:cur,round:G.round,now:true});
-  for(const id of G.extra){const u=U(id);if(live(u))out.push({u,round:G.round,extra:true});}
-  let i=G.ti,round=G.round,guard=0;
-  while(out.length<n&&guard++<200){
-    i++;if(i>=G.order.length){i=0;round++;}
-    const u=U(G.order[i]);if(!u||!live(u)||u.object)continue;
-    if(u.caged)continue;
-    out.push({u,round});
-  }
+  const foesFrom=(i,round)=>{for(let j=i;j<G.order.length&&out.length<n;j++){const u=U(G.order[j]);if(u&&live(u)&&!u.object&&!u.caged&&u.side!=='hero')out.push({u,round,now:G.phase==='foes'&&G.cur===u.id});}};
+  if(G.phase==='heroes'){for(const u of heroSide())out.push({u,round:G.round,hero:true,done:!ready(u),now:G.cur===u.id});foesFrom(0,G.round);}
+  else foesFrom(Math.max(0,G.ti),G.round);
+  if(out.length<n){for(const u of heroSide())if(out.length<n)out.push({u,round:G.round+1,hero:true});foesFrom(0,G.round+1);}
   return out;
 }
 function outcome(){

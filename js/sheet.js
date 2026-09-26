@@ -78,6 +78,7 @@ function monActBlock(A,x,y,w,o){
 function momRules(u){
   const Cc=CLASSES[u.cls],P=POSS[Cc.pro]||'their',hero=u.side==='hero';
   const L=[`+${TUNE.momTurn+(hero&&hasR('map')?1:0)} at the start of each of ${P} turns.`].concat(Cc.mom);
+  L.push(`+1 for each {g:combo} ${Cc.pro} sets up for an ally or lands ${Cc.pro==='he'?'himself':'herself'}.`);
   L.push(`Starts each battle with ${TUNE.momStart+(hero&&hasR('hymn')?2:0)}. Holds up to 10.`);
   return L;
 }
@@ -106,8 +107,9 @@ function sheetLayout(u,x,y,w,clip,o){
   bar(x+42,cy+21,w-44-textW(`${u.maxHp}/${u.maxHp}`)-4,6,f,foe?'#d04030':'#50c050');
   text(`${Math.max(0,u.hp)}/${u.maxHp}`,x+w,cy+21,C.parch,{al:'r'});
   const stats=[`Speed ${G&&!o.plain&&live(u)?effSpeed(u):u.speed}`];
-  if(G&&!o.plain&&u.init!=null)stats.push(`Initiative ${u.init}`);
+  if(G&&!o.plain&&u.init!=null&&u.side!=='hero')stats.push(`Initiative ${u.init}`);
   if(u.steady)stats.push(`Steadfast ${u.steady}`);
+  if(u.armor)stats.push(`Armored ${u.armor}`);
   if(u.shield>0)stats.push(`{b:Shield ${u.shield}}`);
   rich(stats.join(' · '),x+42,cy+30,w-44,C.parch,{clip});
   cy+=42;
@@ -116,7 +118,7 @@ function sheetLayout(u,x,y,w,clip,o){
   const sts=unitStatuses(u).filter(k=>k!=='shield');
   if(sts.length&&G&&!o.plain){
     cy+=secHead('CONDITIONS',x,cy,w,C.red);
-    for(const k of sts){const g=GLOSS[{slow:'slow',root:'root',prone:'prone',daze:'daze',weak:'weak',bleed:'bleed',burn:'burn',expose:'expose',mark:'mark',bless:'bless',hidden:'hidden'}[k]];
+    for(const k of sts){const g=GLOSS[{slow:'slow',root:'root',stag:'stag',daze:'daze',weak:'weak',bleed:'bleed',burn:'burn',expose:'expose',mark:'mark',bless:'bless',hidden:'hidden'}[k]];
       const ic=statusIcon(k);if(ic)ctx.drawImage(ic,x,cy);
       const hh=rich(`{w:${g?g.name:k}.} `+(g?g.text:''),x+10,cy,w-10,C.parch,{clip});cy+=Math.max(9,hh)+2;}
     if(u.st.mark&&u.marker&&G&&U(u.marker)){cy+=rich(`{m:Marked by ${U(u.marker).name}.}`,x+10,cy,w-10,C.parch,{clip})+2;}
@@ -183,4 +185,4 @@ function openUnitInfo(u,o){
   }});
 }
 /* A stand-in unit for a monster type (compendium, skirmish setup). */
-function monSheetUnit(k){const m=MON[k];return {id:'mon_'+k,kind:'mon',type:k,side:'enemy',name:m.name,hp:m.hp,maxHp:m.hp,speed:m.speed,attrs:m.attrs,steady:m.steady||0,st:{},shield:0,boss:!!m.boss};}
+function monSheetUnit(k){const m=MON[k];return {id:'mon_'+k,kind:'mon',type:k,side:'enemy',name:m.name,hp:m.hp,maxHp:m.hp,speed:m.speed,attrs:m.attrs,steady:m.steady||0,armor:m.armor||0,st:{},shield:0,boss:!!m.boss};}
