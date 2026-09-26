@@ -12,14 +12,14 @@ The whole game draws to a pixel canvas scaled up with crisp pixels: 320×180 on 
 
 - **The journey:** a Slay the Spire–style branching map for each act, with battles, elite fights, merchants, campfires, treasure and skill-check events, ending in a boss
 - **Heroes:** Brakka (Fighter), Vex (Rogue), Orin (Wizard) and Sela (Cleric), each with Might, Finesse, Wits and Presence, and skills such as Athletics, Stealth, Lore and Influence
-- **Rounds:** your heroes act first, in any order (tap a hero to pick them), then the foes act by initiative (d20 + Finesse). Red lines show each foe's intent: whom it will attack, and how hard
-- **Combos:** heroes set each other up. Shoved, dragged or knocked-down foes are staggered (the next attack is a sure critical hit), exposed foes take extra damage from every hit, and blessed heroes attack with advantage. Cashing in another hero's set-up is a combo: momentum for both, and a damage bonus that grows with each combo in the turn. The fighter's marks taunt foes into attacking her; armored foes shrug off everything but critical hits
+- **Initiative:** d20 + Finesse decides a single mixed turn order for heroes and foes, repeated each round and shown in the TURNS window. The INTENT button shows whom each foe means to attack, and how hard
+- **Combos:** heroes set each other up. Shoved, dragged or knocked-down foes are staggered (the next attack is a sure critical hit), exposed foes take extra damage from every hit, and blessed heroes attack with advantage. Cashing in another hero's set-up is a combo: momentum for both, and a damage bonus that grows with each combo in the round. Set-ups fade at the foe's own turn, so turn order matters. The fighter's marks taunt foes into attacking her; armored foes shrug off everything but critical hits
 - **Movement:** split your speed across several moves; taking an action ends movement
 - **Attack rolls:** 3d6 + attribute for a graze, a hit or a critical hit, with advantage and disadvantage from flanking, high ground, cover, conditions and more. A forecast shows the odds and damage of each result, and any combo, before you strike
 - **Terrain:** fire pits, acid pools, lava, snares and webs; cover, high ground and difficult terrain. Push and pull foes into hazards. Some monsters set snares, spit acid or start fires
 - **Momentum:** shown as gems. Heroes build it each turn and through their class, and spend it on stronger powers; foes share a pool of their own
 - **Tappable keywords:** every rules term is highlighted and opens its definition
-- **Full undo:** rewind any move or action back to the start of your turn
+- **Full undo:** rewind a move or action, or go back to the previous hero's turn and undo whatever the foes did in between
 - **Detailed log:** every roll, result, damage, push and condition
 - **Compendium:** all class powers, relics, monster stat blocks and the glossary
 - **Skirmish:** build a test fight against any monsters, or against a rival party of heroes whose powers you choose
@@ -54,5 +54,5 @@ No build step. Open `index.html` in a browser (or serve the folder). GitHub Acti
 the win rate, where runs end, how much health each kind of battle costs, how many combos land per round,
 and, for every power, the win rate of runs that took it versus runs that were offered it and passed.
 Override difficulty knobs with `TUNE='{"actMul":[1,1.1,.65]}' node tools/sim.js 200`. The autoplay plans
-combos (it makes set-ups before the heroes who cash them in); `TUNE='{"aiCombo":0}'` makes it ignore
+combos (it values set-ups that a later hero can cash in); `TUNE='{"aiCombo":0}'` makes it ignore
 set-ups, to measure how much combos are worth.

@@ -113,7 +113,7 @@ function sheetLayout(u,x,y,w,clip,o){
   if(u.shield>0)stats.push(`{b:Shield ${u.shield}}`);
   rich(stats.join(' · '),x+42,cy+30,w-44,C.parch,{clip});
   cy+=42;
-  if(o.classInfo&&pc){const Cc=CLASSES[u.cls];cy+=rich(`Health ${Cc.hp}, +${Cc.grow} per level. {g:${ATTR[Cc.prime]}} rises at levels 4, 7 and 10; ${ATTR[Cc.second]} at 6 and 11.`,x,cy,w,C.parch,{clip})+4;}
+  if(o.classInfo&&pc){const Cc=CLASSES[u.cls];cy+=rich(`Health ${Cc.hp}, +${Cc.grow} per level. {g:${ATTR[Cc.prime]}} rises at levels 3, 6, 9 and 12; ${ATTR[Cc.second]} at 5, 8 and 11.`,x,cy,w,C.parch,{clip})+4;}
   // conditions
   const sts=unitStatuses(u).filter(k=>k!=='shield');
   if(sts.length&&G&&!o.plain){

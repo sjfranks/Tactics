@@ -67,7 +67,7 @@ async function simRun(seed){
     if(!n)n=av[Math.floor(Math.random()*av.length)];
     RUN.pos=n.id;RUN.map.visited.push(n.id);S.floor=n.f;S.act=RUN.act;
     if(n.type==='battle'||n.type==='elite'||n.type==='boss'){
-      if(n.type==='boss'){S.bossHp.push(+hpFrac().toFixed(2));S.bossLvl.push(RUN.heroes.map(h=>h.lvl).join(''));S.bossGold.push(RUN.gold);}
+      if(n.type==='boss'){S.bossHp.push(+hpFrac().toFixed(2));S.bossLvl.push(RUN.heroes.map(h=>h.lvl).join(','));S.bossGold.push(RUN.gold);}
       const f=nodeF(n,n.type==='elite');const type=n.type==='boss'?'boss':nodeMission(n);
       const enc=genEncounter(f,type,{act:RUN.act,elite:n.type==='elite'});RUN.encKind=n.type;
       (S.preHp=S.preHp||[]).push({act:RUN.act,kind:n.type,hp:+hpFrac().toFixed(2)});
@@ -98,7 +98,7 @@ async function simRun(seed){
       if(res.relic||res.train||res.weapon){RUN.pending={steps:[res.relic?'relic2':res.weapon?'weapon':'train'],kind:'event'};takeOffers(RUN.pending,S);}
     }
   }
-  S.goldEnd=RUN.gold;S.weapons=RUN.heroes.map(h=>h.weapon);S.relics=RUN.gear.slice();S.lvls=RUN.heroes.map(h=>h.lvl);
+  S.goldEnd=RUN.gold;S.lvlEnd=RUN.heroes.reduce((a,h)=>a+h.lvl,0)/4;S.weapons=RUN.heroes.map(h=>h.weapon);S.relics=RUN.gear.slice();S.lvls=RUN.heroes.map(h=>h.lvl);
   return S;
 }
 `,ctx);
@@ -121,7 +121,9 @@ function report(R){
   console.log('Reached boss of act 1/2/3:',reach.map(v=>pct(v/n)).join(' / '),'   beat act 1/2/3:',[0,1,2].map(a=>pct(R.filter(r=>r.act>a||r.result==='win').length/n)).join(' / '));
   for(let a=0;a<3;a++){const hs=R.filter(r=>r.bossHp.length>a);if(!hs.length)continue;
     const avg=k=>hs.reduce((s,r)=>s+r[k][a],0)/hs.length;
-    console.log(`Act ${a+1} boss: party health on arrival ${pct(avg('bossHp'))}, gold ${avg('bossGold').toFixed(0)}, levels ${hs.slice(0,5).map(r=>r.bossLvl[a]).join(' ')}`);}
+    const lv=hs.reduce((s,r)=>s+r.bossLvl[a].split(',').reduce((x,y)=>x+ +y,0)/4,0)/hs.length;
+    console.log(`Act ${a+1} boss: party health on arrival ${pct(avg('bossHp'))}, gold ${avg('bossGold').toFixed(0)}, average hero level ${lv.toFixed(1)}`);}
+  {const W=R.filter(r=>r.result==='win');if(W.length)console.log(`Average hero level at the end of a won journey: ${(W.reduce((s,r)=>s+r.lvlEnd,0)/W.length).toFixed(1)}`);}
   const hpa=R.flatMap(r=>r.hpAfter);console.log(`Party health after a battle (avg): ${pct(hpa.reduce((a,b)=>a+b,0)/hpa.length)}   shop spend/run: ${(R.reduce((s,r)=>s+r.shopSpent,0)/n).toFixed(0)}   gold left at end: ${(R.reduce((s,r)=>s+r.goldEnd,0)/n).toFixed(0)}`);
   const W={};for(const r of R)if(r.why)W[r.why]=(W[r.why]||0)+1;console.log('Loss reasons:',JSON.stringify(W));
   for(let a=0;a<3;a++)for(const k of['battle','elite','boss']){const F=R.flatMap(r=>(r.fights||[]).filter(f=>f.act===a&&f.kind===k));if(!F.length)continue;

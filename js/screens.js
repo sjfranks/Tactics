@@ -501,7 +501,7 @@ function openSettings(inBattle,onMap){
     tog.push(['Play on silent',!!SET.loud,()=>setPlayOnSilent(!SET.loud)]);
     tog.push(['Hi-res art (experimental)',!!SET.hires,()=>{SET.hires=!SET.hires;saveSet();location.reload();}]);
     tog.push(['Auto end turn',SET.autoEnd,()=>{SET.autoEnd=!SET.autoEnd;saveSet();}]);
-    tog.push(['Show foe intents',SET.intents!==false,()=>{SET.intents=SET.intents===false;saveSet();}]);
+    tog.push(['Show foe intents',SET.showIntents===true,()=>{SET.showIntents=SET.showIntents!==true;saveSet();}]);
     tog.push(['Animation speed',['Slow','Normal','Fast'][SET.speed],()=>{SET.speed=(SET.speed+1)%3;saveSet();}]);
     acts.push(['How to play',openHowTo]);
     acts.push(['Glossary',()=>{SCREEN_BACK=SCREEN;COMP.tab=3;go(COMP_SCREEN);}]);
@@ -521,15 +521,15 @@ function openSettings(inBattle,onMap){
     button(x+w/2-30,y+h-16,60,12,'CLOSE',closeModal,{hot:true});
   }});
 }
-const HOWTO=`{g:Rounds.} Each round your heroes act first, in any order you like: tap a hero to pick them. Each can move and take one action. When you are done, tap END TURN and the foes act, one by one.
+const HOWTO=`{g:Turn order.} Everyone rolls initiative (d20 + Finesse) when a battle starts. Turns go from highest to lowest, heroes and foes mixed, every round. TURNS shows who is next. On a hero's turn they can move and take one action, then tap END TURN.
 
 {g:Moving and acting.} Tap a blue square to move, or drag the hero. You can move in several steps until your speed runs out. Taking an action ends your movement (a few powers give some back).
 
 {g:Powers.} Pick a power card at the bottom, then tap a target: red squares are foes in range, green are allies. A forecast shows what can happen. Tap the target again, or press STRIKE, to act. Powers with no target, like Thunderwave, go off when you tap their card twice.
 
-{g:Foe intents.} During your turn, red lines show whom each foe will attack on its turn, and the number over a hero is the damage coming their way. Shove foes out of reach, taunt them or finish them first.
+{g:Foe intents.} Tap INTENT to see whom each foe means to attack, and how hard. Shove foes out of reach, taunt them or finish them first.
 
-{g:Combos.} Heroes set each other up. A foe that is shoved, dragged or knocked down is {g:staggered}: the next attack on it is a sure critical hit. An {g:exposed} foe takes +3 damage from every hit. A {g:blessed} hero attacks with advantage. When a hero cashes in a set-up another hero made, it is a {g:combo}: both gain 1 momentum, and every hero hit for the rest of the turn deals +1 damage per combo (up to +3).
+{g:Combos.} Heroes set each other up. A foe that is shoved, dragged or knocked down is {g:staggered}: the next attack on it is a sure critical hit. An {g:exposed} foe takes +3 damage from every hit. A {g:blessed} hero attacks with advantage. Set-ups on a foe fade when its own turn ends, so line up a hero who acts before it. When a hero cashes in a set-up another hero made, it is a {g:combo}: both gain 1 momentum, and every hero hit for the rest of the round deals +1 damage per combo (up to +3).
 
 {g:The roles.} Brakka throws foes off balance and makes them fight her: foes she marks can only attack her. Orin does it to whole groups. Sela blesses her friends and exposes foes. Vex cashes it all in with sneak attacks on set-up foes.
 
@@ -539,13 +539,13 @@ const HOWTO=`{g:Rounds.} Each round your heroes act first, in any order you like
 
 {g:Momentum.} Shown as {p:◆} gems. Every hero starts a battle with none, gains 1 each turn, 1 per combo, and more for doing their job: each hero's sheet says how. Stronger powers cost momentum.
 
-{g:Foe threats.} The foes share a pool of momentum (top of the screen, like ◆3/5). When it reaches the cost of their next threat they unleash it: bloodlust at first, and deeper into the journey eruptions, reinforcements and dark rites. Tap it to see what is coming.
+{g:Foe threats.} The foes share a pool of momentum (top of the screen) that grows every round, with no limit. When it reaches the cost of their next threat they unleash it: bloodlust at first, and deeper into the journey eruptions, reinforcements and dark rites. Tap it to see what is coming.
 
 {g:Parting blows.} Stepping away from a foe beside you lets it strike you for free. The path turns red when that will happen. Rogues never provoke them, and staggered foes can't make them.
 
 {g:Hazards.} Fire, acid and lava hurt anyone who enters them or ends a turn in them, even when pushed or pulled in. Shove your enemies into them!
 
-{g:Undo.} UNDO rewinds your last move or action. Press it again to go further back, as far as the start of your turn.
+{g:Undo.} UNDO rewinds your last move or action. Press it again to go further back, even to a previous hero's turn.
 
 {g:Missions.} Every battle has a goal, shown at the top, and foes fight to stop you: they chase captives, crowd the shrine and guard exits. Each land puts its own twist on the missions.
 

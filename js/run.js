@@ -251,7 +251,7 @@ function clearSave(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
 function continueRun(){
   const d=loadSave();if(!d)return;RUN=d.RUN;CTX={mode:'run',relics:RUN.gear};
   if(RUN.stage==='battle'){
-    if(d.G&&d.G.phase){G=d.G;HIST.length=0;G.await=true;pushSnap();B.onEnd=onRunBattleEnd;B.busy=false;B.pend=null;B.inspect=null;B.vkey='';B.gRef=null;for(const k in VIS)delete VIS[k];go(BATTLE_SCREEN);const u=playerUnit();if(u){B.pi=defaultPower(u);selfPend(u);}}
+    if(d.G&&d.G.v===3){G=d.G;HIST.length=0;G.await=true;pushSnap();B.onEnd=onRunBattleEnd;B.busy=false;B.pend=null;B.inspect=null;B.vkey='';B.gRef=null;for(const k in VIS)delete VIS[k];go(BATTLE_SCREEN);const u=playerUnit();if(u){B.pi=defaultPower(u);selfPend(u);}}
     else startRunBattle(RUN.enc,RUN.encKind);
   }
   else if(RUN.stage==='reward'&&RUN.pending)goReward();
