@@ -21,8 +21,8 @@ def prepare(source: Path, hero: str) -> None:
     # The battle figure is 3 portrait tiles tall and slightly narrower than its
     # source illustration. Smaller square versions fit existing cards and tokens.
     for suffix, size in (
-        ("-board", (72, 96)),
-        ("-board-small", (36, 48)),
+        ("-board", (56, 96)),
+        ("-board-small", (28, 48)),
         ("", (32, 32)),
     ):
         picture.resize(size, Image.Resampling.LANCZOS).save(

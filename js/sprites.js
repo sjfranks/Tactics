@@ -787,7 +787,7 @@ for(const key of ['fighter','rogue','wizard','cleric']){
   ]){
     const img=new Image();
     img.onload=()=>{pair[size]=img;cache();};
-    img.src='assets/heroes/'+key+file+'.png?v=greenmarch-2';
+    img.src='assets/heroes/'+key+file+'.png?v=greenmarch-3';
   }
 }
 function sprB(key,hi){
