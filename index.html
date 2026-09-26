@@ -8,18 +8,27 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <script>
-/* If anything fails while loading, show it instead of a black screen, with a way out. */
+/* If the game fails to start, show why instead of a black screen, with a way out.
+   Errors from other sites' scripts (browser extensions, content blockers) are ignored:
+   they are reported only as "Script error." and don't stop the game. */
+window.__ERRS=[];
 window.addEventListener('error',function(e){
-  if(window.__STARTED||document.getElementById('boot-err'))return;
+  var f=e.filename||'';
+  if(!f||f.indexOf(location.origin)!==0)return;
+  window.__ERRS.push((e.message||'Error')+' ('+f.split('/').pop().split('?')[0]+':'+(e.lineno||0)+')');
+});
+window.addEventListener('load',function(){setTimeout(function(){
+  if((window.__STARTED&&!window.__ERRS.length)||document.getElementById('boot-err'))return;
+  var msg=window.__ERRS.length?window.__ERRS.slice(0,3).join('<br>'):'A game file did not load. Check your connection and reload.';
   var d=document.createElement('div');d.id='boot-err';
-  d.style.cssText='position:fixed;inset:0;z-index:9;padding:24px;font:15px -apple-system,sans-serif;color:#e8dcc0;background:#0d0b0a';
-  d.innerHTML='<p><b>Emberwatch failed to start.</b></p><p style="color:#9a8a70">'+String(e.message||e).replace(/</g,'&lt;')+'</p>'+
+  d.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;z-index:9;padding:24px;font:15px -apple-system,sans-serif;color:#e8dcc0;background:#0d0b0a';
+  d.innerHTML='<p><b>Emberwatch failed to start.</b></p><p style="color:#9a8a70">'+String(msg).replace(/<(?!br>)/g,'&lt;')+'</p>'+
     '<p><button id="boot-reload" style="font-size:16px;padding:10px 16px">Reload</button> '+
     '<button id="boot-reset" style="font-size:16px;padding:10px 16px">Clear saved data &amp; reload</button></p>';
-  (document.body||document.documentElement).appendChild(d);
+  document.body.appendChild(d);
   document.getElementById('boot-reload').onclick=function(){location.reload();};
   document.getElementById('boot-reset').onclick=function(){try{Object.keys(localStorage).filter(function(k){return k.indexOf('emberwatch')===0;}).forEach(function(k){localStorage.removeItem(k);});}catch(_){}location.reload();};
-});
+},400);});
 </script>
 <title>Emberwatch Tactics</title>
 <style>
@@ -42,6 +51,6 @@ window.addEventListener('error',function(e){
 <script src="js/illus.js?v=BUILD"></script>
 <script src="js/run.js?v=BUILD"></script>
 <script src="js/screens.js?v=BUILD"></script>
-<script>go(TITLE_SCREEN);requestAnimationFrame(loop);window.__STARTED=true;</script>
+<script>try{go(TITLE_SCREEN);requestAnimationFrame(loop);window.__STARTED=true;}catch(e){window.__ERRS.push(String(e&&e.message||e)+' (start)');}</script>
 </body>
 </html>
