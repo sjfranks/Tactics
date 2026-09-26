@@ -3,9 +3,19 @@
    EMBERWATCH — pixel canvas (320×180 landscape, 196 wide portrait), input, widgets
    ===================================================================== */
 let SW=320,SH=180,PORT=false;
+/* The canvas stores twice as many pixels as its logical size: layout works in logical pixels, while art,
+   text and fine lines can use the extra resolution. */
+const RES=2;
 const cv=document.getElementById('game');
 let ctx=cv.getContext('2d');const MAINCTX=ctx;
-cv.width=SW;cv.height=SH;ctx.imageSmoothingEnabled=false;
+cv.width=SW*RES;cv.height=SH*RES;ctx.imageSmoothingEnabled=false;
+/* An image made at double resolution carries _s=2 and draws at its logical size, so callers don't change. */
+(function(){const P=CanvasRenderingContext2D.prototype,di=P.drawImage;
+  P.drawImage=function(img,a,b,c,d,e,f,g,h){const s=img&&img._s;if(!s)return di.apply(this,arguments);
+    if(arguments.length===3)return di.call(this,img,a,b,img.width/s,img.height/s);
+    if(arguments.length===9)return di.call(this,img,a*s,b*s,c*s,d*s,e,f,g,h);
+    return di.apply(this,arguments);};})();
+function hiCanvas(w,h){const c=document.createElement('canvas');c.width=Math.round(w*RES);c.height=Math.round(h*RES);c._s=RES;const g=c.getContext('2d');g.setTransform(RES,0,0,RES,0,0);g.imageSmoothingEnabled=false;return c;}
 let SCALE=1;const ROT=false;
 /* Landscape screens get a 320×180 canvas; portrait screens get 180×320. */
 /* Size from the visible viewport, minus the phone's safe areas (notch, home bar, browser chrome). */
@@ -27,7 +37,7 @@ function fit(){
   PORT=vh>vw;
   let w=320,h=180;
   if(PORT){w=196;h=Math.round(w*vh/vw);if(h<PORT_MIN){h=PORT_MIN;w=Math.max(196,Math.round(h*vw/vh));}h=Math.min(h,640);}
-  if(w!==SW||h!==SH){SW=w;SH=h;cv.width=SW;cv.height=SH;MAINCTX.imageSmoothingEnabled=false;if(typeof onResize==='function')onResize();}
+  if(w!==SW||h!==SH){SW=w;SH=h;cv.width=SW*RES;cv.height=SH*RES;MAINCTX.imageSmoothingEnabled=false;if(typeof onResize==='function')onResize();}
   let s=Math.min(vw/SW,vh/SH);if(!PORT&&s>=3)s=Math.floor(s);
   SCALE=s;
   cv.style.width=SW*s+'px';cv.style.height=SH*s+'px';
@@ -90,7 +100,8 @@ cv.addEventListener('wheel',ev=>{const p=toCanvas(ev);const h=hitAt(p.x,p.y,PHIT
 window.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&MODALS.length){const m=MODALS[MODALS.length-1];if(m.closable!==false)closeModal();}});
 
 /* ---------------- primitives ---------------- */
-function rect(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(x|0,y|0,w|0,h|0);}
+const hp=v=>Math.round(v*2)/2;
+function rect(x,y,w,h,c){ctx.fillStyle=c;const x0=hp(x),y0=hp(y);ctx.fillRect(x0,y0,hp(x+w)-x0,hp(y+h)-y0);}
 function frame(x,y,w,h,c){rect(x,y,w,1,c);rect(x,y+h-1,w,1,c);rect(x,y,1,h,c);rect(x+w-1,y,1,h,c);}
 /* Gritty bevelled panel with bronze rim and corner rivets. */
 function panel(x,y,w,h,o){
@@ -125,7 +136,7 @@ function circle(cx,cy,r,col){ctx.fillStyle=col;for(let y=-r;y<=r;y++){const w=Ma
 function token(u,cx,cy,r,ring){
   circle(cx,cy,r+1,C.edge);circle(cx,cy,r,ring||sideRing(u));circle(cx,cy,r-1,'#1a1410');
   ctx.save();ctx.beginPath();ctx.arc(cx+.5,cy+.5,r-1,0,7);ctx.clip();
-  const S=unitSprite(u,PORT);const hx=Math.round((S.lft+S.rgt)/2),hy=PORT?Math.min(S.top+r+3,Math.round((S.top+S.bot)/2)):Math.min(S.top+r,Math.round((S.top+S.bot)/2));ctx.drawImage(S.c,cx-hx,cy-hy);ctx.restore();
+  const S=cardSprite(u,PORT);const hx=Math.round((S.lft+S.rgt)/2),hy=PORT?Math.min(S.top+r+3,Math.round((S.top+S.bot)/2)):Math.min(S.top+r,Math.round((S.top+S.bot)/2));ctx.drawImage(S.c,cx-hx,cy-hy);ctx.restore();
 }
 function sideRing(u){return u.side==='enemy'?(u.boss?'#f0c050':'#c83a30'):u.kind==='npc'?'#6ac86a':'#4a8ae0';}
 /* ---------------- momentum gems, portraits, status icons ---------------- */
@@ -158,7 +169,7 @@ function portrait(u,x,y,s,o){
   const rim=foe?(u.boss?C.gold:'#b84030'):u.kind==='npc'?'#5aa85a':'#4a80d0';
   rect(x,y,s,s,C.edge);rect(x+1,y+1,s-2,s-2,o.rim||rim);rect(x+2,y+2,s-4,s-4,bg);
   rect(x+2,y+s-6,s-4,4,'rgba(0,0,0,.25)');
-  const S=unitSprite(u,true);
+  const S=cardSprite(u,true);
   const cx=Math.round((S.lft+S.rgt)/2);
   const big=S.bot-S.top>26&&S.rgt-S.lft>26;
   ctx.save();ctx.beginPath();ctx.rect(x+2,y+2,s-4,s-4);ctx.clip();
@@ -175,7 +186,9 @@ function unitStatuses(u){
   return out;
 }
 function statusRow(u,x,y,max){const L=unitStatuses(u).slice(0,max||6);L.forEach((k,i)=>{const c=statusIcon(k);if(c)ctx.drawImage(c,x+i*8,y);});return L.length*8;}
-function unitSprite(u,hi){const f=hi?sprH:spr;if(u.kind==='pc')return f(u.cls,u.rival?'rival':null);if(u.kind==='npc')return f(u.npc);return f(MON[u.type].art);}
+/* Cards and tokens always want a figure about 32 pixels tall, so large creatures use their half-size image there. */
+function cardSprite(u,hi){const S=unitSprite(u,hi);return hi&&S.c.height>64?unitSprite(u,false):S;}
+function unitSprite(u,hi){const f=hi?sprH:sprM;if(u.kind==='pc')return f(u.cls,u.rival?'rival':null);if(u.kind==='npc')return f(u.npc);return f(MON[u.type].art);}
 
 /* ---------------- rich text with clickable keywords ---------------- */
 const KW_MAP={};const KW_LIST=[];
@@ -208,9 +221,9 @@ function layoutRich0(s,w,col,nokw){
     const a=atoms[i];
     if(a.nl){lines.push([]);x=0;continue;}
     let gw=textW(a.t);for(let j=i+1;j<atoms.length&&!atoms[j].nl&&!atoms[j].sp;j++)gw+=textW(atoms[j].t)+1;
-    const spw=a.sp&&x>0?3:0;
+    const spw=a.sp&&x>0?2:0;
     if(x>0&&a.sp&&x+spw+gw>w){lines.push([]);x=0;}
-    const gap=x>0?(a.sp?3:1):0;
+    const gap=x>0?(a.sp?2:.5):0;
     lines[lines.length-1].push({t:a.t,col:a.col,kw:a.kw,x:x+gap});x+=gap+textW(a.t);
   }
   return lines;

@@ -62,8 +62,8 @@ function drawEmbers(col){for(const e of EMBERS){e.y-=e.s;e.x+=Math.sin(NOW/900+e
 /* A glint that sweeps across the letters of the logo every few seconds. */
 const LOGO={};
 function logoShine(lx,ly,tw){
-  if(!LOGO.c){LOGO.c=document.createElement('canvas');LOGO.c.width=tw+2;LOGO.c.height=17;const m=ctx;ctx=LOGO.c.getContext('2d');try{text('EMBERWATCH',1,1,'#ffffff',{sc:3,sh:false});}finally{ctx=m;}
-    LOGO.s=document.createElement('canvas');LOGO.s.width=tw+2;LOGO.s.height=17;}
+  if(!LOGO.c){LOGO.c=hiCanvas(tw+2,17);const m=ctx;ctx=LOGO.c.getContext('2d');try{text('EMBERWATCH',1,1,'#ffffff',{sc:3,sh:false});}finally{ctx=m;}
+    LOGO.s=hiCanvas(tw+2,17);}
   const per=3600,ph=(NOW%per)/per;if(ph>.35)return;
   const g=LOGO.s.getContext('2d');g.globalCompositeOperation='source-over';g.clearRect(0,0,tw+2,17);g.drawImage(LOGO.c,0,0);
   g.globalCompositeOperation='source-in';g.fillStyle='#fffbe0';const x=ph/.35*(tw+40)-20;
@@ -148,7 +148,7 @@ const MAP_SCREEN={enter(){MAPSEL=null;MAPS.anim=null;const M=RUN.map;const cur=R
     if(av){const p=(Math.sin(NOW/180)+1)/2;ctx.globalAlpha=.35+p*.4;circle(q.x,y,r+3+Math.round(p),C.gold);ctx.globalAlpha=1;circle(q.x,y,r+2,'#fff0b0');}
     circle(q.x,y,r+1,C.edge);circle(q.x,y,r,vd?'#3a3028':(n.type==='elite'||big?'#e0c8a0':'#e8dcc0'));circle(q.x,y,r-1,vd?'#2a221c':(n.type==='elite'||big?'#b89870':'#c8b890'));
     if(!vd&&PORT){rect(q.x-r+3,y-r+4,3,1,'rgba(255,255,255,.5)');}
-    if(big){if(PORT){ctx.drawImage(sprH(MON[BOSSES[RUN.act]].art).c,q.x-16,y-18);}else{const S=spr(MON[BOSSES[RUN.act]].art);ctx.drawImage(S.c,q.x-8,y-9);}}
+    if(big){if(PORT){ctx.drawImage(artH(MON[BOSSES[RUN.act]].art).c,q.x-16,y-18);}else{const S=spr(MON[BOSSES[RUN.act]].art);ctx.drawImage(S.c,q.x-8,y-9);}}
     else if(PORT){const ic=mapIcon(n.type==='battle'&&nodeMission(n)&&n.mission!=='rout'?n.mission:n.type);if(ic){if(vd)ctx.globalAlpha=.5;ctx.drawImage(ic,q.x-12,y-12);ctx.globalAlpha=1;}}else ctx.drawImage(icon(n.type),q.x-5,y-5);
     if(vd&&n.id!==RUN.pos){ctx.globalAlpha=.6;circle(q.x,y,r-1,'#1a1410');ctx.globalAlpha=1;text('✓',q.x,y-2,C.mute,{al:'c'});}
     hit(q.x-r-2,y-r-2,2*r+4,2*r+4,Object.assign({fn:()=>{if(!MAPS.anim)mapNodeTap(n,av);},id:'node'+n.id},scr));
@@ -443,7 +443,7 @@ const HOWTO=`{g:Your turn.} Each hero can move and take one action, in either or
 
 {g:Attack results.} Every attack rolls 3d6 and adds an attribute. A total of 10 or less is a graze, 11 to 14 is a hit, 15 or more is a critical hit. Better results deal more damage, and effects listed "on a hit" or "on a crit" only happen on those results.
 
-{g:Boons and hindrances.} Each boon adds 2 to the roll and each hindrance takes 2 away. Flanking, high ground and exposed, prone or rooted targets give boons. Cover, being weakened and shooting with a foe beside you give hindrances.
+{g:Advantage and disadvantage.} Advantage adds 2 to the roll and disadvantage takes 2 away, up to twice each. Flanking, high ground and exposed, prone or rooted targets give advantage. Cover, being weakened and shooting with a foe beside you give disadvantage.
 
 {g:Momentum.} Shown as {p:◆} gems. Heroes gain 2 at the start of each turn, plus more from their class: each hero's sheet says how. Stronger powers cost momentum. The foes share their own pool, shown at the top of the screen.
 
@@ -487,7 +487,7 @@ const COMP_SCREEN={enter(){COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);
   scrollArea('clist',lx+3,ly+1,lw-6,lh-6,ch,(yy,clip)=>{let y=yy;for(const e of entries){const h=rowH(e);
     if(e.hdr){text(e.hdr.toUpperCase(),lx+6,y+2,C.mute,{sh:false});y+=h;continue;}
     if(COMP.sel===e.k)rect(lx+3,y,lw-8,h,'#3a2e1a');
-    let tx=lx+6;if(e.sprite){if(PORT){ctx.drawImage(sprH(e.sprite).c,lx+4,y);tx=lx+40;}else{ctx.drawImage(spr(e.sprite).c,lx+4,y-1);tx=lx+22;}}if(e.relic){ctx.drawImage(relicArt(e.relic),lx+4,y+1);tx=lx+23;}
+    let tx=lx+6;if(e.sprite){if(PORT){ctx.drawImage(artH(e.sprite).c,lx+4,y);tx=lx+40;}else{ctx.drawImage(spr(e.sprite).c,lx+4,y-1);tx=lx+22;}}if(e.relic){ctx.drawImage(relicArt(e.relic),lx+4,y+1);tx=lx+23;}
     text(e.label,tx,y+(e.sprite?(PORT?13:5):e.tall?5:2),COMP.sel===e.k?C.gold:(e.col||C.parch));if(e.sub)text(e.sub,lx+lw-6,y+2,C.mute,{al:'r'});
     if(y+h>clip[0]&&y<clip[1])hit(lx+3,Math.max(y,clip[0]),lw-8,h,{fn:()=>{COMP.sel=e.k;scrollTo('cdet',0);},id:'ce'+e.k});
     y+=h;}});
@@ -508,11 +508,102 @@ const COMP_SCREEN={enter(){COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);
 }};
 let SCREEN_BACK=null;
 
-/* ---------------- skirmish ---------------- */
-const SK={tab:0,lvl:3,act:0,haz:true,mission:0,foes:{},rivals:{fighter:false,rogue:false,wizard:false,cleric:false},rivalPow:{},partyPow:{},sel:'orc'};
+/* ---------------- skirmish ----------------
+   Twelve foe slots filled from a roster (tap to add, drag onto a slot to place, drag a slot away to remove),
+   dropdowns for the land and mission, and difficulty dials. The setup is remembered between visits. */
+const SK_MAX=12;
+const SK={lvl:3,act:0,haz:true,mission:'rout',slots:[],partyPow:{},rivalPow:{},filter:0,
+  diff:{foeHp:100,foeDmg:0,partyHp:100,partyDmg:0}};
 ORDER.forEach(c=>{SK.rivalPow[c]=CLASSES[c].start.slice();SK.partyPow[c]=CLASSES[c].start.slice();});
-SK.foes={orc:1,runner:3};
-const SK_MISSIONS=['rout','hold','survive','ambush'];
+SK.slots=[{t:'orc'},{t:'runner'},{t:'runner'},{t:'runner'},{t:'runner'},{t:'rats'}];
+try{const sv=JSON.parse(localStorage.getItem('emberwatch.v3.skirmish')||'null');if(sv&&Array.isArray(sv.slots)){Object.assign(SK,sv,{diff:Object.assign(SK.diff,sv.diff||{})});SK.slots=sv.slots.filter(e=>e&&(MON[e.t]||CLASSES[e.pc]));}}catch(e){}
+function saveSK(){try{localStorage.setItem('emberwatch.v3.skirmish',JSON.stringify({lvl:SK.lvl,act:SK.act,haz:SK.haz,mission:SK.mission,slots:SK.slots,partyPow:SK.partyPow,rivalPow:SK.rivalPow,diff:SK.diff}));}catch(e){}}
+const SK_MISSIONS=['rout','ambush','hold','survive','rescue','defend','loot','breakout','ritual'];
+const SK_FILTERS=[['ALL',()=>true],['GREEN',m=>m.act===0],['MOORS',m=>m.act===1],['ASHEN',m=>m.act===2],['SPECIAL',m=>m.act<0]];
+const LAND_TXT=['Meadows, woods and streams. Fire is the only hazard.','Graveyards and black water. Acid pools.','Basalt, ash and rivers of lava.'];
+function skName(e){return e.pc?CLASSES[e.pc].rival:(e.chief?'Chief ':'')+(e.elite?'Elite ':'')+MON[e.t].name;}
+function skArt(e){return e.pc?sprH(e.pc,'rival'):artH(MON[e.t].art);}
+function skAdd(e,at){
+  if(at!=null&&at<SK_MAX){if(at<SK.slots.length)SK.slots[at]=e;else SK.slots.push(e);}
+  else if(SK.slots.length<SK_MAX)SK.slots.push(e);else{toast('All 12 slots are full.');return;}
+  sfx('click');saveSK();
+}
+function toast(t){SK.toast={t,t0:NOW};}
+/* A dropdown: the current value in a box with a caret; tapping opens a list of choices with a line on each. */
+function dropdown(x,y,w,h,label,value,open){
+  text(label,x,y-7,C.mute);
+  button(x,y,w,h,'',open,{});
+  text(value,x+5,y+Math.floor((h-5)/2),C.gold);
+  const cy=y+Math.floor(h/2)-1;rect(x+w-10,cy,5,1,C.parch);rect(x+w-9,cy+1,3,1,C.parch);rect(x+w-8,cy+2,1,1,C.parch);
+}
+function openPicker(title,items,pick){
+  scrollTo('pick',0);
+  openModal({closable:true,draw(){
+    dim();const w=Math.min(220,SW-12),rowH=24,h=Math.min(SH-24,items.length*rowH+30),x=Math.floor((SW-w)/2),y=Math.floor((SH-h)/2);
+    panel(x,y,w,h,{title});
+    scrollArea('pick',x+5,y+12,w-9,h-18,items.length*rowH,(yy,clip)=>{items.forEach((it,i)=>{const cy=yy+i*rowH;
+      if(it.on){rect(x+6,cy,w-12,rowH-2,'#3a2e1a');frame(x+6,cy,w-12,rowH-2,C.gold);}
+      text(it.l,x+11,cy+4,it.on?C.gold:C.parch);if(it.sub){const L=wrap(it.sub,w-26);text(L[0]+(L.length>1?'…':''),x+11,cy+12,C.mute);}
+      if(cy+rowH>clip[0]&&cy<clip[1])hit(x+6,cy,w-12,rowH-2,{fn:()=>{closeModal();pick(it.v);saveSK();},id:'pk'+i});});});
+  }});
+}
+function stepper(x,y,w,label,val,dec,inc,o){
+  o=o||{};text(label,x,y+4,C.parch);
+  button(x+w-46,y,12,12,'-',dec,{disabled:o.min});text(val,x+w-23,y+3,o.col||C.gold,{al:'c'});button(x+w-12,y,12,12,'+',inc,{disabled:o.max});
+}
+function openSlotMenu(i){
+  openModal({closable:true,draw(){
+    const e=SK.slots[i];if(!e){closeModal();return;}
+    dim();const w=Math.min(200,SW-12),h=e.pc?96:118,x=Math.floor((SW-w)/2),y=Math.floor((SH-h)/2);
+    panel(x,y,w,h,{title:`SLOT ${i+1}`});
+    inset(x+8,y+12,36,36,'#15100c');const S=skArt(e);ctx.drawImage(S.c,x+10,y+14,32,32);
+    text(skName(e),x+50,y+15,C.gold);
+    if(e.pc){text(`Rival ${CLASSES[e.pc].title}`,x+50,y+23,C.mute);text(`${SK.rivalPow[e.pc].length} powers`,x+50,y+31,C.parch);}
+    else{const m=MON[e.t];text(`${m.role}${m.sz>1?' · Large':''}`,x+50,y+23,C.mute);text(m.minion?'1 hit point':`${Math.round(m.hp*(m.tiny||1)*(e.elite?1.3:1)*(e.chief?1.6:1))} health at level 1`,x+50,y+31,C.parch);}
+    const bw=Math.floor((w-20)/2);let by=y+54;
+    if(e.pc){button(x+8,by,bw,14,'POWERS',()=>openPowerEditor(e.pc,SK.rivalPow[e.pc],'Rival powers'),{});button(x+12+bw,by,bw,14,'REMOVE',()=>{SK.slots.splice(i,1);saveSK();closeModal();},{});by+=18;}
+    else{
+      button(x+8,by,bw,14,e.elite?'ELITE ✓':'MAKE ELITE',()=>{e.elite=!e.elite;saveSK();},{on:e.elite,disabled:MON[e.t].minion});
+      button(x+12+bw,by,bw,14,e.chief?'CHIEF ✓':'MAKE CHIEF',()=>{e.chief=!e.chief;saveSK();},{on:e.chief,disabled:MON[e.t].minion});by+=18;
+      button(x+8,by,bw,14,'DUPLICATE',()=>{if(SK.slots.length<SK_MAX){SK.slots.splice(i+1,0,Object.assign({},e));saveSK();}},{disabled:SK.slots.length>=SK_MAX});
+      button(x+12+bw,by,bw,14,'DETAILS',()=>openUnitInfo(monSheetUnit(e.t),{plain:true}),{});by+=18;
+      button(x+8,by,w-16,14,'REMOVE',()=>{SK.slots.splice(i,1);saveSK();closeModal();},{});by+=18;
+    }
+    rich(e.pc?'A rival hero fights for the foes with the powers you give them.':'{m:Elite:} 30% more health. {m:Chief:} 60% more health.',x+8,by+1,w-16,C.mute);
+  }});
+}
+function openDifficulty(){
+  openModal({closable:true,draw(){
+    dim();const w=Math.min(210,SW-12),h=150,x=Math.floor((SW-w)/2),y=Math.floor((SH-h)/2);const D=SK.diff;
+    panel(x,y,w,h,{title:'DIFFICULTY'});
+    const pct=v=>v+'%',sg=v=>(v>0?'+':'')+v;
+    let yy=y+14;const W=w-16;
+    text('FOES',x+8,yy,C.red);yy+=9;
+    stepper(x+8,yy,W,'Health',pct(D.foeHp),()=>{D.foeHp-=25;saveSK();},()=>{D.foeHp+=25;saveSK();},{min:D.foeHp<=50,max:D.foeHp>=300});yy+=15;
+    stepper(x+8,yy,W,'Damage per attack',sg(D.foeDmg),()=>{D.foeDmg--;saveSK();},()=>{D.foeDmg++;saveSK();},{min:D.foeDmg<=-3,max:D.foeDmg>=6});yy+=19;
+    text('YOUR PARTY',x+8,yy,C.blue||'#6aa0f0');yy+=9;
+    stepper(x+8,yy,W,'Health',pct(D.partyHp),()=>{D.partyHp-=25;saveSK();},()=>{D.partyHp+=25;saveSK();},{min:D.partyHp<=50,max:D.partyHp>=300});yy+=15;
+    stepper(x+8,yy,W,'Damage per attack',sg(D.partyDmg),()=>{D.partyDmg--;saveSK();},()=>{D.partyDmg++;saveSK();},{min:D.partyDmg<=-3,max:D.partyDmg>=6});yy+=19;
+    const bw=Math.floor((w-20)/2);
+    button(x+8,y+h-19,bw,13,'RESET',()=>{Object.assign(D,{foeHp:100,foeDmg:0,partyHp:100,partyDmg:0});saveSK();},{});
+    button(x+12+bw,y+h-19,bw,13,'DONE',closeModal,{hot:true});
+  }});
+}
+function openPartyPowers(){
+  openModal({closable:true,draw(){
+    dim();const w=Math.min(210,SW-12),h=160,x=Math.floor((SW-w)/2),y=Math.floor((SH-h)/2);
+    panel(x,y,w,h,{title:'YOUR PARTY'});
+    rich('Choose the powers each hero brings. Heroes start at the level you pick.',x+8,y+12,w-16,C.mute);
+    ORDER.forEach((c,i)=>{const yy=y+30+i*28;inset(x+8,yy,26,26,'#15100c');ctx.drawImage(sprH(c).c,x+9,yy+1,24,24);
+      text(`${CLASSES[c].name} · ${CLASSES[c].title}`,x+38,yy+3,C.gold);const L=wrap(SK.partyPow[c].map(id=>POWERS[id].name).join(', '),w-100);text(L[0]+(L.length>1?'…':''),x+38,yy+12,C.parch);
+      button(x+w-52,yy+6,44,13,'POWERS',()=>openPowerEditor(c,SK.partyPow[c],'Party powers'),{});});
+    button(x+w/2-30,y+h-18,60,13,'DONE',closeModal,{hot:true});
+  }});
+}
+function skRandom(){
+  const f=clamp(SK.lvl-1,0,11);const enc=genEncounter(f,'rout',{act:SK.act});
+  SK.slots=enc.enemies.filter(e=>MON[e.type]&&!MON[e.type].object).slice(0,SK_MAX).map(e=>({t:e.type,elite:!!e.elite,chief:!!e.leader}));saveSK();sfx('click');
+}
 function openPowerEditor(cls,list,label){
   scrollTo('pedit',0);
   openModal({closable:true,draw(){
@@ -530,66 +621,98 @@ function openPowerEditor(cls,list,label){
   }});
 }
 function skirmishStart(){
-  const lvl=SK.lvl;const hpAt=c=>CLASSES[c].hp+CLASSES[c].grow*(lvl-1);
+  saveSK();
+  const lvl=SK.lvl,D=SK.diff;const hpAt=c=>Math.round((CLASSES[c].hp+CLASSES[c].grow*(lvl-1))*D.partyHp/100);const rhp=c=>Math.round((CLASSES[c].hp+CLASSES[c].grow*(lvl-1))*D.foeHp/100);
   const party=ORDER.map(c=>({cls:c,lvl,maxHp:hpAt(c),hp:hpAt(c),powers:SK.partyPow[c].slice()}));
-  const enemies=[];
-  for(const t in SK.foes)for(let i=0;i<SK.foes[t];i++)enemies.push({type:t});
-  const rivals=ORDER.filter(c=>SK.rivals[c]);
-  const type=SK_MISSIONS[SK.mission];
+  const enemies=SK.slots.filter(e=>e.t).map(e=>({type:e.t,elite:e.elite,leader:e.chief,boss:MON[e.t].boss}));
+  const rivals=SK.slots.filter(e=>e.pc).map(e=>e.pc);
+  const type=SK.mission;
   const f=clamp(Math.round((lvl-1)*1.0),0,11);
   CTX={mode:'skirmish',relics:[],skirmish:true};
   const enc=genEncounter(f,type,{act:SK.act,hazards:SK.haz,enemies,title:'Skirmish'});
-  const spots=[[2,0],[3,0],[1,1],[4,1]].map(([x,y])=>({x,y}));
-  rivals.forEach((c,i)=>{let s=spots[i];if(enc.tiles[K(s.x,s.y)].ob||enc.enemies.some(e=>e.x===s.x&&e.y===s.y)){s=null;for(let y=0;y<3&&!s;y++)for(let x=0;x<COLS&&!s;x++)if(!enc.tiles[K(x,y)].ob&&!enc.tiles[K(x,y)].haz&&!enc.enemies.some(e=>e.x===x&&e.y===y))s={x,y};}
-    if(s)enc.enemies.push({pc:c,lvl,hp:hpAt(c),maxHp:hpAt(c),powers:SK.rivalPow[c].slice(),x:s.x,y:s.y});});
+  enc.mods={foeHp:D.foeHp/100,foeDmg:D.foeDmg,partyDmg:D.partyDmg};
+  const free=(x,y)=>!enc.tiles[K(x,y)].ob&&!enc.tiles[K(x,y)].haz&&!enc.enemies.some(e=>x>=e.x&&y>=e.y&&x<e.x+((MON[e.type]&&MON[e.type].sz)||1)&&y<e.y+((MON[e.type]&&MON[e.type].sz)||1));
+  rivals.forEach(c=>{let s=null;for(let y=0;y<3&&!s;y++)for(const x of[2,3,1,4,0,5])if(!s&&free(x,y))s={x,y};
+    if(s)enc.enemies.push({pc:c,lvl,hp:rhp(c),maxHp:rhp(c),powers:SK.rivalPow[c].slice(),x:s.x,y:s.y});});
   setupBattle(enc,party);
   beginBattleScreen(o=>{openModal(dialog({title:o==='win'?'VICTORY':'DEFEAT',body:o==='win'?'The skirmish is won.':'Your party has fallen.',closable:false,buttons:[{l:'BACK TO SETUP',hot:true,fn:()=>{G=null;go(SKIRMISH_SCREEN);}},{l:'REMATCH',fn:skirmishStart}]}));});
 }
-const SKIRMISH_SCREEN={enter(){CTX={mode:'skirmish',relics:[],skirmish:true};},draw(){
+const SKD={carry:null};
+const SKIRMISH_SCREEN={enter(){CTX={mode:'skirmish',relics:[],skirmish:true};SKD.carry=null;},draw(){
   rect(0,0,SW,SH,C.bg);
-  text('SKIRMISH',PORT?34:6,4,C.gold,{sc:2,ol:C.edge});
-  const tabs=PORT?['FOES','RIVALS','PARTY','FIELD']:['MONSTERS','RIVAL PARTY','YOUR PARTY','FIELD'];
-  const ty=PORT?20:3;
-  tabs.forEach((t,i)=>button(PORT?2+i*44:90+i*57,ty,PORT?43:55,12,t,()=>{SK.tab=i;},{on:SK.tab===i}));
-  const nFoes=Object.values(SK.foes).reduce((a,b)=>a+b,0)+ORDER.filter(c=>SK.rivals[c]).length;
-  if(PORT){button(2,3,27,14,'◀',()=>go(TITLE_SCREEN),{});button(SW-50,3,48,14,'START',skirmishStart,{hot:true,disabled:!nFoes});text(`${nFoes} foes`,SW-52,7,C.mute,{al:'r'});}
-  else{button(SW-66,SH-17,62,14,'START',skirmishStart,{hot:true,disabled:!nFoes});button(4,SH-17,50,14,'BACK',()=>go(TITLE_SCREEN),{});text(`Foes: ${nFoes} · Level ${SK.lvl} · ${ACTS[SK.act].sub} · ${MISSIONS[SK_MISSIONS[SK.mission]].name}`,SW/2,SH-12,C.mute,{al:'c'});}
-  const top=ty+15,bot=PORT?SH-2:SH-20;
-  if(SK.tab===0){
-    const lw=PORT?SW-4:150,lh=PORT?Math.round((bot-top)*.5):bot-top;
-    panel(2,top,lw,lh,{plain:true});
-    const list=Object.values(MON).filter(m=>!m.object);const bx=2+lw-46;
-    const RH=PORT?33:16,by0=PORT?10:2;
-    scrollArea('skm',5,top+3,lw-6,lh-6,list.length*RH,(yy,clip)=>{list.forEach((m,i)=>{const y=yy+i*RH;const n=SK.foes[m.id]||0;
-      if(SK.sel===m.id)rect(5,y,lw-8,RH,'#3a2e1a');if(PORT)ctx.drawImage(sprH(m.art).c,6,y);else ctx.drawImage(spr(m.art).c,6,y);const tx=PORT?40:24;text(m.name,tx,y+(PORT?10:2),n?C.gold:C.parch);text(m.role,tx,y+(PORT?17:9),C.mute);
-      if(y+RH>clip[0]&&y<clip[1]){hit(5,y,bx-8,RH,{fn:()=>{SK.sel=m.id;scrollTo('skd',0);},id:'skm'+m.id});
-        button(bx,y+by0,11,11,'-',()=>{if(n>0)SK.foes[m.id]=n-1;},{disabled:!n});text(String(n),bx+17,y+by0+3,C.white,{al:'c'});button(bx+23,y+by0,11,11,'+',()=>{SK.foes[m.id]=n+1;},{disabled:nFoes>=12});}
-    });});
-    const dx=PORT?2:154,dy=PORT?top+lh+2:top,dw=PORT?SW-4:164,dh=PORT?bot-dy:bot-top;
-    panel(dx,dy,dw,dh,{});
-    scrollArea('skd',dx+6,dy+5,dw-10,dh-10,SK.ch||300,(yy,clip)=>{SK.ch=sheetLayout(monSheetUnit(SK.sel),dx+6,yy,dw-16,clip,{plain:true})+4;});
-  }else if(SK.tab===1||SK.tab===2){
-    const rival=SK.tab===1;
-    panel(2,top,SW-4,bot-top,{});
-    let y=top+5;for(const l of wrap(rival?'Add heroes to fight against, with any powers you like.':'Choose the powers your own party brings.',SW-16)){text(l,8,y,C.mute);y+=7;}
-    const rh=PORT?Math.floor((bot-y-4)/4):28;
-    ORDER.forEach((c,i)=>{const yy=y+3+i*rh;const on=rival?SK.rivals[c]:true;const list=rival?SK.rivalPow[c]:SK.partyPow[c];
-      if(PORT){inset(4,yy,34,34,'#15100c');ctx.drawImage(sprH(c,rival?'rival':null).c,5,yy+1);}else{inset(8,yy,24,24,'#15100c');ctx.drawImage(spr(c,rival?'rival':null).c,12,yy+4);}
-      text(rival?CLASSES[c].rival:CLASSES[c].name,PORT?42:38,yy+3,on?C.gold:C.dim);text(CLASSES[c].title,PORT?42:38,yy+10,C.mute);
-      const names=list.map(id=>POWERS[id].name).join(', ');
-      if(PORT){const ls=wrap(names,SW-100);ls.slice(0,Math.max(1,Math.floor((rh-30)/7)+1)).forEach((l,j)=>text(l,42,yy+18+j*7,C.parch));}
-      else text(names,38,yy+17,C.parch);
-      const bx=PORT?SW-54:220;
-      if(rival)button(bx,yy+2,PORT?48:40,12,on?'IN':'OUT',()=>{SK.rivals[c]=!SK.rivals[c];},{on});
-      button(PORT?bx:264,PORT?(rival?yy+15:yy+2):yy+4,48,12,'POWERS',()=>openPowerEditor(c,list,rival?'Rival powers':'Party powers'),{});
-    });
-  }else{
-    panel(2,top,SW-4,bot-top,{});
-    const rows=[['Hero level',`${SK.lvl}`,()=>{SK.lvl=SK.lvl%12+1;}],['Land',ACTS[SK.act].sub,()=>{SK.act=(SK.act+1)%3;}],['Hazards',SK.haz?'On':'Off',()=>{SK.haz=!SK.haz;}],['Mission',MISSIONS[SK_MISSIONS[SK.mission]].name,()=>{SK.mission=(SK.mission+1)%SK_MISSIONS.length;}]];
-    const bx=PORT?66:110,bw=PORT?SW-76:120;
-    rows.forEach((r,i)=>{const y=top+10+i*20;text(r[0],12,y+4,C.parch);button(bx,y,bw,14,r[1],r[2],{});});
-    rich('Monsters scale with hero level. The Land sets the terrain and hazards: fire in the Greenmarch, acid in the Barrow Moors, lava in the Ashen Waste.',12,top+96,SW-24,C.mute);
+  const n=SK.slots.length;const M=4,W=PORT?SW-2*M:150;
+  // header
+  button(M,3,22,14,'◀',()=>go(TITLE_SCREEN),{});
+  text('SKIRMISH',M+28,5,C.gold,{sc:2,ol:C.edge});
+  button(SW-M-54,3,54,14,'START ▶',skirmishStart,{hot:true,disabled:!n,glow:n>0});
+  // field settings
+  let y=29;const half=Math.floor((W-4)/2);
+  dropdown(M,y,half,14,'LAND',ACTS[SK.act].sub.replace('The ',''),()=>openPicker('LAND',ACTS.map((a,i)=>({l:a.sub,sub:LAND_TXT[i],v:i,on:SK.act===i})),v=>{SK.act=v;}));
+  dropdown(M+half+4,y,W-half-4,14,'MISSION',MISSIONS[SK.mission].name,()=>openPicker('MISSION',SK_MISSIONS.map(t=>({l:MISSIONS[t].name,sub:MISSIONS[t].desc,v:t,on:SK.mission===t})),v=>{SK.mission=v;}));
+  y+=24;
+  text('LEVEL',M,y-7,C.mute);
+  button(M,y,14,14,'-',()=>{SK.lvl=Math.max(1,SK.lvl-1);saveSK();},{disabled:SK.lvl<=1});inset(M+15,y,30,14,'#15100c');text(String(SK.lvl),M+30,y+4,C.gold,{al:'c'});button(M+46,y,14,14,'+',()=>{SK.lvl=Math.min(12,SK.lvl+1);saveSK();},{disabled:SK.lvl>=12});
+  text('HAZARDS',M+66,y-7,C.mute);button(M+66,y,34,14,SK.haz?'ON':'OFF',()=>{SK.haz=!SK.haz;saveSK();},{on:SK.haz});
+  const dOn=SK.diff.foeHp!==100||SK.diff.foeDmg||SK.diff.partyHp!==100||SK.diff.partyDmg;
+  if(PORT)text('TUNING',M+106,y-7,C.mute);
+  if(PORT){const tw=W-106;button(M+106,y,Math.floor(tw/2)-2,14,'PARTY',openPartyPowers,{});button(M+106+Math.floor(tw/2),y,tw-Math.floor(tw/2),14,dOn?'DIFF. ✦':'DIFFICULTY',openDifficulty,{on:!!dOn});}
+  else{button(SW-M-54,SH-18,54,14,dOn?'DIFF. ✦':'DIFFICULTY',openDifficulty,{on:!!dOn});button(SW-M-100,SH-18,44,14,'PARTY',openPartyPowers,{});}
+  // foe slots
+  y+=22;
+  text(`FOES ${n}/${SK_MAX}`,M,y+3,C.gold);
+  button(M+W-40,y,40,12,'CLEAR',()=>{SK.slots=[];saveSK();},{disabled:!n});
+  button(M+W-84,y,42,12,'RANDOM',skRandom,{});
+  y+=15;
+  const cols=6,ss=Math.floor((W-(cols-1)*3)/cols),rowsN=Math.ceil(SK_MAX/cols);
+  const y0=y;const slotAt=(px,py)=>{for(let i=0;i<SK_MAX;i++){const sx=M+(i%cols)*(ss+3),sy=y0+Math.floor(i/cols)*(ss+3);if(px>=sx&&py>=sy&&px<sx+ss&&py<sy+ss)return i;}return -1;};
+  SKD.slotAt=slotAt;
+  const hov=SKD.carry&&PTR.down?slotAt(PTR.x,PTR.y):-1;
+  for(let i=0;i<SK_MAX;i++){const sx=M+(i%cols)*(ss+3),sy=y+Math.floor(i/cols)*(ss+3);const e=SK.slots[i];
+    const next=i===n&&!e;
+    inset(sx,sy,ss,ss,e?'#241a14':'#120d0a');
+    if(!e){ctx.globalAlpha=next?.5+.3*Math.sin(NOW/200):.35;frame(sx+3,sy+3,ss-6,ss-6,next?C.gold:C.rim2);ctx.globalAlpha=1;if(next)text('+',sx+ss/2,sy+ss/2-3,C.gold,{al:'c'});}
+    else{const S=skArt(e);const big=!e.pc&&MON[e.t].sz>1;ctx.drawImage(S.c,sx+1,sy+(big?1:0),ss-2,ss-2);
+      if(e.elite)text('★',sx+2,sy+2,C.gold);if(e.chief)text('♛',sx+ss-7,sy+2,C.gold);if(e.pc)text('R',sx+ss-6,sy+2,'#ff8a8a');
+      if(!(SKD.carry&&SKD.carry.from===i))hit(sx,sy,ss,ss,{id:'sl'+i,fn:()=>openSlotMenu(i),
+        dragStart:()=>{SKD.carry={e,from:i};},drag:()=>{},drop:(px,py)=>{const j=slotAt(px,py);const c=SKD.carry;SKD.carry=null;if(!c)return;
+          if(j<0){SK.slots.splice(c.from,1);toast('Removed');}else if(j!==c.from){const o=SK.slots[j];if(o){SK.slots[j]=c.e;SK.slots[c.from]=o;}else{SK.slots.splice(c.from,1);SK.slots.push(c.e);}}saveSK();}});}
+    if(hov===i){frame(sx,sy,ss,ss,'#ffffff');frame(sx+1,sy+1,ss-2,ss-2,C.gold);}
   }
+  y+=rowsN*(ss+3)+4;
+  if(!PORT)rich('Tap a foe in the list to add it, or drag it onto a slot. Tap a slot for options; drag it away to remove it.',M,y,W,C.mute);
+  // roster: below the slots in portrait, its own column in landscape
+  const RX=PORT?M:M+W+8,RW=PORT?W:SW-RX-M;
+  if(!PORT)y=22;
+  text('ADD FOES',RX,y+3,C.gold);text('tap to add · drag to a slot',RX+RW,y+3,C.mute,{al:'r'});y+=13;
+  const fw=Math.floor((RW-(SK_FILTERS.length-1)*2)/SK_FILTERS.length);
+  SK_FILTERS.forEach(([l],i)=>button(RX+i*(fw+2),y,fw,12,l,()=>{SK.filter=i;scrollTo('skr',0);},{on:SK.filter===i}));
+  y+=15;
+  const items=[];
+  if(SK.filter===0||SK.filter===4)ORDER.forEach(c=>items.push({pc:c}));
+  Object.values(MON).filter(m=>!m.object&&SK_FILTERS[SK.filter][1](m)).forEach(m=>items.push({t:m.id}));
+  const rc=Math.max(4,Math.floor(RW/46)),cw=Math.floor((RW-2-(rc-1)*2)/rc),ch=cw+10;
+  const rh=SH-y-(PORT?3:22),rosterY=y;
+  panel(RX-1,y-1,RW+2,rh+2,{plain:true});
+  scrollArea('skr',RX,y,RW,rh,Math.ceil(items.length/rc)*(ch+2)+2,(yy,clip)=>{
+    const sc=SCROLLER;
+    items.forEach((e,i)=>{const cx=RX+1+(i%rc)*(cw+2),cy=yy+1+Math.floor(i/rc)*(ch+2);if(cy+ch<clip[0]||cy>clip[1])return;
+      inset(cx,cy,cw,ch,'#1c140f');const S=skArt(e);const sz=Math.min(cw-4,32);ctx.drawImage(S.c,cx+Math.floor((cw-sz)/2),cy+2,sz,sz);
+      const nm=e.pc?CLASSES[e.pc].rival:MON[e.t].name;const short=nm.length*3.2>cw-2?nm.split(' ').pop():nm;
+      text(short,cx+cw/2,cy+ch-8,e.pc?'#ff9a8a':C.parch,{al:'c'});
+      if(!e.pc){const m=MON[e.t];const tag=m.boss?'BOSS':m.sz>1?'LARGE':m.minion?'MINION':m.tiny?'SWARM':'';if(tag){const tw2=textW(tag)+3;rect(cx+cw-tw2-1,cy+1,tw2,7,m.boss?'#6a4a10':'#3a2418');text(tag,cx+cw-tw2/2-1,cy+2,m.boss?C.gold:'#e8b0a0',{al:'c',sh:false});}}
+      let mode=null,ly=0;
+      hit(cx,cy,cw,ch,{id:'ro'+i,fn:()=>{skAdd(Object.assign({},e));},
+        dragStart:(px,py)=>{mode=null;ly=py;},
+        drag:(px,py)=>{if(!mode)mode=Math.abs(px-PTR.x0)>Math.abs(py-PTR.y0)*.8?'carry':'scroll';
+          if(mode==='scroll'&&py<rosterY-2)mode='carry';
+          if(mode==='scroll'){sc(py-ly);ly=py;}else if(!SKD.carry)SKD.carry={e:Object.assign({},e),from:-1};},
+        drop:(px,py)=>{if(mode==='carry'&&SKD.carry){const j=slotAt(px,py);if(j>=0)skAdd(SKD.carry.e,Math.min(j,SK.slots.length));}SKD.carry=null;}});
+    });
+  });
+  // the foe being dragged follows the finger
+  if(SKD.carry&&PTR.down){const S=skArt(SKD.carry.e);ctx.globalAlpha=.85;ctx.drawImage(S.c,PTR.x-16,PTR.y-24,32,32);ctx.globalAlpha=1;}
+  else if(SKD.carry&&!PTR.down)SKD.carry=null;
+  if(SK.toast){const p=(NOW-SK.toast.t0)/1400;if(p>=1)SK.toast=null;else{ctx.globalAlpha=Math.min(1,(1-p)*3);const tw2=textW(SK.toast.t)+12;rect(SW/2-tw2/2,SH/2-7,tw2,14,'rgba(10,6,4,.9)');text(SK.toast.t,SW/2,SH/2-3,C.gold,{al:'c'});ctx.globalAlpha=1;}}
 }};
 
 /* ---------------- music for each screen ---------------- */
@@ -609,7 +732,7 @@ function loop(t){
   NOW=t;
   try{refit();}catch(e){}
   HITS=[];
-  ctx.imageSmoothingEnabled=false;
+  ctx.setTransform(RES,0,0,RES,0,0);ctx.imageSmoothingEnabled=false;
   try{
     if(SCREEN)SCREEN.draw();
     for(let i=0;i<MODALS.length;i++){const m=MODALS[i];if(i<MODALS.length-1){m.draw();HITS=HITS.filter(()=>false);}else m.draw();}

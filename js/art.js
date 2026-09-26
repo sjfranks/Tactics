@@ -12,7 +12,8 @@ const OBST_PAL={"rock":{"m":"#9a9a92","w":"#c4c4ba","n":"#76766e","M":"#4e4e4a",
 /* Obstacles become hand-drawn 32×32 sprites (sprH picks them up from SPR32). */
 for(const k in OBST32)SPR32[k]={pal:Object.assign({k:'#0e0a0a'},OBST_PAL[k]),rows:OBST32[k]};
 const ARTC={};
-function artCanvas(id,rows,pal){if(ARTC[id])return ARTC[id];return ARTC[id]=buildSprite(rows,pal);}
+/* Icons 16px and up get the same hi-res pass as the sprites: smoothed edges, a fine outline, soft shading. */
+function artCanvas(id,rows,pal){if(ARTC[id])return ARTC[id];return ARTC[id]=rows.length>=16?enhance64(rows,pal):buildSprite(rows,pal);}
 /* Palette variants for reusing one icon shape in another element or colour. */
 const ICON_VAR={
   gold:{m:'#f4c848',w:'#fffbd0',M:'#9a6a18',p:'#f4c848',P:'#9a6a18'},
@@ -51,5 +52,6 @@ const MON_ACT_ICON={Stab:'dagger',Arrow:'arrow',Hatchet:'axe','Set Snare':'trap'
   Mend:'heart',Sabre:'sword',Rally:'banner','Cleaving Axe':'axe','Hurled Axe':'axe','Rusty Blade':'sword','Bone Arrow':'arrow','Grave Grasp':'fist',
   'Paralyzing Claw':'cut','Venom Bite':'bite','Web Spit':'web','Acid Slam':'fist','Acid Spit':'cloud','Withering Curse':'skull:purple','Dark Offering':'skull',
   'Draining Touch':'skull','Necrotic Bolt':'bolt:necro','Grave Chill':'frost',Firebolt:'fireball',Flail:'mace',Scorch:'flame',Kindle:'flame',Firespit:'fireball',
-  'Flame Breath':'flame',Greatclub:'hammer','Molten Fist':'fist:ember','Rending Claws':'cut','Tail Lash':'whirl','Fire Breath':'flame','Rending Tendrils':'chain'};
+  'Flame Breath':'flame',Greatclub:'hammer','Molten Fist':'fist:ember','Rending Claws':'cut','Tail Lash':'whirl','Fire Breath':'flame','Rending Tendrils':'chain',
+  Gnaw:'bite','Skittering Bites':'bite','Bone Claw':'cut','Grave Bolt':'bolt:necro','Venom Fangs':'bite','Web Spray':'web','Crushing Fists':'fist','Hurl Boulder':'quake'};
 function monActIcon(A){const s=(MON_ACT_ICON[A.name]||(A.range>1?'arrow':'sword')).split(':');return icon16(s[0],s[1]);}

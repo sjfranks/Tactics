@@ -151,7 +151,9 @@ function sheetLayout(u,x,y,w,clip,o){
     const notes=[];
     if(m.note)notes.push(m.note);
     if(m.fireproof&&m.id!=='dragon')notes.push('Immune to fire and burning.');
-    if(m.swarm)notes.push('Swarm: its attacks never roll.');
+    if(m.minion)notes.push('Minion: any hit slays it. Its attacks never roll.');
+    if(m.tiny)notes.push('Swarm: attacked as one foe, takes double damage from area attacks. Its attacks never roll.');
+    if(m.sz>1&&!/Large/.test(m.note||''))notes.push('Large: fills a 2×2 block.');
     if(notes.length){cy+=secHead('TRAITS',x,cy,w);cy+=rich(notes.join(' '),x,cy,w,C.parch,{clip})+5;}
     if(m.va){cy+=secHead('BOSS SURGES',x,cy,w,C.red);cy+=rich('On rounds 1, 3 and 5 it unleashes:',x,cy,w,C.mute,{clip})+1;
       for(const v of m.va){cy+=rich(`{r:${VA[v].name}.} ${VA[v].desc}`,x,cy,w,C.parch,{clip})+2;}cy+=3;}
