@@ -417,7 +417,7 @@ function openSettings(inBattle,onMap){
     dim();const w=Math.min(190,SW-8),tog=[],acts=[];
     tog.push(['Music',SET.music,()=>{SET.music=!SET.music;auInit();SET.music?musicStart():musicStop();saveSet();}]);
     tog.push(['Sound effects',SET.sfx,()=>{SET.sfx=!SET.sfx;saveSet();}]);
-    if(navigator.audioSession)tog.push(['Play on silent',!!SET.loud,()=>{SET.loud=!SET.loud;auSession();saveSet();}]);
+    tog.push(['Play on silent',!!SET.loud,()=>setPlayOnSilent(!SET.loud)]);
     tog.push(['Auto end turn',SET.autoEnd,()=>{SET.autoEnd=!SET.autoEnd;saveSet();}]);
     tog.push(['Animation speed',['Slow','Normal','Fast'][SET.speed],()=>{SET.speed=(SET.speed+1)%3;saveSet();}]);
     acts.push(['How to play',openHowTo]);
