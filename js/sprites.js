@@ -791,6 +791,7 @@ const RIVAL_PAL={
 function spr(key,variant){
   const id=key+(variant?':'+variant:'');
   if(SPRC[id])return SPRC[id];
+  if(!SPR[key]&&SPR32[key])return SPRC[id]=sprM(key,variant);
   const d=SPR[key]||SPR.villager;
   const pal=Object.assign({},d.pal||{},variant==='rival'?RIVAL_PAL[key]||{}:{});
   const c=buildSprite(d.rows,pal);
@@ -839,17 +840,67 @@ function buildHi(rows16,pal){
   }
   return c;
 }
-const SPRH={};
+/* ---------- the hi-res pass: every 32×32 sprite becomes a 64×64 image drawn at 32 logical pixels.
+   Scale2x rounds the diagonals, the doubled outline is thinned back to one fine line tinted by what it wraps,
+   and each colour region is lit from the top left: a bright rim, a shadowed underside and body-wide volume
+   from the silhouette's own distance field. ---------- */
+const hexRGB=h=>{const n=parseInt(h.slice(1),16);return [n>>16,n>>8&255,n&255];};
+function toneRGB(c,f){if(f>0)return [c[0]+(255-c[0])*f,c[1]+(246-c[1])*f*.96,c[2]+(206-c[2])*f*.82];const a=-f;return [c[0]+(22-c[0])*a,c[1]+(14-c[1])*a,c[2]+(44-c[2])*a];}
+function enhance64(rows,pal,hand){
+  const g=thinOutline(scale2x(rows));const h=g.length,w=g[0].length;
+  const at=(x,y)=>(x<0||y<0||x>=w||y>=h)?'.':g[y][x];
+  const D=new Float32Array(w*h);for(let i=0;i<w*h;i++)D[i]=at(i%w,(i/w)|0)==='.'?0:1e4;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;if(!D[i])continue;let v=D[i];if(x>0)v=Math.min(v,D[i-1]+1);else v=1;if(y>0)v=Math.min(v,D[i-w]+1);else v=1;D[i]=v;}
+  for(let y=h-1;y>=0;y--)for(let x=w-1;x>=0;x--){const i=y*w+x;if(!D[i])continue;let v=D[i];if(x<w-1)v=Math.min(v,D[i+1]+1);else v=1;if(y<h-1)v=Math.min(v,D[i+w]+1);else v=1;D[i]=v;}
+  const Dv=(x,y)=>(x<0||y<0||x>=w||y>=h)?0:D[y*w+x];
+  const col=ch=>hexRGB(pal[ch]||PAL[ch]||'#ff00ff');const cache={};const C=ch=>cache[ch]||(cache[ch]=col(ch));
+  const c=document.createElement('canvas');c.width=w;c.height=h;const cx=c.getContext('2d');const im=cx.createImageData(w,h),d=im.data;
+  const hsh=(x,y)=>{let q=Math.imul(x,374761393)+Math.imul(y,668265263);q=Math.imul(q^q>>>13,1274126177);return ((q^q>>>16)>>>0)/4294967296;};
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const ch=g[y][x];if(ch==='.')continue;let out;
+    if(ch==='k'){
+      const outer=at(x-1,y)==='.'||at(x+1,y)==='.'||at(x,y-1)==='.'||at(x,y+1)==='.';
+      let nb=null;for(const[dx,dy]of[[0,-1],[-1,0],[1,0],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]]){const q=at(x+dx,y+dy);if(q!=='.'&&q!=='k'){nb=q;break;}}
+      const K0=C('k');out=nb&&outer?[K0[0]+(C(nb)[0]-K0[0])*.16,K0[1]+(C(nb)[1]-K0[1])*.16,K0[2]+(C(nb)[2]-K0[2])*.16]:K0;
+    }else if(hand){out=C(ch);
+    }else{
+      const base=C(ch);const df=(dx,dy)=>at(x+dx,y+dy)!==ch;let s=0;
+      if(df(0,-1)||df(-1,0))s+=1;else if(df(0,-2)||df(-2,0)||df(-1,-1))s+=.5;
+      if(df(0,1)||df(1,0))s-=1;else if(df(0,2)||df(2,0)||df(1,1))s-=.5;
+      const gx=Dv(x+1,y)-Dv(x-1,y),gy=Dv(x,y+1)-Dv(x,y-1),gl=Math.hypot(gx,gy)||1;const dv=Dv(x,y);
+      s+=((gx*.6+gy*.8)/gl)*Math.max(0,1-dv/9)*1.1;
+      s+=(.45-y/h)*.5;
+      if(dv>2&&hsh(x,y)<.07)s-=.5;
+      const q=Math.max(-2,Math.min(2,Math.round(s*2)/2));
+      out=toneRGB(base,q>0?q*.16:q*.15);
+      const lum=base[0]*.3+base[1]*.59+base[2]*.11,sat=Math.max(...base)-Math.min(...base);
+      if(q>=1&&lum>150&&sat<50)out=toneRGB(base,.55);
+    }
+    const i=(y*w+x)*4;d[i]=out[0];d[i+1]=out[1];d[i+2]=out[2];d[i+3]=255;
+  }
+  cx.putImageData(im,0,0);c._s=2;return c;
+}
+function hiCopy(src,fn){const c=fn(src);c._s=src._s;return c;}
+function spriteSet(c,top,bot,lft,rgt){return {c,f:hiCopy(c,flipped),wh:hiCopy(c,s=>silhouette(s,'#ffffff')),bk:hiCopy(c,s=>silhouette(s,'#000000')),top,bot,lft,rgt};}
+function bounds32(rows){let top=99,bot=0,lft=99,rgt=0;rows.forEach((row,y)=>{for(let x=0;x<row.length;x++)if(row[x]!=='.'){top=Math.min(top,y);bot=Math.max(bot,y);lft=Math.min(lft,x);rgt=Math.max(rgt,x);}});return {top,bot,lft,rgt};}
+const SPRH={},SPRM={};
+/* sprH: the detailed sprite, 32 logical pixels square (64 device pixels). */
 function sprH(key,variant){
   const id=key+(variant?':'+variant:'');
   if(SPRH[id])return SPRH[id];
-  if(SPR32[key]){const d=SPR32[key];const c=buildSprite(d.rows,Object.assign({},d.pal,variant==='rival'?d.rival:{}));
-    let top=32,bot=0,lft=32,rgt=0;d.rows.forEach((row,y)=>{for(let x=0;x<32;x++)if(row[x]!=='.'){top=Math.min(top,y);bot=Math.max(bot,y);lft=Math.min(lft,x);rgt=Math.max(rgt,x);}});
-    return SPRH[id]={c,f:flipped(c),wh:silhouette(c,'#ffffff'),bk:silhouette(c,'#000000'),top,bot,lft,rgt};}
-  const lo=spr(key,variant);const d=SPR[key]||SPR.villager;
-  const pal=Object.assign({},d.pal||{},variant==='rival'?RIVAL_PAL[key]||{}:{});
-  const c=buildHi(d.rows,pal);
-  return SPRH[id]={c,f:flipped(c),wh:silhouette(c,'#ffffff'),bk:silhouette(c,'#000000'),top:lo.top*2,bot:lo.bot*2+1,lft:lo.lft*2,rgt:lo.rgt*2+1};
+  const d=SPR32[key]||SPR32.villager;const b=bounds32(d.rows);
+  const c=enhance64(d.rows,Object.assign({},d.pal,variant==='rival'?d.rival:{}),d.hand);
+  return SPRH[id]=spriteSet(c,b.top,b.bot,b.lft,b.rgt);
+}
+/* artH: a 32-pixel figure for lists and cards, whatever the creature's size on the board. */
+function artH(key){return SPR32[key]&&SPR32[key].rows.length>32?sprM(key):sprH(key);}
+/* sprM: the same art at 16 logical pixels (32 device pixels), for the landscape board and small slots. */
+function sprM(key,variant){
+  const id=key+(variant?':'+variant:'');
+  if(SPRM[id])return SPRM[id];
+  const d=SPR32[key]||SPR32.villager;const b=bounds32(d.rows);
+  const c=buildSprite(d.rows,Object.assign({},d.pal,variant==='rival'?d.rival:{}));c._s=2;
+  return SPRM[id]=spriteSet(c,b.top>>1,b.bot>>1,b.lft>>1,b.rgt>>1);
 }
 const ICONH={};
 function iconH(key){return ICONH[key]||(ICONH[key]=buildHi(ICON[key],{}));}

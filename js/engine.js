@@ -6,8 +6,11 @@ const rnd=n=>Math.floor(Math.random()*n);
 const pick=a=>a[rnd(a.length)];
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;};
 const K=(x,y)=>y*COLS+x,KX=k=>k%COLS,KY=k=>Math.floor(k/COLS);
-const man=(a,b)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
-const cheb=(a,b)=>Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y));
+/* Distances are measured between footprints, so a 2×2 creature is beside anything touching any of its squares. */
+const SZ=u=>(u&&u.sz)||1;
+const gapX=(a,b)=>Math.max(0,a.x-(b.x+SZ(b)-1),b.x-(a.x+SZ(a)-1)),gapY=(a,b)=>Math.max(0,a.y-(b.y+SZ(b)-1),b.y-(a.y+SZ(a)-1));
+const man=(a,b)=>gapX(a,b)+gapY(a,b);
+const cheb=(a,b)=>Math.max(gapX(a,b),gapY(a,b));
 const inB=(x,y)=>x>=0&&y>=0&&x<COLS&&y<ROWS;
 const DIRS=[[0,-1],[1,0],[0,1],[-1,0]];
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -29,7 +32,11 @@ function rollText(r){return `3d6 (${r.d.join('+')})${r.mod>=0?'+':''}${r.mod} = 
 /* ---------------- STATE HELPERS ---------------- */
 const U=id=>G.units.find(u=>u.id===id);
 const live=u=>!!u&&!u.dead&&!u.gone;
-const unitAt=(x,y)=>G.units.find(u=>live(u)&&u.x===x&&u.y===y);
+const covers=(u,x,y)=>x>=u.x&&y>=u.y&&x<u.x+SZ(u)&&y<u.y+SZ(u);
+const unitAt=(x,y)=>G.units.find(u=>live(u)&&covers(u,x,y));
+/* The squares a unit would fill with its top-left corner at x,y. */
+function foot(u,x,y){const n=SZ(u);if(n===1)return [{x,y}];const o=[];for(let j=0;j<n;j++)for(let i=0;i<n;i++)o.push({x:x+i,y:y+j});return o;}
+const center=u=>({x:u.x+(SZ(u)-1)/2,y:u.y+(SZ(u)-1)/2});
 const allies=u=>G.units.filter(o=>live(o)&&o.side===u.side);
 const foesOf=u=>G.units.filter(o=>live(o)&&o.side!==u.side&&!o.caged);
 const fighters=u=>foesOf(u).filter(o=>!o.object);
@@ -42,14 +49,14 @@ const blocked=(x,y)=>!!obAt(x,y);
 function tallAt(x,y){const o=obAt(x,y);return !!o&&!!OBST[o].tall;}
 const isHighT=(x,y)=>Tt(x,y).ter==='high';
 const difficult=(x,y)=>{const t=Tt(x,y).ter;return t==='rough'||t==='water';};
-function stepCost(u,x,y){return difficult(x,y)&&!(u.side==='hero'&&hasR('fenboots'))?2:1;}
+function stepCost(u,x,y){return foot(u,x,y).some(t=>inB(t.x,t.y)&&difficult(t.x,t.y))&&!(u.side==='hero'&&hasR('fenboots'))?2:1;}
 function immuneFire(u){return (u.kind==='mon'&&mon(u).fireproof)||(u.side==='hero'&&hasR('scale'));}
 function hazDmg(u,h){
   if(!h)return 0;if(h.t==='trap'&&h.side===u.side)return 0;
   if((h.t==='fire'||h.t==='lava')&&immuneFire(u))return 0;
   return (HAZ[h.t].dmg?HAZ[h.t].dmg+G.act:0)+(HAZ[h.t].st.root?3:0);
 }
-function hazCost(u,x,y){return hazDmg(u,Tt(x,y).haz);}
+function hazCost(u,x,y){let m=0;for(const t of foot(u,x,y))if(inB(t.x,t.y))m=Math.max(m,hazDmg(u,Tt(t.x,t.y).haz));return m;}
 function log(m,c){G.log.push({m,c:c||''});if(G.log.length>400)G.log.shift();}
 let NOTE=null;
 function note(s){if(NOTE)NOTE.push(s);else log(s);}
@@ -82,15 +89,19 @@ function effSpeed(u){
 }
 function canReact(f){return live(f)&&!f.object&&!f.caged&&f.kind!=='npc'&&f.react&&!f.st.daze;}
 function passable(u,x,y){
-  if(!inB(x,y)||blocked(x,y))return false;
-  const o=unitAt(x,y);
-  if(o&&o!==u&&(o.side!==u.side||o.object))return false;
+  for(const t of foot(u,x,y)){
+    if(!inB(t.x,t.y)||blocked(t.x,t.y))return false;
+    const o=unitAt(t.x,t.y);
+    if(o&&o!==u&&(o.side!==u.side||o.object||SZ(u)>1))return false;
+  }
   return true;
 }
+/* Can u stand with its corner at x,y (every square free of obstacles and other units)? */
+function fits(u,x,y){return foot(u,x,y).every(t=>{if(!inB(t.x,t.y)||blocked(t.x,t.y))return false;const o=unitAt(t.x,t.y);return !o||o===u;});}
 /* Layered search by movement spent: minimises parting blows, then hazard damage, then cost. */
 function reach(u,mp){
   const rs=u.nimble?[]:fighters(u).filter(canReact);
-  const start={x:u.x,y:u.y,s:0,prov:0,haz:0,prev:null};
+  const sz=SZ(u);const start={x:u.x,y:u.y,sz,s:0,prov:0,haz:0,prev:null};
   const layers=[];for(let s=0;s<=mp;s++)layers.push(new Map());
   layers[0].set(K(u.x,u.y),start);
   for(let s=0;s<=mp;s++){
@@ -99,16 +110,16 @@ function reach(u,mp){
         const x=n.x+dx,y=n.y+dy;
         if(!passable(u,x,y))continue;
         const s2=s+stepCost(u,x,y);if(s2>mp)continue;
-        let p=n.prov;for(const f of rs)if(man(f,n)===1&&(Math.abs(f.x-x)+Math.abs(f.y-y))!==1)p++;
+        let p=n.prov;for(const f of rs)if(man(f,n)===1&&man(f,{x,y,sz})!==1)p++;
         const h=n.haz+hazCost(u,x,y);
         const k=K(x,y),L=layers[s2],ex=L.get(k);
-        if(!ex||p*100+h<ex.prov*100+ex.haz)L.set(k,{x,y,s:s2,prov:p,haz:h,prev:n});
+        if(!ex||p*100+h<ex.prov*100+ex.haz)L.set(k,{x,y,sz,s:s2,prov:p,haz:h,prev:n});
       }
     }
   }
   const out=new Map();
   for(const L of layers)for(const n of L.values()){
-    const o=unitAt(n.x,n.y);if(o&&o!==u)continue;
+    if(!fits(u,n.x,n.y))continue;
     const k=K(n.x,n.y),ex=out.get(k),sc=n.prov*100+n.haz;
     if(!ex||sc<ex.prov*100+ex.haz||(sc===ex.prov*100+ex.haz&&n.s<ex.s))out.set(k,n);
   }
@@ -116,8 +127,9 @@ function reach(u,mp){
 }
 function pathOf(n){const p=[];while(n){p.unshift({x:n.x,y:n.y});n=n.prev;}return p;}
 function freeTile(x,y,u){if(!inB(x,y)||blocked(x,y))return false;const o=unitAt(x,y);return !o||o===u;}
-function freeAdj(t,u){const out=[];for(const[dx,dy]of DIRS)if(freeTile(t.x+dx,t.y+dy,u))out.push({x:t.x+dx,y:t.y+dy});return out;}
-function tilesWithin(O,r){const out=[];for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)if(Math.abs(x-O.x)+Math.abs(y-O.y)<=r)out.push({x,y});return out;}
+/* Free squares touching t's footprint. */
+function freeAdj(t,u){const out=[];for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)if(man(t,{x,y})===1&&freeTile(x,y,u))out.push({x,y});return out.sort((a,b)=>Math.abs(a.x-t.x)+Math.abs(a.y-t.y)-Math.abs(b.x-t.x)-Math.abs(b.y-t.y));}
+function tilesWithin(O,r){const out=[];for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)if(man(O,{x,y})<=r)out.push({x,y});return out;}
 function adjFoe(O,a){return fighters(a).some(o=>man(o,O)===1);}
 
 async function walk(u,path,voluntary){
@@ -133,7 +145,7 @@ async function walk(u,path,voluntary){
         if(u.stopped){u.stopped=false;u.mp=0;H.pop(u,'Stopped!','call');return false;}
       }
     }
-    const o=unitAt(to.x,to.y);if(o&&o!==u&&i===path.length-1)return false;
+    if(i===path.length-1&&!fits(u,to.x,to.y))return false;
     if(voluntary)u.mp=Math.max(0,u.mp-stepCost(u,to.x,to.y));
     const left={x:u.x,y:u.y};
     u.x=to.x;u.y=to.y;await H.step(u);
@@ -145,6 +157,7 @@ async function walk(u,path,voluntary){
   return true;
 }
 async function onEnter(u){
+  if(SZ(u)>1){for(const f of foot(u,u.x,u.y))if(inB(f.x,f.y)&&Tt(f.x,f.y).haz&&live(u)){await applyHazard(u,K(f.x,f.y));break;}return;}
   const t=Tt(u.x,u.y);
   if(t.ter==='water'&&u.st.burn){delete u.st.burn;H.pop(u,'Doused','call');}
   if(u.side==='hero'&&u.kind==='pc'&&G.chests.includes(K(u.x,u.y))){
@@ -152,8 +165,8 @@ async function onEnter(u){
   }
   if(t.haz)await applyHazard(u);
 }
-async function applyHazard(u){
-  const k=K(u.x,u.y),h=G.tiles[k].haz;if(!h||!live(u))return;
+async function applyHazard(u,k){
+  if(k==null)k=K(u.x,u.y);const h=G.tiles[k].haz;if(!h||!live(u))return;
   if(h.t==='trap'&&h.side===u.side)return;
   const Z=HAZ[h.t];
   if(Z.once)G.tiles[k].haz=null;
@@ -171,7 +184,7 @@ function setHaz(x,y,t,dur,side){
   G.tiles[K(x,y)].haz={t,dur,side};
 }
 async function partingBlow(f,t){
-  let d=f.kind==='pc'?2+Math.max(f.attrs.M,f.attrs.F)+(f.side==='hero'&&hasR('lens')?3:0):f.swarm?2:TUNE.pbBonus+Math.max(f.attrs.M,f.attrs.F)+G.dmgAdd;
+  let d=f.kind==='pc'?2+Math.max(f.attrs.M,f.attrs.F)+(f.side==='hero'&&hasR('lens')?3:0):f.swarm||f.minion?2:f.tiny?1+alive4(f):TUNE.pbBonus+Math.max(f.attrs.M,f.attrs.F)+G.dmgAdd;
   await H.strike(f,t,{free:true});
   NOTE=[];
   const dealt=await damage(f,t,d,{});
@@ -189,8 +202,8 @@ async function forceMove(t,from,n,pull,src,fl){
     let sx=0,sy=0;
     if(Math.abs(dx)>=Math.abs(dy)&&dx!==0)sx=Math.sign(dx);else if(dy!==0)sy=Math.sign(dy);else break;
     const nx=t.x+sx,ny=t.y+sy;
-    if(pull&&nx===from.x&&ny===from.y)break;
-    if(!inB(nx,ny)||blocked(nx,ny)||unitAt(nx,ny)){
+    if(pull&&man({x:nx,y:ny,sz:SZ(t)},from)===0)break;
+    if(!fits(t,nx,ny)){
       if(!pull){const sd=2+(n-i-1);H.pop(t,'Slam!','call');H.sfx('slam');if(fl)fl.slam=true;note(`${pull?'Pulled':'Pushed'} ${moved}, slams for ${sd}.`);moved=-1;await damage(src,t,sd,{});}
       break;
     }
@@ -206,6 +219,8 @@ function addMom(u,n){if(u.kind==='pc'&&live(u))u.mom=Math.min(10,u.mom+n);}
 async function damage(src,t,amt,o){
   if(!live(t)||amt<=0||t.caged)return 0;
   let a=amt;
+  if(t.tiny&&o.area){a*=2;note('Swarms take double damage from area attacks.');}
+  if(t.minion)a=Math.max(a,t.hp);
   if(t.shield>0){const s=Math.min(t.shield,a);t.shield-=s;a-=s;}
   const before=t.hp;t.hp-=a;
   H.pop(t,a<amt?`-${a} ⛨`:`-${a}`,o.crit?'crit':'dmg');
@@ -260,7 +275,7 @@ function applyEff(src,t,eff,res){
 function cleanse(t){for(const k of['slow','root','weak','bleed','burn','daze','prone','mark'])delete t.st[k];H.upd(t);}
 function decSt(u){for(const k in u.st){u.st[k]--;if(u.st[k]<=0){delete u.st[k];if(k==='mark')u.marker=null;}}}
 
-/* ---------------- BOONS & HINDRANCES ---------------- */
+/* ---------------- ADVANTAGE & DISADVANTAGE ---------------- */
 function isMelee(p){return p.tgt==='self'||(p.tgt==='enemy'&&p.range===1)||!!p.reach||(!p.tgt&&p.range===1);}
 function netBoon(a,t,p,O){
   O=O||a;const pro=[],con=[];const melee=isMelee(p);
@@ -270,7 +285,8 @@ function netBoon(a,t,p,O){
   if(t.st.expose)pro.push('Exposed');else if(t.st.root)pro.push('Rooted');else if(t.st.daze)pro.push('Dazed');else if(t.st.prone&&melee)pro.push('Prone');
   if(melee&&!t.object){
     if(a.kind==='pc'&&a.cls==='rogue'){if(allies(a).some(h=>h!==a&&!h.object&&man(h,t)===1))pro.push('Ally beside');}
-    else if(inB(2*t.x-O.x,2*t.y-O.y)){const h=unitAt(2*t.x-O.x,2*t.y-O.y);if(h&&h!==a&&h.side===a.side&&!h.object)pro.push('Flanking');}
+    else if(SZ(t)===1&&SZ(a)===1){if(inB(2*t.x-O.x,2*t.y-O.y)){const h=unitAt(2*t.x-O.x,2*t.y-O.y);if(h&&h!==a&&h.side===a.side&&!h.object)pro.push('Flanking');}}
+    else{const c=center(t),oc=center({x:O.x,y:O.y,sz:SZ(a)});if(allies(a).some(h=>h!==a&&!h.object&&man(h,t)===1&&(center(h).x-c.x)*(oc.x-c.x)+(center(h).y-c.y)*(oc.y-c.y)<0&&Math.abs(center(h).x-c.x)+Math.abs(oc.x-c.x)+Math.abs(center(h).y-c.y)+Math.abs(oc.y-c.y)>=SZ(t)+1))pro.push('Flanking');}
   }
   if(isHighT(O.x,O.y)&&!isHighT(t.x,t.y))pro.push('High ground');
   if(a.kind==='mon'){
@@ -297,14 +313,17 @@ function pcDmg(a,p,t,res,net){
   if(p.noDmg||!p.dmg)return 0;
   let d=p.dmg[res-1]+(a.attrs[p.a]||0);
   if(a.side==='hero'&&hasR('whetstone'))d+=1;
+  d+=a.side==='hero'?(G.pcDmgAdd||0):(G.foeDmgAdd||0);
   if(a.cls==='rogue'&&net>0)d+=sneakBonus(a);
   if(p.radiant&&t.undead)d*=2;
   if(p.execute&&t.hp<=t.maxHp/2)d*=2;
   return Math.max(0,d);
 }
+/* How many of a tiny swarm's critters are still standing (1-4). */
+function alive4(u){return u.tiny?Math.max(1,Math.ceil(u.tiny*u.hp/u.maxHp)):1;}
 function monDmg(a,A,t,res){
-  if(A.flat!=null)return A.flat+Math.floor(G.dmgAdd/2);
-  let d=A.dmg[res-1]+G.dmgAdd;
+  if(A.flat!=null)return Math.max(1,(A.per?A.flat*alive4(a):A.flat)+Math.floor(G.dmgAdd/2));
+  let d=Math.max(1,A.dmg[res-1]+G.dmgAdd);
   if(mon(a).savage&&t.hp<=t.maxHp/2)d+=2;
   return d;
 }
@@ -412,7 +431,7 @@ async function pcStrike(u,p,t,C,fl){
     H.result(t,r);
     NOTE=[];
     if(u.hidden&&h===0){u.hidden=false;}
-    if(d>0)await damage(u,t,d,{crit:r.res===3,radiant:p.radiant});
+    if(d>0)await damage(u,t,d,{crit:r.res===3,radiant:p.radiant,area:p.area!=null});
     fl.hitIds.add(t.id);
     if(live(t)){
       if(p.mark){applyMark(t,u);note('Marked.');}
@@ -577,8 +596,8 @@ function forcedValue(src,t,from,n,pull){
   for(let i=0;i<n;i++){
     let dx=x-from.x,dy=y-from.y;if(pull){dx=-dx;dy=-dy;}
     let sx=0,sy=0;if(Math.abs(dx)>=Math.abs(dy)&&dx!==0)sx=Math.sign(dx);else if(dy!==0)sy=Math.sign(dy);else break;
-    const nx=x+sx,ny=y+sy;if(pull&&nx===from.x&&ny===from.y)break;
-    if(!inB(nx,ny)||blocked(nx,ny)||unitAt(nx,ny)){if(!pull)v+=2+(n-i-1);break;}
+    const nx=x+sx,ny=y+sy;if(pull&&man({x:nx,y:ny,sz:SZ(t)},from)===0)break;
+    if(!fits(t,nx,ny)){if(!pull)v+=2+(n-i-1);break;}
     x=nx;y=ny;v+=hazCost(t,x,y)*1.2;
   }
   return v;
@@ -606,7 +625,7 @@ function planMon(e){
     if(ranged)base-=fighters(e).filter(h=>man(h,n)===1).length*4;
     if(isHighT(n.x,n.y))base+=1;
     if(G.enc.type==='hold'&&e.side==='enemy'&&G.enc.zone.some(z=>z[0]===n.x&&z[1]===n.y))base+=4;
-    const fd=field.has(K(n.x,n.y))?field.get(K(n.x,n.y)):40;
+    let fd=40;for(const f of foot(e,n.x,n.y)){const k=K(f.x,f.y);if(field.has(k))fd=Math.min(fd,field.get(k));}
     const mo=base-fd*1.5-(moved?0:.3);
     if(mo>best.s)best={s:mo,node:n,act:null,target:null};
     if(e.st.daze&&moved)continue;
@@ -680,7 +699,7 @@ async function monAttack(e,A,t,isTile){
     if(v.side==='hero'&&hasR('ward')){v.warded=v.warded||{};v.warded[e.id]=1;}
     if(r)H.result(v,r);
     NOTE=[];
-    await damage(e,v,monDmg(e,A,v,res),{crit:res===3});
+    await damage(e,v,monDmg(e,A,v,res),{crit:res===3,area:!!A.area});
     if(live(v)){
       applyEff(e,v,A.eff,res);
       const push=tv(A.eff&&A.eff.push,res),pull=tv(A.eff&&A.eff.pull,res);
@@ -700,7 +719,10 @@ async function monAttack(e,A,t,isTile){
 async function monTurn(e){
   const m=mon(e);
   if(e.object||!live(e))return;
-  if(m.summon&&G.round%2===0&&allies(e).filter(f=>f.type===m.summon).length<2){const s=freeAdj(e,null)[0];if(s){H.pop(e,'Rise!','call');log(`${e.name} raises a ${MON[m.summon].name.toLowerCase()}.`,'e');spawnMon(m.summon,s,{side:e.side});await H.pause(250);}}
+  if(m.summon&&G.round%2===0){const cap=m.summonCap||2,n=Math.min(m.summonN||1,cap-allies(e).filter(f=>f.type===m.summon).length,12-G.units.filter(u=>live(u)&&u.side===e.side).length);
+    const spots=freeAdj(e,null).filter(t=>!Tt(t.x,t.y).haz);let made=0;
+    for(let i=0;i<n&&spots.length;i++){const s=spots.shift();spawnMon(m.summon,s,{side:e.side});made++;}
+    if(made){H.pop(e,m.summonCall||'Rise!','call');log(`${e.name} ${m.summonVerb||'raises'} ${made>1?made+' '+MON[m.summon].plural:'a '+MON[m.summon].name.toLowerCase()}.`,'e');await H.pause(250);}}
   const plan=planMon(e);
   if(!plan.node)return;
   if(plan.brutal){G.foeMom-=3;e.brutal=true;H.pop(e,'Brutal!','call');}
@@ -810,10 +832,10 @@ async function villain(b){
   const hs=fighters(b);
   NOTE=[];
   switch(va){
-    case 'horde':{for(let i=0;i<3;i++){const s=edgeSpot('top',b.side);if(s)spawnMon('runner',s,{side:b.side});}G.hordeBoon=true;break;}
+    case 'horde':{for(let i=0;i<4;i++){const s=edgeSpot('top',b.side);if(s)spawnMon('runner',s,{side:b.side});}G.hordeBoon=true;break;}
     case 'warcry':for(const h of hs.filter(h=>man(h,b)<=3)){addSt(h,'weak',1);applyMark(h,b);}break;
     case 'laststand':heal(b,24);G.foeMom+=3;break;
-    case 'raise':{for(let i=0;i<2;i++){const s=edgeSpot('top',b.side);if(s)spawnMon('bats',s,{side:b.side});}const s=freeAdj(b,null)[0];if(s)spawnMon('skeleton',s,{side:b.side});break;}
+    case 'raise':{for(let i=0;i<4;i++){const s=edgeSpot('any',b.side);if(s)spawnMon('bones',s,{side:b.side});}break;}
     case 'siphon':{let tot=0;for(const h of hs.filter(h=>man(h,b)<=4)){tot+=await damage(b,h,4,{});}heal(b,tot);break;}
     case 'nova':for(const h of hs){await damage(b,h,5,{});}break;
     case 'presence':for(const h of hs)addSt(h,'weak',1);G.foeMom+=4;break;
@@ -849,11 +871,11 @@ function insertOrder(u){
 }
 function makeMon(type,x,y,extra){
   extra=extra||{};const m=MON[type];const f=G.enc.f;
-  const mult=m.boss?TUNE.bossHp*(1+.03*f):(m.object?1+.08*f:1+TUNE.hpSlope*f);
-  const hp=Math.round(m.hp*mult*(extra.leader?1.6:1)*(extra.elite?1.3:1));
+  const mult=(m.boss?TUNE.bossHp*(1+.03*f):(m.object?1+.08*f:1+TUNE.hpSlope*f))*(m.object?1:G.foeHp||1);
+  const hp=m.minion?1:Math.round(m.hp*(m.tiny||1)*mult*(extra.leader?1.6:1)*(extra.elite?1.3:1));
   return {id:'e'+(G.uid++),side:extra.side||'enemy',kind:'mon',type,name:(extra.leader?'Chief ':'')+m.name,x,y,hp,maxHp:hp,speed:m.speed,
     attrs:Object.assign({},m.attrs),steady:m.steady||0,st:{},shield:0,react:true,mp:0,
-    undead:!!m.undead,boss:!!m.boss,swarm:!!m.swarm,nimble:!!m.nimble,object:!!m.object,leader:!!extra.leader,pillar:type==='pillar',cd:{}};
+    undead:!!m.undead,boss:!!m.boss,swarm:!!m.swarm,minion:!!m.minion,tiny:m.tiny||0,sz:m.sz||1,nimble:!!m.nimble,object:!!m.object,leader:!!extra.leader,pillar:type==='pillar',cd:{}};
 }
 function spawnMon(type,spot,extra){const e=makeMon(type,spot.x,spot.y,extra);G.units.push(e);if(!e.object)insertOrder(e);H.spawn(e);return e;}
 function makePc(h,x,y,side){
@@ -927,11 +949,11 @@ function genEncounter(f,type,opt){
     if(type==='assassinate')list.push({type:LEADERS[act],leader:true});
     if(opt.elite){const t=pick(ELITES[act]);list.push({type:t,elite:true});budget*=.85;}
     const pool=ACT_POOL[act];let g=0;
-    while(list.length<9&&g++<80){
+    while(list.length<12&&g++<80){
       const aff=pool.filter(t=>(SWARM.includes(t)?2:MON[t].cost)<=budget&&!(type==='boss'&&MON[t].cost>=5));
       if(!aff.length)break;
       const t=pick(aff);
-      if(SWARM.includes(t)){for(let i=0;i<3&&list.length<9;i++)list.push({type:t});budget-=2;}
+      if(SWARM.includes(t)){for(let i=0;i<4&&list.length<12;i++)list.push({type:t});budget-=2;}
       else{list.push({type:t});budget-=MON[t].cost;}
     }
   }
@@ -944,8 +966,13 @@ function genEncounter(f,type,opt){
     else if(rowsFor.includes(y))spots.push({x,y});
   }
   shuffle(spots);
+  // big creatures claim a 2×2 block first, then everyone else takes a square
+  list.sort((a,b)=>(MON[b.type]&&MON[b.type].sz||1)-(MON[a.type]&&MON[a.type].sz||1));
   for(const e of list){
-    let s;
+    let s;const sz=(MON[e.type]&&MON[e.type].sz)||1;
+    if(sz>1){const has=(x,y)=>spots.some(t=>t.x===x&&t.y===y);const ok=t=>has(t.x+1,t.y)&&has(t.x,t.y+1)&&has(t.x+1,t.y+1)&&has(t.x,t.y);
+      const c=spots.filter(ok).sort((a,b)=>Math.abs(a.x-2)-Math.abs(b.x-2)+(a.y-b.y)*.1);s=c[0];if(!s)continue;
+      spots=spots.filter(t=>!(t.x>=s.x&&t.x<=s.x+1&&t.y>=s.y&&t.y<=s.y+1));enc.enemies.push(Object.assign({},e,{x:s.x,y:s.y}));continue;}
     if(e.boss||e.leader||e.elite)s=spots.find(t=>t.y===0&&(t.x===2||t.x===3))||spots.find(t=>t.y<=1)||spots[0];
     else s=spots[0];
     if(!s)break;
@@ -960,6 +987,8 @@ function setupBattle(enc,party){
   G={enc,units:[],uid:1,round:1,ti:-1,order:[],extra:[],cur:null,await:false,cmd:0,foeMom:enc.act,hold:0,looted:0,ritual:5,ritualFailed:false,kills:0,
     chests:enc.chests.map(c=>K(c[0],c[1])),walls:{},zones:[],over:false,result:null,phoenixUsed:false,hordeBoon:false,log:[],
     tiles:JSON.parse(JSON.stringify(enc.tiles)),act:enc.act,dmgAdd:Math.floor(enc.f*TUNE.dmgSlope),rollAdd:Math.floor(enc.f/TUNE.rollStep)};
+  // skirmish difficulty adjusters
+  const MD=enc.mods||{};G.foeHp=MD.foeHp||1;G.dmgAdd+=MD.foeDmg||0;G.pcDmgAdd=MD.partyDmg||0;G.foeDmgAdd=MD.foeDmg||0;
   HIST.length=0;
   const hp=HERO_POS[enc.heroPos];
   for(const h of party)G.units.push(makePc(h,...hp[h.cls],'hero'));
@@ -1031,7 +1060,7 @@ async function roundEnd(){
     if(E.type==='survive'&&r<5)for(let i=0;i<1+(r>=2)+(E.act>=2);i++)add(pick(cheap),'any');
     if(E.type==='defend'&&r<5)for(let i=0;i<1+(E.act>=1);i++)add(pick(cheap),'any');
     if(E.type==='breakout'&&r>=1)add(pick(cheap),'bottom');
-    if(G.foeMom>=TUNE.summonAt&&G.units.filter(u=>u.side==='enemy'&&live(u)&&!u.object).length<8&&r>=2&&(G.summons||0)<=E.act){G.summons=(G.summons||0)+1;G.foeMom-=TUNE.summonAt;log('The foes spend momentum to summon reinforcements!','e');for(let i=0;i<3;i++)add(SWARM[E.act],'any');}
+    if(G.foeMom>=TUNE.summonAt&&G.units.filter(u=>u.side==='enemy'&&live(u)&&!u.object).length<8&&r>=2&&(G.summons||0)<=E.act){G.summons=(G.summons||0)+1;G.foeMom-=TUNE.summonAt;log('The foes spend momentum to summon reinforcements!','e');for(let i=0;i<4;i++)add(SWARM[E.act],'any');}
   }
   log(`— Round ${G.round} —`,'g');
   await H.banner('round');
