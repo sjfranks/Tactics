@@ -16,6 +16,7 @@ const NODE_INFO={
 };
 function newHeroes(){return ORDER.map(c=>({cls:c,lvl:1,xp:0,maxHp:CLASSES[c].hp,hp:CLASSES[c].hp,powers:CLASSES[c].start.slice(),weapon:START_WEAPON[c]}));}
 function newRun(){
+  unseedRng();
   RUN={v:8,act:0,map:genMap(0),pos:null,gold:40,heroes:newHeroes(),relics:[],gear:[],stash:[],stats:{wins:0,kills:0,battles:0,gold:0},stage:'map',pending:null,seen:[],shop:null,event:null,enc:null};
   saveGame();
 }

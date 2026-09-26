@@ -2,7 +2,11 @@
 /* =====================================================================
    EMBERWATCH — rules engine. No drawing here: the UI hooks in through H.
    ===================================================================== */
-const rnd=n=>Math.floor(Math.random()*n);
+/* Game rules draw from RNG. The tutorial swaps in a seeded generator so it plays out the same way every time. */
+let RNG=Math.random;
+const rnd=n=>Math.floor(RNG()*n);
+function seedRng(seed){let a=seed>>>0;RNG=()=>{a=a+0x6D2B79F5>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;};}
+function unseedRng(){RNG=Math.random;}
 const pick=a=>a[rnd(a.length)];
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;};
 const K=(x,y)=>y*COLS+x,KX=k=>k%COLS,KY=k=>Math.floor(k/COLS);
@@ -374,9 +378,11 @@ function tierDice(d,res){
   return (d.s+1)/2+rest+d.b;
 }
 /* Roll an attack's dice. forceCrit: the target is staggered. */
-function rollDice(d,net,forceCrit,bonusDie){
+function rollDice(d,net,forceCrit,bonusDie,side){
   const tries=[];for(let i=0;i<=Math.abs(net);i++)tries.push(1+rnd(d.s));
   let prim=net>=0?Math.max(...tries):Math.min(...tries);
+  // the tutorial has no bad luck: heroes never graze and foes never land a critical hit
+  if(G&&G.tut&&d.s>2){if(side==='hero'&&prim===1)prim=tries[0]=2;if(side==='enemy'&&prim===d.s)prim=tries[0]=d.s-1;}
   if(forceCrit)prim=d.s;
   const rest=[];for(let i=1;i<d.n;i++)rest.push(1+rnd(d.s));
   const res=prim===d.s?3:prim===1?1:2;
@@ -543,7 +549,7 @@ async function pcStrike(u,p,t,C,fl){
     const dd=p.dmg?atkDice(u,p):{n:1,s:CLASS_DIE[u.cls]||6,b:0};
     // a staggered creature can't defend itself: the attack is a critical hit (a boss only gives double advantage)
     const st=t.st.stag&&!p.noDmg&&p.dmg&&!t.object;
-    const r=rollDice(dd,st?stagNet(t,nb.net):nb.net,st&&!t.boss,u.side==='hero'&&hasR('dice'));
+    const r=rollDice(dd,st?stagNet(t,nb.net):nb.net,st&&!t.boss,u.side==='hero'&&hasR('dice'),u.side);
     if(nb.pro.includes('Blessed'))fl.usedBless=true;
     if(nb.pro.includes('Dual wield'))u.dualR=G.round;
     if(st){delete t.st.stag;t.stagBy=null;H.pop(t,'Off balance!','call');}
@@ -878,7 +884,7 @@ async function monAttack(e,A,t,isTile){
     if(!live(v))continue;
     const nb=netBoon(e,v,A,e);
     const st=A.flat==null&&!!v.st.stag;
-    const r=A.flat!=null?null:rollDice(atkDice(e,A),st?stagNet(v,nb.net):nb.net,st&&!v.boss);
+    const r=A.flat!=null?null:rollDice(atkDice(e,A),st?stagNet(v,nb.net):nb.net,st&&!v.boss,false,e.side);
     if(st){delete v.st.stag;v.stagBy=null;H.pop(v,'Off balance!','call');}
     const res=r?r.res:2;
     if(v.side==='hero'&&hasR('ward')){v.warded=v.warded||{};v.warded[e.id]=1;}
@@ -1277,6 +1283,7 @@ function genEncounter(f,type,opt){
 
 /* ---------------- BATTLE LIFECYCLE ---------------- */
 function setupBattle(enc,party){
+  if(!(typeof CTX!=='undefined'&&CTX&&CTX.mode==='tutorial'))unseedRng();
   G={enc,units:[],uid:1,round:1,ti:-1,order:[],extra:[],cur:null,await:false,cmd:0,foeMom:0,hold:0,looted:0,ritual:5,ritualFailed:false,kills:0,xp:{},
     chests:enc.chests.map(c=>K(c[0],c[1])),walls:{},zones:[],over:false,result:null,phoenixUsed:false,hordeBoon:false,log:[],
     tiles:JSON.parse(JSON.stringify(enc.tiles)),act:enc.act,dmgAdd:Math.floor(enc.f*TUNE.dmgSlope),rollAdd:Math.floor(enc.f/TUNE.rollStep)};

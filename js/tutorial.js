@@ -6,6 +6,7 @@
    plays out normally.
    ===================================================================== */
 const TUT_KEY='emberwatch.v3.tut';
+const TUT_SEED=7;
 function tutDone(){try{return !!localStorage.getItem(TUT_KEY);}catch(e){return false;}}
 
 const tutGob=()=>G.units.filter(u=>u.side==='enemy'&&live(u)&&!u.object);
@@ -63,7 +64,13 @@ const TUT_SCRIPT=[
   {say:'narrator',text:'Sela\'s blessing made that a combo too. That is the heart of every battle: one hero sets up the next. Shove and drag foes off balance, bless and expose them, then cash it all in. Chain combos for bigger hits.'},
   {say:'narrator',text:'One more thing: the pink {r:◆} at the top is the foes\' own momentum. When it fills, they unleash a {r:threat}, like {r:Bloodlust}: every foe gets advantage for a round. Keep an eye on it.'},
   {run:()=>{for(const u of tutGob()){u.pinned=false;if(u.tutSpeed!=null)u.speed=u.tutSpeed;}}},
-  {say:'narrator',text:()=>tutFoe('archer')&&tutFoe('archer').st.stag?'The goblins are on the move now. The archer is staggered: Sela can land a sure critical hit on it. Finish them off!':'The goblins are on the move now. Finish them off! Tap any foe to see what it does.'},
+  {say:'narrator',text:()=>tutFoe('archer')&&tutFoe('archer').st.stag?'Only the archer is left, and it is staggered: Sela\'s next hit on it is a sure critical hit.':'Only the archer is left. Let Sela finish it.',when:()=>tutFoe('archer')},
+  {do:'end',text:'Tap END TURN. Sela is next.',when:()=>tutFoe('archer')},
+  {wait:()=>!tutFoe('archer')||onTurn('cleric')()},
+  {do:'move',text:'Move Sela next to the archer.',tiles:()=>tutBeside('archer'),when:()=>tutFoe('archer')&&man(tutFoe('archer'),playerUnit()||tutFoe('archer'))>1},
+  {do:'power',pi:0,text:'Tap her {g:Mace}, Sela\'s basic attack.',when:()=>tutFoe('archer')&&B.pi!==0},
+  {do:'target',pi:0,text:'Finish the archer!',tiles:()=>tutInTargets('archer',0,0)},
+  {do:'confirm',text:'Tap the archer again to strike.'},
   {free:true,text:'Defeat the goblins!'},
 ];
 
@@ -88,8 +95,8 @@ function tutPoll(){
 }
 /* Input gate: returns true when the tutorial allows this action. */
 function tutAllow(kind,a){
-  const S=tutStep();if(!S||S.free||S.wait)return true;
-  if(S.say)return false;
+  const S=tutStep();if(!S||S.free)return true;
+  if(S.say||S.wait||S.run)return false;
   const inT=(L,x,y)=>L.some(t=>t.x===x&&t.y===y);
   let ok=false;
   if(S.do==='move')ok=(kind==='tap'||kind==='move')&&inT(S.tiles(),a.x,a.y);
@@ -168,6 +175,7 @@ function drawTutHint(){
 /* The tutorial battle: a small, fixed skirmish in the Greenmarch. */
 function startTutorial(){
   CTX={mode:'tutorial',relics:[]};
+  seedRng(TUT_SEED);
   try{localStorage.setItem(COMBO_KEY,'1');}catch(e){}
   /* The field is laid out so every lesson works: Brakka's first stop, beside the cutthroat, is also beside the
      brute, and her shove sends the brute east into the fire, where Sela can reach it. The archer waits just
