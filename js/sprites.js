@@ -777,13 +777,24 @@ const SPRC={};
 /* Greenmarch party art. Keep the palette sprites as an offline/load fallback and
    for rival parties, whose distinct colours are part of their identity. */
 const HERO_ART={};
+const SPRB={};
 for(const key of ['fighter','rogue','wizard','cleric']){
   const pair=HERO_ART[key]={};
-  for(const [size,file,cache] of [['hi','',()=>delete SPRH[key]],['small','-small',()=>delete SPRC[key]]]){
+  for(const [size,file,cache] of [
+    ['hi','',()=>delete SPRH[key]],['small','-small',()=>delete SPRC[key]],
+    ['board','-board',()=>delete SPRB[key+':board']],
+    ['boardSmall','-board-small',()=>delete SPRB[key+':small']],
+  ]){
     const img=new Image();
     img.onload=()=>{pair[size]=img;cache();};
-    img.src='assets/heroes/'+key+file+'.png?v=greenmarch-1';
+    img.src='assets/heroes/'+key+file+'.png?v=greenmarch-2';
   }
+}
+function sprB(key,hi){
+  const pair=HERO_ART[key],img=pair&&(hi?pair.board:pair.boardSmall);
+  if(!img)return hi?sprH(key):spr(key);
+  const id=key+(hi?':board':':small');
+  return SPRB[id]||(SPRB[id]=imageSprite(img));
 }
 function imageSprite(img){
   const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
@@ -793,7 +804,7 @@ function imageSprite(img){
   for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++)if(pixels[(y*c.width+x)*4+3]>24){
     top=Math.min(top,y);bot=Math.max(bot,y);lft=Math.min(lft,x);rgt=Math.max(rgt,x);
   }
-  return {c,f:flipped(c),wh:silhouette(c,'#ffffff'),bk:silhouette(c,'#000000'),top,bot,lft,rgt};
+  return {c,f:flipped(c),wh:silhouette(c,'#ffffff'),bk:silhouette(c,'#000000'),top,bot,lft,rgt,pixels};
 }
 function buildSprite(rows,pal){
   const w=rows[0].length,h=rows.length;const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');

@@ -1,4 +1,4 @@
-"""Produce 32px and 16px game sprites from the four transparent art masters.
+"""Produce battle figures and UI sprites from the four transparent art masters.
 
 Run from the repository root. Requires Pillow; the game itself has no build step.
 Optional paths override the masters in assets/heroes/source, in hero order.
@@ -18,13 +18,19 @@ def prepare(source: Path, hero: str) -> None:
     bounds = picture.getchannel("A").getbbox()
     if bounds is None:
         raise ValueError(f"Empty sprite: {source}")
-    # All four illustrations share a square canvas and full-height framing.
-    # Resizing in one step preserves small face and equipment details.
-    picture = picture.resize((32, 32), Image.Resampling.LANCZOS)
-    picture.save(OUTPUT / f"{hero}.png", optimize=True)
-    picture.resize((16, 16), Image.Resampling.LANCZOS).save(
-        OUTPUT / f"{hero}-small.png", optimize=True
-    )
+    # The battle figure is 3 portrait tiles tall and slightly narrower than its
+    # source illustration. Smaller square versions fit existing cards and tokens.
+    for suffix, size in (
+        ("-board", (72, 96)),
+        ("-board-small", (36, 48)),
+        ("", (32, 32)),
+    ):
+        picture.resize(size, Image.Resampling.LANCZOS).save(
+            OUTPUT / f"{hero}{suffix}.png", optimize=True
+        )
+    Image.open(OUTPUT / f"{hero}.png").resize(
+        (16, 16), Image.Resampling.LANCZOS
+    ).save(OUTPUT / f"{hero}-small.png", optimize=True)
 
 
 if __name__ == "__main__":
