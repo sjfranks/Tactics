@@ -28,8 +28,8 @@ const _rp={};
 function resProbs(mod){if(_rp[mod])return _rp[mod];const p=[0,0,0];for(let s=3;s<=18;s++)p[resOf(s,mod)-1]+=D3[s]/216;return _rp[mod]=p;}
 function roll3(mod){const d=[1+rnd(6),1+rnd(6),1+rnd(6)];const nat=d[0]+d[1]+d[2];return {d,nat,mod,total:nat+mod,res:resOf(nat,mod)};}
 function rollText(r){return `3d6 (${r.d.join('+')})${r.mod>=0?'+':''}${r.mod} = ${r.total}: ${RESULT[r.res-1]}`;}
-/* "2d4: [4] 2, explodes 4 3 = 13: Critical hit" */
-function diceLog(r){const kept=r.stag?`[${r.prim}]`:r.tries.length>1?`[${r.tries.join('/')}→${r.prim}]`:`[${r.prim}]`;return `${diceText(r.d)}: ${kept}${r.rest.length?' '+r.rest.join(' '):''}${r.boom.length?', explodes '+r.boom.join(' '):''} = ${r.total}: ${RESULT[r.res-1]}${r.stag?' (staggered)':''}`;}
+/* "2d4: [4] 2, one more 4 3 = 13: Critical hit" */
+function diceLog(r){const kept=r.stag?`[${r.prim}]`:r.tries.length>1?`[${r.tries.join('/')}→${r.prim}]`:`[${r.prim}]`;return `${diceText(r.d)}: ${kept}${r.rest.length?' '+r.rest.join(' '):''}${r.boom.length?', one more '+r.boom.join(' '):''} = ${r.total}: ${RESULT[r.res-1]}${r.stag?' (staggered)':''}`;}
 
 /* ---------------- STATE HELPERS ---------------- */
 const U=id=>G.units.find(u=>u.id===id);
@@ -342,7 +342,7 @@ function netBoon(a,t,p,O){
 }
 /* ---------------- DAMAGE DICE (after Nimble 2e) ----------------
    Every attack rolls damage dice. The first die is the primary die: a 1 on it is a graze (weak, no "on a hit"
-   effects), its top number is a critical hit, and a critical explodes: roll another die and add it, again
+   effects), its top number is a critical hit, and a critical hit rolls one more: another die added, again
    and again while the top number keeps coming up. Advantage rolls the primary die again and keeps the best;
    disadvantage keeps the worst. Each hero has their own die: the rogue's small d4 crits most often. */
 const CLASS_DIE={fighter:8,rogue:4,wizard:6,cleric:6};
@@ -352,6 +352,7 @@ function nearDie(v){let b=4;for(const s of DIE_SIZES)if(Math.abs(s-v)<Math.abs(b
    directly with dice:[n,s,b]; otherwise heroes roll their class die and foes the die nearest their old numbers. */
 function atkDice(u,p){
   if(p.dice)return {n:p.dice[0],s:p.dice[1],b:p.dice[2]||0};
+  if(p.basic&&u.kind==='pc'){const w=wpnOf(u)||WEAPONS[START_WEAPON[u.cls]];return {n:w.dice[0],s:w.dice[1],b:0};}
   if(u.kind==='pc'){const s=CLASS_DIE[u.cls]||6;return {n:Math.max(1,Math.round(p.dmg[1]/((s+1)/2))),s,b:0};}
   const s=nearDie(p.dmg[2]);return {n:1,s,b:Math.max(0,Math.round(p.dmg[1]-(s+1)/2))};
 }
@@ -407,7 +408,7 @@ function pcDmg(a,p,t,res,o){
   if(a.side==='hero')d+=comboBonus(o.combo!=null?o.combo:G.combo);
   if((p.radiant||wBonus(a,p,'radiant'))&&t.undead)d*=2;
   if(p.execute&&t.hp<=t.maxHp/2)d*=2;
-  if(t.armor&&res<3)d=Math.max(1,d-t.armor);
+  if(t.armor&&res<3&&!p.pierceArmor)d=Math.max(1,d-t.armor);
   return Math.max(0,d);
 }
 /* How many of a tiny swarm's critters are still standing (1-4). */
@@ -1160,14 +1161,17 @@ function makeMon(type,x,y,extra){
 }
 function spawnMon(type,spot,extra){const e=makeMon(type,spot.x,spot.y,extra);G.units.push(e);if(!e.object)insertOrder(e);H.spawn(e);return e;}
 /* Weapons power up basic powers: the at-wills that cost no momentum. */
-const basicP=p=>!!p&&p.cost===0&&!!p.dmg;
+const basicP=p=>!!p&&!!p.basic;
+const BASIC={fighter:'sword',rogue:'blades',wizard:'missile',cleric:'mace'};
+/* Every hero carries their basic weapon attack first, then the powers they have learned. */
+function withBasic(cls,powers){const b=BASIC[cls];return [b].concat((powers||[]).filter(id=>id!==b&&POWERS[id]));}
 function wpnOf(u){return u&&u.kind==='pc'&&u.wpn?WEAPONS[u.wpn]:null;}
 function wBonus(u,p,k){const w=wpnOf(u);return w&&basicP(p)?(w[k]||0):0;}
 function rivalWeapon(cls,lvl){const t=Math.min(4,1+Math.floor((lvl+1)/3));const L=Object.values(WEAPONS).filter(w=>w.cls===cls&&w.tier<=t).sort((a,b)=>b.tier-a.tier);return (L[0]||WEAPONS[START_WEAPON[cls]]).id;}
 function makePc(h,x,y,side){
   const C=CLASSES[h.cls];const rival=side==='enemy';const mhp=h.maxHp+(!rival&&hasR('heart')?8:0);
   return {id:(rival?'r_':'h_')+h.cls,side,kind:'pc',cls:h.cls,name:rival?C.rival:C.name,x,y,hp:Math.min(h.hp,mhp),maxHp:mhp,speed:C.speed,lvl:h.lvl,
-    wpn:h.weapon||(rival?rivalWeapon(h.cls,h.lvl):START_WEAPON[h.cls]),attrs:attrsFor(h.cls,h.lvl),steady:C.steady||0,nimble:!!C.nimble,mom:TUNE.momStart+(!rival&&hasR('hymn')?2:0),powers:h.powers.slice(),st:{},shield:0,react:true,mp:0,rival};
+    wpn:h.weapon||(rival?rivalWeapon(h.cls,h.lvl):START_WEAPON[h.cls]),attrs:attrsFor(h.cls,h.lvl),steady:C.steady||0,nimble:!!C.nimble,mom:TUNE.momStart+(!rival&&hasR('hymn')?2:0),powers:withBasic(h.cls,h.powers),st:{},shield:0,react:true,mp:0,rival};
 }
 
 /* ---------------- ENCOUNTERS ---------------- */

@@ -8,7 +8,7 @@ const BATTLE_SCREEN={draw:drawBattle};
 const ROMAN=['I','II','III'];
 function coin(x,y){text('●',x,y,C.gold,{sh:C.edge});}
 function relicIcon(r,x,y){rect(x,y,11,11,C.edge);rect(x+1,y+1,9,9,'#1a1410');frame(x+1,y+1,9,9,RELIC_COL[r]);text(RELIC_ICON[r]||'?',x+6,y+3,RELIC_COL[r],{al:'c',sh:false});}
-function heroSheetUnit(h){return {id:'sheet_'+h.cls,side:'hero',kind:'pc',cls:h.cls,name:CLASSES[h.cls].name,lvl:h.lvl,hp:h.hp,maxHp:effMaxHp(h),attrs:attrsFor(h.cls,h.lvl),powers:h.powers,mom:0,st:{},shield:0,speed:CLASSES[h.cls].speed,steady:0,wpn:h.weapon,xp:h.xp};}
+function heroSheetUnit(h){return {id:'sheet_'+h.cls,side:'hero',kind:'pc',cls:h.cls,name:CLASSES[h.cls].name,lvl:h.lvl,hp:h.hp,maxHp:effMaxHp(h),attrs:attrsFor(h.cls,h.lvl),powers:withBasic(h.cls,h.powers),mom:0,st:{},shield:0,speed:CLASSES[h.cls].speed,steady:0,wpn:h.weapon,xp:h.xp};}
 
 /* ---------------- backgrounds ---------------- */
 const BGC={};
@@ -527,7 +527,7 @@ const HOWTO=`{g:Turn order.} Everyone rolls initiative (d20 + Finesse) when a ba
 
 {g:Moving and acting.} Tap a blue square to move, or drag the hero. You can move in several steps until your speed runs out. Taking an action ends your movement (a few powers give some back).
 
-{g:Powers.} Pick a power card at the bottom, then tap a target: red squares are foes in range, green are allies. A forecast shows what can happen. Tap the target again, or press STRIKE, to act. Powers with no target, like Thunderwave, go off when you tap their card twice.
+{g:Basic attack and powers.} Every hero has a basic weapon attack, free to use every turn; powers are their special moves, and the stronger ones cost momentum. Pick a card at the bottom, then tap a target: red squares are foes in range, green are allies. A forecast shows what can happen. Tap the target again, or press STRIKE, to act. Powers with no target, like Thunderwave, go off when you tap their card twice.
 
 {g:Foe intents.} Tap INTENT to see whom each foe means to attack, and how hard. Shove foes out of reach, taunt them or finish them first.
 
@@ -535,7 +535,7 @@ const HOWTO=`{g:Turn order.} Everyone rolls initiative (d20 + Finesse) when a ba
 
 {g:The roles.} Brakka throws foes off balance and makes them fight her: foes she marks can only attack her. Orin does it to whole groups. Sela blesses her friends and exposes foes. Vex cashes it all in with sneak attacks on set-up foes.
 
-{g:Damage dice.} Every attack rolls damage dice and adds an attribute: Brakka rolls d8s, Orin and Sela d6s, Vex d4s. The first die decides the result: a 1 is a graze, the top number is a critical hit, anything else a hit. Critical hits {g:explode}: roll another die and add it, again and again while the top number comes up. Small dice crit more often. {g:Armored} foes shrug off part of every blow except critical hits.
+{g:Damage dice.} Every attack rolls damage dice and adds an attribute. Each hero's basic attack (Sword, Blades, Bolt, Mace) rolls their weapon's dice; powers roll the hero's own die: Brakka d8s, Orin and Sela d6s, Vex d4s. The first die decides the result: a 1 is a graze, the top number is a critical hit, anything else a hit. A critical hit rolls one more die and adds it, and one more again each time the top number comes up. Small dice crit more often. {g:Armored} foes shrug off part of every blow except critical hits.
 
 {g:Advantage and disadvantage.} Advantage rolls the first die again and keeps the best; disadvantage keeps the worst. Flanking, high ground, blessings and dazed or rooted targets give advantage. Cover, being weakened and shooting with a foe beside you give disadvantage.
 
@@ -599,7 +599,7 @@ const COMP_SCREEN={enter(){COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);
       if(k==='class'){const Cc=CLASSES[cls];const u=heroSheetUnit({cls,lvl:1,hp:Cc.hp,maxHp:Cc.hp,powers:Cc.start});
         y+=sheetLayout(u,dx,y,dw,clip,{plain:true,classInfo:true});}
       else if(POWERS[k]){const p=POWERS[k];text(`Level ${p.lv} ${CLASSES[cls].title} power`,dx,y,C.mute);y+=9;y+=powerBlock(p,null,dx,y,dw,{clip})+4;
-        y+=rich('Damage adds the attribute it uses. {m:A 1 on the first die is a graze; its top number is an exploding critical hit.}',dx,y,dw,C.mute,{clip});}
+        y+=rich('Damage adds the attribute it uses. {m:A 1 on the first die is a graze; its top number is a critical hit that rolls one more die.}',dx,y,dw,C.mute,{clip});}
     }else if(COMP.tab===1&&RELICS[k]){inset(dx,y,20,20,'#100b08');ctx.drawImage(relicArt(k),dx+2,y+2);text(RELICS[k].name,dx+24,y+3,C.gold);text(`About ${RELICS[k].price} gold`,dx+24,y+11,C.mute);y+=24;
       y+=rich(RELICS[k].desc,dx,y,dw,C.parch,{clip});}
     else if(COMP.tab===2&&MON[k]){y+=sheetLayout(monSheetUnit(k),dx,y,dw,clip,{plain:true,found:true});}
@@ -708,7 +708,7 @@ function openPowerEditor(cls,list,label){
   scrollTo('pedit',0);
   openModal({closable:true,draw(){
     dim();const w=Math.min(260,SW-8),h=Math.min(164,SH-16),x=Math.floor((SW-w)/2),y=Math.floor((SH-h)/2);panel(x,y,w,h,{title:(PORT?CLASSES[cls].title:label+' · '+CLASSES[cls].title).toUpperCase()});
-    const ps=Object.values(POWERS).filter(p=>p.c===cls).sort((a,b)=>a.lv-b.lv);
+    const ps=Object.values(POWERS).filter(p=>p.c===cls&&!p.basic).sort((a,b)=>a.lv-b.lv);
     scrollArea('pedit',x+6,y+10,w-10,h-30,ps.length*13,(yy,clip)=>{ps.forEach((p,i)=>{const cy=yy+i*13;const on=list.includes(p.id);
       rect(x+8,cy+2,8,8,C.edge);rect(x+9,cy+3,6,6,on?C.green:'#2a2018');if(on)text('✓',x+10,cy+3,C.edge,{sh:false});
       text(p.name,x+20,cy+3,on?C.gold:C.parch);const lc=`L${p.lv}${p.cost?' ◆'+p.cost:''}`;

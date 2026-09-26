@@ -124,7 +124,7 @@ function resolveVictory(){
 }
 function powerOffers(n){
   const cand=[];
-  for(const h of RUN.heroes)for(const id in POWERS){const p=POWERS[id];if(p.c===h.cls&&p.lv<=h.lvl&&!h.powers.includes(id))cand.push({cls:h.cls,id});}
+  for(const h of RUN.heroes)for(const id in POWERS){const p=POWERS[id];if(p.c===h.cls&&!p.basic&&p.lv<=h.lvl&&!h.powers.includes(id))cand.push({cls:h.cls,id});}
   shuffle(cand);const out=[];const seen=new Set();
   for(const c of cand){if(!seen.has(c.cls)){out.push(c);seen.add(c.cls);}if(out.length>=n)break;}
   for(const c of cand){if(out.length>=n)break;if(!out.includes(c))out.push(c);}
