@@ -28,14 +28,11 @@ The whole game draws to a pixel canvas scaled up with crisp pixels: 320×180 on 
 
 ## Development
 
-No build step. Open `index.html` in a browser (or serve the folder). GitHub Actions publishes `index.html`, `js/` and `assets/` from `main` to GitHub Pages.
-
-The four Greenmarch party sprites live in `assets/heroes/`. The battle figures are 56×96 on the portrait board and 28×48 in landscape, with their feet anchored to one tile. Separate 32×32 and 16×16 versions fit portraits and menus. The 256×256 transparent art masters are in `assets/heroes/source/`. To regenerate the game-sized PNGs after editing a master, run `python scripts/prepare-hero-art.py` (requires Pillow). The old palette sprites remain available for rival party recolours and as a fallback if an image fails to load. Update the `greenmarch-3` asset version in `js/sprites.js` when replacing the PNGs so installed browsers fetch the new art.
+No build step. Open `index.html` in a browser (or serve the folder). GitHub Actions publishes `index.html` and `js/` from `main` to GitHub Pages.
 
 - `js/data.js`: classes, powers, monsters, relics, missions, glossary, events
 - `js/engine.js`: rules, initiative, movement, hazards, AI, undo
 - `js/font.js`, `js/sprites.js`, `js/art.js`: bitmap font, pixel sprites, icons and terrain art
-- `assets/heroes/`: party sprites and their transparent source illustrations
 - `js/illus.js`: painted event and place illustrations
 - `js/core.js`: canvas sizing (landscape or portrait), input, widgets, rich text
 - `js/battle.js`: the battle screen and its effects

@@ -3,8 +3,8 @@
    EMBERWATCH — battle screen
    ===================================================================== */
 /* The board is drawn into its own canvas (board space, origin BX/BY inside a margin) and copied onto the
-   screen. Portrait uses 32px tiles; landscape uses 16px tiles. Q scales fixed offsets. */
-let TS=16,Q=1;const BM=80;let BX=BM,BY=BM;
+   screen. Portrait uses 32px tiles with 32×32 sprites; landscape uses 16px tiles. Q scales fixed offsets. */
+let TS=16,Q=1;const BM=14;let BX=BM,BY=BM;
 let OX=112,OY=15,BK=1,PL={};let BCV=null,BCX=null;
 function battleLayout(){
   if(PORT){
@@ -28,9 +28,7 @@ function drawBoardLayer(){
   const sh=shakeOff();
   ctx.drawImage(BCV,0,0,w,h,OX-BM*BK+sh.x,OY-BM*BK+sh.y,w*BK,h*BK);
   ctx.save();ctx.translate(OX-BM*BK+sh.x,OY-BM*BK+sh.y);try{drawFX();drawParts();}finally{ctx.restore();}
-  /* The tall figures extend above and beside the board; their visible parts
-     remain tappable, while the panels drawn later take input precedence. */
-  hit(OX-24,OY-72,COLS*TS*BK+48,ROWS*TS*BK+72,boardInput);
+  hit(OX,OY,COLS*TS*BK,ROWS*TS*BK,boardInput);
 }
 const B={pi:0,pend:null,inspect:null,drag:null,busy:false,page:0,terr:null,terrKey:'',gRef:null,banner:null,toast:null,vkey:'',V:null,dragTile:null,onEnd:null};
 const VIS={};
@@ -260,7 +258,7 @@ H.area=async(C,r,kind)=>{areaFx(C,r,kind);sfx(kind==='fire'||kind==='row'?'boom'
 H.tele=async(u)=>{const v=vis(u);const a=uc(u);burst(a.x,a.y,{n:16,speed:30,cols:ELEM.arcane,life:420,size:1,shrink:true,drag:2,glow:true});v.fade={t0:NOW,dur:160*spd(),out:true};sfx('whoosh');await sleep(170);
   v.fade={t0:NOW,dur:160*spd(),out:false};v.last={x:u.x*TS,y:u.y*TS};v.anim=null;const b=uc(u);burst(b.x,b.y,{n:16,speed:30,cols:ELEM.arcane,life:420,size:1,shrink:true,drag:2,glow:true});ring(b,'#c890ff',TS*.5,260);await sleep(120);};
 H.death=async(u)=>{const v=vis(u);v.dying={t0:NOW,dur:420*spd()};v.flash=NOW+90*spd();
-  const S=battleArt(u);const cols=u.undead?ELEM.bone:spriteCols(S);const c=uc(u);
+  const S=unitSprite(u,Q>1);const cols=u.undead?ELEM.bone:spriteCols(S);const c=uc(u);
   setTimeout(()=>{for(let i=0;i<(u.boss?60:26);i++){const col=cols[Math.floor(Math.random()*cols.length)];part({x:c.x+(Math.random()-.5)*TS*.55,y:c.y+(Math.random()-.5)*TS*.7,vx:(Math.random()-.5)*50,vy:-15-Math.random()*40,g:90,drag:.5,life:800+Math.random()*400,cols:[col,col,col],size:u.boss?2:(Math.random()<.5?2:1)});}},90*spd());
   if(u.boss){shake(6,700);flashBoard('#ffffff',220,.4);}else shake(u.kind==='pc'?3:2,200);
   await sleep(u.boss?520:280);};
@@ -499,35 +497,13 @@ function boardTap(x,y){
   B.pend=null;B.inspect=null;
 }
 function tileAt(px,py){const x=Math.floor((px-OX)/(TS*BK)),y=Math.floor((py-OY)/(TS*BK));return inB(x,y)?{x,y}:null;}
-function battleArt(u){return u.kind==='pc'&&!u.rival?sprB(u.cls,Q>1):unitSprite(u,Q>1);}
-/* Artwork is centred horizontally over the ground tile, with feet at its
-   bottom. The same anchor is used during movement and while dragging. */
-function battleArtPos(u,S){const p=uPos(u);return {x:BX+p.x+Math.floor((TS-S.c.width)/2),y:BY+p.y+TS-S.c.height-Q};}
-function figureAt(px,py){
-  if(!G)return null;
-  const units=G.units.filter(u=>live(u)&&u.kind==='pc'&&!u.rival).sort((a,b)=>b.y-a.y);
-  for(const u of units){
-    const S=battleArt(u);if(!S.pixels)continue;
-    const pos=battleArtPos(u,S);
-    const x=Math.floor((px-OX)/BK+BX-pos.x),y=Math.floor((py-OY)/BK+BY-pos.y);
-    if(x>=0&&y>=0&&x<S.c.width&&y<S.c.height&&S.pixels[(y*S.c.width+x)*4+3]>80)return u;
-  }
-  return null;
-}
-function inputTile(px,py){
-  const ground=tileAt(px,py);
-  const active=playerUnit(),power=active&&active.kind==='pc'?powerOf(active,B.pi):null;
-  if(ground&&(unitAt(ground.x,ground.y)||power&&power.tgt==='tile'))return ground;
-  const figure=figureAt(px,py);
-  return figure?{x:figure.x,y:figure.y}:ground;
-}
 const boardInput={
-  fn:(px,py)=>{const t=inputTile(px,py);if(t)boardTap(t.x,t.y);},
-  dragStart:(px,py)=>{const t=inputTile(px,py);const u=playerUnit();if(t&&u&&!B.busy&&u.x===t.x&&u.y===t.y){B.drag={id:u.id};B.dragPos=null;B.dragOffset={x:OX+u.x*TS+TS/2-px,y:OY+u.y*TS+TS/2-py};}},
-  drag:(px,py)=>{if(!B.drag)return;const dx=B.dragOffset?.x||0,dy=B.dragOffset?.y||0;B.dragPos={x:px+dx,y:py+dy};const t=tileAt(px+dx,py+dy);B.dragTile=t;
+  fn:(px,py)=>{const t=tileAt(px,py);if(t)boardTap(t.x,t.y);},
+  dragStart:(px,py)=>{const t=tileAt(px,py);const u=playerUnit();if(t&&u&&!B.busy&&u.x===t.x&&u.y===t.y)B.drag={id:u.id};},
+  drag:(px,py)=>{if(!B.drag)return;B.dragPos={x:px,y:py};const t=tileAt(px,py);B.dragTile=t;
     const u=playerUnit();const V=view();if(!u||!V||!t)return;const k=K(t.x,t.y);const p=u.kind==='pc'?powerOf(u,B.pi):null;const o=unitAt(t.x,t.y);
     if(p&&!u.acted&&V.targets.has(k)&&o&&o!==u&&(p.tgt==='enemy'||p.tgt==='ally')){if(!B.pend||B.pend.k!==k)setPend(k);}else B.pend=null;},
-  drop:(px,py)=>{if(!B.drag)return;const dx=B.dragOffset?.x||0,dy=B.dragOffset?.y||0;B.drag=null;B.dragTile=null;B.dragPos=null;B.dragOffset=null;const t=tileAt(px+dx,py+dy);const u=playerUnit();if(!t||!u)return;const k=K(t.x,t.y);const V=view();
+  drop:(px,py)=>{if(!B.drag)return;B.drag=null;B.dragTile=null;const t=tileAt(px,py);const u=playerUnit();if(!t||!u)return;const k=K(t.x,t.y);const V=view();
     if(B.pend&&B.pend.k===k)return confirmPend();
     if(V&&V.moves.has(k)&&!unitAt(t.x,t.y))return doMove(V.moves.get(k));},
   id:'board'
@@ -537,20 +513,20 @@ const boardInput={
 function drawBattle(){
   if(!G)return;
   battleLayout();
-  if(B.drag&&!PTR.down){B.drag=null;B.dragTile=null;B.dragPos=null;B.dragOffset=null;}
+  if(B.drag&&!PTR.down){B.drag=null;B.dragTile=null;B.dragPos=null;}
   if(B.gRef!==G){B.gRef=G;const key=TS+G.enc.title+G.enc.f+G.tiles.map(t=>(t.ob||'')+(t.ter||'')).join();if(key!==B.terrKey){B.terrKey=key;B.terr=buildTerrain();}}
   if(PORT){
     ctx.drawImage(stoneBG(),0,0);
     drawBoardFrame();
+    drawTopBarP();drawInfoBarP();drawTurnPlate();drawHintP();drawTrayP();drawCtrlBar();
   }else{
     rect(0,0,SW,SH,C.bg);
+    drawTop();drawLeft();drawRight();drawHotbar();
     rect(OX-2,OY-2,COLS*TS*BK+4,ROWS*TS*BK+4,C.edge);rect(OX-1,OY-1,COLS*TS*BK+2,ROWS*TS*BK+2,C.rim);
   }
   B.preview=null;const pu=playerUnit();if(pu&&B.pend&&pu.kind==='pc'){const pp=powerOf(pu,B.pi);if(pp){try{const rows=forecast(pu,pp,B.pend.T,B.pend.O);B.preview={};for(const r of rows)if(r.dmg&&r.t.side!==pu.side)B.preview[r.t.id]=r.dmg[1];}catch(e){}}}
   drawBoardLayer();
-  /* Panels cover any part of a tall figure that reaches their screen space. */
-  if(PORT){drawTopBarP();drawInfoBarP();drawTurnPlate();drawHintP();drawTrayP();drawCtrlBar();drawForecastOverlay();}
-  else{drawTop();drawLeft();drawRight();drawHotbar();}
+  if(PORT)drawForecastOverlay();
   if(B.banner)drawBanner();
 }
 /* Round, boss-surge and victory plates slide across the middle of the board. */
@@ -764,12 +740,12 @@ function drawBoard(){
   for(const k in G.walls){ctx.drawImage((Q>1?sprH('icewall'):spr('icewall')).c,BX+KX(+k)*TS,BY+KY(+k)*TS);}
   drawHighlights();
   drawPath();
-  const us=G.units.filter(u=>live(u)||(VIS[u.id]&&VIS[u.id].dying&&NOW-VIS[u.id].dying.t0<VIS[u.id].dying.dur)).sort((a,b)=>uPos(a).y-uPos(b).y||a.x-b.x);
+  const us=G.units.filter(u=>live(u)||(VIS[u.id]&&VIS[u.id].dying&&NOW-VIS[u.id].dying.t0<VIS[u.id].dying.dur)).sort((a,b)=>a.y-b.y);
   const cur=activeUnit();
   if(cur&&live(cur)){const p=uPos(cur);const X=BX+p.x,Y=BY+p.y;const a=Math.floor(t*4)%2;const c=C.gold;const L=2+Q;
     for(const[dx,dy,sx,sy]of[[0,0,1,1],[TS-L,0,-1,1],[0,TS-L,1,-1],[TS-L,TS-L,-1,-1]]){rect(X+dx-a*sx,Y+dy+(sy<0?L-1:0)-a*sy,L,1,c);rect(X+dx+(sx<0?L-1:0)-a*sx,Y+dy-a*sy,1,L,c);}}
   for(const u of us)drawUnit(u);
-  if(B.drag){const u=U(B.drag.id);if(u&&B.dragPos){const S=battleArt(u);ctx.globalAlpha=.8;ctx.drawImage(S.c,Math.round((B.dragPos.x-OX)/BK+BX-S.c.width/2),Math.round((B.dragPos.y-OY)/BK+BY+TS/2-S.c.height-Q));ctx.globalAlpha=1;}}
+  if(B.drag){const u=U(B.drag.id);if(u&&B.dragPos){const S=unitSprite(u,Q>1);ctx.globalAlpha=.8;ctx.drawImage(S.c,Math.round((B.dragPos.x-OX)/BK+BX-TS/2),Math.round((B.dragPos.y-OY)/BK+BY-TS*.75));ctx.globalAlpha=1;}}
   if(B.flash){const p=(NOW-B.flash.t0)/(B.flash.dur*spd());if(p>=1)B.flash=null;else{ctx.globalAlpha=B.flash.a*(1-p);rect(BX,BY,COLS*TS,ROWS*TS,B.flash.col);ctx.globalAlpha=1;}}
   if(B.toast&&PORT&&PL.plate)B.toast=null;
   if(B.toast){const p=(NOW-B.toast.t0)/B.toast.dur;if(p>=1)B.toast=null;else{ctx.globalAlpha=Math.min(1,(1-p)*3);const w=textW(B.toast.text)+10;rect(BX+COLS*TS/2-w/2,BY+1,w,9,'rgba(10,6,4,.8)');text(B.toast.text,BX+COLS*TS/2,BY+3,B.toast.col,{al:'c'});ctx.globalAlpha=1;}}
@@ -782,12 +758,11 @@ function drawUnit(u){
   if(u.hidden)a*=.5;
   ctx.globalAlpha=a*.4;rect(X+3*Q,Y+13*Q,10*Q,3*Q,'#000');rect(X+4*Q,Y+13*Q-1,8*Q,1,'#000');ctx.globalAlpha=a;
   const ring=sideRing(u);rect(X+4*Q,Y+14*Q+1,8*Q,1,ring);rect(X+3*Q,Y+14*Q,Q,1,ring);rect(X+12*Q,Y+14*Q,Q,1,ring);
-  const S=battleArt(u);
+  const S=unitSprite(u,Q>1);
   const idle=!v.anim&&!v.dying&&live(u);
   const bob=idle&&Math.floor(NOW/520+(u.id.charCodeAt(u.id.length-1)%3))%2?1:0;
   const flash=v.flash&&NOW<v.flash;
-  const place=battleArtPos(u,S);
-  ctx.drawImage(flash?S.wh:S.c,place.x,place.y+bob);
+  ctx.drawImage(flash?S.wh:S.c,X,Y-Q+bob);
   if(u.caged){ctx.globalAlpha=a*.9;for(let i=0;i<5;i++)rect(X+(2+i*3)*Q,Y+Q,Q>1?2:1,14*Q,'#6a6a70');rect(X+Q,Y+Q,14*Q,Q,'#8a8a90');rect(X+Q,Y+14*Q,14*Q,Q,'#8a8a90');}
   ctx.globalAlpha=1;
   if(!live(u))return;

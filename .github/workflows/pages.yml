@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # Emberwatch is static: the page plus its scripts, no build step.
-      - run: mkdir _site && cp -r index.html js assets _site/
+      - run: mkdir _site && cp -r index.html js _site/
       # Bust phone caches: every deploy loads fresh scripts.
       - run: sed -i "s/?v=BUILD/?v=${GITHUB_SHA::8}/g" _site/index.html
       - uses: actions/configure-pages@v5
