@@ -8,30 +8,51 @@ const ATTR_USE={M:'Force, endurance and heavy melee.',F:'Precision, agility, ste
 const SKILLS={Athletics:'M',Acrobatics:'F',Stealth:'F',Thievery:'F',Magic:'W',Lore:'W',Survival:'W',Insight:'P',Influence:'P'};
 const RESULT=['Graze','Hit','Critical hit'];
 const RESULT_SHORT=['Graze','Hit','Crit'];
-const TUNE={budget0:6,budgetSlope:1.45,hpSlope:.06,dmgSlope:.45,rollStep:4,bossHp:.8,foeMomRound:1,summonAt:8,
-  healAfter:.15,bossEscort:.4,pbBonus:3,fallenHp:.25,momTurn:2,momStart:1,actHeal:.6,maxLvl:12};
+/* Difficulty, tuned with tools/sim.js (whole journeys played by the autoplay AI). actMul scales each region's encounter budget. */
+const TUNE={budget0:9,budgetSlope:.8,hpSlope:.03,dmgSlope:.2,rollStep:4,bossHp:.8,foeMomRound:1,summonAt:8,actMul:[1,1.1,.65],
+  healAfter:.05,bossEscort:.4,pbBonus:3,fallenHp:.25,momTurn:1,momStart:0,actHeal:.6,maxLvl:10,winXp:20,bossXp:50};
+/* Experience needed to reach each level (index = level). Heroes earn it by doing their job in battle. */
+const XP_AT=[0,0,60,140,240,360,500,660,840,1040,1260];
+/* How much each kind of deed is worth to each role: defenders shove foes around and soak blows, strikers
+   deal damage and finish foes, controllers catch many foes and hinder them, leaders mend and empower. */
+const ROLE_XP={
+  fighter:{dealt:.5,taken:.8,control:3,mark:1.5,heal:.2,support:1,kill:4},
+  rogue:{dealt:1.3,taken:.2,control:1,mark:0,heal:.2,support:1,kill:7},
+  wizard:{dealt:.6,taken:.2,control:2.5,mark:0,heal:.2,support:1,kill:4},
+  cleric:{dealt:.4,taken:.2,control:1,mark:0,heal:1.3,support:1.5,kill:3},
+};
+const XP_WHY={dealt:'Damage dealt',taken:'Blows absorbed',control:'Foes moved and hindered',mark:'Foes marked',heal:'Healing',support:'Allies empowered',kill:'Foes slain'};
 
 /* ---------------- HEROES ---------------- */
 const CLASSES={
   fighter:{name:'Brakka',rival:'Grask',title:'Fighter',role:'Defender',hp:34,grow:5,speed:3,attrs:{M:3,F:1,W:0,P:1},prime:'M',second:'P',steady:1,
-    skills:['Athletics','Survival'],start:['grind','tide','sweep'],
+    skills:['Athletics','Survival'],start:['grind','tide','hook'],
+    style:'Holds the line: shoves foes, drags them in, and punishes any that slip past her.',
+    xpText:'Pushing, pulling and hindering foes, marking them, and soaking up blows.',
     trait:'Sentinel: her parting blows stop a foe in its tracks and mark it. A marked foe that attacks anyone else has disadvantage, and she strikes it if it stands beside her.',
     pro:'she',mom:['+1 each time she takes damage.','+1 each time she lands a parting blow.']},
-  rogue:{name:'Vex',rival:'Shade',title:'Rogue',role:'Striker',hp:22,grow:3,speed:4,attrs:{M:0,F:3,W:1,P:1},prime:'F',second:'W',nimble:true,
+  rogue:{name:'Vex',rival:'Shade',title:'Rogue',role:'Striker',hp:20,grow:3,speed:4,attrs:{M:0,F:3,W:1,P:1},prime:'F',second:'W',nimble:true,
     skills:['Acrobatics','Stealth','Thievery'],start:['pierce','knives','tumble'],
+    style:'Fragile but deadly: darts in beside an ally for sneak attacks, then slips away.',
+    xpText:'Dealing damage and finishing foes.',
     trait:'Nimble: never provokes parting blows. Sneak Attack: extra damage on an attack with advantage. She gains advantage when an ally stands beside her target.',
     pro:'she',mom:['+1 when she lands a sneak attack (an attack with advantage).']},
   wizard:{name:'Orin',rival:'Morvane',title:'Wizard',role:'Controller',hp:20,grow:3,speed:3,attrs:{M:0,F:1,W:3,P:0},prime:'W',second:'F',
-    skills:['Magic','Lore'],start:['missile','thunder','frost'],
+    skills:['Magic','Lore'],start:['missile','thunder','scorch'],
+    style:'Blasts groups of foes from afar and scatters those who close in.',
+    xpText:'Catching several foes at once, and moving or hindering them.',
     trait:'Force Adept: his pushes and pulls move foes 1 extra square.',
     pro:'he',mom:['+1 when one of his powers hits 2 or more foes, or slams a foe into something.']},
   cleric:{name:'Sela',rival:'Ilsa',title:'Cleric',role:'Leader',hp:26,grow:4,speed:3,attrs:{M:1,F:0,W:1,P:3},prime:'P',second:'M',
-    skills:['Insight','Influence','Lore'],start:['flame','brand','healWord'],
+    skills:['Insight','Influence','Lore'],start:['rally','healWord','transpose'],
+    style:'Fights up close to mend, bless and reposition her allies.',
+    xpText:'Healing, shielding, blessing and moving her allies.',
     trait:'Channel Divinity: her heals are stronger by her Presence. Radiant damage is doubled against undead.',
-    pro:'she',mom:['+1 when one of her powers heals an ally.']},
+    pro:'she',mom:['+1 when one of her powers heals, blesses, shields or moves an ally.']},
 };
 const ORDER=['fighter','rogue','wizard','cleric'];
-function attrsFor(cls,lvl){const C=CLASSES[cls];const a=Object.assign({},C.attrs);a[C.prime]+=(lvl>=4)+(lvl>=7)+(lvl>=10);a[C.second]+=(lvl>=6)+(lvl>=11);return a;}
+/* Levels raise the main attribute at 3, 6 and 9 and the second one at 5 and 8: better rolls and harder hits. */
+function attrsFor(cls,lvl){const C=CLASSES[cls];const a=Object.assign({},C.attrs);a[C.prime]+=(lvl>=3)+(lvl>=6)+(lvl>=9);a[C.second]+=(lvl>=5)+(lvl>=8);return a;}
 
 /* a: attribute used. dmg: damage by result (Graze/Hit/Critical hit) before the attribute is added. eff values are by result too. */
 const POWERS={
@@ -41,14 +62,14 @@ const POWERS={
   sweep:{c:'fighter',lv:1,a:'M',name:'Sweeping Blow',cost:2,tgt:'self',area:1,aff:'foe',dmg:[2,4,6],mark:1,eff:{prone:[0,0,1]},desc:'Strike every foe around you, diagonals too, and mark them. On a crit: prone.'},
   cagi:{c:'fighter',lv:1,a:'P',name:'Come and Get It',cost:3,tgt:'self',area:2,aff:'foe',pullFirst:2,adjOnly:true,dmg:[2,4,6],mark:1,desc:'Pull every foe within 2 up to 2 squares toward you and mark them, then strike those beside you.'},
   shieldWall:{c:'fighter',lv:1,a:'M',name:'Shield Wall',cost:2,tgt:'self',area:1,aff:'ally',shield:6,markAround:1,desc:'You and allies around you gain 6 shield. Mark adjacent foes.'},
-  hook:{c:'fighter',lv:3,a:'M',name:'Hook Chain',cost:2,tgt:'enemy',range:3,reach:true,dmg:[2,4,6],mark:1,eff:{pull:[1,2,3],slow:[0,1,1]},desc:'Range 3. Pull the foe toward you and mark it. On a hit: slowed.'},
+  hook:{c:'fighter',lv:1,a:'M',name:'Hook Chain',cost:2,tgt:'enemy',range:3,reach:true,dmg:[2,4,6],mark:1,eff:{pull:[1,2,3],slow:[0,1,1]},desc:'Range 3. Pull the foe toward you and mark it. On a hit: slowed.'},
   crush:{c:'fighter',lv:3,a:'M',name:'Crushing Blow',cost:3,tgt:'enemy',range:1,dmg:[5,8,11],mark:1,eff:{prone:[0,1,1],daze:[0,0,1]},desc:'Mark the foe. On a hit: prone. On a crit: also dazed.'},
-  hurl:{c:'fighter',lv:3,a:'M',name:'Hurl',cost:2,tgt:'enemy',range:1,dmg:[1,3,5],eff:{push:[2,3,4]},desc:'Heave the foe away. Perfect for throwing it into fire or lava.'},
+  hurl:{c:'fighter',lv:3,a:'M',name:'Hurl',cost:2,tgt:'enemy',range:1,dmg:[2,4,6],eff:{push:[2,3,4]},desc:'Heave the foe away. Perfect for throwing it into fire or lava.'},
   interpose:{c:'fighter',lv:5,a:'M',name:'Interpose',cost:2,tgt:'ally',range:3,noSelf:true,swap:true,shield:6,markAround:1,desc:'Swap places with an ally within 3. Both gain 6 shield; mark foes beside you.'},
-  unbreak:{c:'fighter',lv:5,a:'M',name:'Unbreakable',cost:3,tgt:'self',area:2,aff:'foe',noDmg:true,selfHeal:12,mark:1,desc:'Heal 12 and mark every foe within 2.'},
+  unbreak:{c:'fighter',lv:5,a:'M',name:'Unbreakable',cost:3,tgt:'self',area:2,aff:'foe',noDmg:true,selfHeal:8,mark:1,desc:'Heal 8 and mark every foe within 2.'},
   whirl:{c:'fighter',lv:7,a:'M',name:'Whirlwind',cost:5,tgt:'self',area:1,aff:'foe',dmg:[5,8,12],mark:1,eff:{push:[1,1,2]},desc:'Strike, push and mark every foe around you.'},
   quake:{c:'fighter',lv:7,a:'M',name:'Earthbreaker',cost:4,tgt:'self',area:1,aff:'foe',dmg:[3,5,7],mark:1,eff:{prone:[1,1,1],slow:[1,1,1]},desc:'Knock every foe around you prone and slow them.'},
-  bastion:{c:'fighter',lv:9,a:'P',name:'Last Bastion',cost:5,tgt:'self',area:3,aff:'ally',heal:8,shield:8,markAround:2,desc:'Allies within 3 heal 8 and gain 8 shield. Mark foes within 2.'},
+  bastion:{c:'fighter',lv:9,a:'P',name:'Last Bastion',cost:5,tgt:'self',area:3,aff:'ally',heal:5,shield:8,markAround:2,desc:'Allies within 3 heal 5 and gain 8 shield. Mark foes within 2.'},
   titan:{c:'fighter',lv:9,a:'M',name:"Titan's Blow",cost:6,tgt:'enemy',range:1,dmg:[10,15,21],mark:1,eff:{push:[2,3,4]},desc:'A colossal blow that hurls the foe away.'},
   cleave:{c:'fighter',lv:1,a:'M',name:'Cleave',cost:0,tgt:'enemy',range:1,dmg:[2,4,6],mark:1,cleave:true,desc:'Mark the foe. Another foe beside you takes damage equal to your Might.'},
   spin:{c:'fighter',lv:3,a:'M',name:'Leg Sweep',cost:2,tgt:'enemy',range:1,dmg:[3,5,7],mark:1,eff:{prone:[1,1,1]},desc:'Knock the foe prone. Mark.'},
@@ -57,7 +78,7 @@ const POWERS={
   knives:{c:'rogue',lv:1,a:'F',name:'Knife Toss',cost:0,tgt:'enemy',range:4,dmg:[2,4,6],proj:'#e6ecf2',desc:'Range 4.'},
   tumble:{c:'rogue',lv:1,a:'F',name:'Hit and Run',cost:1,tgt:'enemy',range:1,dmg:[3,5,8],canto:2,desc:'Strike, then move up to 2 more squares.'},
   deepcut:{c:'rogue',lv:1,a:'F',name:'Deep Cut',cost:2,tgt:'enemy',range:1,dmg:[3,5,7],eff:{bleed:[2,2,3]},desc:'The foe is bleeding.'},
-  shadow:{c:'rogue',lv:1,a:'F',name:'Shadowstep',cost:3,tgt:'enemy',range:5,teleportAdj:true,edge:1,dmg:[4,7,10],desc:'Teleport beside a foe within 5 and strike with advantage.'},
+  shadow:{c:'rogue',lv:1,a:'F',name:'Shadowstep',cost:2,tgt:'enemy',range:5,teleportAdj:true,edge:1,dmg:[4,7,10],desc:'Teleport beside a foe within 5 and strike with advantage.'},
   barrage:{c:'rogue',lv:3,a:'F',name:'Blinding Barrage',cost:3,tgt:'self',area:1,aff:'foe',dmg:[2,4,6],eff:{daze:[0,1,1]},desc:'Strike every foe around you. On a hit: dazed.'},
   vanish:{c:'rogue',lv:3,a:'F',name:'Vanish',cost:2,tgt:'self',free:true,hide:true,freeMove:2,desc:'Free action. Become hidden and gain 2 more movement.'},
   assassinate:{c:'rogue',lv:5,a:'F',name:'Assassinate',cost:5,tgt:'enemy',range:1,dmg:[6,10,14],execute:true,desc:'Double damage against a foe at half health or less.'},
@@ -66,7 +87,7 @@ const POWERS={
   cripple:{c:'rogue',lv:7,a:'F',name:'Crippling Shot',cost:3,tgt:'enemy',range:5,dmg:[3,5,8],eff:{slow:[1,1,0],root:[0,0,1],expose:[1,1,1]},proj:'#e6ecf2',desc:'Range 5. The foe is exposed and slowed. On a crit: rooted instead of slowed.'},
   deathmark:{c:'rogue',lv:9,a:'F',name:'Death Mark',cost:4,tgt:'enemy',range:6,dmg:[4,6,9],eff:{expose:[2,2,2],bleed:[2,2,3]},gainRes:2,proj:'#9a7bff',desc:'Range 6. Exposed and bleeding. Regain 2 momentum.'},
   cuts:{c:'rogue',lv:9,a:'F',name:'Thousand Cuts',cost:6,tgt:'enemy',range:1,dmg:[4,7,10],hits:3,desc:'Strike three times.'},
-  sly:{c:'rogue',lv:1,a:'P',name:'Sly Flourish',cost:2,tgt:'enemy',range:1,dmg:[3,6,9],eff:{daze:[0,1,1]},desc:'On a hit: dazed.'},
+  sly:{c:'rogue',lv:1,a:'P',name:'Sly Flourish',cost:2,tgt:'enemy',range:1,dmg:[2,5,8],eff:{daze:[0,1,1]},desc:'On a hit: dazed.'},
   position:{c:'rogue',lv:3,a:'F',name:'Positioning Strike',cost:2,tgt:'enemy',range:1,dmg:[2,4,6],eff:{push:[1,2,3]},desc:'Push the foe where you want it.'},
   /* ---- Wizard ---- */
   missile:{c:'wizard',lv:1,a:'W',name:'Magic Missile',cost:0,tgt:'enemy',range:5,dmg:[2,4,5],proj:'#c39bff',desc:'Range 5.'},
@@ -77,7 +98,7 @@ const POWERS={
   blink:{c:'wizard',lv:3,a:'W',name:'Blink',cost:1,tgt:'tile',range:4,teleport:true,free:true,desc:'Free action. Teleport up to 4 squares.'},
   icewall:{c:'wizard',lv:3,a:'W',name:'Wall of Ice',cost:3,tgt:'tile',range:4,wall:true,desc:'Raise a 3-square wall of ice for 2 rounds. Blocks movement and sight.'},
   repulse:{c:'wizard',lv:3,a:'W',name:'Repulsion',cost:2,tgt:'enemy',range:3,dmg:[2,3,5],eff:{push:[2,3,4]},proj:'#c39bff',desc:'Range 3. Push the foe far away.'},
-  cloud:{c:'wizard',lv:5,a:'W',name:'Stinking Cloud',cost:4,tgt:'tile',range:4,area:1,aff:'foe',dmg:[1,2,3],eff:{weak:[1,1,1]},zone:{dmg:3,eff:'weak'},fx:'poison',desc:'3x3 zone for 2 rounds: foes starting a turn inside take 3 damage and are weakened.'},
+  cloud:{c:'wizard',lv:5,a:'W',name:'Stinking Cloud',cost:4,tgt:'tile',range:4,area:1,aff:'foe',dmg:[1,2,3],eff:{weak:[1,1,1]},zone:{dmg:4,eff:'weak'},fx:'poison',desc:'3x3 zone for 2 rounds: foes starting a turn inside take 4 damage and are weakened.'},
   chain:{c:'wizard',lv:5,a:'W',name:'Chain Lightning',cost:5,tgt:'enemy',range:4,dmg:[4,7,10],chain:2,proj:'#fff27a',desc:'Range 4. Arcs to 2 more foes within 3.'},
   hypno:{c:'wizard',lv:7,a:'W',name:'Hypnotic Pattern',cost:4,tgt:'tile',range:4,area:1,aff:'foe',noDmg:true,eff:{slow:[1,0,0],daze:[0,1,1],expose:[0,1,1]},fx:'arcane',desc:'Range 4, 3x3 area. Foes are slowed, or dazed and exposed on a hit.'},
   gravity:{c:'wizard',lv:7,a:'W',name:'Gravity Well',cost:4,tgt:'tile',range:4,area:2,aff:'foe',pullCenter:2,dmg:[2,3,5],eff:{prone:[0,0,1]},fx:'arcane',desc:'5x5. Pull every foe 2 toward the centre.'},
@@ -86,21 +107,23 @@ const POWERS={
   scorch:{c:'wizard',lv:1,a:'W',name:'Scorching Burst',cost:1,tgt:'tile',range:5,area:1,aff:'foe',dmg:[1,2,3],fx:'fire',igniteCenter:true,desc:'Range 5. Small 3x3 burst. The centre catches fire.'},
   daggers:{c:'wizard',lv:3,a:'W',name:'Cloud of Daggers',cost:2,tgt:'tile',range:4,area:0,aff:'foe',dmg:[2,4,6],zone:{dmg:3,r:0},fx:'arcane',desc:'Range 4. Whirling blades fill one square for 2 rounds.'},
   /* ---- Cleric ---- */
-  flame:{c:'cleric',lv:1,a:'P',name:'Sacred Flame',cost:0,tgt:'enemy',range:4,dmg:[2,4,5],radiant:true,healNear:3,proj:'#ffe38a',desc:'Range 4, radiant. Your most wounded ally within 3 heals 3.'},
+  flame:{c:'cleric',lv:3,a:'P',name:'Sacred Flame',cost:0,tgt:'enemy',range:4,dmg:[2,4,5],radiant:true,healNear:2,proj:'#ffe38a',desc:'Range 4, radiant. Your most wounded ally within 3 heals 2.'},
+  rally:{c:'cleric',lv:1,a:'M',name:'Rallying Strike',cost:0,tgt:'enemy',range:1,dmg:[2,4,6],blessNear:3,desc:'Strike, and bless the nearest ally within 3 of you: advantage on their next attack.'},
+  transpose:{c:'cleric',lv:1,a:'P',name:'Divine Shift',cost:1,tgt:'ally',range:4,noSelf:true,swap:true,shield:4,desc:'Swap places with an ally within 4. You both gain 4 shield.'},
   brand:{c:'cleric',lv:1,a:'M',name:'Righteous Brand',cost:0,tgt:'enemy',range:1,dmg:[2,4,6],eff:{expose:[1,1,1]},desc:'The foe is exposed.'},
-  healWord:{c:'cleric',lv:1,a:'P',name:'Healing Word',cost:1,tgt:'ally',range:4,heal:7,cleanse:true,desc:'Range 4. Heal 7 and end conditions.'},
+  healWord:{c:'cleric',lv:1,a:'P',name:'Healing Word',cost:2,tgt:'ally',range:4,heal:5,cleanse:true,desc:'Range 4. Heal 5 and end conditions.'},
   bless:{c:'cleric',lv:1,a:'P',name:'Bless',cost:2,tgt:'self',area:2,aff:'ally',empower:1,desc:'You and allies within 2 are blessed until the end of their next turn.'},
-  sanct:{c:'cleric',lv:1,a:'P',name:'Sanctuary',cost:2,tgt:'ally',range:4,heal:3,shield:10,desc:'Range 4. Heal 3 and gain 10 shield.'},
+  sanct:{c:'cleric',lv:1,a:'P',name:'Sanctuary',cost:2,tgt:'ally',range:4,shield:10,desc:'Range 4. The ally gains 10 shield.'},
   inspire:{c:'cleric',lv:3,a:'P',name:'Inspire',cost:4,tgt:'ally',range:3,noSelf:true,refresh:true,desc:'An ally within 3 immediately takes an extra turn after yours.'},
   turn:{c:'cleric',lv:3,a:'P',name:'Turn Undead',cost:3,tgt:'self',area:2,aff:'undead',dmg:[2,4,6],radiant:true,eff:{push:[1,2,2],daze:[0,0,1]},desc:'Undead within 2 take radiant damage and are pushed back.'},
-  burst:{c:'cleric',lv:5,a:'P',name:'Radiant Burst',cost:4,tgt:'self',area:1,aff:'foe',dmg:[3,5,8],radiant:true,allyHeal:4,desc:'Radiant blast around you. Nearby allies heal 4.'},
+  burst:{c:'cleric',lv:5,a:'P',name:'Radiant Burst',cost:4,tgt:'self',area:1,aff:'foe',dmg:[3,5,8],radiant:true,allyHeal:3,desc:'Radiant blast around you. Nearby allies heal 3.'},
   guide:{c:'cleric',lv:5,a:'P',name:'Guiding Bolt',cost:3,tgt:'enemy',range:5,dmg:[4,7,10],radiant:true,eff:{expose:[1,1,2]},proj:'#ffe38a',desc:'Range 5, radiant. The foe is exposed.'},
-  healStrike:{c:'cleric',lv:3,a:'M',name:'Healing Strike',cost:2,tgt:'enemy',range:1,dmg:[3,5,8],radiant:true,mark:1,healNear:8,desc:'Radiant strike that marks the foe. Your most wounded ally within 3 heals 8.'},
-  beacon:{c:'cleric',lv:5,a:'P',name:'Beacon of Hope',cost:4,tgt:'self',area:3,aff:'foe',noDmg:true,eff:{weak:[1,1,1]},allyHeal:6,desc:'Foes within 3 are weakened. Allies within 3 heal 6.'},
-  massHeal:{c:'cleric',lv:7,a:'P',name:'Mass Cure',cost:5,tgt:'self',area:99,aff:'ally',heal:12,cleanse:true,desc:'Every ally heals 12 and ends conditions.'},
+  healStrike:{c:'cleric',lv:3,a:'M',name:'Healing Strike',cost:2,tgt:'enemy',range:1,dmg:[3,5,8],radiant:true,mark:1,healNear:5,desc:'Radiant strike that marks the foe. Your most wounded ally within 3 heals 5.'},
+  beacon:{c:'cleric',lv:5,a:'P',name:'Beacon of Hope',cost:4,tgt:'self',area:3,aff:'foe',noDmg:true,eff:{weak:[1,1,1]},allyHeal:4,desc:'Foes within 3 are weakened. Allies within 3 heal 4.'},
+  massHeal:{c:'cleric',lv:7,a:'P',name:'Mass Cure',cost:5,tgt:'self',area:99,aff:'ally',heal:8,cleanse:true,desc:'Every ally heals 8 and ends conditions.'},
   guardians:{c:'cleric',lv:7,a:'P',name:'Spirit Guardians',cost:4,tgt:'self',area:1,aff:'foe',dmg:[2,3,4],radiant:true,zone:{dmg:4,eff:'slow',radiant:true},fx:'holy',desc:'3x3 zone for 2 rounds: foes starting a turn inside take 4 radiant and are slowed.'},
   revive:{c:'cleric',lv:9,a:'P',name:'Revivify',cost:5,tgt:'self',revive:true,desc:'A fallen hero rises beside you with 40% health.'},
-  holy:{c:'cleric',lv:9,a:'P',name:'Holy Word',cost:6,tgt:'self',area:3,aff:'foe',dmg:[4,7,10],radiant:true,eff:{daze:[0,1,1]},allyHeal:8,fx:'holy',desc:'Foes within 3 take radiant damage; on a hit they are dazed. Allies within 3 heal 8.'},
+  holy:{c:'cleric',lv:9,a:'P',name:'Holy Word',cost:6,tgt:'self',area:3,aff:'foe',dmg:[4,7,10],radiant:true,eff:{daze:[0,1,1]},allyHeal:5,fx:'holy',desc:'Foes within 3 take radiant damage; on a hit they are dazed. Allies within 3 heal 5.'},
 };
 for(const k in POWERS)POWERS[k].id=k;
 
@@ -109,6 +132,7 @@ for(const k in POWERS)POWERS[k].id=k;
 const MON={
   runner:{name:'Goblin Rabble',plural:'goblin rabble',role:'Minion',act:0,art:'rabble',hp:1,speed:4,attrs:{M:0,F:2,W:0,P:0},minion:true,cost:.5,acts:[{name:'Stab',range:1,flat:3}]},
   rats:{name:'Rat Swarm',plural:'rat swarms',role:'Swarm',act:0,art:'rat',hp:4,tiny:4,speed:4,attrs:{M:0,F:2,W:0,P:0},cost:2,acts:[{name:'Gnaw',range:1,flat:1,per:true,eff:{bleed:[0,2,0]}}],note:'1 damage per rat still standing. Gnawing leaves the prey bleeding.'},
+  cutter:{name:'Goblin Cutthroat',plural:'goblin cutthroats',role:'Skirmisher',act:0,art:'goblin',hp:10,speed:4,attrs:{M:1,F:2,W:0,P:0},cost:1.2,pack:true,acts:[{name:'Jagged Blade',a:'F',range:1,dmg:[2,4,6],eff:{bleed:[0,0,2]}}],note:'Pack: advantage when another foe stands beside its prey.'},
   sniper:{name:'Goblin Sniper',role:'Artillery',act:0,art:'goblinArcher',hp:10,speed:3,attrs:{M:0,F:2,W:1,P:0},cost:2,skulk:true,acts:[{name:'Arrow',a:'F',range:5,dmg:[2,4,6]}],note:'Slips 1 square away after shooting.'},
   trapper:{name:'Goblin Trapper',role:'Ambusher',act:0,art:'trapper',hp:12,speed:3,attrs:{M:1,F:2,W:1,P:0},cost:2,acts:[{name:'Hatchet',a:'F',range:1,dmg:[2,4,6]},{name:'Set Snare',range:3,trap:'trap',cd:2}],note:'Hides snares on the battlefield.'},
   wolf:{name:'Dire Wolf',role:'Harrier',act:0,art:'wolf',hp:14,speed:5,attrs:{M:1,F:2,W:0,P:0},cost:2,nimble:true,pack:true,acts:[{name:'Bite',a:'F',range:1,dmg:[2,4,6],eff:{prone:[0,0,1]}}],note:'Pack: advantage when another foe stands beside its prey. Nimble.'},
@@ -131,7 +155,7 @@ const MON={
   ooze:{name:'Grave Ooze',role:'Brute',act:1,art:'ooze',hp:26,speed:2,attrs:{M:2,F:0,W:0,P:0},cost:3,acidDeath:true,acts:[{name:'Acid Slam',a:'M',range:1,dmg:[3,5,7],eff:{weak:[0,1,1]}},{name:'Acid Spit',a:'M',range:3,dmg:[1,2,3],cost:2,hazard:'acid'}],note:'Spits pools of acid. Leaves acid where it dies.'},
   cultist:{name:'Grave Cultist',role:'Hexer',act:1,art:'cultist',hp:14,speed:3,attrs:{M:0,F:1,W:2,P:1},cost:3,acts:[{name:'Withering Curse',a:'W',range:4,dmg:[2,4,6],eff:{weak:[0,1,1],bleed:[0,0,2]}},{name:'Dark Offering',tgt:'self',mom:2}],note:'Can bleed itself to feed the foes\' momentum.'},
   wight:{name:'Barrow Wight',role:'Champion',act:1,art:'wight',hp:44,speed:3,attrs:{M:3,F:1,W:1,P:2},steady:1,undead:true,drain:true,aura:true,cost:6,acts:[{name:'Draining Touch',a:'M',range:1,dmg:[4,7,10],eff:{weak:[1,1,1]}}],note:'Heals half the damage it deals. Aura: allies within 2 gain advantage.'},
-  lich:{name:'The Lich',role:'Boss',act:1,art:'lich',hp:80,speed:3,attrs:{M:0,F:1,W:4,P:3},steady:2,undead:true,boss:true,attacks:1,summon:'bones',summonN:2,summonCap:6,acts:[{name:'Necrotic Bolt',a:'W',range:5,dmg:[4,7,10],eff:{weak:[0,0,1]}},{name:'Grave Chill',a:'W',range:4,area:1,dmg:[3,5,7],eff:{slow:[1,1,1]},cost:3}],va:['raise','siphon','nova'],note:'Raises the dead every other round. Boss surges on rounds 1, 3 and 5.'},
+  lich:{name:'The Lich',role:'Boss',act:1,art:'lich',hp:110,speed:3,attrs:{M:0,F:1,W:4,P:3},steady:2,undead:true,boss:true,attacks:1,summon:'bones',summonN:2,summonCap:6,acts:[{name:'Necrotic Bolt',a:'W',range:5,dmg:[4,7,10],eff:{weak:[0,0,1]}},{name:'Grave Chill',a:'W',range:4,area:1,dmg:[3,5,7],eff:{slow:[1,1,1]},cost:3}],va:['raise','siphon','nova'],note:'Raises the dead every other round. Boss surges on rounds 1, 3 and 5.'},
   imp:{name:'Ember Imp',plural:'ember imps',role:'Minion',act:2,art:'imp',hp:1,speed:5,attrs:{M:0,F:2,W:1,P:0},minion:true,nimble:true,fireDeath:true,cost:.5,acts:[{name:'Firebolt',range:3,flat:3}],note:'Bursts into fire when slain.'},
   gnoll:{name:'Gnoll Marauder',role:'Harrier',act:2,art:'gnoll',hp:24,speed:4,attrs:{M:3,F:1,W:0,P:0},savage:true,cost:3,acts:[{name:'Flail',a:'M',range:1,dmg:[3,6,8],eff:{bleed:[0,0,2]}}],note:'Savage: +2 damage to heroes at half health or less.'},
   priest:{name:'Cinder Priest',role:'Leader',act:2,art:'firePriest',hp:22,speed:3,attrs:{M:0,F:1,W:2,P:3},aura:true,cost:4,acts:[{name:'Scorch',a:'P',range:4,dmg:[3,5,7],eff:{burn:[1,1,2]}},{name:'Kindle',range:4,trap:'fire',cd:2},{name:'Mend',tgt:'ally',range:4,heal:8}],note:'Sets the ground on fire. Aura: allies within 2 gain advantage.'},
@@ -140,7 +164,7 @@ const MON={
   golem:{name:'Rock Golem',plural:'rock golems',role:'Champion',act:2,art:'golem',hp:66,sz:2,speed:2,attrs:{M:4,F:0,W:0,P:0},steady:3,cost:6,
     acts:[{name:'Crushing Fists',a:'M',range:1,dmg:[5,8,12],eff:{push:[1,1,2],prone:[0,0,1]}},{name:'Hurl Boulder',a:'M',range:4,dmg:[4,6,9],cost:2,eff:{prone:[0,1,1]}}],note:'Large. Slow, but nothing moves it far.'},
   hulk:{name:'Magma Hulk',role:'Controller',act:2,art:'magma',hp:38,speed:3,attrs:{M:3,F:0,W:0,P:0},steady:1,trail:true,cost:5,acts:[{name:'Molten Fist',a:'M',range:1,dmg:[4,6,9],eff:{slow:[1,1,1],burn:[0,1,1]}}],note:'Leaves a trail of fire where it walks.'},
-  dragon:{name:'Ashen Dragon',role:'Boss',act:2,art:'dragon64',hp:140,sz:2,speed:4,attrs:{M:4,F:2,W:2,P:3},steady:3,boss:true,attacks:2,fireproof:true,acts:[{name:'Rending Claws',a:'M',range:1,dmg:[5,8,12]},{name:'Tail Lash',a:'M',range:2,dmg:[4,6,9],eff:{push:[1,2,2]}},{name:'Fire Breath',a:'M',range:3,area:1,dmg:[5,8,11],cost:3,hazard:'fire'}],va:['presence','buffet','inferno'],note:'Attacks twice. Boss surges on rounds 1, 3 and 5.'},
+  dragon:{name:'Ashen Dragon',role:'Boss',act:2,art:'dragon64',hp:100,sz:2,speed:4,attrs:{M:4,F:2,W:2,P:3},steady:3,boss:true,attacks:2,fireproof:true,acts:[{name:'Rending Claws',a:'M',range:1,dmg:[5,8,12]},{name:'Tail Lash',a:'M',range:2,dmg:[4,6,9],eff:{push:[1,2,2]}},{name:'Fire Breath',a:'M',range:3,area:1,dmg:[5,8,11],cost:3,hazard:'fire'}],va:['presence','buffet','inferno'],note:'Attacks twice. Boss surges on rounds 1, 3 and 5.'},
   horror:{name:'Bound Horror',role:'Champion',act:-1,art:'horror',hp:50,speed:3,attrs:{M:3,F:1,W:2,P:0},steady:2,cost:0,acts:[{name:'Rending Tendrils',a:'M',range:2,dmg:[5,8,11],eff:{pull:[1,1,2]}}]},
   pillar:{name:'Ritual Pillar',role:'Object',act:-1,art:'pillar',hp:18,speed:0,attrs:{M:0,F:0,W:0,P:0},object:true,cost:0,acts:[]},
 };
@@ -156,7 +180,7 @@ const VA={
   buffet:{name:'Wing Buffet',desc:'Heroes within 2 are pushed away and knocked prone.'},
   inferno:{name:'Inferno',desc:'The dragon floods a row with fire.'},
 };
-const ACT_POOL=[['runner','rats','sniper','trapper','wolf','hobgob','orc','hexer'],['bones','bats','spiderlings','skeleton','skarcher','zombie','ghoul','spider','ooze','cultist','necro','wight'],['imp','gnoll','priest','drake','ogre','hulk','golem','cultist','orc']];
+const ACT_POOL=[['runner','cutter','cutter','rats','sniper','trapper','wolf','hobgob','orc','hexer'],['bones','bats','spiderlings','skeleton','skarcher','zombie','ghoul','spider','ooze','cultist','necro','wight'],['imp','gnoll','priest','drake','ogre','hulk','golem','cultist','orc']];
 /* Minions come in hordes of four for the price of one ordinary foe. */
 const SWARM=['runner','bones','imp'];
 const LEADERS=['captain','wight','priest'];
@@ -198,6 +222,41 @@ const RELICS={
   coin:{name:'Lucky Coin',price:70,desc:'Earn 50% more gold.'},
   waterskin:{name:'Healer\'s Satchel',price:90,desc:'Heroes heal an extra 15% after every battle.'},
 };
+/* Weapons: the bonus adds to the hero's basic powers (those that cost no momentum) — damage (dmg) and attack
+   rolls (acc) — and some carry a trait. tier 1 is what each hero starts with. */
+const WEAPONS={
+  longsword:{cls:'fighter',tier:1,name:'Iron Longsword',dmg:0,desc:'A plain, trusty blade.'},
+  warhammer:{cls:'fighter',tier:2,name:'Steel Warhammer',dmg:1,push:1,desc:'Basic powers push 1 square further.'},
+  halberd:{cls:'fighter',tier:2,name:'Knight\'s Halberd',dmg:1,reach:1,desc:'Basic melee powers reach 2 squares.'},
+  flameblade:{cls:'fighter',tier:3,name:'Flameforged Blade',dmg:2,burn:1,desc:'Basic powers set foes burning on a critical hit.'},
+  maul:{cls:'fighter',tier:4,name:'Titan\'s Maul',dmg:3,push:1,desc:'Basic powers push 1 square further.'},
+  daggers:{cls:'rogue',tier:1,name:'Twin Daggers',dmg:0,desc:'Quick and quiet.'},
+  serrated:{cls:'rogue',tier:2,name:'Serrated Knives',dmg:1,bleed:1,desc:'Basic powers leave foes bleeding on a hit.'},
+  rapier:{cls:'rogue',tier:2,name:'Duelist\'s Rapier',dmg:1,keen:1,desc:'+1 momentum whenever a basic power lands a critical hit.'},
+  shadowfang:{cls:'rogue',tier:3,name:'Shadowfang',dmg:2,acc:1,desc:'+1 to basic power attack rolls.'},
+  kingslayer:{cls:'rogue',tier:4,name:'Kingslayer',dmg:3,bleed:1,desc:'Basic powers leave foes bleeding on a hit.'},
+  wand:{cls:'wizard',tier:1,name:'Apprentice Wand',dmg:0,desc:'Chipped, but it works.'},
+  reachwand:{cls:'wizard',tier:2,name:'Wand of Reach',dmg:1,range:1,desc:'Basic ranged powers reach 1 square further.'},
+  emberstaff:{cls:'wizard',tier:2,name:'Emberstaff',dmg:1,burn:1,desc:'Basic powers set foes burning on a critical hit.'},
+  frostorb:{cls:'wizard',tier:3,name:'Frost Orb',dmg:2,slow:1,desc:'Basic powers slow foes on a hit.'},
+  magistaff:{cls:'wizard',tier:4,name:'Staff of the Magi',dmg:3,range:1,acc:1,desc:'+1 to basic power attack rolls and range.'},
+  mace:{cls:'cleric',tier:1,name:'Iron Mace',dmg:0,desc:'Blunt and honest.'},
+  blessedmace:{cls:'cleric',tier:2,name:'Blessed Mace',dmg:1,radiant:1,desc:'Basic powers deal radiant damage (double against undead).'},
+  censer:{cls:'cleric',tier:2,name:'Warding Censer',dmg:1,ward:2,desc:'When a basic power hits, you and allies beside you gain 2 shield.'},
+  sunflail:{cls:'cleric',tier:3,name:'Sunforged Flail',dmg:2,radiant:1,desc:'Basic powers deal radiant damage (double against undead).'},
+  dawn:{cls:'cleric',tier:4,name:'Relic of Dawn',dmg:3,radiant:1,ward:2,desc:'Radiant basic powers; hits give you and adjacent allies 2 shield.'},
+};
+for(const k in WEAPONS)WEAPONS[k].id=k;
+const START_WEAPON={fighter:'longsword',rogue:'daggers',wizard:'wand',cleric:'mace'};
+const WEAPON_PRICE=[0,0,70,120,180];
+function weaponText(w){const b=[];if(w.dmg)b.push(`+${w.dmg} damage`);if(w.acc)b.push(`+${w.acc} to hit`);return (b.length?b.join(', ')+' on basic powers. ':'')+w.desc;}
+/* Foe momentum buys threats. Which ones a battle can use grows with how deep into the journey it is. */
+const THREATS={
+  bloodlust:{name:'Bloodlust',cost:3,desc:'Every foe has advantage on its attacks this round.'},
+  hazard:{name:'Eruption',cost:5,desc:'The ground erupts beneath heroes. Move off it or suffer!',names:['Wildfire','Acid Seep','Eruption']},
+  reinforce:{name:'Reinforcements',cost:7,desc:'A horde of minions pours in from the edges.'},
+  rite:{name:'Dark Rite',cost:6,desc:'Every foe is wrapped in shield.'},
+};
 const RELIC_ICON={boots:'↑',whetstone:'◆',heart:'♥',hymn:'♦',map:'★',phoenix:'▲',fang:'v',bulwark:'⛨',dice:'#',lens:'o',ward:'*',scale:'~',gauntlet:'→',fenboots:'≈',hourglass:'8',coin:'$',waterskin:'+'};
 const RELIC_COL={boots:'#c89060',whetstone:'#8ac8f0',heart:'#e04848',hymn:'#e0b040',map:'#e0d0a0',phoenix:'#ff8a30',fang:'#e8e8e8',bulwark:'#6a9ae0',dice:'#f0f0f0',lens:'#8ae0c0',ward:'#b08af0',scale:'#ff6a3a',gauntlet:'#a8b0b8',fenboots:'#6ab070',hourglass:'#e0c070',coin:'#ffd040',waterskin:'#80d090'};
 
@@ -215,6 +274,20 @@ const MISSIONS={
   breakout:{name:'Breakout',desc:'Every surviving hero must escape through the top edge.',titles:['Collapse','Out of the Pit','Run for the Pass']},
   boss:{name:'Boss',desc:'Defeat the boss.',titles:['']},
 };
+/* Each region puts its own spin on a mission (the first region plays them straight). */
+const TWISTS={
+  'rescue:1':{id:'carry',name:'Broken Leg',desc:'Carry a wounded captive to the bottom edge. If they fall, you fail.',text:'The captive cannot walk. A hero standing beside them carries them: they are dragged along behind whichever hero moves away from their side.'},
+  'hold:1':{id:'restless',name:'Restless Barrow',text:'The dead claw up beside the shrine every round.'},
+  'loot:1':{id:'cursed',name:'Cursed Hoard',text:'Each chest you open raises Risen Bones beside you.'},
+  'survive:1':{id:'night',name:'The Long Night',text:'Thick fog: no one, friend or foe, can attack or cast beyond 3 squares.'},
+  'assassinate:1':{id:'flee',name:'The Chief Flees',text:'Slay the chief before the end of round 6, or it escapes and the battle is lost.'},
+  'ambush:2':{id:'ring',name:'Ring of Fire',text:'Fires burn around the edges of the field, and flare up again on round 3.'},
+  'survive:2':{id:'lava',name:'Rising Lava',text:'From round 3, lava floods one more row from the top each round (up to the third row).'},
+  'assassinate:2':{id:'guards',name:'Bodyguards',text:'The chief takes half damage while one of its guards stands beside it.'},
+  'ritual:2':{id:'blood',name:'Blood Pillars',text:'Each pillar heals 6 every round while a foe stands beside it.'},
+  'loot:2':{id:'melt',name:'Molten Vault',text:'Chests still unopened melt away at the end of round 4.'},
+  'breakout:2':{id:'collapse',name:'Collapsing Cavern',text:'From round 2, lava rises from the bottom edge, one row each round.'},
+};
 const MISSION_BY_ACT=[['rout','ambush','hold','rescue','loot'],['rout','hold','rescue','loot','survive','assassinate','ritual'],['rout','ambush','survive','assassinate','ritual','defend','breakout','loot']];
 const BOSS_TXT=['The Orc Warlord attacks twice, pushes heroes aside and calls in his horde.','The Lich raises the dead and drains the living.','The Ashen Dragon attacks twice, breathes fire and scatters heroes with its wings.'];
 
@@ -230,7 +303,7 @@ const GLOSS={
   crit:{name:'Critical Hit',forms:['critical hits','critical hit','on a crit','crits','crit'],text:'The best attack result: a total of 15 or more, or 16 or more on the dice alone. The attack deals its highest damage and adds any "on a crit" effects.'},
   advantage:{name:'Advantage',forms:['double advantage','advantage'],text:'+2 to the attack roll for each source, up to +4. Advantage comes from flanking, high ground, exposed, prone, dazed or rooted targets, being blessed or hidden, and some powers. Advantage and disadvantage cancel out one for one.'},
   disadvantage:{name:'Disadvantage',forms:['disadvantage'],text:'-2 to the attack roll for each source, down to -4. Disadvantage comes from being weakened, prone or marked by someone else, a target in cover, or shooting while a foe stands beside you.'},
-  momentum:{name:'Momentum',forms:['momentum'],text:'Heroes build momentum each turn and through their class trait, and spend it on stronger powers. Foes share a pool of momentum that grows each round; they spend it on brutal attacks (advantage), special attacks and reinforcements.'},
+  momentum:{name:'Momentum',forms:['momentum'],text:'Every hero starts a battle with none. They gain 1 each turn plus more for doing their job (see each hero\'s sheet), and spend it on stronger powers. Foes share a pool that grows each round and spend it on threats (shown in the top bar) and on their own special attacks.'},
   initiative:{name:'Initiative',forms:['initiative'],text:'At the start of a battle everyone rolls d20 + Finesse. Turns go from highest to lowest, heroes and foes mixed together. The order repeats every round.'},
   parting:{name:'Parting Blow',forms:['parting blows','parting blow'],text:'When a creature moves out of a square beside a foe, that foe may use its reaction to strike it for free. Nimble creatures never provoke. Each creature has one reaction per round.'},
   reaction:{name:'Reaction',forms:['reaction'],text:'Each creature has one reaction per round, used for parting blows. It returns at the start of its turn.'},
@@ -268,7 +341,7 @@ const GLOSS={
   undead:{name:'Undead',forms:['undead'],text:'Radiant damage is doubled against undead.'},
   radiant:{name:'Radiant',forms:['radiant'],text:'Holy damage. Doubled against undead and stops skeletons reassembling.'},
   surge:{name:'Boss Surge',forms:['boss surges','boss surge'],text:'A boss unleashes a special action at the start of its turn on rounds 1, 3 and 5.'},
-  brutal:{name:'Brutal',forms:['brutal'],text:'A foe spends 3 momentum to gain advantage on an attack.'},
+  threat:{name:'Foe Threat',forms:['threats','threat'],text:'Foes bank momentum every round. When they have enough, they unleash their next threat, shown in the top bar: bloodlust at first, and deeper into the journey eruptions of hazards, reinforcements and dark rites.'},
   zone:{name:'Zone',forms:['zone'],text:'A lingering area. It affects foes that start their turn inside it.'},
   teleport:{name:'Teleport',forms:['teleport'],text:'Move instantly without provoking parting blows.'},
   free:{name:'Free Action',forms:['free action'],text:'Does not use up your action for the turn.'},
@@ -280,7 +353,7 @@ const GLOSS={
 const EVENTS=[
   {id:'bridge',title:'The Collapsed Bridge',text:'A rope bridge over a gorge has half given way. Wreckage and a merchant\'s lost strongbox dangle below.',opts:[
     {label:'Haul up the strongbox',check:{skill:'Athletics',dc:13},win:{gold:45,text:'Muscles burn, but the strongbox comes up full of coin.'},lose:{dmg:5,text:'The rope snaps back and lashes the whole party.'}},
-    {label:'Dance across the beams',check:{skill:'Acrobatics',dc:14},win:{relic:true,text:'On the far side, a traveller\'s pack holds a relic.'},lose:{dmg:4,text:'A slip, a scramble and a lot of bruises.'}},
+    {label:'Dance across the beams',check:{skill:'Acrobatics',dc:14},win:{weapon:true,text:'On the far side, a traveller\'s pack holds a fine weapon.'},lose:{dmg:4,text:'A slip, a scramble and a lot of bruises.'}},
     {label:'Take the long way round',win:{text:'The detour costs nothing but time.'}}]},
   {id:'pilgrim',title:'The Wandering Pilgrim',text:'An old woman in grey rags offers to pray over your wounds, for a price.',opts:[
     {label:'Read her intentions',check:{skill:'Insight',dc:12},win:{heal:.35,text:'She is genuine. Her prayer mends the whole party.'},lose:{gold:-20,text:'She lifts a purse while you watch her eyes.'}},
@@ -296,7 +369,7 @@ const EVENTS=[
     {label:'Clear the road',win:{fight:'battle',text:'You draw steel.'}}]},
   {id:'reliquary',title:'The Locked Reliquary',text:'A sealed iron casket rests in a roadside chapel.',opts:[
     {label:'Pick the lock',check:{skill:'Thievery',dc:14},win:{relic:true,text:'The lock clicks. A relic lies inside.'},lose:{dmg:3,text:'A needle trap! Its poison spreads through the party.'}},
-    {label:'Force it open',check:{skill:'Athletics',dc:15},win:{relic:true,text:'Hinges scream and give way.'},lose:{dmg:6,text:'The casket bursts into flame.'}},
+    {label:'Force it open',check:{skill:'Athletics',dc:15},win:{weapon:true,text:'Hinges scream and give way. A blessed weapon lies inside.'},lose:{dmg:6,text:'The casket bursts into flame.'}},
     {label:'Leave it be',win:{text:'Some things are locked for a reason.'}}]},
   {id:'hunter',title:'The Wounded Hunter',text:'A hunter lies in the heather with a bolt in his leg.',opts:[
     {label:'Tend his wound',check:{skill:'Survival',dc:12},win:{gold:25,heal:.2,text:'He shares his camp and a purse of coin.'},lose:{text:'You do your best. He limps away, silent.'}},
@@ -305,6 +378,14 @@ const EVENTS=[
   {id:'mist',title:'Shapes in the Mist',text:'Figures move in the fog ahead, spears glinting.',opts:[
     {label:'Slip past unseen',check:{skill:'Stealth',dc:14},win:{gold:20,text:'You pass unseen and lift a purse from a sleeping sentry.'},lose:{fight:'battle',text:'A twig snaps. They charge.'}},
     {label:'Attack first',win:{fight:'battle',text:'Surprise is yours.'}}]},
+  {id:'smith',title:'The Wandering Smith',text:'A dwarf smith has set up her anvil by the road. She eyes your gear and sniffs.',opts:[
+    {label:'Help at the forge',check:{skill:'Athletics',dc:13},win:{weapon:true,text:'You work the bellows till dawn. She gives you a blade for your trouble.'},lose:{dmg:3,text:'A spray of sparks. She shoos you away.'}},
+    {label:'Pay 60 gold',cost:60,win:{weapon:true,text:'She sells you her best piece.'}},
+    {label:'Move on',win:{text:'The ring of her hammer fades behind you.'}}]},
+  {id:'field',title:'The Old Battlefield',text:'Rusted arms and bones lie thick in the grass where two armies met long ago.',opts:[
+    {label:'Search the fallen',check:{skill:'Survival',dc:13},win:{weapon:true,text:'Beneath a broken shield lies a weapon still keen.'},lose:{fight:'battle',text:'The bones stir. Something did not rest.'}},
+    {label:'Honour the dead',check:{skill:'Lore',dc:12},win:{heal:.25,text:'A strange peace settles on the party.'},lose:{text:'The old words will not come.'}},
+    {label:'Pass by',win:{text:'You leave the dead to their sleep.'}}]},
   {id:'well',title:'The Whispering Well',text:'Voices rise from a dry well, promising power to those who listen.',opts:[
     {label:'Listen closely',check:{skill:'Insight',dc:14},win:{train:true,text:'The voices teach a secret before fading.'},lose:{dmg:5,text:'The voices rise to a scream that rattles your bones.'}},
     {label:'Toss in 20 gold',cost:20,win:{heal:.3,text:'The well sighs. Wounds close.'}},

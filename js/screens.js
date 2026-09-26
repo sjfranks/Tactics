@@ -8,7 +8,7 @@ const BATTLE_SCREEN={draw:drawBattle};
 const ROMAN=['I','II','III'];
 function coin(x,y){text('●',x,y,C.gold,{sh:C.edge});}
 function relicIcon(r,x,y){rect(x,y,11,11,C.edge);rect(x+1,y+1,9,9,'#1a1410');frame(x+1,y+1,9,9,RELIC_COL[r]);text(RELIC_ICON[r]||'?',x+6,y+3,RELIC_COL[r],{al:'c',sh:false});}
-function heroSheetUnit(h){return {id:'sheet_'+h.cls,side:'hero',kind:'pc',cls:h.cls,name:CLASSES[h.cls].name,lvl:h.lvl,hp:h.hp,maxHp:effMaxHp(h),attrs:attrsFor(h.cls,h.lvl),powers:h.powers,mom:0,st:{},shield:0,speed:CLASSES[h.cls].speed,steady:0};}
+function heroSheetUnit(h){return {id:'sheet_'+h.cls,side:'hero',kind:'pc',cls:h.cls,name:CLASSES[h.cls].name,lvl:h.lvl,hp:h.hp,maxHp:effMaxHp(h),attrs:attrsFor(h.cls,h.lvl),powers:h.powers,mom:0,st:{},shield:0,speed:CLASSES[h.cls].speed,steady:0,wpn:h.weapon,xp:h.xp};}
 
 /* ---------------- backgrounds ---------------- */
 const BGC={};
@@ -86,7 +86,7 @@ const TITLE_SCREEN={enter(){this.save=loadSave();},draw(){
   const save=this.save;
   const items=[];
   if(save)items.push(['CONTINUE',()=>{continueRun();},true]);
-  items.push(['NEW JOURNEY',()=>{if(save)openModal(dialog({title:'START OVER?',body:'This replaces your saved journey.',buttons:[{l:'START',hot:true,fn:()=>{newRun();go(MAP_SCREEN);}},{l:'CANCEL'}]}));else{newRun();go(MAP_SCREEN);}},!save]);
+  items.push(['NEW JOURNEY',()=>{if(save)openModal(dialog({title:'START OVER?',body:'This replaces your saved journey.',buttons:[{l:'START',hot:true,fn:()=>{closeModal();startJourney();},keep:true},{l:'CANCEL'}]}));else startJourney();},!save]);
   items.push(['SKIRMISH',()=>go(SKIRMISH_SCREEN)]);
   items.push(['COMPENDIUM',()=>{SCREEN_BACK=null;go(COMP_SCREEN);}]);
   items.push(['HOW TO PLAY',openHowTo]);
@@ -149,7 +149,7 @@ const MAP_SCREEN={enter(){MAPSEL=null;MAPS.anim=null;const M=RUN.map;const cur=R
     circle(q.x,y,r+1,C.edge);circle(q.x,y,r,vd?'#3a3028':(n.type==='elite'||big?'#e0c8a0':'#e8dcc0'));circle(q.x,y,r-1,vd?'#2a221c':(n.type==='elite'||big?'#b89870':'#c8b890'));
     if(!vd&&PORT){rect(q.x-r+3,y-r+4,3,1,'rgba(255,255,255,.5)');}
     if(big){if(PORT){ctx.drawImage(artH(MON[BOSSES[RUN.act]].art).c,q.x-16,y-18);}else{const S=spr(MON[BOSSES[RUN.act]].art);ctx.drawImage(S.c,q.x-8,y-9);}}
-    else if(PORT){const ic=mapIcon(n.type==='battle'&&nodeMission(n)&&n.mission!=='rout'?n.mission:n.type);if(ic){if(vd)ctx.globalAlpha=.5;ctx.drawImage(ic,q.x-12,y-12);ctx.globalAlpha=1;}}else ctx.drawImage(icon(n.type),q.x-5,y-5);
+    else if(PORT){const ic=mapIcon(n.type);if(ic){if(vd)ctx.globalAlpha=.5;ctx.drawImage(ic,q.x-12,y-12);ctx.globalAlpha=1;}}else ctx.drawImage(icon(n.type),q.x-5,y-5);
     if(vd&&n.id!==RUN.pos){ctx.globalAlpha=.6;circle(q.x,y,r-1,'#1a1410');ctx.globalAlpha=1;text('✓',q.x,y-2,C.mute,{al:'c'});}
     hit(q.x-r-2,y-r-2,2*r+4,2*r+4,Object.assign({fn:()=>{if(!MAPS.anim)mapNodeTap(n,av);},id:'node'+n.id},scr));
   }
@@ -162,8 +162,8 @@ const MAP_SCREEN={enter(){MAPSEL=null;MAPS.anim=null;const M=RUN.map;const cur=R
     text(`ACT ${ROMAN[RUN.act]}`,4,3,C.gold,{sc:2,ol:C.edge});
     text(ACTS[RUN.act].sub.toUpperCase(),4+textW(`ACT ${ROMAN[RUN.act]}`,2)+6,7,C.parch);
     coin(SW-34,7);text(String(RUN.gold),SW-26,7,C.gold);
-    const nr=Math.floor((SW-50)/17);RUN.relics.slice(0,nr).forEach((r,i)=>{ctx.drawImage(relicArt(r),3+i*17,14);hit(2+i*17,13,17,18,{fn:()=>msg(RELICS[r].name,RELICS[r].desc,null,160),id:'mr'+r});});
-    if(RUN.relics.length>nr)text('+'+(RUN.relics.length-nr),4+nr*17,19,C.mute);
+    RUN.gear.forEach((r,i)=>{ctx.drawImage(relicArt(r),3+i*17,14);hit(2+i*17,13,17,18,{fn:()=>relicMenu(r),id:'mr'+r});});
+    button(SW-94,17,52,12,RUN.stash.length||RUN.relics.length>RUN.gear.length?'EQUIP ✦':'EQUIP',openEquip,{glow:RUN.stash.some(id=>WEAPONS[id].tier>WEAPONS[RUN.heroes.find(h=>h.cls===WEAPONS[id].cls).weapon].tier)});
     button(SW-40,17,37,12,'MENU',()=>openSettings(false,true),{});
     const by=SH-46;rect(0,by,SW,46,'rgba(12,8,6,.95)');rect(0,by,SW,1,C.rim);
     const hw=Math.floor(SW/4);
@@ -174,8 +174,8 @@ const MAP_SCREEN={enter(){MAPSEL=null;MAPS.anim=null;const M=RUN.map;const cur=R
     coin(SW-40,4);text(String(RUN.gold),SW-32,4,C.gold);
     rect(0,SH-16,SW,16,'rgba(12,8,6,.92)');rect(0,SH-17,SW,1,C.rim);
     RUN.heroes.forEach((h,i)=>{const x=3+i*38;ctx.drawImage(spr(h.cls).c,0,0,16,12,x,SH-14,16,12);bar(x+17,SH-12,19,4,h.hp/effMaxHp(h),'#50c050');text(`${h.hp}`,x+17,SH-7,C.parch);hit(x,SH-15,36,14,{fn:()=>openUnitInfo(heroSheetUnit(h),{plain:true}),id:'mh'+i});});
-    RUN.relics.slice(0,8).forEach((r,i)=>{relicIcon(r,158+i*12,SH-14);hit(158+i*12,SH-14,11,11,{fn:()=>msg(RELICS[r].name,RELICS[r].desc,null,160),id:'mr'+r});});
-    if(RUN.relics.length>8)text('+'+(RUN.relics.length-8),256,SH-11,C.mute);
+    RUN.gear.forEach((r,i)=>{relicIcon(r,158+i*12,SH-14);hit(158+i*12,SH-14,11,11,{fn:()=>relicMenu(r),id:'mr'+r});});
+    button(236,SH-14,44,11,'EQUIP',openEquip,{});
     button(282,SH-14,35,11,'MENU',()=>openSettings(false,true),{});
   }
 }};
@@ -187,7 +187,8 @@ function mapNodeTap(n,av){
   if(n.type==='boss')body=`${MON[BOSSES[RUN.act]].name}. ${BOSS_TXT[RUN.act]}`;
   else if(n.type==='battle'||n.type==='elite'){const m=nodeMission(n),M=MISSIONS[m];
     title=(n.type==='elite'?'ELITE · ':'')+M.name.toUpperCase();
-    body=`{g:${M.name}.} ${MISSION_BLURB[m]||M.desc}\n\n{m:${M.desc}}\n\n`+(n.type==='elite'?'{r:A dangerous champion and its guards.} Win for gold, a level, a new power and a relic.':'Win for gold, a level and a new power.');}
+    const tw=TWISTS[m+':'+RUN.act];
+    body=`{g:${M.name}.} ${(tw&&tw.desc)||MISSION_BLURB[m]||M.desc}\n\n{m:${(tw&&tw.desc)||M.desc}}\n\n`+(tw?`{r:Twist: ${tw.name}.} ${tw.text}\n\n`:'')+(n.type==='elite'?'{r:A dangerous champion and its guards.} Win for gold, experience, a new power and treasure.':'Win for gold, experience and a new power.');}
   else body=I.desc;
   openModal(dialog({title,body:body+(av?'':'\n{m:You cannot reach this yet.}'),w:180,buttons:av?[{l:'TRAVEL',hot:true,fn:()=>startTravel(n.id)},{l:'CANCEL'}]:[{l:'OK'}]}));
 }
@@ -196,23 +197,23 @@ function mapNodeTap(n,av){
 /* ---------------- rewards ---------------- */
 function goReward(){if(!nextRewardStep()){finishRewards();return;}scrollTo('rew',0);go(REWARD_SCREEN);}
 function offerCard(x,y,w,h,draw,fn,id){panel(x,y,w,h,{});draw(x+4,y+4,w-8,h-8);hit(x,y,w,h,{fn,id});}
-function rewardCardH(s,o,w){if(s==='train'){const p=POWERS[o.id];const u=heroSheetUnit(RUN.heroes.find(q=>q.cls===o.cls));return Math.max(40,powerBlockH(p,u,w-34)+10);}return 28+richH(RELICS[o].desc,w-12)+6;}
+function rewardCardH(s,o,w){if(s==='train'){const p=POWERS[o.id];const u=heroSheetUnit(RUN.heroes.find(q=>q.cls===o.cls));return Math.max(40,powerBlockH(p,u,w-34)+10);}if(o.weapon)return 28+richH(weaponText(WEAPONS[o.weapon]),w-12)+6;return 28+richH(RELICS[o].desc,w-12)+6;}
 const REWARD_SCREEN={draw(){
   ctx.drawImage(stoneBG(),0,0);drawEmbers('#6a3a1a');
   const P=RUN.pending;const s=nextRewardStep();if(!s){finishRewards();return;}
+  button(SW-52,4,48,13,'EQUIP',()=>openEquip(),{});
+  if(s==='xp'){drawXpStep(P);return;}
   const head=P.kind==='treasure'?'TREASURE':P.kind==='rest'?'TRAINING':P.kind==='event'?'FORTUNE':P.kind==='boss'?'TRIUMPH':'VICTORY';
   text(head,SW/2,6,C.gold,{al:'c',sc:2,ol:C.edge});
   let ty=22;
   if(P.gold){const g=`+${P.gold} gold`;coin(SW/2-textW(g)/2-6,ty);text(g,SW/2+4,ty,C.gold,{al:'c'});ty+=9;}
-  if(P.lvl){const t=`Every hero reaches level ${P.lvl}!`;const a=.6+.4*Math.sin(NOW/200);ctx.globalAlpha=a;rect(SW/2-textW(t)/2-4,ty-1,textW(t)+8,8,'#3a2a0c');ctx.globalAlpha=1;text(t,SW/2,ty,'#fff0b0',{al:'c'});ty+=9;
-    if([4,7,10].includes(P.lvl)){text('Primary attributes rise!',SW/2,ty,C.green,{al:'c'});ty+=8;}}
-  const title=s==='train'?'CHOOSE A POWER TO LEARN':'CHOOSE A RELIC';
+  const title=s==='train'?'CHOOSE A POWER TO LEARN':s==='weapon'?'CHOOSE A WEAPON':s==='loot'?'CHOOSE YOUR SPOILS':'CHOOSE A RELIC';
   ty+=2;secHead(title,6,ty,SW-12);ty+=12;
   const offers=P.offers;const w=PORT?SW-12:Math.floor((SW-12-(offers.length-1)*4)/offers.length);
   const bottom=SH-33;
   let ch=0;for(const o of offers)ch+=rewardCardH(s,o,w)+4;
   if(REW.offers!==offers){REW.offers=offers;REW.sel=null;}
-  const take=o=>{sfx(s==='train'?'learn':'chest');REW.sel=null;takeReward(o);if(!nextRewardStep())finishRewards();};
+  const take=o=>{sfx(s==='train'?'learn':'chest');REW.sel=null;takeReward(o);if(P.note){toast(P.note);P.note=null;}if(!nextRewardStep())finishRewards();};
   const drawCard=(o,i,x,y,cw,clip)=>{const h=rewardCardH(s,o,cw);const on=REW.sel===i;
     panel(x,y,cw,h,{fill:on?'#2e2410':'#1e1612',rim:on?C.gold:undefined});
     if(on){const a=.3+.25*Math.sin(NOW/180);ctx.globalAlpha=a;frame(x-1,y-1,cw+2,h+2,C.gold);ctx.globalAlpha=1;}
@@ -220,7 +221,8 @@ const REWARD_SCREEN={draw(){
     if(s==='train'){const p=POWERS[o.id];const h0=RUN.heroes.find(q=>q.cls===o.cls);const u=heroSheetUnit(h0);
       portrait(u,x+5,y+5,22);text(CLASSES[o.cls].name,x+16,y+28,C.mute,{al:'c'});
       powerBlock(p,u,x+30,y+5,cw-34,{bare:true,clip});}
-    else{inset(x+5,y+5,20,20,'#100b08');ctx.drawImage(relicArt(o),x+7,y+7);text(RELICS[o].name,x+30,y+7,C.gold);text('Relic',x+30,y+15,C.mute);rich(RELICS[o].desc,x+6,y+28,cw-12,C.parch,{clip});}
+    else if(o.weapon){const W=WEAPONS[o.weapon];inset(x+5,y+5,20,20,'#100b08');ctx.drawImage(weaponArt(o.weapon),x+7,y+7);text(W.name,x+30,y+7,C.gold);text(`${CLASSES[W.cls].name}'s weapon · tier ${W.tier}`,x+30,y+15,C.mute);rich(weaponText(W),x+6,y+28,cw-12,C.parch,{clip});}
+    else{inset(x+5,y+5,20,20,'#100b08');ctx.drawImage(relicArt(o),x+7,y+7);text(RELICS[o].name,x+30,y+7,C.gold);text('Relic · '+(RUN.gear.length<2?'equips now':'goes in your pack'),x+30,y+15,C.mute);rich(RELICS[o].desc,x+6,y+28,cw-12,C.parch,{clip});}
     return h;};
   if(PORT){scrollArea('rew',6,ty,SW-10,bottom-ty-2,ch,(yy,clip)=>{let y=yy;offers.forEach((o,i)=>{y+=drawCard(o,i,6,y,w,clip)+4;});});}
   else offers.forEach((o,i)=>drawCard(o,i,6+i*(w+4),ty,w,null));
@@ -229,12 +231,90 @@ const REWARD_SCREEN={draw(){
   button(SW/2-64,SH-19,56,15,'SKIP',()=>{REW.sel=null;takeReward(null);if(!nextRewardStep())finishRewards();},{});
   button(SW/2+2,SH-19,62,15,s==='train'?'LEARN':'TAKE',()=>{if(sel!=null)take(sel);},{hot:true,disabled:sel==null,glow:sel!=null});
 }};
-const REW={sel:null,offers:null};
+const REW={sel:null,offers:null,xpP:null,t0:0,rung:{}};
+/* ---- experience and level-ups: bars fill one hero after another; crossing a level bursts into gold ---- */
+function drawXpStep(P){
+  if(REW.xpP!==P){REW.xpP=P;REW.t0=NOW;REW.rung={};}
+  text('VICTORY',SW/2,6,C.gold,{al:'c',sc:2,ol:C.edge});
+  let ty=22;if(P.gold){const g=`+${P.gold} gold`;coin(SW/2-textW(g)/2-6,ty);text(g,SW/2+4,ty,C.gold,{al:'c'});ty+=10;}
+  secHead('EXPERIENCE',6,ty,SW-12);ty+=12;
+  const L=P.xp,n=L.length,ch=Math.min(PORT?82:36,Math.floor((SH-ty-24)/n)-3),per=900,st=450;
+  let allDone=true;
+  L.forEach((e,i)=>{const y=ty+i*(ch+3),x=6,w=SW-12;const t=clamp((NOW-REW.t0-i*st)/per,0,1);if(t<1)allDone=false;
+    const cur=e.from+(e.to-e.from)*(1-Math.pow(1-t,3));const lvl=Math.min(TUNE.maxLvl,xpToLevel(cur));const up=lvl>e.lvl0;
+    if(up&&!REW.rung[e.cls]){REW.rung[e.cls]=NOW;sfx('learn');setTimeout(()=>sfx('holy'),120);}
+    const since=REW.rung[e.cls]?NOW-REW.rung[e.cls]:1e9;
+    panel(x,y,w,ch,{fill:up?'#2a2210':'#1e1612',rim:up?C.gold:undefined});
+    if(since<700){ctx.globalAlpha=.5*(1-since/700);rect(x,y,w,ch,'#fff0b0');ctx.globalAlpha=1;}
+    const h=RUN.heroes.find(q=>q.cls===e.cls);portrait(heroSheetUnit(h),x+4,y+4,PORT?24:22);
+    text(CLASSES[e.cls].name,x+32,y+5,C.gold);text(`Level ${lvl}`,x+w-5,y+5,up?'#fff0b0':C.parch,{al:'r'});
+    const lo=XP_AT[lvl]||0,hi=XP_AT[lvl+1]||XP_AT[TUNE.maxLvl],f=lvl>=TUNE.maxLvl?1:clamp((cur-lo)/(hi-lo),0,1);
+    const bw=w-38;rect(x+32,y+14,bw,5,C.edge);rect(x+33,y+15,Math.round((bw-2)*f),3,up?'#ffe070':'#6ac0ff');
+    text(`+${e.gain} XP`,x+32,y+21,'#8ad0ff');text(lvl>=TUNE.maxLvl?'MAX':`${Math.floor(cur)}/${hi}`,x+w-5,y+21,C.mute,{al:'r'});
+    if(PORT&&ch>40){const why=e.why.slice(0,3).map(([k,v])=>`${XP_WHY[k]} ${v}`).join(' · ');if(why)text(fitText(why,w-36),x+32,y+29,C.mute);}
+    if(up&&since<1e9){const k=Math.min(1,since/260);const sc=k<1?1+Math.round((1-k)*2):1;
+      const lab=`LEVEL UP!`;text(lab,x+w/2+10,y+(PORT?38:26),'#ffe070',{al:'c',sc:PORT?2:1,ol:'#3a2206'});
+      if(PORT&&ch>52){const g=levelGains(e.cls,e.lvl0,e.lvl1).join(' · ');text(fitText(g,w-36),x+32,y+ch-10,C.green);}
+      for(let j=0;j<6;j++){const a=NOW/300+j*1.05+i;const r=10+(since/40)%14;ctx.globalAlpha=Math.max(0,1-((since/40)%14)/14);rect(x+w/2+10+Math.cos(a)*r*2,y+(PORT?42:28)+Math.sin(a)*r,1,1,'#fff0b0');ctx.globalAlpha=1;}
+    }
+  });
+  button(SW/2-40,SH-19,80,15,allDone?'CONTINUE':'SKIP',()=>{if(!allDone){REW.t0=-1e9;return;}P.xp=null;saveGame();if(!nextRewardStep())finishRewards();},{hot:allDone,glow:allDone});
+}
 
+/* ---------------- equipment: weapons for each hero, and which two relics are worn ---------------- */
+const EQ={back:null};
+function openEquip(){EQ.back=SCREEN;scrollTo('eq',0);go(EQUIP_SCREEN);}
+function pickWeapon(h){
+  const opts=[h.weapon,...RUN.stash.filter(id=>WEAPONS[id].cls===h.cls)];
+  openModal({closable:true,draw(){
+    dim();const w=Math.min(220,SW-10),rowH=38,hh=Math.min(SH-20,opts.length*rowH+34),x=Math.floor((SW-w)/2),y=Math.floor((SH-hh)/2);
+    panel(x,y,w,hh,{title:`${CLASSES[h.cls].name.toUpperCase()}'S WEAPON`});
+    scrollArea('wp',x+5,y+12,w-9,hh-30,opts.length*rowH,(yy,clip)=>{opts.forEach((id,i)=>{const W=WEAPONS[id],cy=yy+i*rowH,on=id===h.weapon;
+      panel(x+6,cy,w-14,rowH-3,{fill:on?'#2e2410':'#1e1612',rim:on?C.gold:undefined});inset(x+9,cy+3,20,20,'#100b08');ctx.drawImage(weaponArt(id),x+11,cy+5);
+      text(W.name+(on?'  (equipped)':''),x+33,cy+4,on?C.gold:C.parch);const L=wrap(weaponText(W),w-44);L.slice(0,2).forEach((l,j)=>text(l,x+33,cy+12+j*7,C.mute));
+      if(!on&&cy+rowH>clip[0]&&cy<clip[1])hit(x+6,cy,w-14,rowH-3,{fn:()=>{equipWeapon(h.cls,id);sfx('select');closeModal();},id:'wp'+i});});});
+    button(x+w/2-30,y+hh-17,60,13,'CLOSE',closeModal,{});
+  }});
+}
+function relicMenu(r){
+  const on=RUN.gear.includes(r);const R=RELICS[r];
+  const bs=on?[{l:'UNEQUIP',fn:()=>toggleRelic(r)},{l:'CLOSE'}]:RUN.gear.length<2?[{l:'EQUIP',hot:true,fn:()=>toggleRelic(r)},{l:'CLOSE'}]:
+    [{l:'SWAP '+RELICS[RUN.gear[0]].name.split(' ')[0].toUpperCase(),fn:()=>toggleRelic(r,0)},{l:'SWAP '+RELICS[RUN.gear[1]].name.split(' ')[0].toUpperCase(),fn:()=>toggleRelic(r,1)},{l:'CLOSE'}];
+  openModal(dialog({title:R.name.toUpperCase(),body:R.desc+(on?'\n\n{g:Equipped.}':`\n\n{m:Only two relics can be worn at once.}`),w:210,buttons:bs}));
+}
+const EQUIP_SCREEN={draw(){
+  ctx.drawImage(stoneBG(),0,0);
+  button(4,3,22,14,'◀',()=>{go(EQ.back||MAP_SCREEN);},{});
+  text('EQUIPMENT',SW/2,5,C.gold,{al:'c',sc:2,ol:C.edge});
+  const top=22,x=6,w=SW-12;
+  scrollArea('eq',x,top,w,SH-top-3,EQ.ch||400,(yy,clip)=>{let y=yy;
+    secHead('WORN RELICS (2 MAX)',x,y,w);y+=11;
+    for(let i=0;i<2;i++){const r=RUN.gear[i],bx=x+i*(w/2+1),bw=w/2-2;panel(bx,y,bw,30,{fill:r?'#241a10':'#140e0a'});
+      if(r){inset(bx+4,y+5,20,20,'#100b08');ctx.drawImage(relicArt(r),bx+6,y+7);text(fitText(RELICS[r].name,bw-32),bx+28,y+7,C.gold);text('tap for details',bx+28,y+16,C.mute);if(y+30>clip[0]&&y<clip[1])hit(bx,y,bw,30,{fn:()=>relicMenu(r),id:'eqg'+i});}
+      else text('empty slot',bx+bw/2,y+12,C.dim,{al:'c'});}
+    y+=34;
+    const spare=RUN.relics.filter(r=>!RUN.gear.includes(r));
+    if(spare.length){text('In your pack: tap to wear',x,y,C.mute);y+=9;
+      const per=Math.max(1,Math.floor(w/26));spare.forEach((r,i)=>{const cx=x+(i%per)*26,cy=y+Math.floor(i/per)*26;inset(cx,cy,24,24,'#100b08');ctx.drawImage(relicArt(r),cx+4,cy+4);if(cy+24>clip[0]&&cy<clip[1])hit(cx,cy,24,24,{fn:()=>relicMenu(r),id:'eqs'+r});});
+      y+=Math.ceil(spare.length/per)*26+4;}
+    else{text('Relics you find beyond two wait here.',x,y,C.mute);y+=10;}
+    y+=4;secHead('HEROES',x,y,w);y+=11;
+    for(const h of RUN.heroes){const W=WEAPONS[h.weapon];const u=heroSheetUnit(h);panel(x,y,w,44,{});
+      portrait(u,x+4,y+4,22);text(CLASSES[h.cls].name,x+30,y+4,C.gold);text(`Level ${h.lvl} ${CLASSES[h.cls].title}`,x+30,y+12,C.mute);
+      const lo=XP_AT[h.lvl]||0,hi=XP_AT[h.lvl+1]||XP_AT[TUNE.maxLvl],f=h.lvl>=TUNE.maxLvl?1:clamp(((h.xp||0)-lo)/(hi-lo),0,1);
+      rect(x+30,y+20,w-100,4,C.edge);rect(x+31,y+21,Math.round((w-102)*f),2,'#6ac0ff');text(h.lvl>=TUNE.maxLvl?'MAX':`${h.xp||0}/${hi} XP`,x+w-66,y+19,C.mute);
+      inset(x+4,y+28,w-8,13,'#100b08');ctx.drawImage(weaponArt(h.weapon),x+5,y+26,16,16);text(fitText(W.name,w-90),x+24,y+31,C.parch);
+      const n=RUN.stash.filter(id=>WEAPONS[id].cls===h.cls).length;
+      button(x+w-60,y+29,54,11,n?`CHANGE (${n})`:'DETAILS',()=>n?pickWeapon(h):msg(W.name,weaponText(W),null,190),{hot:n>0});
+      y+=47;}
+    EQ.ch=y-yy+4;
+  });
+}};
 /* ---------------- shop ---------------- */
 function shopItemInfo(it){
   if(it.kind==='relic')return {name:RELICS[it.id].name,desc:RELICS[it.id].desc,tag:'Relic'};
   if(it.kind==='power')return {name:POWERS[it.id].name,desc:POWERS[it.id].desc,tag:`${CLASSES[it.cls].name} learns`};
+  if(it.kind==='weapon'){const W=WEAPONS[it.id];return {name:W.name,desc:weaponText(W),tag:`${CLASSES[W.cls].name}'s weapon`};}
   return {name:'Healing Draught',desc:'Every hero heals 40% of their health.',tag:'Potion'};
 }
 const SHOP_SCREEN={draw(){
@@ -253,6 +333,7 @@ const SHOP_SCREEN={draw(){
     const I=shopItemInfo(it);
     inset(x+4,y+4,20,20,'#100b08');
     if(it.kind==='relic')ctx.drawImage(relicArt(it.id),x+6,y+6);
+    else if(it.kind==='weapon')ctx.drawImage(weaponArt(it.id),x+6,y+6);
     else if(it.kind==='power'){ctx.drawImage(powerIcon(POWERS[it.id]),x+6,y+6);portrait({kind:'pc',cls:it.cls,side:'hero'},x+cw-18,y+4,14);}
     else ctx.drawImage(icon16('potion'),x+6,y+6);
     text(fitText(I.name,cw-30-(it.kind==='power'?16:0)),x+27,y+5,C.gold);text(fitText(I.tag,cw-30),x+27,y+13,C.mute);
@@ -379,7 +460,7 @@ const EVENT_SCREEN={enter(){EVT.t0=0;EVT.stung=true;scrollTo('evt',0);},draw(){
       button(Math.floor(SW/2)-40,bottom-20,80,15,'CONTINUE',()=>{
         const r=RUN.event.done;RUN.event=null;
         if(r.fight){const n=RUN.map.nodes[RUN.pos];startRunBattle(genEncounter(nodeF(n),'rout',{act:RUN.act}),'battle');return;}
-        if(r.relic||r.train){RUN.stage='reward';RUN.pending={steps:[r.relic?'relic2':'train'],kind:'event'};saveGame();goReward();return;}
+        if(r.relic||r.train||r.weapon){RUN.stage='reward';RUN.pending={steps:[r.relic?'relic2':r.weapon?'weapon':'train'],kind:'event'};saveGame();goReward();return;}
         RUN.stage='map';saveGame();go(MAP_SCREEN);},{hot:true});
     }
   }
@@ -425,6 +506,7 @@ function openSettings(inBattle,onMap){
     acts.push(['Glossary',()=>{SCREEN_BACK=SCREEN;COMP.tab=3;go(COMP_SCREEN);}]);
     if(inBattle&&CTX.mode==='run')acts.push(['Save and quit to title',()=>{saveGame();G=null;go(TITLE_SCREEN);}]);
     if(inBattle&&CTX.mode==='skirmish')acts.push(['Leave skirmish',()=>{G=null;go(SKIRMISH_SCREEN);}]);
+    if(inBattle&&CTX.mode==='tutorial')acts.push(['Skip tutorial',()=>{try{localStorage.setItem(TUT_KEY,'1');}catch(e){}G=null;closeAllModals();newRun();go(MAP_SCREEN);}]);
     if(onMap)acts.push(['Quit to title',()=>{saveGame();go(TITLE_SCREEN);}]);
     if((inBattle||onMap)&&CTX.mode==='run'&&RUN)acts.push(['Abandon journey',()=>openModal(dialog({title:'ABANDON?',body:'Your heroes, relics and progress will be lost.',buttons:[{l:'ABANDON',hot:true,fn:()=>{clearSave();RUN=null;G=null;go(TITLE_SCREEN);}},{l:'CANCEL'}]}))]);
     const h=tog.length*16+acts.length*16+42;const x=Math.floor((SW-w)/2),y=Math.floor((SH-h)/2);
@@ -446,7 +528,9 @@ const HOWTO=`{g:Your turn.} Each hero can move and take one action, in either or
 
 {g:Advantage and disadvantage.} Advantage adds 2 to the roll and disadvantage takes 2 away, up to twice each. Flanking, high ground and exposed, prone or rooted targets give advantage. Cover, being weakened and shooting with a foe beside you give disadvantage.
 
-{g:Momentum.} Shown as {p:◆} gems. Heroes gain 2 at the start of each turn, plus more from their class: each hero's sheet says how. Stronger powers cost momentum. The foes share their own pool, shown at the top of the screen.
+{g:Momentum.} Shown as {p:◆} gems. Every hero starts a battle with none, gains 1 at the start of each turn, and more for doing their job: each hero's sheet says how. Stronger powers cost momentum.
+
+{g:Foe threats.} The foes share a pool of momentum (top of the screen, like ◆3/5). When it reaches the cost of their next threat they unleash it: bloodlust at first, and deeper into the journey eruptions, reinforcements and dark rites. Tap it to see what is coming.
 
 {g:Parting blows.} Stepping away from a foe beside you lets it strike you for free. The path turns red when that will happen. Rogues never provoke them.
 
@@ -455,6 +539,12 @@ const HOWTO=`{g:Your turn.} Each hero can move and take one action, in either or
 {g:Turn order.} Everyone rolls initiative (d20 + Finesse) when a battle starts. Turns go from highest to lowest, every round. TURNS shows who is next.
 
 {g:Undo.} UNDO rewinds your last move or action. Press it again to go further back, even to a previous hero's turn.
+
+{g:Missions.} Every battle has a goal, shown at the top, and foes fight to stop you: they chase captives, crowd the shrine and guard exits. Each land puts its own twist on the missions.
+
+{g:Experience.} Heroes earn experience for doing their role: the fighter for shoving foes and soaking blows, the rogue for damage, the wizard for catching and hindering many foes, the cleric for healing and empowering allies. Levels (up to 10) raise health and attributes. New powers come from rewards, campfires and merchants.
+
+{g:Equipment.} Each hero carries one weapon that strengthens their basic (no-cost) powers; better ones turn up in shops, treasure and events. You can own many relics but wear only two. Change both on the Equipment screen (EQUIP on the map).
 
 {g:The journey.} Lead the company along a branching road through three lands: battles, elite fights, merchants, campfires, treasure and strange encounters. Each land ends with a boss.
 
@@ -529,7 +619,7 @@ function skAdd(e,at){
   else if(SK.slots.length<SK_MAX)SK.slots.push(e);else{toast('All 12 slots are full.');return;}
   sfx('click');saveSK();
 }
-function toast(t){SK.toast={t,t0:NOW};}
+
 /* A dropdown: the current value in a box with a caret; tapping opens a list of choices with a line on each. */
 function dropdown(x,y,w,h,label,value,open){
   text(label,x,y-7,C.mute);
@@ -624,7 +714,7 @@ function openPowerEditor(cls,list,label){
 function skirmishStart(){
   saveSK();
   const lvl=SK.lvl,D=SK.diff;const hpAt=c=>Math.round((CLASSES[c].hp+CLASSES[c].grow*(lvl-1))*D.partyHp/100);const rhp=c=>Math.round((CLASSES[c].hp+CLASSES[c].grow*(lvl-1))*D.foeHp/100);
-  const party=ORDER.map(c=>({cls:c,lvl,maxHp:hpAt(c),hp:hpAt(c),powers:SK.partyPow[c].slice()}));
+  const party=ORDER.map(c=>({cls:c,lvl,maxHp:hpAt(c),hp:hpAt(c),powers:SK.partyPow[c].slice(),weapon:rivalWeapon(c,lvl)}));
   const enemies=SK.slots.filter(e=>e.t).map(e=>({type:e.t,elite:e.elite,leader:e.chief,boss:MON[e.t].boss}));
   const rivals=SK.slots.filter(e=>e.pc).map(e=>e.pc);
   const type=SK.mission;
@@ -713,7 +803,6 @@ const SKIRMISH_SCREEN={enter(){CTX={mode:'skirmish',relics:[],skirmish:true};SKD
   // the foe being dragged follows the finger
   if(SKD.carry&&PTR.down){const S=skArt(SKD.carry.e);ctx.globalAlpha=.85;ctx.drawImage(S.c,PTR.x-16,PTR.y-24,32,32);ctx.globalAlpha=1;}
   else if(SKD.carry&&!PTR.down)SKD.carry=null;
-  if(SK.toast){const p=(NOW-SK.toast.t0)/1400;if(p>=1)SK.toast=null;else{ctx.globalAlpha=Math.min(1,(1-p)*3);const tw2=textW(SK.toast.t)+12;rect(SW/2-tw2/2,SH/2-7,tw2,14,'rgba(10,6,4,.9)');text(SK.toast.t,SW/2,SH/2-3,C.gold,{al:'c'});ctx.globalAlpha=1;}}
 }};
 
 /* ---------------- music for each screen ---------------- */
@@ -729,6 +818,14 @@ function musicWanted(){
 }
 /* ---------------- main loop ---------------- */
 function onResize(){for(const e of EMBERS){e.x=Math.random()*SW;e.y=Math.random()*SH;}B.gRef=null;}
+/* A short message that floats over any screen for a moment. */
+let GTOAST=null;
+function toast(t){GTOAST={t,t0:NOW};}
+function drawToast(){
+  if(!GTOAST)return;const p=(NOW-GTOAST.t0)/(2200+GTOAST.t.length*25);if(p>=1){GTOAST=null;return;}
+  ctx.globalAlpha=Math.min(1,(1-p)*4);const L=wrap(GTOAST.t,SW-40);const w=Math.max(...L.map(l=>textW(l)))+14,h=L.length*7+8;
+  panel(SW/2-w/2,SH/2-h/2,w,h,{});L.forEach((l,i)=>text(l,SW/2,SH/2-h/2+5+i*7,C.gold,{al:'c'}));ctx.globalAlpha=1;
+}
 function loop(t){
   NOW=t;
   try{refit();}catch(e){}
@@ -737,6 +834,7 @@ function loop(t){
   try{
     if(SCREEN)SCREEN.draw();
     for(let i=0;i<MODALS.length;i++){const m=MODALS[i];if(i<MODALS.length-1){m.draw();HITS=HITS.filter(()=>false);}else m.draw();}
+    drawToast();
   }catch(e){console.error(e);}
   PHITS=HITS;
   requestAnimationFrame(loop);

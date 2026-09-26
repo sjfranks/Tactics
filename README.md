@@ -45,3 +45,10 @@ No build step. Open `index.html` in a browser (or serve the folder). GitHub Acti
 
 - [`archive/emberwatch-v1/`](archive/emberwatch-v1/) is the first Emberwatch prototype, a single HTML page.
 - [`archive/tactics48/`](archive/tactics48/) is the earlier Tactics 48 prototype (Vite + TypeScript). See its `ARCHIVED.md` to bring it back.
+
+## Balance simulator
+
+`node tools/sim.js [runs] [seed]` plays whole journeys headlessly with the heroes' autoplay AI and reports
+the win rate, where runs end, how much health each kind of battle costs, and, for every power, the win
+rate of runs that took it versus runs that were offered it and passed. Override difficulty knobs with
+`TUNE='{actMul:[1,1.1,.65]}' node tools/sim.js 200`.
