@@ -6,9 +6,10 @@
    ===================================================================== */
 const AU={ctx:null,made:0};let NB=null,MUS=null;
 const MUSVOL=.34;
-/* iOS: by default play alongside other apps (Spotify etc.) and respect the silent switch.
-   'Silent switch: Ignore' instead takes over the audio (pauses Spotify) so the game plays even on silent. */
-function auSession(){try{if(navigator.audioSession)navigator.audioSession.type=SET.loud?'playback':'ambient';}catch(e){}}
+/* By default the game mixes with other apps' audio (Spotify keeps playing). On iPhones that also means the
+   silent switch mutes the game, as it does for any app that mixes. 'Pause other apps' (SET.takeOver) takes the
+   audio over instead: other apps pause, and the game plays even on silent. A web page can't have both. */
+function auSession(){try{if(navigator.audioSession)navigator.audioSession.type=SET.takeOver?'playback':'ambient';}catch(e){}}
 /* A looping, silent <audio> element puts iOS in media-playback mode, which also makes Web Audio ignore
    the silent switch. This covers iPhones without navigator.audioSession, and backs it up on newer ones. */
 let SILENT=null;
@@ -17,14 +18,14 @@ function silentWav(){const n=4000,b=new Uint8Array(44+n),v=new DataView(b.buffer
   let s='';for(let i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return 'data:audio/wav;base64,'+btoa(s);}
 function silentKeepAlive(){
   try{
-    if(!SET.loud){if(SILENT&&!SILENT.paused)SILENT.pause();return;}
+    if(!SET.takeOver){if(SILENT&&!SILENT.paused)SILENT.pause();return;}
     if(!SILENT){SILENT=document.createElement('audio');SILENT.src=silentWav();SILENT.loop=true;SILENT.setAttribute('playsinline','');SILENT.setAttribute('webkit-playsinline','');SILENT.preload='auto';}
     if(SILENT.paused){const p=SILENT.play();if(p&&p.catch)p.catch(()=>{});}
   }catch(e){}
 }
 /* Settings toggle: switch mode inside the tap, then rebuild audio so iOS applies it. */
 function setPlayOnSilent(on){
-  SET.loud=on;saveSet();auSession();silentKeepAlive();
+  SET.takeOver=on;saveSet();auSession();silentKeepAlive();
   try{musicPause();auMake();const p=AU.ctx&&AU.ctx.resume&&AU.ctx.resume();if(p&&p.catch)p.catch(()=>{});if(SET.music)musicStart();sfx('select');}catch(e){}
 }
 function impulse(c,dur,decay){const n=Math.floor(c.sampleRate*dur),b=c.createBuffer(2,n,c.sampleRate);for(let ch=0;ch<2;ch++){const d=b.getChannelData(ch);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,decay);}return b;}
