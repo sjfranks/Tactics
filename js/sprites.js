@@ -774,6 +774,27 @@ boss:["kk.kkkkk.kk","kXkxxxxxkXk",".kxxxxxxxk.","kxxexxxexxk","kxxxxxxxxxk","kxx
 };
 /* ---------- build canvases ---------- */
 const SPRC={};
+/* Greenmarch party art. Keep the palette sprites as an offline/load fallback and
+   for rival parties, whose distinct colours are part of their identity. */
+const HERO_ART={};
+for(const key of ['fighter','rogue','wizard','cleric']){
+  const pair=HERO_ART[key]={};
+  for(const [size,file,cache] of [['hi','',()=>delete SPRH[key]],['small','-small',()=>delete SPRC[key]]]){
+    const img=new Image();
+    img.onload=()=>{pair[size]=img;cache();};
+    img.src='assets/heroes/'+key+file+'.png?v=greenmarch-1';
+  }
+}
+function imageSprite(img){
+  const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
+  const g=c.getContext('2d');g.drawImage(img,0,0);
+  const pixels=g.getImageData(0,0,c.width,c.height).data;
+  let top=c.height,bot=0,lft=c.width,rgt=0;
+  for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++)if(pixels[(y*c.width+x)*4+3]>24){
+    top=Math.min(top,y);bot=Math.max(bot,y);lft=Math.min(lft,x);rgt=Math.max(rgt,x);
+  }
+  return {c,f:flipped(c),wh:silhouette(c,'#ffffff'),bk:silhouette(c,'#000000'),top,bot,lft,rgt};
+}
 function buildSprite(rows,pal){
   const w=rows[0].length,h=rows.length;const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');
   for(let y=0;y<h;y++)for(let x=0;x<w;x++){const ch=rows[y][x];if(ch==='.')continue;g.fillStyle=pal[ch]||PAL[ch]||'#f0f';g.fillRect(x,y,1,1);}
@@ -790,6 +811,8 @@ const RIVAL_PAL={
 };
 function spr(key,variant){
   const id=key+(variant?':'+variant:'');
+  if(!variant&&HERO_ART[key]&&HERO_ART[key].small)
+    return SPRC[id]||(SPRC[id]=imageSprite(HERO_ART[key].small));
   if(SPRC[id])return SPRC[id];
   const d=SPR[key]||SPR.villager;
   const pal=Object.assign({},d.pal||{},variant==='rival'?RIVAL_PAL[key]||{}:{});
@@ -842,6 +865,8 @@ function buildHi(rows16,pal){
 const SPRH={};
 function sprH(key,variant){
   const id=key+(variant?':'+variant:'');
+  if(!variant&&HERO_ART[key]&&HERO_ART[key].hi)
+    return SPRH[id]||(SPRH[id]=imageSprite(HERO_ART[key].hi));
   if(SPRH[id])return SPRH[id];
   if(SPR32[key]){const d=SPR32[key];const c=buildSprite(d.rows,Object.assign({},d.pal,variant==='rival'?d.rival:{}));
     let top=32,bot=0,lft=32,rgt=0;d.rows.forEach((row,y)=>{for(let x=0;x<32;x++)if(row[x]!=='.'){top=Math.min(top,y);bot=Math.max(bot,y);lft=Math.min(lft,x);rgt=Math.max(rgt,x);}});
