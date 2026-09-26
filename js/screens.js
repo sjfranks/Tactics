@@ -501,6 +501,7 @@ function openSettings(inBattle,onMap){
     tog.push(['Play on silent',!!SET.loud,()=>setPlayOnSilent(!SET.loud)]);
     tog.push(['Hi-res art (experimental)',!!SET.hires,()=>{SET.hires=!SET.hires;saveSet();location.reload();}]);
     tog.push(['Auto end turn',SET.autoEnd,()=>{SET.autoEnd=!SET.autoEnd;saveSet();}]);
+    tog.push(['3D dice',SET.dice3d!==false,()=>{SET.dice3d=SET.dice3d===false;saveSet();}]);
     tog.push(['Show foe intents',SET.showIntents===true,()=>{SET.showIntents=SET.showIntents!==true;saveSet();}]);
     tog.push(['Animation speed',['Slow','Normal','Fast'][SET.speed],()=>{SET.speed=(SET.speed+1)%3;saveSet();}]);
     acts.push(['How to play',openHowTo]);
