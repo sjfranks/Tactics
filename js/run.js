@@ -36,12 +36,21 @@ function genMap(act){
     n.type=n.f===0?'battle':n.f===MAP_F-1?'rest':n.f===3&&rnd(2)?'treasure':wpick(n.f);
     if(n.type==='shop'&&++shops>2)n.type='battle';
   }
+  for(const n of Object.values(nodes))n.mission=rollMission(n,act);
   const r=mulberry(act*1000+Object.keys(nodes).length*7+rnd(1000));
   for(const n of Object.values(nodes)){n.x=22+n.f*37+Math.round(r()*6-3);n.y=40+n.l*34+Math.round(r()*8-4);}
   nodes.boss={id:'boss',f:MAP_F,l:1.5,type:'boss',x:292,y:93};
   for(const n of Object.values(nodes))if(n.f===MAP_F-1)edges.add(n.id+'>boss');
   return {act,nodes,edges:[...edges],seed:rnd(1e6),visited:[]};
 }
+/* Each battle on the map knows its mission from the start, so the map can show it. */
+function rollMission(n,act){
+  if(n.type==='elite')return pick(['rout','assassinate','rout']);
+  if(n.type!=='battle')return null;
+  if(act===0&&n.f===0)return 'rout';
+  return pick(MISSION_BY_ACT[act]);
+}
+function nodeMission(n){if(!n.mission&&(n.type==='battle'||n.type==='elite')){n.mission=rollMission(n,RUN.act);saveGame();}return n.mission;}
 function availableNodes(){
   const M=RUN.map;
   if(!RUN.pos)return Object.values(M.nodes).filter(n=>n.f===0).map(n=>n.id);
@@ -53,7 +62,7 @@ function travel(id){
   RUN.pos=id;RUN.map.visited.push(id);
   if(n.type==='battle'||n.type==='elite'||n.type==='boss'){
     const f=nodeF(n,n.type==='elite');
-    const type=n.type==='boss'?'boss':n.type==='elite'?pick(['rout','assassinate','rout']):(RUN.stats.battles===0?'rout':pick(MISSION_BY_ACT[RUN.act]));
+    const type=n.type==='boss'?'boss':nodeMission(n);
     startRunBattle(genEncounter(f,type,{act:RUN.act,elite:n.type==='elite'}),n.type);
   }else if(n.type==='shop'){RUN.stage='shop';RUN.shop=genShop();saveGame();go(SHOP_SCREEN);}
   else if(n.type==='rest'){RUN.stage='rest';saveGame();go(REST_SCREEN);}

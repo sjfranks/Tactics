@@ -149,7 +149,7 @@ const MAP_SCREEN={enter(){MAPSEL=null;MAPS.anim=null;const M=RUN.map;const cur=R
     circle(q.x,y,r+1,C.edge);circle(q.x,y,r,vd?'#3a3028':(n.type==='elite'||big?'#e0c8a0':'#e8dcc0'));circle(q.x,y,r-1,vd?'#2a221c':(n.type==='elite'||big?'#b89870':'#c8b890'));
     if(!vd&&PORT){rect(q.x-r+3,y-r+4,3,1,'rgba(255,255,255,.5)');}
     if(big){if(PORT){ctx.drawImage(sprH(MON[BOSSES[RUN.act]].art).c,q.x-16,y-18);}else{const S=spr(MON[BOSSES[RUN.act]].art);ctx.drawImage(S.c,q.x-8,y-9);}}
-    else if(PORT){const ic=mapIcon(n.type);if(ic){if(vd)ctx.globalAlpha=.5;ctx.drawImage(ic,q.x-12,y-12);ctx.globalAlpha=1;}}else ctx.drawImage(icon(n.type),q.x-5,y-5);
+    else if(PORT){const ic=mapIcon(n.type==='battle'&&nodeMission(n)&&n.mission!=='rout'?n.mission:n.type);if(ic){if(vd)ctx.globalAlpha=.5;ctx.drawImage(ic,q.x-12,y-12);ctx.globalAlpha=1;}}else ctx.drawImage(icon(n.type),q.x-5,y-5);
     if(vd&&n.id!==RUN.pos){ctx.globalAlpha=.6;circle(q.x,y,r-1,'#1a1410');ctx.globalAlpha=1;text('✓',q.x,y-2,C.mute,{al:'c'});}
     hit(q.x-r-2,y-r-2,2*r+4,2*r+4,Object.assign({fn:()=>{if(!MAPS.anim)mapNodeTap(n,av);},id:'node'+n.id},scr));
   }
@@ -179,10 +179,19 @@ const MAP_SCREEN={enter(){MAPSEL=null;MAPS.anim=null;const M=RUN.map;const cur=R
     button(282,SH-14,35,11,'MENU',()=>openSettings(false,true),{});
   }
 }};
+const MISSION_BLURB={rout:'Defeat every foe.',ambush:'You start surrounded in the middle of the field.',hold:'Hold the shrine at the centre for 3 rounds while more foes arrive.',
+  rescue:'Free a caged captive and lead them to safety.',loot:'Grab 3 treasure chests before the foes stop you.',survive:'Hold out for 5 rounds against endless foes.',
+  assassinate:'Slay the enemy chief.',ritual:'Topple 2 ritual pillars before a horror breaks free.',defend:'Keep a supply wagon standing for 5 rounds.',breakout:'Get every hero out through the top edge.'};
 function mapNodeTap(n,av){
-  const I=NODE_INFO[n.type];const body=n.type==='boss'?`${MON[BOSSES[RUN.act]].name}. ${BOSS_TXT[RUN.act]}`:I.desc;
-  openModal(dialog({title:(n.type==='boss'?'BOSS':I.name.toUpperCase()),body:body+(av?'':'\n{m:You cannot reach this yet.}'),w:170,buttons:av?[{l:'TRAVEL',hot:true,fn:()=>startTravel(n.id)},{l:'CANCEL'}]:[{l:'OK'}]}));
+  const I=NODE_INFO[n.type];let title=n.type==='boss'?'BOSS':I.name.toUpperCase(),body;
+  if(n.type==='boss')body=`${MON[BOSSES[RUN.act]].name}. ${BOSS_TXT[RUN.act]}`;
+  else if(n.type==='battle'||n.type==='elite'){const m=nodeMission(n),M=MISSIONS[m];
+    title=(n.type==='elite'?'ELITE · ':'')+M.name.toUpperCase();
+    body=`{g:${M.name}.} ${MISSION_BLURB[m]||M.desc}\n\n{m:${M.desc}}\n\n`+(n.type==='elite'?'{r:A dangerous champion and its guards.} Win for gold, a level, a new power and a relic.':'Win for gold, a level and a new power.');}
+  else body=I.desc;
+  openModal(dialog({title,body:body+(av?'':'\n{m:You cannot reach this yet.}'),w:180,buttons:av?[{l:'TRAVEL',hot:true,fn:()=>startTravel(n.id)},{l:'CANCEL'}]:[{l:'OK'}]}));
 }
+
 
 /* ---------------- rewards ---------------- */
 function goReward(){if(!nextRewardStep()){finishRewards();return;}scrollTo('rew',0);go(REWARD_SCREEN);}
@@ -200,21 +209,27 @@ const REWARD_SCREEN={draw(){
   const title=s==='train'?'CHOOSE A POWER TO LEARN':'CHOOSE A RELIC';
   ty+=2;secHead(title,6,ty,SW-12);ty+=12;
   const offers=P.offers;const w=PORT?SW-12:Math.floor((SW-12-(offers.length-1)*4)/offers.length);
-  const bottom=SH-24;
+  const bottom=SH-33;
   let ch=0;for(const o of offers)ch+=rewardCardH(s,o,w)+4;
-  const take=o=>{sfx(s==='train'?'learn':'chest');takeReward(o);if(!nextRewardStep())finishRewards();};
-  const drawCard=(o,i,x,y,cw,clip)=>{const h=rewardCardH(s,o,cw);
-    panel(x,y,cw,h,{fill:'#1e1612'});
+  if(REW.offers!==offers){REW.offers=offers;REW.sel=null;}
+  const take=o=>{sfx(s==='train'?'learn':'chest');REW.sel=null;takeReward(o);if(!nextRewardStep())finishRewards();};
+  const drawCard=(o,i,x,y,cw,clip)=>{const h=rewardCardH(s,o,cw);const on=REW.sel===i;
+    panel(x,y,cw,h,{fill:on?'#2e2410':'#1e1612',rim:on?C.gold:undefined});
+    if(on){const a=.3+.25*Math.sin(NOW/180);ctx.globalAlpha=a;frame(x-1,y-1,cw+2,h+2,C.gold);ctx.globalAlpha=1;}
+    if(!clip||(y+h>=clip[0]&&y<=clip[1]))hit(x,Math.max(y,clip?clip[0]:y),cw,clip?Math.min(y+h,clip[1])-Math.max(y,clip[0]):h,{fn:()=>{REW.sel=i;sfx('select');},id:'offer'+i});
     if(s==='train'){const p=POWERS[o.id];const h0=RUN.heroes.find(q=>q.cls===o.cls);const u=heroSheetUnit(h0);
       portrait(u,x+5,y+5,22);text(CLASSES[o.cls].name,x+16,y+28,C.mute,{al:'c'});
-      powerBlock(p,u,x+30,y+5,cw-34,{bare:true,clip,nohit:true});}
-    else{inset(x+5,y+5,20,20,'#100b08');ctx.drawImage(relicArt(o),x+7,y+7);text(RELICS[o].name,x+30,y+7,C.gold);text('Relic',x+30,y+15,C.mute);rich(RELICS[o].desc,x+6,y+28,cw-12,C.parch,{clip,nohit:true});}
-    if(!clip||(y>=clip[0]-4&&y+h<=clip[1]+4))hit(x,Math.max(y,clip?clip[0]:y),cw,h,{fn:()=>take(o),id:'offer'+i});
+      powerBlock(p,u,x+30,y+5,cw-34,{bare:true,clip});}
+    else{inset(x+5,y+5,20,20,'#100b08');ctx.drawImage(relicArt(o),x+7,y+7);text(RELICS[o].name,x+30,y+7,C.gold);text('Relic',x+30,y+15,C.mute);rich(RELICS[o].desc,x+6,y+28,cw-12,C.parch,{clip});}
     return h;};
   if(PORT){scrollArea('rew',6,ty,SW-10,bottom-ty-2,ch,(yy,clip)=>{let y=yy;offers.forEach((o,i)=>{y+=drawCard(o,i,6,y,w,clip)+4;});});}
   else offers.forEach((o,i)=>drawCard(o,i,6+i*(w+4),ty,w,null));
-  button(SW/2-30,SH-19,60,14,'SKIP',()=>{takeReward(null);if(!nextRewardStep())finishRewards();},{});
+  text(fitText(REW.sel==null?'Tap a card to choose. Tap blue words for help.':'Tap '+(s==='train'?'LEARN':'TAKE')+' to confirm.',SW-8),SW/2,SH-30,C.mute,{al:'c'});
+  const sel=REW.sel!=null?offers[REW.sel]:null;
+  button(SW/2-64,SH-19,56,15,'SKIP',()=>{REW.sel=null;takeReward(null);if(!nextRewardStep())finishRewards();},{});
+  button(SW/2+2,SH-19,62,15,s==='train'?'LEARN':'TAKE',()=>{if(sel!=null)take(sel);},{hot:true,disabled:sel==null,glow:sel!=null});
 }};
+const REW={sel:null,offers:null};
 
 /* ---------------- shop ---------------- */
 function shopItemInfo(it){
