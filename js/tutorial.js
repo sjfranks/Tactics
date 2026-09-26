@@ -13,19 +13,9 @@ const tutHero=cls=>G.units.find(u=>u.kind==='pc'&&u.cls===cls&&live(u));
 const tutFoe=k=>{const u=G.tut&&G.units.find(o=>o.id===G.tut.ids[k]);return u&&live(u)?u:null;};
 const onTurn=cls=>()=>{const u=playerUnit();return !!u&&u.cls===cls&&!B.busy;};
 function tutFreeMoves(){const V=view();if(!V)return [];return [...V.moves.values()].filter(n=>!unitAt(n.x,n.y)&&!Tt(n.x,n.y).haz);}
-/* squares the active hero can step to that are beside a given foe (optionally not the push square) */
-function tutBeside(k,avoid){const f=tutFoe(k);if(!f)return [];const bad=avoid?tutPushSpots():[];return tutFreeMoves().filter(n=>man(f,n)===1&&!bad.some(b=>b.x===n.x&&b.y===n.y)).map(n=>({x:n.x,y:n.y}));}
-/* where Brakka must stand so Tide of Iron shoves the brute into fire */
-function tutPushSpots(){
-  const f=tutFoe('brute');if(!f)return [];const out=[];
-  for(const[dx,dy]of DIRS){const O={x:f.x-dx,y:f.y-dy},L={x:f.x+dx,y:f.y+dy};
-    if(!inB(O.x,O.y)||!inB(L.x,L.y))continue;const h=Tt(L.x,L.y).haz;if(!h||h.t!=='fire'||unitAt(L.x,L.y)||blocked(L.x,L.y))continue;
-    const o=unitAt(O.x,O.y);if(blocked(O.x,O.y)||(o&&o.cls!=='fighter'))continue;out.push(O);}
-  return out;
-}
-function tutPushMoves(){const u=playerUnit();const S=tutPushSpots();if(!u)return [];if(S.some(t=>t.x===u.x&&t.y===u.y))return [];const R=tutFreeMoves();return S.filter(t=>R.some(n=>n.x===t.x&&n.y===t.y));}
+/* squares the active hero can step to that are beside a given foe */
+function tutBeside(k){const f=tutFoe(k);if(!f)return [];return tutFreeMoves().filter(n=>man(f,n)===1).map(n=>({x:n.x,y:n.y}));}
 function tutInTargets(k,minD,pi){const f=tutFoe(k);const u=playerUnit();const V=pi!=null&&u?unitView(u,pi):view();if(!f||!u||!V||!V.targets.has(K(f.x,f.y)))return [];if(minD&&man(f,u)<minD)return [];return [{x:f.x,y:f.y}];}
-function tutPushReady(){const u=playerUnit();return !!u&&tutPushSpots().some(t=>t.x===u.x&&t.y===u.y);}
 
 /* The script. say: a line of dialogue (who: narrator | fighter | cleric); text may be a function. do: an action the
    player must take (tiles: which squares to spotlight). wait: hold until the battle reaches a state. run: a scripted
@@ -34,45 +24,45 @@ const TUT_SCRIPT=[
   {say:'narrator',text:'The Greenmarch road, at dusk. For a week now, goblins have been ambushing travellers here.'},
   {say:'fighter',text:'There they are: a cutthroat, an archer and a hulking brute. Stand back, this won\'t take long.'},
   {wait:onTurn('fighter')},
-  {say:'narrator',text:'On each hero\'s turn, they can move and then attack. Brakka is a fighter, so she wants to get up close.'},
-  {do:'move',text:'First, move Brakka next to the cutthroat.',tiles:()=>tutBeside('cut')},
-  {do:'target',pi:0,text:'Now attack! Tap the cutthroat.',tiles:()=>tutInTargets('cut')},
+  {say:'narrator',text:'Each round, your heroes act first, then the foes. A hero can move, then attack. Brakka is a fighter: she wants to be up close.'},
+  {do:'move',text:'Move Brakka next to the cutthroat.',tiles:()=>tutBeside('cut')},
+  {do:'power',pi:1,text:'Tap {g:Grinding Strike}, a heavy blow.'},
+  {do:'target',pi:1,text:'Now attack the cutthroat!',tiles:()=>tutInTargets('cut',0,1)},
   {say:'narrator',text:'Before you strike, the {g:forecast} shows what could happen. Every attack is a {g:Graze}, a {g:Hit} or a {g:Critical hit}: you see the damage and the odds of each.'},
   {do:'confirm',text:'Tap the cutthroat again to strike.'},
-  {say:'fighter',text:()=>tutFoe('cut')?'Now you\'re {g:marked}. Attack anyone but me, and you\'ll regret it.':'One down!'},
-  {do:'end',text:'Brakka has moved and attacked. Tap END TURN, and the goblins take their turn.'},
-  {wait:()=>G.round>=2},
+  {say:'fighter',text:()=>tutFoe('cut')?'Now you\'re {g:marked}. You want anyone else? You\'ll have to go through me.':'One down!'},
+  {say:'narrator',text:'See the red lines? Those are the foes\' {g:intents}: whom each one will attack on its turn. The number over Brakka is the damage coming her way. A foe she marks can only attack her.',when:()=>foeIntents().length>0},
+  {do:'end',text:'Brakka is done. Tap END TURN, and the goblins take their turn.'},
+  {wait:()=>G.round>=2&&G.phase==='heroes'&&G.await&&!B.busy},
   {run:()=>tutJoin()},
   {say:'cleric',text:'Brakka! I saw the smoke from the road. I\'m with you!'},
-  {say:'fighter',text:'Sela! Good timing. That archer is picking me apart.'},
-  {wait:onTurn('fighter')},
-  {say:'narrator',text:'Brakka took some hits, and each one gave her {p:◆ momentum}, the purple gems by her name. She also gains 1 every turn.'},
-  {run:()=>{const f=tutHero('fighter');if(f)f.mom=Math.max(f.mom,2);}},
-  {say:'narrator',text:'Momentum pays for stronger powers. {g:Hook Chain} costs 2: it reaches 3 squares and drags a foe right up to Brakka.',when:()=>tutInTargets('archer',2,2).length},
-  {do:'power',pi:2,text:'Tap {g:Hook Chain}.',when:()=>tutInTargets('archer',2,2).length},
-  {do:'target',pi:2,text:'Hook the archer and drag it out of hiding!',tiles:()=>tutInTargets('archer',2,2)},
-  {do:'confirm',text:'Tap the archer again to pull.'},
-  {say:'fighter',text:'Get over here!',when:()=>G.tut.lastDone==='confirm'},
-  {do:'end',text:'Tap END TURN. Sela is next.'},
+  {say:'fighter',text:'Sela! Good timing. Let\'s show this brute how we fight.'},
+  {say:'narrator',text:'With two heroes, you choose who acts: tap a hero to pick them. Order matters, because heroes can {g:set up} attacks for each other.'},
+  {do:'select',cls:'fighter',text:'Tap Brakka to pick her.'},
+  {say:'narrator',text:'See the fire beside the brute? {g:Tide of Iron} shoves a foe back, and anything shoved into a {r:hazard} suffers it. Better still, a foe that is shoved or dragged is {g:staggered}: the next attack on it is a sure {g:critical hit}.',when:()=>tutInTargets('brute',0,0).length},
+  {do:'power',pi:0,text:'Tap {g:Tide of Iron}.',when:()=>B.pi!==0},
+  {do:'target',pi:0,text:'Shove the brute into the fire!',tiles:()=>tutInTargets('brute',0,0)},
+  {do:'confirm',text:'Tap the brute again to shove it.'},
+  {say:'fighter',text:'Off balance, and on fire! Sela, now!',when:()=>G.tut.lastDone==='confirm'&&tutFoe('brute')&&tutFoe('brute').st.stag},
   {wait:onTurn('cleric')},
-  {say:'narrator',text:'Sela is a cleric. She fights beside her friends to protect them and make them stronger.'},
-  {say:'narrator',text:'Her {g:Rallying Strike} hits a foe and {g:blesses} the ally nearest her: +2 to their next attack roll.'},
-  {do:'move',text:'Move Sela next to the brute.',tiles:()=>tutBeside('brute',true)},
-  {do:'target',pi:0,text:'Now attack the brute!',tiles:()=>tutInTargets('brute')},
+  {say:'narrator',text:'Sela is a cleric. Her {g:Rallying Strike} hits a foe and {g:blesses} the ally nearest her: advantage on their next attack.'},
+  {do:'move',text:'Move Sela next to the brute.',tiles:()=>tutBeside('brute')},
+  {do:'target',pi:0,text:'Now strike the brute!',tiles:()=>tutInTargets('brute',0,0)},
+  {say:'narrator',text:()=>tutFoe('brute')&&tutFoe('brute').st.stag?'The forecast shows a sure critical hit, and it goes right through the brute\'s {g:armor}. Brakka set it up, so it\'s a {g:COMBO}: both heroes gain {p:◆ momentum}, and hits deal extra damage for the rest of your turn.':'Every blow Sela lands blesses Brakka.'},
   {do:'confirm',text:'Tap the brute again to strike.'},
   {say:'cleric',text:'Light guide your arm, Brakka!',when:()=>G.tut.lastDone==='confirm'},
-  {do:'end',text:'Tap END TURN.'},
-  {wait:onTurn('fighter')},
-  {say:'narrator',text:'See the fire right beside the brute? Anything shoved into a {r:hazard} suffers it. {g:Tide of Iron} shoves a foe back one square.',when:()=>tutPushSpots().length},
-  {do:'move',text:'Move Brakka to the glowing square, so the brute is between her and the fire.',tiles:tutPushMoves},
-  {do:'power',pi:1,text:'Tap {g:Tide of Iron}.',when:tutPushReady},
-  {do:'target',pi:1,text:'Shove the brute into the flames! (Brakka is blessed, so she has advantage.)',tiles:()=>tutPushReady()?tutInTargets('brute'):[]},
-  {do:'confirm',text:'Tap the brute again to shove!'},
-  {say:'fighter',text:'Enjoy the fire!',when:()=>G.tut.lastDone==='confirm'},
-  {say:'narrator',text:'Pushing foes into hazards is one of the best tricks there is. A burning foe keeps taking damage every turn.',when:()=>G.tut.lastDone==='confirm'},
-  {say:'narrator',text:'One more thing: the pink {r:◆} at the top is the foes\' own momentum. When it fills, they unleash a {r:threat}. Here it was {r:Bloodlust}: every foe gets advantage for a round. Keep an eye on it.'},
+  {do:'end',text:'Both heroes have acted. Tap END TURN.'},
+  {wait:()=>G.round>=3&&onTurn('fighter')()},
+  {run:()=>{const f=tutHero('fighter');if(f)f.mom=Math.max(f.mom,2);}},
+  {say:'narrator',text:'Brakka is still {g:blessed}. And every hit she took gave her {p:◆ momentum}, the purple gems by her name. {g:Hook Chain} costs 2: it reaches 3 squares and drags a foe to Brakka, staggered.',when:()=>tutInTargets('archer',0,2).length},
+  {do:'power',pi:2,text:'Tap {g:Hook Chain}.',when:()=>tutInTargets('archer',0,2).length},
+  {do:'target',pi:2,text:'Drag that archer out of hiding!',tiles:()=>tutInTargets('archer',0,2)},
+  {do:'confirm',text:'Tap the archer again to pull.'},
+  {say:'fighter',text:'Get over here!',when:()=>G.tut.lastDone==='confirm'},
+  {say:'narrator',text:'Sela\'s blessing made that a combo too. That is the heart of every battle: one hero sets up the next. Shove and drag foes off balance, bless and expose them, then cash it all in. Chain combos for bigger hits.'},
+  {say:'narrator',text:'One more thing: the pink {r:◆} at the top is the foes\' own momentum. When it fills, they unleash a {r:threat}, like {r:Bloodlust}: every foe gets advantage for a round. Keep an eye on it.'},
   {run:()=>{for(const u of tutGob()){u.pinned=false;if(u.tutSpeed!=null)u.speed=u.tutSpeed;}}},
-  {say:'narrator',text:'The goblins are on the move now. Finish them off! You can tap any unit to see what it does.'},
+  {say:'narrator',text:()=>tutFoe('archer')&&tutFoe('archer').st.stag?'The goblins are on the move now. The archer is staggered: Sela can land a sure critical hit on it. Finish them off!':'The goblins are on the move now. Finish them off! Tap any foe to see what it does.'},
   {free:true,text:'Defeat the goblins!'},
 ];
 
@@ -88,7 +78,9 @@ function tutPoll(){
     if(S.when&&!S.when()){if(S.do)T.lastDone='skip';T.i++;T.t0=NOW;continue;}
     if(S.do){
       if(!playerUnit()||B.busy)return;
-      const bad=(S.do==='target'||S.do==='move')&&!S.tiles().length||S.do==='confirm'&&!B.pend||S.do==='power'&&!usable(playerUnit(),powerOf(playerUnit(),S.pi));
+      const h=S.cls&&tutHero(S.cls);
+      const bad=(S.do==='target'||S.do==='move')&&!S.tiles().length||S.do==='confirm'&&!B.pend||S.do==='power'&&!usable(playerUnit(),powerOf(playerUnit(),S.pi))||
+        S.do==='select'&&(!h||!ready(h)||G.cur===h.id);
       if(bad){T.lastDone='skip';T.i++;T.t0=NOW;continue;}
       if(S.do==='target'&&S.pi!=null&&B.pi!==S.pi){B.pi=S.pi;B.pend=null;B.vkey='';}
     }
@@ -106,13 +98,14 @@ function tutAllow(kind,a){
   else if(S.do==='confirm')ok=kind==='confirm'||(kind==='tap'&&B.pend&&B.pend.k===K(a.x,a.y));
   else if(S.do==='power')ok=kind==='power'&&a===S.pi;
   else if(S.do==='end')ok=kind==='end';
+  else if(S.do==='select'){const h=tutHero(S.cls);ok=!!h&&(kind==='tap'&&covers(h,a.x,a.y)||kind==='select'&&a===h);}
   if(!ok){G.tut.nudge=NOW;sfx('select');}
   return ok;
 }
 /* Called after an action happens, to advance the script. */
 function tutEvent(ev){
   const S=tutStep();if(!S||!S.do)return;
-  const done=S.do==='move'&&ev==='moved'||S.do==='target'&&ev==='pend'&&B.pend||S.do==='confirm'&&ev==='acted'||S.do==='power'&&ev==='power'||S.do==='end'&&ev==='ended';
+  const done=S.do==='move'&&ev==='moved'||S.do==='target'&&ev==='pend'&&B.pend||S.do==='confirm'&&ev==='acted'||S.do==='power'&&ev==='power'||S.do==='end'&&ev==='ended'||S.do==='select'&&ev==='select';
   if(done)tutNext();
 }
 function tutJoin(){
@@ -120,9 +113,10 @@ function tutJoin(){
   const h={cls:'cleric',lvl:1,hp:CLASSES.cleric.hp,maxHp:CLASSES.cleric.hp,powers:CLASSES.cleric.start.slice(),weapon:START_WEAPON.cleric};
   let spot=null;for(const [x,y] of [[3,6],[3,7],[2,7],[4,7],[1,7],[4,6],[1,6]])if(!spot&&freeTile(x,y,null))spot={x,y};
   if(!spot)return;
-  const c=makePc(h,spot.x,spot.y,'hero');G.units.push(c);c.init=99;
-  const fi=G.order.indexOf('h_fighter');G.order.splice(fi+1,0,c.id);
+  const c=makePc(h,spot.x,spot.y,'hero');G.units.push(c);
+  c.mp=effSpeed(c);c.acted=false;c.moved=false;c.waited=false;c.react=true;c.mom=1;
   H.spawn(c);sfx('holy');log('Sela joins the fight!','g');
+  selectHero(c);
 }
 
 /* ---------------- drawing ---------------- */
@@ -160,7 +154,9 @@ function drawTutHint(){
   if(S.wait||S.run)return;
   // action or free-play instruction
   const nud=T.nudge&&NOW-T.nudge<400?Math.round(Math.sin((NOW-T.nudge)/25)*3):0;
-  const bw=PORT?SW-12:92,bx=(PORT?6:4)+nud;const L=layoutRich(S.text,bw-12,C.parch);const bh=L.length*8+10,by=PORT?OY+2:18;
+  const bw=PORT?SW-12:92,bx=(PORT?6:4)+nud;const L=layoutRich(S.text,bw-12,C.parch);const bh=L.length*8+10;
+  // keep clear of the forecast panel, which covers the top of the board when the target is low down
+  const fcTop=PORT&&B.pend&&!B.inspect&&B.pend.T.y>=3;const by=PORT?(fcTop?OY+96:OY+2):18;
   panel(bx,by,bw,bh,{fill:S.free?'#141a10':'#2a1e08',rim:S.free?C.green:C.gold});rich(S.text,bx+6,by+5,bw-12,'#fff4d8',{nohit:true});
   if(S.free)return;
   if(S.do==='move'||S.do==='target'){const L2=S.tiles();tutDimBoard(L2.concat(S.do==='move'?[playerUnit()]:[]));for(const t of L2){const q=tile(t.x,t.y);tutGlowRect(q.x+1,q.y+1,q.s-2,q.s-2);}
@@ -169,25 +165,26 @@ function drawTutHint(){
     if(r){tutGlowRect(r.x,r.y,r.w,r.h);tutPointer(r.x+r.w/2,r.y+r.h,'up');}else{tutGlowRect(q.x+1,q.y+1,q.s-2,q.s-2);tutPointer(q.x+q.s/2,q.y+4,'down');}}
   else if(S.do==='power'){tutDimBoard([]);const r=B.cardR&&B.cardR[S.pi];if(r){tutGlowRect(r.x,r.y,r.w,r.h);if(r.x+r.w+14<SW)tutPointer(r.x+r.w,r.y+r.h/2,'left');else tutPointer(r.x+r.w/2,r.y,'down');}}
   else if(S.do==='end'){tutDimBoard([]);const r=B.endR;if(r){tutGlowRect(r.x,r.y,r.w,r.h);tutPointer(r.x+r.w/2,r.y,'down');}}
+  else if(S.do==='select'){const h=tutHero(S.cls);if(h){tutDimBoard([h]);const q=tile(h.x,h.y);tutGlowRect(q.x+1,q.y+1,q.s-2,q.s-2);tutPointer(q.x+q.s/2,q.y+4,'down');}}
 }
 
 /* The tutorial battle: a small, fixed skirmish in the Greenmarch. */
 function startTutorial(){
   CTX={mode:'tutorial',relics:[]};
-  /* The field is laid out so every lesson works: the cutthroat stands two squares from Brakka, the archer three
-     squares beyond where she'll stop, and the brute right beside the only fire. Foes hold still until the
-     lessons are done. */
+  try{localStorage.setItem(COMBO_KEY,'1');}catch(e){}
+  /* The field is laid out so every lesson works: Brakka's first stop, beside the cutthroat, is also beside the
+     brute, and her shove sends the brute east into the fire, where Sela can reach it. The archer waits just
+     beyond Hook Chain's reach. Foes hold still until the lessons are done. */
   const enc=genEncounter(0,'rout',{act:0,hazards:false,title:'First Blood',enemies:[{type:'cutter'},{type:'sniper'},{type:'hobgob'}]});
   for(const t of enc.tiles){t.ob=null;t.ter=null;t.haz=null;}
   const at=(x,y)=>enc.tiles[K(x,y)];
   at(0,5).ob='rock';at(5,1).ob='tree';at(0,1).ob='tree';at(0,2).ter='rough';at(5,6).ter='rough';
-  at(5,4).haz={t:'fire',dur:-1};
-  const pos=[[2,3],[3,2],[4,4]];enc.enemies.forEach((e,i)=>{e.x=pos[i][0];e.y=pos[i][1];});
+  at(4,4).haz={t:'fire',dur:-1};
+  const pos=[[2,3],[4,1],[3,4]];enc.enemies.forEach((e,i)=>{e.x=pos[i][0];e.y=pos[i][1];});
   enc.heroPos='normal';
   const f={cls:'fighter',lvl:1,hp:CLASSES.fighter.hp,maxHp:CLASSES.fighter.hp,powers:CLASSES.fighter.start.slice(),weapon:START_WEAPON.fighter};
   setupBattle(enc,[f]);
   const fu=G.units.find(u=>u.cls==='fighter');fu.x=2;fu.y=6;
-  G.order=[fu.id,...G.order.filter(id=>id!==fu.id)];
   const ids={};
   for(const u of G.units.filter(u=>u.side==='enemy')){
     ids[u.type==='cutter'?'cut':u.type==='sniper'?'archer':'brute']=u.id;
@@ -198,7 +195,7 @@ function startTutorial(){
   beginBattleScreen(o=>{
     try{localStorage.setItem(TUT_KEY,'1');}catch(e){}
     if(o==='win')openModal(dialog({title:'TUTORIAL COMPLETE',closable:false,w:210,
-      body:'Well fought! After every battle your heroes earn {g:gold}, {g:experience} for doing their jobs (Brakka: shoving foes and soaking blows; Sela: healing and blessing), and a choice of {g:new power}.\n\nOn the map, pick your path. Watch each battle\'s {g:mission}: foes will fight to stop you. Tap {g:EQUIP} to change weapons and the two relics you wear.\n\nYour journey begins with all four heroes.',
+      body:'Well fought! Your journey begins with all four heroes, and each has a job in the combo game: {g:Brakka} throws foes off balance and makes them fight her, {g:Orin} does it to whole groups, {g:Sela} blesses friends and exposes foes, and {g:Vex} cashes it all in.\n\nAfter every battle heroes earn {g:gold}, {g:experience} for doing their jobs, and a choice of {g:new power}. On the map, pick your path and watch each battle\'s {g:mission}. Tap {g:EQUIP} to change weapons and relics.',
       buttons:[{l:'BEGIN JOURNEY',hot:true,fn:()=>{G=null;newRun();go(MAP_SCREEN);}}]}));
     else openModal(dialog({title:'DEFEAT',closable:false,body:'Brakka falls. Try again, or skip ahead to the journey.',buttons:[{l:'RETRY',hot:true,fn:startTutorial},{l:'SKIP',fn:()=>{G=null;newRun();go(MAP_SCREEN);}}]}));
   });

@@ -18,6 +18,8 @@ let rngState=1;
 vm.runInContext(`Math.random=()=>{let t=(globalThis.__seed+=0x6D2B79F5)|0;t=Math.imul(t^t>>>15,1|t);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};globalThis.__seed=1;`,ctx);
 for(const f of['data.js','engine.js','run.js'])vm.runInContext(fs.readFileSync(path.join(root,'js',f),'utf8'),ctx,{filename:f});
 vm.runInContext(`Object.assign(TUNE,${process.env.TUNE||'{}'});`,ctx);
+// MONS='{"lich":{"hp":100}}' overrides monster stats, for tuning one foe at a time
+vm.runInContext(`for(const [k,v] of Object.entries(${process.env.MONS||'{}'}))Object.assign(MON[k],v);`,ctx);
 vm.runInContext(`
 CTX={mode:'sim',relics:[]};
 function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -36,7 +38,7 @@ async function simBattle(enc,kind){
   while(!G.over&&guard++<5){await nextTurn();}
   const hs=G.units.filter(u=>u.side==='hero'&&u.kind==='pc');
   globalThis.__last={hpEnd:hs.reduce((a,h)=>a+Math.max(0,h.dead?0:h.hp),0)/hs.reduce((a,h)=>a+h.maxHp,0),rounds:G.round,
-    why:G.result==='win'?'':hs.every(h=>h.dead)?'wipe':G.round>=30?'timeout':'objective',down:hs.filter(h=>h.dead).length};
+    why:G.result==='win'?'':hs.every(h=>h.dead)?'wipe':G.round>=30?'timeout':'objective',down:hs.filter(h=>h.dead).length,combos:G.combos||0};
   if(!G.over)return 'lose';
   return G.result;
 }
@@ -70,7 +72,7 @@ async function simRun(seed){
       const enc=genEncounter(f,type,{act:RUN.act,elite:n.type==='elite'});RUN.encKind=n.type;
       (S.preHp=S.preHp||[]).push({act:RUN.act,kind:n.type,hp:+hpFrac().toFixed(2)});
       const r=await simBattle(enc,n.type);S.battles++;
-      const L=globalThis.__last;(S.fights=S.fights||[]).push({act:RUN.act,kind:n.type,type,twist:enc.twist,foes:enc.enemies.map(e=>e.type||'rival'),hp:+L.hpEnd.toFixed(2),r:L.rounds,down:L.down,why:L.why});
+      const L=globalThis.__last;(S.fights=S.fights||[]).push({act:RUN.act,kind:n.type,type,twist:enc.twist,foes:enc.enemies.map(e=>e.type||'rival'),hp:+L.hpEnd.toFixed(2),r:L.rounds,down:L.down,why:L.why,combos:L.combos});
       if(r!=='win'){S.diedAt=(n.type==='boss'?'boss':n.type)+'@'+RUN.act+':'+type;S.why=L.why;break;}
       resolveVictory();S.hpAfter.push(+hpFrac().toFixed(2));
       const final=RUN.pending&&RUN.pending.final;takeOffers(RUN.pending,S);
@@ -123,7 +125,7 @@ function report(R){
   const hpa=R.flatMap(r=>r.hpAfter);console.log(`Party health after a battle (avg): ${pct(hpa.reduce((a,b)=>a+b,0)/hpa.length)}   shop spend/run: ${(R.reduce((s,r)=>s+r.shopSpent,0)/n).toFixed(0)}   gold left at end: ${(R.reduce((s,r)=>s+r.goldEnd,0)/n).toFixed(0)}`);
   const W={};for(const r of R)if(r.why)W[r.why]=(W[r.why]||0)+1;console.log('Loss reasons:',JSON.stringify(W));
   for(let a=0;a<3;a++)for(const k of['battle','elite','boss']){const F=R.flatMap(r=>(r.fights||[]).filter(f=>f.act===a&&f.kind===k));if(!F.length)continue;
-    const won=F.filter(f=>!f.why);console.log(`  act ${a+1} ${k.padEnd(6)} n=${String(F.length).padStart(4)}  lost ${pct(1-won.length/F.length).padStart(4)}  health left when won ${pct(won.reduce((s,f)=>s+f.hp,0)/Math.max(1,won.length)).padStart(4)}  heroes down ${(won.reduce((s,f)=>s+f.down,0)/Math.max(1,won.length)).toFixed(2)}  rounds ${(won.reduce((s,f)=>s+f.r,0)/Math.max(1,won.length)).toFixed(1)}`);}
+    const won=F.filter(f=>!f.why);console.log(`  act ${a+1} ${k.padEnd(6)} n=${String(F.length).padStart(4)}  lost ${pct(1-won.length/F.length).padStart(4)}  health left when won ${pct(won.reduce((s,f)=>s+f.hp,0)/Math.max(1,won.length)).padStart(4)}  heroes down ${(won.reduce((s,f)=>s+f.down,0)/Math.max(1,won.length)).toFixed(2)}  rounds ${(won.reduce((s,f)=>s+f.r,0)/Math.max(1,won.length)).toFixed(1)}  combos/round ${(F.reduce((s,f)=>s+(f.combos||0),0)/Math.max(1,F.reduce((s,f)=>s+f.r,0))).toFixed(2)}`);}
   const mt={};for(const r of R)if(r.diedAt){const m=r.diedAt.split(':')[1];if(m)mt[m]=(mt[m]||0)+1;}
   console.log('Deaths by mission:',Object.entries(mt).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}`).join(', '));
   const rh=R.flatMap(r=>r.restHp||[]);console.log(`Party health on reaching a campfire: ${pct(rh.reduce((a,b)=>a+b,0)/Math.max(1,rh.length))}`);

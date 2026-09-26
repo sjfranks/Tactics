@@ -152,6 +152,8 @@ function sfx(n){
     case 'villain':tn(t,73.4,73.4,1.3,.14,'sawtooth');tn(t,110,110,1.3,.08,'sawtooth');tn(t,146.8,138,1.3,.05,'sawtooth');nz(t,1.3,.12,'lowpass',260,120);break;
     case 'turn':tn(t,1046.5,1046.5,.2,.045,'sine');tn(t+.08,1568,1568,.3,.045,'sine');break;
     case 'foeturn':tn(t,196,190,.2,.07,'triangle');break;
+    case 'foes':tn(t,98,92,.55,.16,'sawtooth');nz(t,.25,.2,'lowpass',500,120);tn(t+.16,73.4,70,.7,.11,'triangle');break;
+    case 'combo':tn(t,220,440,.18,.06,'sawtooth');for(const[f,i]of[[880,0],[1108.7,1],[1318.5,2],[1760,3]])tn(t+i*.045,f,f,.28,.045,'square');tn(t+.18,2217.5,2217.5,.4,.035,'sine');break;
     case 'round':nz(t,.12,.2,'bandpass',1800,1400,.8);tn(t,150,90,.2,.3,'sine');for(const f of[220,331,440])tn(t+.06,f,f*.99,1.1,.045,'sine');break;
     case 'whoosh':nz(t,.34,.45,'bandpass',380,2600,1);break;
     case 'dice':{let at=0;for(let i=0;i<8;i++){at+=.04+R()*.04;nz(t+at,.025,.22*(1-i/10),'bandpass',2200+R()*1600,2000,2.2);}break;}
