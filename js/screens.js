@@ -539,7 +539,7 @@ const HOWTO=`{g:Turn order.} Everyone rolls initiative (d20 + Finesse) when a ba
 
 {g:Advantage and disadvantage.} Advantage rolls the first die again and keeps the best; disadvantage keeps the worst. Flanking, high ground, blessings and dazed or rooted targets give advantage. Cover, being weakened and shooting with a foe beside you give disadvantage.
 
-{g:Momentum.} Shown as {p:◆} gems. Every hero starts a battle with 2. A hero gains 1 for each basic attack, and 1 for each combo: both the hero who lands it and the hero who set it up (a blessed critical hit pays the cleric too). Every power costs momentum.
+{g:Momentum.} Shown as {p:◆} gems. Every hero starts a battle with none. A hero gains 1 for each basic attack, and 1 for each combo: both the hero who lands it and the hero who set it up (a blessed critical hit pays the cleric too). Every power costs momentum.
 
 {g:Foe threats.} The foes share a pool of momentum (top of the screen) that grows every round, with no limit. When it reaches the cost of their next threat they unleash it: bloodlust at first, and deeper into the journey eruptions, reinforcements and dark rites. Tap it to see what is coming.
 
