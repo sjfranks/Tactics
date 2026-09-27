@@ -203,7 +203,7 @@ async function partingBlow(f,t){
 }
 /* Pushes and pulls throw a creature off balance: once it has been moved (or slammed into something) it is
    staggered. A creature slammed into another creature knocks that one off balance too. */
-async function forceMove(t,from,n,pull,src,fl){
+async function forceMove(t,from,n,pull,src,fl,o){
   if(t.object||!live(t))return;
   n-=(t.steady||0);
   if(n<=0){H.pop(t,'Holds firm','call');note(`${t.name} holds firm.`);return;}
@@ -228,7 +228,7 @@ async function forceMove(t,from,n,pull,src,fl){
     await onEnter(t);
   }
   if(moved>0)note(`${pull?'Pulled':'Pushed'} ${moved}.`);
-  if((moved>0||slam)&&live(t)){stagger(t,src);if(t.st.stag)note('Staggered.');if(fl&&fl.stagIds&&src&&src.side!==t.side)fl.stagIds.add(t.id);}
+  if((moved>0||slam)&&live(t)&&!(o&&o.noStag)){stagger(t,src);if(t.st.stag)note('Staggered.');if(fl&&fl.stagIds&&src&&src.side!==t.side)fl.stagIds.add(t.id);}
   if(moved>0&&src&&src.side!==t.side)xp(src,moved,'control');
   if(slam&&src&&src.side!==t.side)xp(src,2,'control');
 }
@@ -521,7 +521,7 @@ function forecast(u,p,T,O){
   rows.by=by;rows.combo=combo;
   const mk=t=>{const nb=netBoon(u,t,p,O);const dd=p.dmg?atkDice(u,p):{n:1,s:6,b:0};let probs=dieProbs(dd.s,nb.net);const mod=0;
     const st=!!t.st.stag&&!p.noDmg&&!!p.dmg&&!t.object;if(st)probs=stagProbs(t,dd.s,nb.net);
-    return {t,net:nb.net,pro:nb.pro,con:nb.con,mod,dice:dd,probs,stag:st,expose:!!t.st.expose,sneak:sneakOn(u,t)&&!!p.dmg&&!p.noDmg,dmg:[1,2,3].map(r=>pcDmg(u,p,t,r,{combo})*(p.hits||1)),ctrl:!!p.noDmg};};
+    return {t,net:nb.net,pro:nb.pro,con:nb.con,mod,dice:dd,probs,stag:st,expose:!!t.st.expose,sneak:sneakOn(u,t)&&!!p.dmg&&!p.noDmg,dmg:[1,2,3].map(r=>pcDmg(u,p,t,r,{combo})*(p.hits||1)),ctrl:!!p.noDmg,save:p.save&&t.side!==u.side?saveFail(u,t,p):null};};
   if(p.tgt==='enemy'){
     for(const t of strikeTargets(u,p,T,O))rows.push(mk(t));
   }else if(p.tgt==='ally'){
@@ -610,12 +610,34 @@ function comboHit(u,by,fl){
   H.combo(u,G.combo,by);
   log(`Combo ×${G.combo}! ${names.join(' and ')} set it up for ${u.name}: +1 momentum each. Hero hits deal +${comboBonus(G.combo)} damage for the rest of the round.`,'g');
 }
+/* Saving throws: the foe rolls d20 + an attribute (plus the journey's depth) and must reach 10 + the hero's
+   attribute + a third of their level, or suffer the effect. */
+function saveDC(u,p){return TUNE.saveBase+(u.attrs[p.a]||0)+Math.floor((u.lvl||1)/3);}
+function saveMod(t,a){return (t.attrs&&t.attrs[a]||0)+(t.side==='enemy'?G.rollAdd||0:0);}
+function saveFail(u,t,p){
+  if(!t||t.object||(p.save.eff==='stag'&&t.st.steady))return 0;
+  return clamp((saveDC(u,p)-saveMod(t,p.save.a)-1)/20,0,1);
+}
+async function savePower(u,p,t,fl){
+  await H.strike(u,t,{proj:p.proj,power:p});
+  NOTE=[];
+  if(p.shove)await forceMove(t,u,p.shove,false,u,fl,{noStag:true});
+  if(live(t)&&!t.object){
+    const dc=saveDC(u,p),m=saveMod(t,p.save.a),d=1+rnd(20),nm=ATTR[p.save.a];
+    if(d+m>=dc){H.pop(t,'Saved','call');note(`${nm} save ${d}+${m} vs ${dc}: saved.`);}
+    else{note(`${nm} save ${d}+${m} vs ${dc}: failed.`);applyEff(u,t,{[p.save.eff]:[1,1,1]},2);if(t.st.stag&&t.stagBy===u.id&&fl.stagIds)fl.stagIds.add(t.id);}
+  }
+  const ex=NOTE||[];NOTE=null;
+  log(`${u.name} uses ${p.name} on ${t.name}. ${ex.join(' ')}`,sideCol(u));
+  fl.hitIds.add(t.id);H.upd(t);
+}
 async function usePower0(u,p,T){
   u.mom-=p.cost;
   const fl={hitIds:new Set(),stagIds:new Set(),sneak:false,healedOther:false,slam:false,combo:false,usedBless:false};
   if(p.tgt!=='enemy'||p.area!=null)log(`${u.name} uses ${p.name}.`,sideCol(u));
   const by=comboSetters(u,p,strikeTargets(u,p,T,{x:u.x,y:u.y}));
   if(by.length)comboHit(u,by,fl);
+  if(p.save){const t=unitAt(T.x,T.y);if(t)await savePower(u,p,t,fl);H.upd(u);return;}
   if(p.tgt==='enemy'){
     const t=unitAt(T.x,T.y);if(!t)return;
     if(p.teleportAdj){const spot=freeAdj(t,u).sort((a,b)=>man(a,u)-man(b,u))[0];if(spot)await teleport(u,spot);}
@@ -994,6 +1016,12 @@ function valuePower(u,p,T,O){
   const rows=forecast(u,p,T,O);let v=0,hits=0;
   const P=payers(u).length>0;
   const sv=x=>{v+=x*(TUNE.aiCombo||0);};
+  if(p.save){
+    for(const r of rows){if(r.t.side===u.side||r.t.object)continue;hits++;const q=r.save||0;
+      if(p.save.eff==='stag'){if(P)sv(q*setupWorth(u,r.t,'stag'));v+=q*skipWorth(r.t);}
+      else if(P)sv(q*setupWorth(u,r.t,'expose'));}
+    return hits?v-p.cost*TUNE.momVal:-99;
+  }
   for(const r of rows){
     if(r.dmg){
       if(r.t.side===u.side)continue;hits++;
@@ -1170,8 +1198,9 @@ function spawnMon(type,spot,extra){const e=makeMon(type,spot.x,spot.y,extra);G.u
 /* Weapons power up basic powers: the at-wills that cost no momentum. */
 const basicP=p=>!!p&&!!p.basic;
 const BASIC={fighter:'sword',rogue:'blades',wizard:'missile',cleric:'mace'};
+const SETUP={fighter:'shove',rogue:'feint',wizard:'force',cleric:'guidance'};
 /* Every hero carries their basic weapon attack first, then the powers they have learned. */
-function withBasic(cls,powers){const b=BASIC[cls];return [b].concat((powers||[]).filter(id=>id!==b&&POWERS[id]));}
+function withBasic(cls,powers){const b=[BASIC[cls],SETUP[cls]].filter(Boolean);return b.concat((powers||[]).filter(id=>!b.includes(id)&&POWERS[id]));}
 function wpnOf(u){return u&&u.kind==='pc'&&u.wpn?WEAPONS[u.wpn]:null;}
 function wBonus(u,p,k){const w=wpnOf(u);return w&&basicP(p)?(w[k]||0):0;}
 function rivalWeapon(cls,lvl){const t=Math.min(4,1+Math.floor((lvl+1)/3));const L=Object.values(WEAPONS).filter(w=>w.cls===cls&&w.tier<=t).sort((a,b)=>b.tier-a.tier);return (L[0]||WEAPONS[START_WEAPON[cls]]).id;}

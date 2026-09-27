@@ -10,7 +10,7 @@ const RESULT=['Graze','Hit','Critical hit'];
 const RESULT_SHORT=['Graze','Hit','Crit'];
 /* Difficulty, tuned with tools/sim.js (whole journeys played by the autoplay AI). actMul scales each region's encounter budget. */
 const TUNE={budget0:7,budgetSlope:.85,hpSlope:.03,dmgSlope:.15,rollStep:4,bossHp:.55,foeMomRound:1,foeMomRamp:0,eliteMul:[1,.45,.85],summonAt:8,actMul:[.85,1.1,.65],
-  healAfter:.05,bossEscort:.3,pbBonus:3,fallenHp:.25,momTurn:0,momStart:0,momVal:.9,actHeal:.6,maxLvl:12,winXp:30,bossXp:50,sneak:3,aiCombo:1};
+  healAfter:.05,bossEscort:.3,pbBonus:3,fallenHp:.25,momTurn:0,momStart:0,momVal:.9,actHeal:.6,maxLvl:12,winXp:30,bossXp:50,sneak:3,aiCombo:1,saveBase:12};
 /* Experience needed to reach each level (index = level). Heroes earn it by doing their job in battle. */
 const XP_AT=[0,0,55,125,210,315,440,580,740,910,1100,1320,1560];
 /* How much each kind of deed is worth to each role: defenders shove foes around and soak blows, strikers
@@ -66,6 +66,11 @@ const POWERS={
   blades:{c:'rogue',lv:1,a:'F',name:'Blades',basic:true,cost:0,tgt:'enemy',range:1,dmg:[1,3,5],desc:'Quick knife work. Its damage comes from your weapon. Dual wielding: advantage on your first Blades attack each round.'},
   missile:{c:'wizard',lv:1,a:'W',name:'Bolt',basic:true,cost:0,tgt:'enemy',range:5,dmg:[2,4,5],proj:'#c39bff',desc:'Range 5. A dart of force. Its damage comes from your focus.'},
   mace:{c:'cleric',lv:1,a:'M',name:'Mace',basic:true,cost:0,tgt:'enemy',range:1,dmg:[2,4,6],desc:'A solid blow. Its damage comes from your weapon.'},
+  /* ---- free set-ups every hero has: the foe makes a saving throw (d20 + attribute) against 12 + your attribute + a third of your level ---- */
+  shove:{c:'fighter',lv:1,a:'M',name:'Shove',innate:true,cost:0,tgt:'enemy',range:1,noDmg:true,shove:1,save:{a:'M',eff:'stag'},desc:'Push the foe 1 square. It makes a Might save or is staggered.'},
+  feint:{c:'rogue',lv:1,a:'F',name:'Feint',innate:true,cost:0,tgt:'enemy',range:1,noDmg:true,save:{a:'W',eff:'expose'},desc:'A false opening. The foe makes a Wits save or is exposed: every hit against it deals +3.'},
+  force:{c:'wizard',lv:1,a:'W',name:'Force Push',innate:true,cost:0,tgt:'enemy',range:4,noDmg:true,shove:1,save:{a:'M',eff:'stag'},proj:'#c39bff',desc:'Range 4. Push the foe 1 square away. It makes a Might save or is staggered.'},
+  guidance:{c:'cleric',lv:1,a:'P',name:'Guidance',innate:true,cost:0,tgt:'ally',range:3,noSelf:true,empower:1,desc:'Range 3. Bless an ally: advantage on their next attack, and a combo for you both.'},
   /* ---- Fighter: staggers foes and makes them fight her ---- */
   tide:{c:'fighter',lv:1,a:'M',name:'Tide of Iron',cost:1,tgt:'enemy',range:1,dmg:[2,4,6],mark:1,eff:{push:[1,1,2]},follow:true,desc:'Shove the foe back and step into the gap. It is staggered (it loses its next turn unless an ally hits it first) and marked.'},
   grind:{c:'fighter',lv:1,a:'M',name:'Grinding Strike',cost:1,tgt:'enemy',range:1,dmg:[4,9,13],mark:1,eff:{push:[0,0,1]},desc:'A two-handed blow that rolls two dice. Mark the foe. On a crit: push 1.'},
@@ -313,6 +318,7 @@ const GLOSS={
   advantage:{name:'Advantage',forms:['double advantage','advantage'],text:'Roll the first damage die again and keep the best (twice with double advantage), so hits and crits come more often. It comes from flanking, high ground, dazed or rooted targets, being blessed or hidden, and some powers. Advantage and disadvantage cancel out one for one.'},
   disadvantage:{name:'Disadvantage',forms:['disadvantage'],text:'Roll the first damage die again and keep the worst. It comes from being weakened or marked by someone else, a target in cover, or shooting while a foe stands beside you.'},
   momentum:{name:'Momentum',forms:['momentum'],text:'Every hero starts a battle with none. They gain 1 for each basic attack and 1 for each combo they land or set up for an ally, and spend it on powers. Foes share a pool that grows each round and spend it on threats (shown in the top bar) and on their own special attacks.'},
+  savingthrow:{name:'Saving Throw',forms:['saving throws','saving throw'],text:'Some powers let the foe resist. It rolls d20 + one of its attributes (plus a little for how deep into the journey you are). If the total reaches 12 + your attribute + a third of your level, it shrugs the effect off. The forecast shows the odds.'},
   initiative:{name:'Initiative',forms:['initiative'],text:'At the start of a battle everyone rolls d20 + Finesse. Turns go from highest to lowest, heroes and foes mixed together, and the order repeats every round.'},
   parting:{name:'Parting Blow',forms:['parting blows','parting blow'],text:'When a creature moves out of a square beside a foe, that foe may use its reaction to strike it for free. Nimble creatures never provoke. Staggered and dazed creatures can\'t make parting blows.'},
   reaction:{name:'Reaction',forms:['reaction'],text:'Each creature has one reaction per round, used for parting blows. It returns at the start of its turn. Staggered and dazed creatures can\'t use it.'},

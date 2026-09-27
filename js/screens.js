@@ -527,7 +527,7 @@ const HOWTO=`{g:Turn order.} Everyone rolls initiative (d20 + Finesse) when a ba
 
 {g:Moving and acting.} Tap a blue square to move, or drag the hero. You can move in several steps until your speed runs out. Taking an action ends your movement (a few powers give some back).
 
-{g:Basic attack and powers.} Every hero has a basic weapon attack: it is free and earns 1 momentum. Powers are their special moves, and every power costs momentum. Pick a card at the bottom, then tap a target: red squares are foes in range, green are allies. A forecast shows what can happen. Tap the target again, or press STRIKE, to act. Powers with no target, like Thunderwave, go off when you tap their card twice.
+{g:Basic attack and powers.} Every hero has a basic weapon attack: it is free and earns 1 momentum. Every hero also has a free set-up power: Brakka's {g:Shove}, Vex's {g:Feint}, Orin's {g:Force Push} and Sela's {g:Guidance}. The foe gets a {g:saving throw} against Shove, Feint and Force Push. Powers are their special moves, and every power costs momentum. Pick a card at the bottom, then tap a target: red squares are foes in range, green are allies. A forecast shows what can happen. Tap the target again, or press STRIKE, to act. Powers with no target, like Thunderwave, go off when you tap their card twice.
 
 {g:Foe intents.} Tap INTENT to see whom each foe means to attack, and how hard. Shove foes out of reach, taunt them or finish them first.
 
@@ -708,7 +708,7 @@ function openPowerEditor(cls,list,label){
   scrollTo('pedit',0);
   openModal({closable:true,draw(){
     dim();const w=Math.min(260,SW-8),h=Math.min(164,SH-16),x=Math.floor((SW-w)/2),y=Math.floor((SH-h)/2);panel(x,y,w,h,{title:(PORT?CLASSES[cls].title:label+' · '+CLASSES[cls].title).toUpperCase()});
-    const ps=Object.values(POWERS).filter(p=>p.c===cls&&!p.basic).sort((a,b)=>a.lv-b.lv);
+    const ps=Object.values(POWERS).filter(p=>p.c===cls&&!p.basic&&!p.innate).sort((a,b)=>a.lv-b.lv);
     scrollArea('pedit',x+6,y+10,w-10,h-30,ps.length*13,(yy,clip)=>{ps.forEach((p,i)=>{const cy=yy+i*13;const on=list.includes(p.id);
       rect(x+8,cy+2,8,8,C.edge);rect(x+9,cy+3,6,6,on?C.green:'#2a2018');if(on)text('✓',x+10,cy+3,C.edge,{sh:false});
       text(p.name,x+20,cy+3,on?C.gold:C.parch);const lc=`L${p.lv}${p.cost?' ◆'+p.cost:''}`;
