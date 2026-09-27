@@ -29,7 +29,7 @@ const TUT_SCRIPT=[
   {do:'move',text:'Move Brakka next to the cutthroat.',tiles:()=>tutBeside('cut')},
   {say:'narrator',text:'Every hero has a {g:basic attack} they can use every turn. Brakka\'s is her {g:Sword}: its damage dice come from the weapon in her hand. Her {g:Shove} is free too: it pushes a foe, who must make a saving throw or be staggered. The other cards are her special powers. Her first basic attack each turn earns {p:◆ momentum}, and every power spends it.'},
   {do:'target',pi:0,text:'Attack the cutthroat with your Sword!',tiles:()=>tutInTargets('cut',0,0)},
-  {say:'narrator',text:'Before you strike, the {g:forecast} shows what could happen. Every attack rolls damage dice: a 1 on the first die is a {g:Graze}; its top number is a {g:Critical hit}, and you roll one more die (and one more again on another top number). You see the damage and the odds of each.'},
+  {say:'narrator',text:'Before you strike, the {g:forecast} shows what could happen. Every attack rolls damage dice: a 1 on the first die is a {g:Miss}; its top number is a {g:Critical hit}, and you roll one more die (and one more again on another top number). You see the damage and the odds of each.'},
   {do:'confirm',text:'Tap the cutthroat again to strike.'},
   {say:'fighter',text:()=>tutFoe('cut')?'Come on, then! Who\'s next?':'One down!'},
   {say:'narrator',text:'Brakka has {g:one action} left. She could attack again, but each attack after the first in a turn has {g:disadvantage}. Or she can save it: saved actions become {g:reactions} on the foes\' turn. She will {g:Defend}, halving the next blow, or {g:Intercept} a blow meant for a friend beside her.'},

@@ -6,12 +6,12 @@ const COLS=6,ROWS=8;
 const ATTR={M:'Might',F:'Finesse',W:'Wits',P:'Presence'};
 const ATTR_USE={M:'Force, endurance and heavy melee.',F:'Precision, agility, stealth and ranged weapons.',W:'Reasoning, magic and reading the environment.',P:'Conviction, leadership and reading people.'};
 const SKILLS={Athletics:'M',Acrobatics:'F',Stealth:'F',Thievery:'F',Magic:'W',Lore:'W',Survival:'W',Insight:'P',Influence:'P'};
-const RESULT=['Graze','Hit','Critical hit'];
-const RESULT_SHORT=['Graze','Hit','Crit'];
+const RESULT=['Miss','Hit','Critical hit'];
+const RESULT_SHORT=['Miss','Hit','Crit'];
 /* Difficulty, tuned with tools/sim.js (whole journeys played by the autoplay AI). Encounter budgets: see encBudget in
    engine.js (es0/esLvl: a hero's strength by level, esUnit: strength to foe cost, actMul: each region's foes, solo: a
    boss's share of its fight, eliteCost: an elite's cost multiplier). */
-const TUNE={es0:4,esLvl:2,esUnit:.49,solo:1.25,eliteCost:1.3,hpSlope:.03,dmgSlope:.15,rollStep:4,bossHp:.65,foeMomRound:1,foeMomRamp:0,eliteMul:[1,.4,.5],summonAt:8,actMul:[1,.9,.65],
+const TUNE={es0:4,esLvl:2,esUnit:.4,solo:1.25,eliteCost:1.3,hpSlope:.03,dmgSlope:.15,rollStep:4,bossHp:.55,foeMomRound:1,foeMomRamp:0,eliteMul:[.7,.4,.5],eliteBudget:[.9,1,1],summonAt:8,actMul:[1,.9,.65],
   healAfter:.05,pbBonus:3,fallenHp:.25,momTurn:0,momStart:0,momVal:.9,actHeal:.6,maxLvl:12,winXp:30,bossXp:50,sneak:3,aiCombo:1,saveBase:12,
   actions:3,extraActs:2,guardMin:4,aiMoveCost:1.5,aiHold:1};
 /* Experience needed to reach each level (index = level). Heroes earn it by doing their job in battle. */
@@ -60,7 +60,7 @@ const ORDER=['fighter','rogue','wizard','cleric'];
 /* Levels (up to 12, about 3 per land) raise the main attribute at 3, 6, 9 and 12 and the second one at 5, 8 and 11. */
 function attrsFor(cls,lvl){const C=CLASSES[cls];const a=Object.assign({},C.attrs);a[C.prime]+=(lvl>=3)+(lvl>=6)+(lvl>=9)+(lvl>=12);a[C.second]+=(lvl>=5)+(lvl>=8)+(lvl>=11);return a;}
 
-/* a: attribute used. dmg: damage by result (Graze/Hit/Critical hit) before the attribute is added. eff values are by result too.
+/* a: attribute used. dmg: damage by result (Miss/Hit/Critical hit; a miss deals none) before the attribute is added. eff values are by result too.
    Set-ups: push/pull/stag stagger a foe (the next attack on it is a critical hit), expose adds damage to every hit,
    bless gives an ally advantage. */
 const POWERS={
@@ -313,13 +313,13 @@ const GLOSS={
   finesse:{name:'Finesse',forms:['finesse'],text:'Precision, agility, stealth and ranged weapons. Also adds to initiative. Skills: Acrobatics, Stealth, Thievery.'},
   wits:{name:'Wits',forms:['wits'],text:'Reasoning, magic and reading the environment. Skills: Magic, Lore, Survival.'},
   presence:{name:'Presence',forms:['presence'],text:'Conviction, leadership and reading people. Skills: Insight, Influence.'},
-  attack:{name:'Damage Dice',forms:['attack roll','attack rolls','damage dice','damage roll'],text:'Every attack rolls its damage dice and adds an attribute. Basic attacks roll the weapon\'s dice; powers roll the hero\'s own die: Brakka d8s, Orin and Sela d6s, and Vex d4s. The first die decides the result: a 1 is a graze, the top number is a critical hit, anything else is a hit. A critical hit rolls one more die.'},
-  graze:{name:'Graze',forms:['grazes','grazed','graze'],text:'A 1 on the first damage die. The attack deals little damage and none of its "on a hit" effects.'},
+  attack:{name:'Damage Dice',forms:['attack roll','attack rolls','damage dice','damage roll'],text:'Every attack rolls its damage dice and adds an attribute. Basic attacks roll the weapon\'s dice; powers roll the hero\'s own die: Brakka d8s, Orin and Sela d6s, and Vex d4s. The first die decides the result: a 1 is a miss (no damage), the top number is a critical hit, anything else is a hit. Only the first die counts for this; the others just add damage. A critical hit rolls one more die.'},
+  graze:{name:'Miss',forms:['misses','missed','miss'],text:'A 1 on the first damage die (the primary die, thrown larger and in ivory). The attack deals no damage and none of its effects.'},
   hit:{name:'Hit',forms:['on a hit'],text:'Anything between a 1 and the top number on the first damage die. Effects listed "on a hit" happen on a Hit or a Critical hit.'},
   crit:{name:'Critical Hit',forms:['critical hits','critical hit','on a crit','crits','crit'],text:'The top number on the first damage die (a 4 on a d4, an 8 on a d8). Roll one more die and add it, and one more again each time the top number comes up. Critical hits ignore armor and add any "on a crit" effects. Small dice crit more often.'},
   advantage:{name:'Advantage',forms:['double advantage','advantage'],text:'Roll the first damage die again and keep the best (twice with double advantage), so hits and crits come more often. It comes from flanking, high ground, dazed, rooted or exposed targets, being blessed or hidden, and some powers. Different sources stack, up to triple advantage (roll four, keep the best), and advantage and disadvantage cancel out one for one.'},
   disadvantage:{name:'Disadvantage',forms:['disadvantage'],text:'Roll the first damage die again and keep the worst. It comes from being weakened or marked by someone else, a target in cover, shooting while a foe stands beside you, and attacking more than once in a turn. Different sources stack.'},
-  momentum:{name:'Momentum',forms:['momentum'],text:'Every hero starts a battle with none. They gain 1 for their first basic attack each turn and 1 for each combo they land or set up for an ally, and spend it on powers. Foes share a pool that grows each round and spend it on threats (shown in the top bar) and on their own special attacks.'},
+  momentum:{name:'Momentum',forms:['momentum'],text:'Every hero starts a battle with none. They gain 1 for their first basic attack each turn and 2 for each combo they land or set up for an ally, and spend it on powers. Foes share a pool that grows each round and spend it on threats (shown in the top bar) and on their own special attacks.'},
   savingthrow:{name:'Saving Throw',forms:['saving throws','saving throw'],text:'Some powers let the foe resist. It rolls d20 + one of its attributes (plus a little for how deep into the journey you are). If the total reaches 12 + your attribute + a third of your level, it shrugs the effect off. The forecast shows the odds.'},
   initiative:{name:'Initiative',forms:['initiative'],text:'At the start of a battle everyone rolls d20 + Finesse. Turns go from highest to lowest, heroes and foes mixed together, and the order repeats every round.'},
   actions:{name:'Actions',forms:['three actions','actions'],text:'On their turn a hero has three actions. Moving (up to their speed, split up as they like), a basic attack and each power cost one, in any order. Actions left when the turn ends are saved for reactions until the hero\'s next turn. Foes simply move and act.'},
@@ -354,13 +354,13 @@ const GLOSS={
   snare:{name:'Snare',forms:['snares','snare'],text:HAZ.trap.desc},
   web:{name:'Web',forms:['web'],text:HAZ.web.desc},
   sneak:{name:'Sneak Attack',forms:['sneak attacks','sneak attack'],text:'The rogue deals 3 extra damage (more at higher levels) against a foe that is set up: staggered, exposed, rooted or dazed, or with one of her allies beside it. Attacks from hiding count too.'},
-  combo:{name:'Combo',forms:['combos','combo'],text:'When a hero cashes in a set-up another hero made (attacks a foe they staggered or exposed, or attacks with their blessing), it is a combo. Both heroes gain 1 momentum, and every hero hit for the rest of the round deals +1 damage per combo so far (up to +3). Set-ups on a foe fade when its own turn ends, so line up heroes who act before it.'},
+  combo:{name:'Combo',forms:['combos','combo'],text:'When a hero cashes in a set-up another hero made (attacks a foe they staggered or exposed, or attacks with their blessing), it is a combo. Both heroes gain 2 momentum, and every hero hit for the rest of the round deals +1 damage per combo so far (up to +3). Set-ups on a foe fade when its own turn ends, so line up heroes who act before it.'},
   setup:{name:'Set-up',forms:['set-ups','set-up','set up'],text:'A foe is set up when it is staggered, exposed, rooted or dazed, or has a hero beside it. Sneak attacks need a set-up. Staggers, exposes and blessings made by one hero give the others combos: nobody cashes in their own.'},
   armor:{name:'Armored',forms:['armored','armor'],text:'Takes 2 or 3 less damage from every attack that isn\'t a critical hit (never less than 1). Critical hits go straight through: stagger it first, or attack with advantage.'},
   intent:{name:'Intent',forms:['intents','intent'],text:'Tap INTENT during a hero\'s turn to see what each foe means to do on its next turn: whom it will attack, and roughly how much damage it will deal. They change as you shove foes around, taunt them or get out of reach.'},
   nimble:{name:'Nimble',forms:['nimble'],text:'Never provokes parting blows.'},
   swarm:{name:'Swarm',forms:['swarms','swarm'],text:'Up to four tiny critters sharing one square and one pool of health. You attack the swarm as a single foe. Area attacks deal double damage to it, and it deals less damage as its critters fall. Its attacks never roll.'},
-  minion:{name:'Minion',forms:['minions','minion'],text:'A foe with a single hit point: any hit, even a graze, slays it. Minions come in hordes, often raised or rallied by a boss or summoner. Their attacks never roll.'},
+  minion:{name:'Minion',forms:['minions','minion'],text:'A foe with a single hit point: any hit slays it. Minions come in hordes, often raised or rallied by a boss or summoner. Their attacks never roll.'},
   large:{name:'Large',forms:['large'],text:'A huge creature that fills a 2×2 block of squares. It is beside anything touching any of its squares, and needs a 2×2 gap to move through.'},
   undead:{name:'Undead',forms:['undead'],text:'Radiant damage is doubled against undead.'},
   radiant:{name:'Radiant',forms:['radiant'],text:'Holy damage. Doubled against undead and stops skeletons reassembling.'},

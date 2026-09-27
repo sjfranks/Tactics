@@ -533,15 +533,15 @@ const HOWTO=`{g:Turn order.} Everyone rolls initiative (d20 + Finesse) when a ba
 
 {g:Foe intents.} Tap INTENT to see whom each foe means to attack, and how hard. Shove foes out of reach, taunt them or finish them first.
 
-{g:Combos.} Heroes set each other up, and nobody cashes in their own set-up. A foe that is shoved, dragged or knocked down is {g:staggered}: it loses its next turn, unless someone attacks it first, and that attack is a sure critical hit. Attacks against an {g:exposed} foe have advantage and deal +3 damage. A {g:blessed} hero attacks with advantage. Set-ups on a foe fade when its own turn ends, so line up a hero who acts before it. When a hero cashes in a set-up another hero made, it is a {g:combo}: both gain 1 momentum, and every hero hit for the rest of the round deals +1 damage per combo (up to +3).
+{g:Combos.} Heroes set each other up, and nobody cashes in their own set-up. A foe that is shoved, dragged or knocked down is {g:staggered}: it loses its next turn, unless someone attacks it first, and that attack is a sure critical hit. Attacks against an {g:exposed} foe have advantage and deal +3 damage. A {g:blessed} hero attacks with advantage. Set-ups on a foe fade when its own turn ends, so line up a hero who acts before it. When a hero cashes in a set-up another hero made, it is a {g:combo}: both gain 2 momentum, and every hero hit for the rest of the round deals +1 damage per combo (up to +3).
 
 {g:The roles.} Brakka throws foes off balance and makes them fight her: foes she marks can only attack her. Orin does it to whole groups. Sela blesses her friends and exposes foes. Vex cashes it all in with sneak attacks on set-up foes.
 
-{g:Damage dice.} Every attack rolls damage dice and adds an attribute. Each hero's basic attack (Sword, Blades, Bolt, Mace) rolls their weapon's dice; powers roll the hero's own die: Brakka d8s, Orin and Sela d6s, Vex d4s. The first die decides the result: a 1 is a graze, the top number is a critical hit, anything else a hit. A critical hit rolls one more die and adds it, and one more again each time the top number comes up. Small dice crit more often. Vex fights with two knives: dual wielding gives advantage on the first Blades attack each round. {g:Armored} foes shrug off part of every blow except critical hits.
+{g:Damage dice.} Every attack rolls damage dice and adds an attribute. Each hero's basic attack (Sword, Blades, Bolt, Mace) rolls their weapon's dice; powers roll the hero's own die: Brakka d8s, Orin and Sela d6s, Vex d4s. The first die (the primary die, thrown larger and in ivory) decides the result: a 1 is a miss, the top number is a critical hit, anything else a hit. Other dice only add damage. A critical hit rolls one more die and adds it, and one more again each time the top number comes up. Small dice crit more often. Vex fights with two knives: dual wielding gives advantage on the first Blades attack each round. {g:Armored} foes shrug off part of every blow except critical hits.
 
 {g:Advantage and disadvantage.} Advantage rolls the first die again and keeps the best; disadvantage keeps the worst. Different sources stack, up to triple, and cancel out one for one. Flanking, high ground, blessings and dazed, rooted or exposed targets give advantage. Cover, being weakened, shooting with a foe beside you and attacking again in the same turn give disadvantage.
 
-{g:Momentum.} Shown as {p:◆} gems. Every hero starts a battle with none. A hero gains 1 for their first basic attack each turn, and 1 for each combo: both the hero who lands it and the hero who set it up (a blessed critical hit pays the cleric too). Every power costs momentum.
+{g:Momentum.} Shown as {p:◆} gems. Every hero starts a battle with none. A hero gains 1 for their first basic attack each turn, and 2 for each combo: both the hero who lands it and the hero who set it up (a blessed critical hit pays the cleric too). Every power costs momentum.
 
 {g:Foe threats.} The foes share a pool of momentum (top of the screen) that grows every round, with no limit. When it reaches the cost of their next threat they unleash it: bloodlust at first, and deeper into the journey eruptions, reinforcements and dark rites. Tap it to see what is coming.
 
@@ -601,7 +601,7 @@ const COMP_SCREEN={enter(){COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);
       if(k==='class'){const Cc=CLASSES[cls];const u=heroSheetUnit({cls,lvl:1,hp:Cc.hp,maxHp:Cc.hp,powers:Cc.start});
         y+=sheetLayout(u,dx,y,dw,clip,{plain:true,classInfo:true});}
       else if(POWERS[k]){const p=POWERS[k];text(`Level ${p.lv} ${CLASSES[cls].title} power`,dx,y,C.mute);y+=9;y+=powerBlock(p,null,dx,y,dw,{clip})+4;
-        y+=rich('Damage adds the attribute it uses. {m:A 1 on the first die is a graze; its top number is a critical hit that rolls one more die.}',dx,y,dw,C.mute,{clip});}
+        y+=rich('Damage adds the attribute it uses. {m:A 1 on the first die is a miss; its top number is a critical hit that rolls one more die.}',dx,y,dw,C.mute,{clip});}
     }else if(COMP.tab===1&&RELICS[k]){inset(dx,y,20,20,'#100b08');ctx.drawImage(relicArt(k),dx+2,y+2);text(RELICS[k].name,dx+24,y+3,C.gold);text(`About ${RELICS[k].price} gold`,dx+24,y+11,C.mute);y+=24;
       y+=rich(RELICS[k].desc,dx,y,dw,C.parch,{clip});}
     else if(COMP.tab===2&&MON[k]){y+=sheetLayout(monSheetUnit(k),dx,y,dw,clip,{plain:true,found:true});}
