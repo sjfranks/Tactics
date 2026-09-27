@@ -9,8 +9,8 @@ const SKILLS={Athletics:'M',Acrobatics:'F',Stealth:'F',Thievery:'F',Magic:'W',Lo
 const RESULT=['Graze','Hit','Critical hit'];
 const RESULT_SHORT=['Graze','Hit','Crit'];
 /* Difficulty, tuned with tools/sim.js (whole journeys played by the autoplay AI). actMul scales each region's encounter budget. */
-const TUNE={budget0:10,budgetSlope:.9,hpSlope:.05,dmgSlope:.25,rollStep:4,bossHp:.8,foeMomRound:1,foeMomRamp:0,eliteMul:[1,.8,1],summonAt:8,actMul:[.85,1.1,.65],
-  healAfter:.05,bossEscort:.4,pbBonus:3,fallenHp:.25,momTurn:0,momStart:2,momVal:.9,actHeal:.6,maxLvl:12,winXp:20,bossXp:50,sneak:3,aiCombo:1};
+const TUNE={budget0:7,budgetSlope:.85,hpSlope:.03,dmgSlope:.15,rollStep:4,bossHp:.55,foeMomRound:1,foeMomRamp:0,eliteMul:[1,.45,.85],summonAt:8,actMul:[.85,1.1,.65],
+  healAfter:.05,bossEscort:.3,pbBonus:3,fallenHp:.25,momTurn:0,momStart:0,momVal:.9,actHeal:.6,maxLvl:12,winXp:30,bossXp:50,sneak:3,aiCombo:1};
 /* Experience needed to reach each level (index = level). Heroes earn it by doing their job in battle. */
 const XP_AT=[0,0,55,125,210,315,440,580,740,910,1100,1320,1560];
 /* How much each kind of deed is worth to each role: defenders shove foes around and soak blows, strikers
@@ -312,7 +312,7 @@ const GLOSS={
   crit:{name:'Critical Hit',forms:['critical hits','critical hit','on a crit','crits','crit'],text:'The top number on the first damage die (a 4 on a d4, an 8 on a d8). Roll one more die and add it, and one more again each time the top number comes up. Critical hits ignore armor and add any "on a crit" effects. Small dice crit more often.'},
   advantage:{name:'Advantage',forms:['double advantage','advantage'],text:'Roll the first damage die again and keep the best (twice with double advantage), so hits and crits come more often. It comes from flanking, high ground, dazed or rooted targets, being blessed or hidden, and some powers. Advantage and disadvantage cancel out one for one.'},
   disadvantage:{name:'Disadvantage',forms:['disadvantage'],text:'Roll the first damage die again and keep the worst. It comes from being weakened or marked by someone else, a target in cover, or shooting while a foe stands beside you.'},
-  momentum:{name:'Momentum',forms:['momentum'],text:'Every hero starts a battle with 2. They gain 1 for each basic attack and 1 for each combo they land or set up for an ally, and spend it on powers. Foes share a pool that grows each round and spend it on threats (shown in the top bar) and on their own special attacks.'},
+  momentum:{name:'Momentum',forms:['momentum'],text:'Every hero starts a battle with none. They gain 1 for each basic attack and 1 for each combo they land or set up for an ally, and spend it on powers. Foes share a pool that grows each round and spend it on threats (shown in the top bar) and on their own special attacks.'},
   initiative:{name:'Initiative',forms:['initiative'],text:'At the start of a battle everyone rolls d20 + Finesse. Turns go from highest to lowest, heroes and foes mixed together, and the order repeats every round.'},
   parting:{name:'Parting Blow',forms:['parting blows','parting blow'],text:'When a creature moves out of a square beside a foe, that foe may use its reaction to strike it for free. Nimble creatures never provoke. Staggered and dazed creatures can\'t make parting blows.'},
   reaction:{name:'Reaction',forms:['reaction'],text:'Each creature has one reaction per round, used for parting blows. It returns at the start of its turn. Staggered and dazed creatures can\'t use it.'},

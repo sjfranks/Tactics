@@ -40,7 +40,7 @@ const TUT_SCRIPT=[
   {say:'fighter',text:'Sela! Good timing. Let\'s show this brute how we fight.'},
   {say:'narrator',text:'Sela acts right after Brakka. Heroes can {g:set up} attacks for each other, but a set-up only lasts until the foe\'s own turn: so the order matters.'},
   {say:'narrator',text:'See the fire beside the brute? {g:Tide of Iron} shoves a foe back, and anything shoved into a {r:hazard} suffers it. Better still, a foe that is shoved or dragged is {g:staggered}: it will lose its next turn, and the next attack on it is a sure {g:critical hit}.',when:()=>tutInTargets('brute',0,0).length},
-  {do:'power',pi:1,text:'Tap {g:Tide of Iron}, one of Brakka\'s powers. It costs 1 {p:◆}.',when:()=>B.pi!==1},
+  {do:'power',pi:1,text:'Tap {g:Tide of Iron}, one of Brakka\'s powers. It costs 1 {p:◆}, earned by her Sword.',when:()=>B.pi!==1},
   {do:'target',pi:1,text:'Shove the brute into the fire!',tiles:()=>tutInTargets('brute',0,1)},
   {do:'confirm',text:'Tap the brute again to shove it.'},
   {say:'fighter',text:'Off balance, on fire, and {g:marked}: it can only come for me now. Sela, strike!',when:()=>G.tut.lastDone==='confirm'&&tutFoe('brute')&&tutFoe('brute').st.stag},
@@ -119,7 +119,7 @@ function tutJoin(){
   let spot=null;for(const [x,y] of [[3,6],[3,7],[2,7],[4,7],[1,7],[4,6],[1,6]])if(!spot&&freeTile(x,y,null))spot={x,y};
   if(!spot)return;
   const c=makePc(h,spot.x,spot.y,'hero');G.units.push(c);
-  c.init=99;c.mom=TUNE.momStart;
+  c.init=99;c.mom=1;
   const fi=G.order.indexOf('h_fighter');G.order.splice(fi+1,0,c.id);
   H.spawn(c);sfx('holy');log('Sela joins the fight!','g');
 }
