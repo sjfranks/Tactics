@@ -22,6 +22,9 @@ vm.runInContext(`Object.assign(TUNE,${process.env.TUNE||'{}'});`,ctx);
 vm.runInContext(`for(const [k,v] of Object.entries(${process.env.MONS||'{}'}))Object.assign(MON[k],v);`,ctx);
 // PRE='...' runs any code after the data loads, e.g. to try new power costs
 if(process.env.PRE)vm.runInContext(process.env.PRE,ctx);
+// USES=1 prints how often the autoplay heroes used each power
+if(process.env.USES){vm.runInContext(`globalThis.__USES={};const __up=usePower;usePower=async function(u,p,T){if(u.side==='hero')__USES[p.name]=(__USES[p.name]||0)+1;return __up(u,p,T);};`,ctx);
+  process.on('exit',()=>{const U=vm.runInContext('__USES',ctx);console.log('POWER USES',Object.entries(U).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+' '+v).join(', '));});}
 vm.runInContext(`
 CTX={mode:'sim',relics:[]};
 function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}

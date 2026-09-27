@@ -691,6 +691,8 @@ function powerStat(u,p){
   const b=(u.attrs[p.a]||0)+(u.side==='hero'&&hasR('whetstone')?1:0)+wBonus(u,p,'dmg');
   let a='';
   if(p.dmg&&!p.noDmg){a=`${diceText(powDice(p,u))}${b?'+'+b:''}${p.hits>1?'×'+p.hits:''}`;}
+  else if(p.save)a=p.save.eff==='stag'?'stagger?':'expose?';
+  else if(p.empower&&p.tgt==='ally')a='bless';
   else if(p.heal)a=`heal ${healAmt(u,p.heal)}`;
   else if(p.shield)a=`${p.shield}⛨`;
   else if(p.selfHeal)a=`heal ${p.selfHeal}`;
@@ -981,7 +983,12 @@ function drawForecast(u,x,y0,w,h){
     text(`HP ${tgt.hp}/${tgt.maxHp}`+(rows.length>1?`  +${rows.length-1} more`:''),x+19,y+9,C.mute);y+=19;}
   else{text(p.tgt==='self'||p.area!=null?'No one in the area.':'',x,y,C.mute);y+=10;}
   let body='';
-  if(r&&r.dmg){
+  if(r&&p.save){
+    const q=r.save||0,nm=ATTR[p.save.a],what=p.save.eff==='stag'?'{g:staggered}'+(tgt.boss?'':' (it loses its next turn)'):'{g:exposed} (every hit against it deals +3)';
+    body+=`${p.shove?'Pushed 1 square. ':''}${tgt.name} rolls a ${nm} save: {w:d20 + ${saveMod(tgt,p.save.a)}} against {w:${saveDC(u,p)}}. {g:${Math.round(q*100)}%} it fails and is ${what}.\n`;
+    if(p.save.eff==='stag'&&tgt.st.steady)body+='{m:It has only just recovered: it can\'t be staggered again yet.}\n';
+    if(rows.by&&rows.by.length)body+=`{g:COMBO!} ${rows.by.map(id=>U(id).name).join(' and ')} set this up: +1 {p:◆} each.\n`;
+  }else if(r&&r.dmg){
     const labels=['GRAZE','HIT','CRIT'];const bx0=wide?x+w-87:x,by=wide?y0:y;
     for(let i=0;i<3;i++){const bx=bx0+i*29;const best=r.probs[i]===Math.max(...r.probs);
       rect(bx,by,27,30,C.edge);rect(bx+1,by+1,25,28,i===2?'#3e2c0e':'#1e1712');rect(bx+1,by+1,25,1,i===2?'#8a6a2a':'#3a2e24');if(best)frame(bx,by,27,30,i===2?C.gold:C.rim2);
