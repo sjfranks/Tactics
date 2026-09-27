@@ -38,9 +38,10 @@ function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1
 const EFF_NAME={push:'push',pull:'pull',slow:'slowed',root:'rooted',stag:'staggered',daze:'dazed',weak:'weakened',bleed:'bleeding',burn:'burning',expose:'exposed',mark:'marked'};
 function effText(eff){
   if(!eff)return '';
-  const T=['graze','hit','crit'],out=[[],[],[]];
+  const T=['hit','hit','crit'],out=[[],[],[]];
   for(const k in eff){
-    const v=eff[k];const nz=v.findIndex(x=>x>0);if(nz<0)continue;
+    // a miss does nothing, so an effect listed for every result happens on a hit
+    const v=eff[k].slice();v[0]=0;const nz=v.findIndex(x=>x>0);if(nz<0)continue;
     let t=EFF_NAME[k];
     if(k==='push'||k==='pull'){t+=' '+v[nz];const ex=[];for(let i=nz+1;i<3;i++)if(v[i]!==v[i-1])ex.push(`${v[i]} on a ${T[i]}`);if(ex.length)t+=` (${ex.join(', ')})`;}
     else if(v.slice(nz).includes(0))t+=nz===0&&v[1]===0?' (only on a graze)':' (not on a crit)';
@@ -273,7 +274,7 @@ H.pop=(u,txt,cls)=>{popup(u,txt,cls);
   else if(cls==='gold'){burst(c.x,c.y-6,{n:10,speed:22,up:18,cols:ELEM.holy,life:700,size:1,drag:2,glow:true});}
 };
 H.result=(t,r)=>{
-  const lab=r.res===3?'CRIT!':r.res===2?'HIT':'GRAZE';
+  const lab=(r.res===3?'CRIT!':r.res===2?'HIT':'MISS')+(r.stag||!r.net?'':r.net>0?' ▲'+(r.net>1?r.net:''):' ▼'+(r.net<-1?-r.net:''));
   popup(t,lab,'res'+r.res);
   if(r.res===3){sfx('crit');shake(4,300);flashBoard('#fff0c0',110,.3);const c=uc(t);burst(c.x,c.y,{n:18,speed:70,cols:ELEM.holy,life:480,size:2,shrink:true,drag:3,glow:true});}
   else sfx(r.res===2?'hit':'graze');
@@ -287,7 +288,7 @@ H.turn=async u=>{
   const v=vis(u);v.last={x:u.x*TS,y:u.y*TS};
   B.pend=null;B.inspect=null;
   const c=uc(u);ring({x:c.x,y:c.y+TS*.25},u.side==='enemy'?'#ff8a6a':'#8ac0ff',TS*.6,420);
-  if(isPlayer(u)){B.pi=defaultPower(u);B.page=Math.floor(B.pi/(PORT?4:(u.powers.length>8?7:8)));B.vkey='';sfx('turn');B.toast={t0:NOW,dur:900,text:`${u.name}'s turn`,col:C.blue};}
+  if(isPlayer(u)){B.pi=defaultPower(u);B.page=pageOfPower(u,B.pi,PORT?4:5);B.vkey='';sfx('turn');B.toast={t0:NOW,dur:900,text:`${u.name}'s turn`,col:C.blue};}
   else{sfx('foeturn');B.toast={t0:NOW,dur:700,text:`${u.name}`,col:u.side==='enemy'?C.red:C.blue};await sleep(300);}
 };
 H.banner=async(kind,b,va)=>{
@@ -705,25 +706,45 @@ function powerStat(u,p){
   else{const rr=p.range+(p.range===1?wBonus(u,p,'reach'):wBonus(u,p,'range'));r=rr===1?'melee':p.range===1?`reach ${rr}`:`range ${rr}`;}
   return a?a+' · '+r:r;
 }
+/* The basic attack sits apart from the powers: a plain steel button on the left of the tray. */
+function basicIndex(u){return (u.powers||[]).findIndex(id=>POWERS[id]&&POWERS[id].basic);}
+function powerSlots(u){const bi=basicIndex(u);return u.powers.map((_,i)=>i).filter(i=>i!==bi);}
+function pageOfPower(u,i,per){const k=powerSlots(u).indexOf(i);return k<0?0:Math.floor(k/per);}
+function basicButton(u,i,x,y,w,h){
+  const p=powerOf(u,i);const ok=canAct(u,p);const on=i===B.pi;
+  rect(x,y,w,h,C.edge);rect(x+1,y+1,w-2,h-2,on?'#3c4656':ok?'#262c34':'#181b20');
+  rect(x+1,y+1,w-2,1,on?'#9aaac0':ok?'#56606e':'#262a30');rect(x+1,y+h-2,w-2,1,'#101216');
+  if(on){frame(x,y,w,h,C.gold);const a=.25+.2*Math.sin(NOW/200);ctx.globalAlpha=a;frame(x-1,y-1,w+2,h+2,C.gold);ctx.globalAlpha=1;}
+  const ic=powerIcon(p);const bon=(u.attrs[p.a]||0)+wBonus(u,p,'dmg')+(u.side==='hero'&&hasR('whetstone')?1:0);
+  const st=diceText(powDice(p,u))+(bon?'+'+bon:'');
+  const cap=on?'#e8ecf2':'#8a94a2',nc=on?C.gold:ok?C.parch:C.dim,sc=ok?'#aeb8c6':'#4a4038';
+  if(!ok)ctx.globalAlpha=.4;
+  if(h>=36){ctx.drawImage(ic,x+Math.floor(w/2)-8,y+Math.floor(h/2)-9);ctx.globalAlpha=1;
+    text('BASIC',x+w/2,y+3,cap,{al:'c'});text(fitText(p.name,w-4),x+w/2,y+h-16,nc,{al:'c'});text(fitText(st,w-4),x+w/2,y+h-8,sc,{al:'c'});}
+  else{ctx.drawImage(ic,x+3,y+Math.floor((h-16)/2));ctx.globalAlpha=1;
+    text('BASIC',x+22,y+2,cap);text(fitText(p.name,w-24),x+22,y+10,nc);text(fitText(st,w-24),x+22,y+h-9,sc);}
+}
 function drawTrayP(){
   const py=PL.trayY,ph=PL.trayH;
   rect(0,py,SW,ph,'#140e0b');rect(0,py,SW,1,C.edge);rect(0,py+1,SW,1,'#2e241c');
   const u=playerUnit();
   if(!u){const au=activeUnit();if(au&&live(au)){portrait(au,SW/2-11,py+Math.floor((ph-22)/2),22);}return;}
   if(u.kind==='npc'){rich('The captive can only move. Tap a blue square, then End Turn.',8,py+8,SW-16,C.parch);return;}
-  const n=u.powers.length,per=4,pages=Math.ceil(n/per);B.page=clamp(B.page,0,Math.max(0,pages-1));
-  const side=pages>1?11:0;
-  const gap=3,pw=Math.floor((SW-6-gap-side)/2),phh=Math.floor((ph-5-gap)/2);
+  const bi=basicIndex(u),idx=powerSlots(u);
+  const n=idx.length,per=4,pages=Math.max(1,Math.ceil(n/per));B.page=clamp(B.page,0,pages-1);
+  const side=pages>1?9:0,gap=3,bw=bi>=0?Math.floor(SW*.25):0,gx=3+(bw?bw+gap:0);
+  const pw=Math.floor((SW-gx-3-gap-side)/2),phh=Math.floor((ph-5-gap)/2);
   const SWIPE={drag:()=>{},dragStart:(x)=>{B.swipe=x;},drop:(x)=>{const d=x-(B.swipe||x);if(d<-12)B.page=Math.min(pages-1,B.page+1);else if(d>12)B.page=Math.max(0,B.page-1);}};
   hit(0,py,SW,ph,Object.assign({id:'tray'},SWIPE));
+  if(bi>=0){basicButton(u,bi,3,py+3,bw,ph-6);(B.cardR||(B.cardR={}))[bi]={x:3,y:py+3,w:bw,h:ph-6};hit(3,py+3,bw,ph-6,{fn:()=>cardTap(bi),id:'card'+bi});}
   for(let sl=0;sl<per;sl++){
-    const i=B.page*per+sl;const x=3+(sl%2)*(pw+gap),y=py+3+Math.floor(sl/2)*(phh+gap);
-    if(i>=n){rect(x,y,pw,phh,'#110c09');frame(x,y,pw,phh,'#1e1712');continue;}
+    const i=idx[B.page*per+sl];const x=gx+(sl%2)*(pw+gap),y=py+3+Math.floor(sl/2)*(phh+gap);
+    if(i==null){rect(x,y,pw,phh,'#110c09');frame(x,y,pw,phh,'#1e1712');continue;}
     powerPill(u,i,x,y,pw,phh);(B.cardR||(B.cardR={}))[i]={x,y,w:pw,h:phh};
     hit(x,y,pw,phh,Object.assign({fn:()=>cardTap(i),id:'card'+i},SWIPE));
   }
-  if(pages>1){const bx=SW-side-1;button(bx,py+3,side-1,ph-6,'',()=>{B.page=(B.page+1)%pages;sfx('select');},{});
-    text('▶',bx+side/2-1,py+ph/2-6,C.gold,{al:'c'});for(let i=0;i<pages;i++){rect(bx+3,py+ph/2+2+i*4,side-7,3,C.edge);rect(bx+4,py+ph/2+3+i*4,side-9,1,i===B.page?C.gold:C.dim);}}
+  if(pages>1){const bx=SW-side-2;button(bx,py+3,side,ph-6,'',()=>{B.page=(B.page+1)%pages;sfx('select');},{});
+    text('▶',bx+side/2,py+ph/2-6,C.gold,{al:'c'});for(let i=0;i<pages;i++){rect(bx+2,py+ph/2+2+i*4,side-4,3,C.edge);rect(bx+3,py+ph/2+3+i*4,side-6,1,i===B.page?C.gold:C.dim);}}
 }
 function powerPill(u,i,x,y,w,h){
   const p=powerOf(u,i);const ok=canAct(u,p);const on=i===B.pi;const afford=u.mom>=(p.cost||0);
@@ -734,11 +755,12 @@ function powerPill(u,i,x,y,w,h){
   if(on){frame(x,y,w,h,C.gold);const a=.25+.2*Math.sin(NOW/200);ctx.globalAlpha=a;frame(x-1,y-1,w+2,h+2,C.gold);ctx.globalAlpha=1;}
   const ic=powerIcon(p);const iy=y+Math.floor((h-16)/2);
   if(!ok)ctx.globalAlpha=.4;ctx.drawImage(ic,x+2,iy);ctx.globalAlpha=1;
-  const tx=x+20;const cw=p.cost?18:p.free?16:0;
-  text(fitText(p.name,w-22-cw),tx,y+3,on?C.gold:ok?C.parch:C.dim);
-  text(fitText(powerStat(u,p),w-22),tx,y+h-8,ok?(on?'#d8c8a0':C.mute):'#4a4038');
-  if(p.cost){gem(x+w-17,y+2,afford?'full':'empty');text(String(p.cost),x+w-9,y+3,afford?'#e0c8ff':C.red);}
-  else if(p.free)text('free',x+w-3,y+3,ok?C.green:C.dim,{al:'r'});
+  const tx=x+20,cw=p.cost?14:p.free?14:0;
+  text(fitText(p.name,w-22),tx,y+3,on?C.gold:ok?C.parch:C.dim);
+  let st=powerStat(u,p);if(textW(st)>w-22-cw)st=st.split(' · ')[0];
+  text(fitText(st,w-22-cw),tx,y+h-8,ok?(on?'#d8c8a0':C.mute):'#4a4038');
+  if(p.cost){gem(x+w-15,y+h-9,afford?'full':'empty');text(String(p.cost),x+w-7,y+h-8,afford?'#e0c8ff':C.red);}
+  else if(p.free)text('free',x+w-3,y+h-8,ok?C.green:C.dim,{al:'r'});
 }
 function drawTop(){
   rect(0,0,SW,12,C.panel);rect(0,11,SW,1,C.rim);rect(0,12,SW,1,C.edge);
@@ -992,9 +1014,9 @@ function drawForecast(u,x,y0,w,h){
     const q=r.save||0,nm=ATTR[p.save.a],what=p.save.eff==='stag'?'{g:staggered}'+(tgt.boss?'':' (it loses its next turn)'):'{g:exposed} (attacks against it have advantage and deal +3)';
     body+=`${p.shove?'Pushed 1 square. ':''}${tgt.name} rolls a ${nm} save: {w:d20 + ${saveMod(tgt,p.save.a)}} against {w:${saveDC(u,p)}}. {g:${Math.round(q*100)}%} it fails and is ${what}.\n`;
     if(p.save.eff==='stag'&&tgt.st.steady)body+='{m:It has only just recovered: it can\'t be staggered again yet.}\n';
-    if(rows.by&&rows.by.length)body+=`{g:COMBO!} ${rows.by.map(id=>U(id).name).join(' and ')} set this up: +1 {p:◆} each.\n`;
+    if(rows.by&&rows.by.length)body+=`{g:COMBO!} ${rows.by.map(id=>U(id).name).join(' and ')} set this up: +2 {p:◆} each.\n`;
   }else if(r&&r.dmg){
-    const labels=['GRAZE','HIT','CRIT'];const bx0=wide?x+w-87:x,by=wide?y0:y;
+    const labels=['MISS','HIT','CRIT'];const bx0=wide?x+w-87:x,by=wide?y0:y;
     for(let i=0;i<3;i++){const bx=bx0+i*29;const best=r.probs[i]===Math.max(...r.probs);
       rect(bx,by,27,30,C.edge);rect(bx+1,by+1,25,28,i===2?'#3e2c0e':'#1e1712');rect(bx+1,by+1,25,1,i===2?'#8a6a2a':'#3a2e24');if(best)frame(bx,by,27,30,i===2?C.gold:C.rim2);
       text(labels[i],bx+14,by+3,i===2?C.gold:i===1?C.parch:C.mute,{al:'c'});
@@ -1003,7 +1025,7 @@ function drawForecast(u,x,y0,w,h){
     if(!wide)y+=33;
     const kp=killP(r);
     const at=u.attrs[p.a]||0,dd=r.dice;
-    body+=r.ctrl?`Roll {w:1d${dd.s}}: 1 is a graze, ${dd.s} a critical hit.`:`Roll {w:${diceText(dd)}}{m: + ${ATTR[p.a]} ${at}}. Top number on the first die: {g:critical}, roll one more.`;
+    body+=r.ctrl?`Roll {w:1d${dd.s}}: 1 misses, ${dd.s} is a critical hit.`:`Roll {w:${diceText(dd)}}{m: + ${ATTR[p.a]} ${at}}. First die: {r:1 misses}, top number is a {g:critical}: roll one more.`;
     body+=`${r.net?` {${r.net>0?'h':'r'}:${Math.abs(r.net)>1?'Double ':''}${r.net>0?'advantage':'disadvantage'}: roll it ${Math.abs(r.net)+1} times, keep the ${r.net>0?'best':'worst'}.}`:''}${kp>0?`  {r:☠ ${Math.round(kp*100)}% kill}`:''}\n`;
     if(r.pro.length)body+=r.pro.map(s=>`{h:+ ${s}}`).join('  ')+'  ';
     if(r.con.length)body+=r.con.map(s=>`{r:− ${s}}`).join('  ');
@@ -1011,7 +1033,7 @@ function drawForecast(u,x,y0,w,h){
     if(r.stag)body+=tgt.boss?'{g:Staggered: double advantage.}\n':'{g:Staggered: a sure critical hit!} {m:But it snaps out of it and keeps its turn.}\n';
     const bits=[];if(r.expose)bits.push('{g:exposed +3}');if(r.sneak)bits.push(`{g:sneak attack +${sneakBonus(u)}}`);if(rows.combo)bits.push(`{g:combo +${comboBonus(rows.combo)}}`);
     if(bits.length)body+='Damage includes '+bits.join(', ')+'.\n';
-    if(rows.by&&rows.by.length)body+=`{g:COMBO!} ${rows.by.map(id=>U(id).name).join(' and ')} set this up: +1 {p:◆} each.\n`;
+    if(rows.by&&rows.by.length)body+=`{g:COMBO!} ${rows.by.map(id=>U(id).name).join(' and ')} set this up: +2 {p:◆} each.\n`;
     if(tgt.armor)body+=`{m:Armored ${tgt.armor}: blows short of a critical hit lose ${tgt.armor}.}\n`;
     if(p.eff&&(tv(p.eff.push,2)||tv(p.eff.pull,2)||tv(p.eff.stag,3))&&!tgt.boss&&!tgt.st.steady&&!r.stag)body+='{g:If it is staggered, it loses its next turn.}\n';
     const fp=forcedPreview(u,p,tgt,P.O);if(fp)body+=fp+'\n';
@@ -1065,15 +1087,13 @@ function drawHotbar(){
   const u=playerUnit();const au=activeUnit();
   if(!u){const t=au&&live(au)?`${au.name} is acting…`:'';text(t,SW/2,py+ph/2-3,C.mute,{al:'c'});return;}
   if(u.kind==='npc'){rich('The captive can only move. Tap a blue square, then End Turn.',8,py+8,SW-16,C.parch);return;}
-  const pcw=Math.floor((SW-8)/4);
-  const cols=PORT?4:8,rowsN=1,cw=PORT?pcw-2:38,chh=PORT?29:28,x0=PORT?4:4,y0=PORT?py+3:149,sx=PORT?pcw:39,sy=31;
-  const slots=cols*rowsN;
-  const n=u.powers.length;const per=PORT?4:(n>slots?slots-1:slots);const pages=Math.ceil(n/per);B.page=Math.min(B.page,pages-1);
-  const start=B.page*per;
-  const SWIPE=PORT?{drag:()=>{},dragStart:(x)=>{B.swipe=x;},drop:(x)=>{const d=x-(B.swipe||x);if(d<-12)B.page=Math.min(pages-1,B.page+1);else if(d>12)B.page=Math.max(0,B.page-1);}}:{};
-  if(PORT)hit(0,py,SW,ph,Object.assign({id:'tray'},SWIPE));
-  for(let i=start;i<Math.min(n,start+per);i++){
-    const p=powerOf(u,i);const slot=i-start;const x=x0+(slot%cols)*sx,y=y0+Math.floor(slot/cols)*sy;
+  if(PORT){drawTrayP();return;}
+  const cw=38,chh=28,x0=4,y0=149,sx=39;
+  const bi=basicIndex(u),idx=powerSlots(u);const bw=bi>=0?cw*2+1:0,gx=x0+(bw?bw+2:0);
+  const slots=Math.floor((SW-4-gx)/sx);const n=idx.length;const per=n>slots?slots-1:slots;const pages=Math.max(1,Math.ceil(n/per));B.page=clamp(B.page,0,pages-1);
+  if(bi>=0){basicButton(u,bi,x0,y0,bw,chh);(B.cardR||(B.cardR={}))[bi]={x:x0,y:y0,w:bw,h:chh};hit(x0,y0,bw,chh,{fn:()=>cardTap(bi),id:'card'+bi});}
+  for(let k=B.page*per;k<Math.min(n,B.page*per+per);k++){
+    const i=idx[k];const p=powerOf(u,i);const x=gx+(k-B.page*per)*sx,y=y0;
     const ok=canAct(u,p);const on=i===B.pi;
     rect(x,y,cw,chh,C.edge);rect(x+1,y+1,cw-2,chh-2,on?'#4a3818':ok?'#2e241c':'#1e1814');rect(x+1,y+1,cw-2,1,on?'#a07828':ok?'#5a4632':'#2a221c');
     if(on){frame(x,y,cw,chh,C.gold);}
@@ -1081,12 +1101,9 @@ function drawHotbar(){
     if(p.cost){gem(x+cw-15,y+2,u.mom>=p.cost?'full':'empty');text(String(p.cost),x+cw-7,y+3,u.mom>=p.cost?'#e0c8ff':C.red);}
     else if(p.free)text('free',x+cw-2,y+3,ok?C.green:C.dim,{al:'r'});
     text(fitText(p.name,cw-4),x+cw/2,y+chh-8,on?C.gold:ok?C.parch:C.dim,{al:'c',sh:C.edge});
-    (B.cardR||(B.cardR={}))[i]={x,y,w:cw,h:chh};hit(x,y,cw,chh,Object.assign({fn:()=>cardTap(i),id:'card'+i},SWIPE));
+    (B.cardR||(B.cardR={}))[i]={x,y,w:cw,h:chh};hit(x,y,cw,chh,{fn:()=>cardTap(i),id:'card'+i});
   }
-  if(PORT){
-    if(pages>1&&!PL.compact){for(let i=0;i<pages;i++){const dx=SW/2-(pages*6)/2+i*6;rect(dx,y0+chh+3,4,4,C.edge);rect(dx+1,y0+chh+4,2,2,i===B.page?C.gold:C.dim);hit(dx-1,y0+chh+1,6,8,{fn:()=>{B.page=i;},id:'dot'+i});}}
-    return;}
-  if(pages>1){const sl=slots-1;button(x0+(sl%cols)*sx,y0+Math.floor(sl/cols)*sy,cw,chh,`${B.page+1}/${pages} ▶`,()=>{B.page=(B.page+1)%pages;},{});}
+  if(pages>1){const x=gx+per*sx;button(x,y0,cw,chh,`${B.page+1}/${pages} ▶`,()=>{B.page=(B.page+1)%pages;},{});}
 }
 function cardTap(i){
   const u=playerUnit();if(!u||B.busy)return;

@@ -39,9 +39,9 @@ function hullFaces(V){
   return faces;
 }
 /* One shape per die size: geometry with a material group and texture coordinates per face, and a physics hull. */
-function dieShape(s){
-  if(DICE3D.shapes[s])return DICE3D.shapes[s];
-  const sc={4:.62,6:.46,8:.62,10:.6,12:.38}[s];
+function dieShape(s,k){
+  k=k||1;const key=s+'@'+k;if(DICE3D.shapes[key])return DICE3D.shapes[key];
+  const sc={4:.62,6:.46,8:.62,10:.6,12:.38}[s]*k;
   const V=dieVerts(s).map(p=>p.map(x=>x*sc));const F=hullFaces(V);
   const pos=[],uv=[],g=new THREE.BufferGeometry();let at=0;
   F.forEach((f,fi)=>{
@@ -55,7 +55,7 @@ function dieShape(s){
   });
   g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.computeVertexNormals();
   const hull=new CANNON.ConvexPolyhedron(V.map(p=>new CANNON.Vec3(...p)),F.map(f=>f.v.slice()));
-  return DICE3D.shapes[s]={s,V,F,g,hull};
+  return DICE3D.shapes[key]={s,V,F,g,hull};
 }
 /* A face's picture: its number (or, on a d4, the numbers of its three corners, each read from that corner). */
 function faceTex(S,fi,labels,col,ink){
@@ -110,9 +110,9 @@ function dice3dFit(){
   const cam=DICE3D.cam;cam.aspect=w/h;const dist=DICE3D.D/2/Math.tan(cam.fov*Math.PI/360)+1;
   cam.position.set(0,dist*.97,dist*.24);cam.lookAt(0,0,0);cam.updateProjectionMatrix();
 }
-function makeDie(s,col,ink,labels){
-  const S=dieShape(s);
-  const mats=S.F.map(()=>new THREE.MeshStandardMaterial({color:0xffffff,roughness:.45,metalness:.05,transparent:true}));
+function makeDie(s,col,ink,labels,o){
+  o=o||{};const S=dieShape(s,o.k);
+  const mats=S.F.map(()=>new THREE.MeshStandardMaterial({color:0xffffff,roughness:.45,metalness:.05,transparent:true,emissive:o.glow||0x000000,emissiveIntensity:o.glow?.3:0}));
   const mesh=new THREE.Mesh(S.g,mats);mesh.castShadow=true;
   const obj={S,mesh,mats,col,ink};setLabels(obj,labels);return obj;
 }
@@ -164,37 +164,55 @@ function playback(all,play,n){
 }
 function clearDice(){for(const o of DICE3D.objs){DICE3D.scene.remove(o.mesh);o.mats.forEach(m=>{if(m.map)m.map.dispose();m.dispose();});}DICE3D.objs=[];}
 
-/* Throw the dice of one attack roll: the first die (and any advantage re-rolls), the other dice, then each
-   extra die a critical hit rolls, in turn. The dropped re-rolls fade. A label on the board names the roll and its total. */
+/* Throw the dice of one attack roll. The primary die, the one that decides a miss, a hit or a critical hit, is
+   thrown larger and in ivory; the other dice only add damage. With advantage the primary is thrown more than once
+   and glows green (keep the best), with disadvantage it glows red (keep the worst); the dropped ones fade, and a
+   banner on the board says which it is. Then each extra die a critical hit rolls, in turn. */
+const PRIME_COL={0:'#efe4c6',1:'#9fe08a',[-1]:'#f2927c'},PRIME_INK='#2a1406',ADV_GLOW=0x1f8030,DIS_GLOW=0x901818,BOOM_GLOW=0xc06008;
 async function throwDice(u,t,r){
   const s=r.d.s,col=DIE_COL[u.cls]||'#806040',ink=DIE_INK[u.cls]||'#fff';
   clearDice();dice3dFit();
   const cvS=DICE3D.cv.style;cvS.display='block';cvS.opacity='1';DICE3D.busy=true;
-  const keep=r.stag?-1:r.tries.indexOf(r.prim);
+  const keep=r.stag?-1:r.tries.indexOf(r.prim),k=Math.abs(r.net),multi=!r.stag&&r.tries.length>1;
+  const glow=multi?(r.net>0?ADV_GLOW:DIS_GLOW):0;
   const first=[];
-  r.tries.forEach((v,i)=>first.push({v,dim:i!==keep}));
-  if(r.stag)first.push({v:r.prim});
+  r.tries.forEach((v,i)=>first.push({v,dim:i!==keep,prime:true,glow,kept:i===keep}));
+  if(r.stag)first.push({v:r.prim,prime:true,kept:true});
   for(const v of r.rest)first.push({v});
-  const label={text:diceText(r.d),res:null,crit:false,done:0};
+  const label={text:diceText(r.d),res:null,crit:false,done:0,mark:null,miss:false,
+    sub:multi?(r.net>0?`ADVANTAGE${k>1?' ×'+k:''}: best of ${r.tries.length}`:`DISADVANTAGE${k>1?' ×'+k:''}: worst of ${r.tries.length}`):r.stag?'STAGGERED: sure critical hit':null,
+    subCol:multi?(r.net>0?'#7cf08a':'#ff7a6a'):'#ffe070'};
   fx({dur:60000,draw(){
     if(!DICE3D.busy&&!label.done)label.done=NOW;const a=label.done?Math.max(0,1-(NOW-label.done)/400):1;if(a<=0){this.dur=0;return;}
     ctx.globalAlpha=a;const txt=label.res||label.text;const w=textW(txt)+10;const x=BX+COLS*TS/2-w/2,y=BY+3;
-    rect(x,y,w,11,'rgba(14,9,6,.85)');frame(x,y,w,11,label.crit?'#f0c050':C.rim);text(txt,x+w/2,y+3,label.crit?'#ffe070':C.parch,{al:'c'});ctx.globalAlpha=1;}});
+    rect(x,y,w,11,'rgba(14,9,6,.85)');frame(x,y,w,11,label.crit?'#f0c050':label.miss?'#c04030':C.rim);text(txt,x+w/2,y+3,label.crit?'#ffe070':label.miss?'#ff8a70':C.parch,{al:'c'});
+    if(label.sub){const sw=textW(label.sub)+10,sx=BX+COLS*TS/2-sw/2,sy=y+13;const pulse=.75+.25*Math.sin(NOW/140);
+      rect(sx,sy,sw,11,'rgba(14,9,6,.85)');ctx.globalAlpha=a*pulse;frame(sx,sy,sw,11,label.subCol);ctx.globalAlpha=a;text(label.sub,sx+sw/2,sy+3,label.subCol,{al:'c'});}
+    if(label.mark){const m=label.mark,c=label.miss?'#ff6a50':label.crit?'#ffe070':'#fff4c0',bob=Math.round(Math.sin(NOW/160)*1.5);
+      const tx=label.miss?'MISS':label.crit?'CRIT':'COUNTS';const tw=textW(tx)+6,ty=m.y-TS*.62+bob;
+      rect(m.x-tw/2,ty-9,tw,9,'rgba(14,9,6,.85)');frame(m.x-tw/2,ty-9,tw,9,c);text(tx,m.x,ty-7,c,{al:'c'});
+      for(let i=0;i<3;i++)rect(m.x-2+i,ty+i,5-2*i,1,c);}
+    ctx.globalAlpha=1;}});
   const throwSet=async list=>{
-    const objs=list.map(()=>makeDie(s,col,ink,defaultLabels(s)));
+    const objs=list.map(q=>q.prime?makeDie(s,PRIME_COL[q.glow?Math.sign(r.net):0],PRIME_INK,defaultLabels(s),{k:1.3,glow:q.glow}):makeDie(s,col,ink,defaultLabels(s),{glow:q.glow}));
     objs.forEach(o=>DICE3D.scene.add(o.mesh));
     const n=simulate(objs,DICE3D.objs);
     objs.forEach((o,i)=>forceTop(o,list[i].v));
     DICE3D.objs.push(...objs);sfx('dice');
     await playback(DICE3D.objs,objs,n);
-    objs.forEach((o,i)=>{if(list[i].dim)o.mats.forEach(m=>{m.opacity=.35;});});
+    objs.forEach((o,i)=>{if(list[i].dim)o.mats.forEach(m=>{m.opacity=.3;m.emissiveIntensity=0;});});
     DICE3D.r.render(DICE3D.scene,DICE3D.cam);
+    return objs;
   };
-  await throwSet(first);
+  const objs=await throwSet(first);
+  // point at the die that counts
+  const ki=first.findIndex(q=>q.kept);
+  if(ki>=0){const p=objs[ki].last.p,v=new THREE.Vector3(p.x,p.y,p.z).project(DICE3D.cam);label.mark={x:BX+(v.x+1)/2*COLS*TS,y:BY+(1-v.y)/2*ROWS*TS};}
+  if(r.res===1){label.miss=true;sfx('graze');}
   if(r.res===3){label.crit=true;label.text=(r.stag?'STAGGERED: ':'')+'CRIT! Roll one more…';sfx('crit');
-    for(const v of r.boom){await sleep(160);await throwSet([{v}]);sfx('gem');}}
-  label.res=`${diceText(r.d)} = ${r.total}`+(r.res===3?' CRIT!':r.res===1?' graze':'');
-  await sleep(420);
+    for(const v of r.boom){await sleep(160);await throwSet([{v,glow:BOOM_GLOW}]);sfx('gem');}}
+  label.res=r.res===1?'MISS: a 1 on the first die':`${diceText(r.d)} = ${r.total}`+(r.res===3?' CRIT!':'');
+  await sleep(multi||r.res!==2?620:420);
   // the dice fade away while the blow lands
   cvS.opacity='0';DICE3D.busy=false;
   setTimeout(()=>{if(!DICE3D.busy){cvS.display='none';clearDice();}},450);

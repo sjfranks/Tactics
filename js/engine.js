@@ -32,7 +32,25 @@ const _rp={};
 function resProbs(mod){if(_rp[mod])return _rp[mod];const p=[0,0,0];for(let s=3;s<=18;s++)p[resOf(s,mod)-1]+=D3[s]/216;return _rp[mod]=p;}
 function roll3(mod){const d=[1+rnd(6),1+rnd(6),1+rnd(6)];const nat=d[0]+d[1]+d[2];return {d,nat,mod,total:nat+mod,res:resOf(nat,mod)};}
 function rollText(r){return `3d6 (${r.d.join('+')})${r.mod>=0?'+':''}${r.mod} = ${r.total}: ${RESULT[r.res-1]}`;}
-/* "1d4: [4], one more 4 3 = 11: Critical hit" */
+/* The roll, spelled out: "1d8 (adv ×2: 3/7 → 7) + 3 Might = 10: Hit + 3 sneak = 13 − 2 armour = 11".
+   X comes from pcDmgX/monDmgX: its head steps (the attribute) come before the result, the rest after any extra dice. */
+function dieFaces(r){
+  const k=Math.abs(r.net);
+  const p=r.stag?`${r.prim} staggered`:r.tries.length>1?`${r.net>0?'adv':'dis'}${k>1?' ×'+k:''}: ${r.tries.join('/')} → ${r.prim}`:String(r.prim);
+  return p+(r.rest.length?', '+r.rest.join(', '):'');
+}
+function dmgLog(r,X){
+  if(!r)return X&&X.d?`${X.d} damage`:'';
+  const d=r.d;let run=r.prim+r.rest.reduce((a,b)=>a+b,0)+d.b;
+  let s=`${d.n}d${d.s}${d.b?'+'+d.b:''} (${dieFaces(r)})`;
+  if(r.res===1)return s+': Miss';
+  const S=(X&&X.S)||[];const step=(v,l)=>{run+=v;return ` ${v<0?'−':'+'} ${Math.abs(v)}${l?' '+l:''}`;};
+  for(const [l,v,h] of S)if(h)s+=step(v,l);
+  s+=` = ${run}: ${RESULT[r.res-1]}`;
+  for(const b of r.boom){run+=b;s+=` + 1d${d.s} (${b}) = ${run}`;}
+  for(const [l,v,h] of S){if(h)continue;if(l.endsWith('×2')){run*=2;s+=` ×2 ${l.replace(' ×2','')} = ${run}`;}else s+=step(v,l)+` = ${run}`;}
+  return s;
+}
 function diceLog(r){const kept=r.stag?`[${r.prim}]`:r.tries.length>1?`[${r.tries.join('/')}→${r.prim}]`:`[${r.prim}]`;return `${diceText(r.d)}: ${kept}${r.rest.length?' '+r.rest.join(' '):''}${r.boom.length?', one more '+r.boom.join(' '):''} = ${r.total}: ${RESULT[r.res-1]}${r.stag?' (staggered)':''}`;}
 
 /* ---------------- STATE HELPERS ---------------- */
@@ -421,29 +439,39 @@ const EXPOSE_DMG=3;
 function comboBonus(n){return Math.min(3,n||0);}
 /* Damage of a hero-kit power. o.sneak and o.combo override what the current state says (used while a strike
    is resolving, after the set-up it used is gone). */
-function pcDmg(a,p,t,res,o){
-  o=o||{};
-  if(p.noDmg||!p.dmg)return 0;
-  let d=Math.round(o.dice!=null?o.dice:tierDice(atkDice(a,p),res))+(a.attrs[p.a]||0)+wBonus(a,p,'dmg')+wBonus(a,p,'acc');
-  if(a.side==='hero'&&hasR('whetstone'))d+=1;
-  d+=a.side==='hero'?(G.pcDmgAdd||0):(G.foeDmgAdd||0);
-  if(o.sneak!=null?o.sneak:sneakOn(a,t))d+=sneakBonus(a);
-  if(t.st.expose&&t.exposeBy!==a.id)d+=EXPOSE_DMG;
-  if(a.side==='hero')d+=comboBonus(o.combo!=null?o.combo:G.combo);
-  if((p.radiant||wBonus(a,p,'radiant'))&&t.undead)d*=2;
-  if(p.execute&&t.hp<=t.maxHp/2)d*=2;
-  if(t.armor&&res<3&&!p.pierceArmor)d=Math.max(1,d-t.armor);
-  return Math.max(0,d);
+function pcDmgX(a,p,t,res,o){
+  o=o||{};const S=[];
+  if(p.noDmg||!p.dmg)return {d:0,S};
+  if(res===1)return {d:0,S,miss:true};
+  let d=Math.round(o.dice!=null?o.dice:tierDice(atkDice(a,p),res));
+  const add=(v,l,h)=>{if(v){d+=v;S.push([l,v,h]);}};
+  add(a.attrs[p.a]||0,ATTR[p.a],true);
+  add(wBonus(a,p,'dmg')+wBonus(a,p,'acc'),'weapon');
+  if(a.side==='hero'&&hasR('whetstone'))add(1,'whetstone');
+  add(a.side==='hero'?(G.pcDmgAdd||0):(G.foeDmgAdd||0),'skirmish');
+  if(o.sneak!=null?o.sneak:sneakOn(a,t))add(sneakBonus(a),'sneak');
+  if(t.st.expose&&t.exposeBy!==a.id)add(EXPOSE_DMG,'exposed');
+  if(a.side==='hero')add(comboBonus(o.combo!=null?o.combo:G.combo),'combo');
+  if((p.radiant||wBonus(a,p,'radiant'))&&t.undead){S.push(['radiant ×2',d]);d*=2;}
+  if(p.execute&&t.hp<=t.maxHp/2){S.push(['execute ×2',d]);d*=2;}
+  if(t.armor&&res<3&&!p.pierceArmor){const b=d;d=Math.max(1,d-t.armor);if(d!==b)S.push(['armour',d-b]);}
+  return {d:Math.max(0,d),S};
 }
+function pcDmg(a,p,t,res,o){return pcDmgX(a,p,t,res,o).d;}
 /* How many of a tiny swarm's critters are still standing (1-4). */
 function alive4(u){return u.tiny?Math.max(1,Math.ceil(u.tiny*u.hp/u.maxHp)):1;}
-function monDmg(a,A,t,res,dice){
-  const ex=t.st&&t.st.expose?EXPOSE_DMG:0;
-  if(A.flat!=null)return Math.max(1,(A.per?A.flat*alive4(a):A.flat)+Math.floor(G.dmgAdd/2))+ex;
-  let d=Math.max(1,Math.round(dice!=null?dice:tierDice(atkDice(a,A),res))+G.dmgAdd);
-  if(mon(a).savage&&t.hp<=t.maxHp/2)d+=2;
-  return d+ex;
+function monDmgX(a,A,t,res,dice){
+  const S=[],ex=t.st&&t.st.expose&&t.exposeBy!==a.id?EXPOSE_DMG:0;
+  if(A.flat!=null)return {d:Math.max(1,(A.per?A.flat*alive4(a):A.flat)+Math.floor(G.dmgAdd/2))+ex,S};
+  if(res===1)return {d:0,S,miss:true};
+  let d=Math.round(dice!=null?dice:tierDice(atkDice(a,A),res));
+  const add=(v,l,h)=>{if(v){d+=v;S.push([l,v,h]);}};
+  add(G.dmgAdd,'strength',true);if(d<1){S.push(['',1-d]);d=1;}
+  if(mon(a).savage&&t.hp<=t.maxHp/2)add(2,'savage');
+  add(ex,'exposed');
+  return {d,S};
 }
+function monDmg(a,A,t,res,dice){return monDmgX(a,A,t,res,dice).d;}
 
 /* ---------------- POWERS (heroes and rival heroes) ---------------- */
 function powerOf(u,i){return POWERS[u.powers[i]];}
@@ -591,16 +619,16 @@ async function pcStrike(u,p,t,C,fl){
     if(nb.pro.includes('Dual wield'))u.dualR=G.round;
     if(st){delete t.st.stag;t.stagBy=null;H.pop(t,'Off balance!','call');}
     await H.dice(u,t,r);
-    let d=p.dmg?pcDmg(u,p,t,r.res,{sneak:sn,dice:r.total}):0;
+    const X=pcDmgX(u,p,t,r.res,{sneak:sn,dice:r.total});let d=X.d;const miss=r.res===1;
     if(sn&&d>0)fl.sneak=true;
     H.result(t,r);
     NOTE=[];
     if(u.hidden&&h===0){u.hidden=false;}
-    if(d>0&&fl.react&&u.side==='hero'&&hasR('lens'))d+=3;
+    if(d>0&&fl.react&&u.side==='hero'&&hasR('lens')){d+=3;X.S.push(['lens',3]);}
     if(d>0)d=guardHit(u,t,d);
     if(d>0)await damage(u,t,d,{crit:r.res===3,radiant:p.radiant,area:p.area!=null});
-    fl.hitIds.add(t.id);
-    if(live(t)){
+    if(!miss)fl.hitIds.add(t.id);
+    if(live(t)&&!miss){
       if(p.mark){applyMark(t,u);note('Marked.');}
       applyEff(u,t,p.eff,r.res);
       if(p.feint&&live(t)&&!t.object&&r.res>=2&&t.side!==u.side){const S=rollSave(u,t,p,p.feint.a);
@@ -620,7 +648,7 @@ async function pcStrike(u,p,t,C,fl){
     }
     const ex=NOTE||[];NOTE=null;
     const why=(nb.pro.length?' +'+nb.pro.join(', +'):'')+(nb.con.length?' -'+nb.con.join(', -'):'');
-    log(`${u.name}: ${p.name} → ${t.name}. ${diceLog(r)}${why?' ('+why.trim()+')':''}. ${ex.join(' ')}`,sideCol(u));
+    log(`${u.name}: ${p.name} → ${t.name}. ${dmgLog(r,X)}${why?' ('+why.trim()+')':''}. ${ex.join(' ')}`,sideCol(u));
   }
 }
 async function support(u,a,p,fl){
@@ -684,16 +712,16 @@ function blessNear(u,r,fl){
   const fo=fighters(u);const score=a=>Math.min(9,...fo.map(f=>man(f,a)));c.sort((a,b)=>score(a)-score(b));const a=c[0];
   blessUnit(a,u);log(`${a.name} is blessed.`,sideCol(u));xp(u,4,'support');fl.healedOther=true;
 }
-/* A combo: +1 momentum for the hero who cashed in the set-up and for each hero who made it, and every hero hit
+/* A combo: +2 momentum for the hero who cashed in the set-up and for each hero who made it, and every hero hit
    for the rest of the round deals +1 damage per combo so far (up to +3). One per action. */
 function comboHit(u,by,fl){
   if(fl.combo)return;fl.combo=true;
   G.combo=(G.combo||0)+1;G.combos=(G.combos||0)+1;
-  addMom(u,1);xp(u,1,'combo');
+  addMom(u,2);xp(u,1,'combo');
   const names=[];
-  for(const id of by){const s=U(id);if(!s||s===u)continue;if(live(s))addMom(s,1);xp(s,1,'setup');names.push(s.name);}
+  for(const id of by){const s=U(id);if(!s||s===u)continue;if(live(s))addMom(s,2);xp(s,1,'setup');names.push(s.name);}
   H.combo(u,G.combo,by);
-  log(`Combo ×${G.combo}! ${names.join(' and ')} set it up for ${u.name}: +1 momentum each. Hero hits deal +${comboBonus(G.combo)} damage for the rest of the round.`,'g');
+  log(`Combo ×${G.combo}! ${names.join(' and ')} set it up for ${u.name}: +2 momentum each. Hero hits deal +${comboBonus(G.combo)} damage for the rest of the round.`,'g');
 }
 /* Saving throws: the foe rolls d20 + an attribute (plus the journey's depth) and must reach 10 + the hero's
    attribute + a third of their level, or suffer the effect. */
@@ -1001,8 +1029,9 @@ async function monAttack(e,A,t,isTile){
     if(v.side==='hero'&&hasR('ward')){v.warded=v.warded||{};v.warded[e.id]=1;}
     if(r)H.result(v,r);
     NOTE=[];
-    await damage(e,v,guardHit(e,v,monDmg(e,A,v,res,r?r.total:null)),{crit:res===3,area:!!A.area});
-    if(live(v)){
+    const X=monDmgX(e,A,v,res,r?r.total:null);
+    if(X.d>0)await damage(e,v,guardHit(e,v,X.d),{crit:res===3,area:!!A.area});
+    if(live(v)&&res>1){
       applyEff(e,v,A.eff,res);
       const push=tv(A.eff&&A.eff.push,res),pull=tv(A.eff&&A.eff.pull,res);
       if(push)await forceMove(v,e,push,false,e,null);
@@ -1010,7 +1039,7 @@ async function monAttack(e,A,t,isTile){
     }
     const ex=NOTE||[];NOTE=null;
     const why=(nb.pro.length?' +'+nb.pro.join(', +'):'')+(nb.con.length?' -'+nb.con.join(', -'):'');
-    log(`${e.name}: ${A.name} → ${v.name}. ${r?diceLog(r):'Swarm hit'}${why&&r?' ('+why.trim()+')':''}. ${ex.join(' ')}`,'e');
+    log(`${e.name}: ${A.name} → ${v.name}. ${r?dmgLog(r,X):'Swarm hit'}${why&&r?' ('+why.trim()+')':''}. ${ex.join(' ')}`,'e');
   }
   if(A.hazard){
     if(A.area){for(let y=t.y-A.area;y<=t.y+A.area;y++)for(let x=t.x-A.area;x<=t.x+A.area;x++)if(inB(x,y))setHaz(x,y,A.hazard,3,e.side);}
@@ -1346,7 +1375,7 @@ function expLevel(f){return 1+.75*f;}
 function partyStrength(f){return 4*(TUNE.es0+TUNE.esLvl*expLevel(f));}
 function encBudget(f,type,act,elite){
   const tier=type==='boss'?'extreme':elite?'severe':'moderate';
-  return partyStrength(f)*TUNE.esUnit*THREAT[tier]*((TUNE.actMul||[1,1,1])[act]||1)*(type==='boss'?1:MISSION_SHARE[type]||1);
+  return partyStrength(f)*TUNE.esUnit*THREAT[tier]*((TUNE.actMul||[1,1,1])[act]||1)*(type==='boss'?1:MISSION_SHARE[type]||1)*(elite?((TUNE.eliteBudget||[])[act]||1):1);
 }
 const THEMES=[
   {obs:['rock','tree','tree'],cov:['crate','lowwall'],haz:['fire'],hazN:[0,2],water:true},
