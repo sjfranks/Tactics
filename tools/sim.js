@@ -22,6 +22,8 @@ vm.runInContext(`Object.assign(TUNE,${process.env.TUNE||'{}'});`,ctx);
 vm.runInContext(`for(const [k,v] of Object.entries(${process.env.MONS||'{}'}))Object.assign(MON[k],v);`,ctx);
 // PRE='...' runs any code after the data loads, e.g. to try new power costs
 if(process.env.PRE)vm.runInContext(process.env.PRE,ctx);
+// INSTR=file.js loads instrumentation code into the sandbox; __I is printed at the end
+if(process.env.INSTR){vm.runInContext(fs.readFileSync(process.env.INSTR,'utf8'),ctx);process.on('exit',()=>console.log('INSTR',JSON.stringify(vm.runInContext('globalThis.__I',ctx))));}
 // USES=1 prints how often the autoplay heroes used each power
 if(process.env.USES){vm.runInContext(`globalThis.__USES={};const __up=usePower;usePower=async function(u,p,T){if(u.side==='hero')__USES[p.name]=(__USES[p.name]||0)+1;return __up(u,p,T);};`,ctx);
   process.on('exit',()=>{const U=vm.runInContext('__USES',ctx);console.log('POWER USES',Object.entries(U).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+' '+v).join(', '));});}

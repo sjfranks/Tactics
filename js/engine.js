@@ -93,7 +93,11 @@ function effSpeed(u){
   if(u.st.root)m=0;
   return m;
 }
-function canReact(f){return live(f)&&!f.object&&!f.caged&&f.kind!=='npc'&&f.react&&!f.st.daze&&!f.st.stag;}
+/* Reactions. Foes get one parting blow a round. Heroes react with the actions they saved at the end of their turn:
+   each saved action pays for one reaction, and each kind of reaction works once between their turns (Nimble 2e). */
+function reactReady(u,k){return u.kind==='pc'&&live(u)&&(u.saved||0)>0&&!u.st.daze&&!u.st.stag&&!u.caged&&!(u.used&&u.used[k])&&G.cur!==u.id;}
+function spendReact(u,k){u.saved--;(u.used||(u.used={}))[k]=1;H.upd(u);}
+function canReact(f){if(!live(f)||f.object||f.caged||f.kind==='npc'||f.st.daze||f.st.stag)return false;return f.kind==='pc'?reactReady(f,'opp'):!!f.react;}
 function passable(u,x,y){
   for(const t of foot(u,x,y)){
     if(!inB(t.x,t.y)||blocked(t.x,t.y))return false;
@@ -145,7 +149,7 @@ async function walk(u,path,voluntary){
     if(voluntary&&!u.nimble){
       const rs=fighters(u).filter(f=>canReact(f)&&!struck.has(f.id)&&man(f,from)===1&&man(f,to)!==1);
       for(const f of rs){
-        struck.add(f.id);f.react=false;
+        struck.add(f.id);if(f.kind==='pc')spendReact(f,'opp');else f.react=false;
         await partingBlow(f,u);
         if(!live(u))return false;
         if(u.stopped){u.stopped=false;u.mp=0;H.pop(u,'Stopped!','call');return false;}
@@ -193,9 +197,11 @@ function setHaz(x,y,t,dur,side){
   G.tiles[K(x,y)].haz={t,dur,side};
 }
 async function partingBlow(f,t){
+  if(f.kind==='pc'){const fl=await heroStrike(f,t,'Opportunity!');if(f.cls==='fighter'&&fl&&fl.hitIds.has(t.id)&&live(t)&&!t.object){t.stopped=true;applyMark(t,f);log(`${f.name} stops ${t.name} in its tracks.`,sideCol(f));}return;}
   let d=f.kind==='pc'?2+Math.max(f.attrs.M,f.attrs.F)+(f.side==='hero'&&hasR('lens')?3:0):f.swarm||f.minion?2:f.tiny?1+alive4(f):TUNE.pbBonus+Math.max(f.attrs.M,f.attrs.F)+G.dmgAdd;
   await H.strike(f,t,{free:true});
   NOTE=[];
+  d=guardHit(f,t,d);
   const dealt=await damage(f,t,d,{});
   const ex=NOTE||[];NOTE=null;
   log(`${f.name} lands a parting blow on ${t.name}: ${dealt} damage.${ex.length?' '+ex.join(' '):''}`,sideCol(f));
@@ -289,8 +295,8 @@ function addSt(t,k,v){
   t.st[k]=Math.max(t.st[k]||0,v);
   H.upd(t);
 }
-/* Set-ups remember which hero made them, so the hero who cashes one in scores a combo with them. */
-const byHero=s=>s&&s.kind==='pc'&&s.side==='hero'?s.id:null;
+/* Set-ups remember who made them: the maker can't cash them in, and a hero who cashes in an ally's scores a combo. */
+const byHero=s=>s?s.id:null;
 function stagger(t,src){if(!live(t)||t.object||t.st.steady)return;addSt(t,'stag',1);t.stagBy=byHero(src);}
 /* A staggered foe (not a boss) loses its next turn, then can't be staggered again until after its following turn. */
 const losesTurn=u=>u.side==='enemy'&&!u.boss&&!!u.st.stag;
@@ -315,14 +321,21 @@ function decSt(u){for(const k in u.st){u.st[k]--;if(u.st[k]<=0){delete u.st[k];i
 
 /* ---------------- ADVANTAGE & DISADVANTAGE ---------------- */
 function isMelee(p){return p.tgt==='self'||(p.tgt==='enemy'&&p.range===1)||!!p.reach||(!p.tgt&&p.range===1);}
+/* Every different source of advantage or disadvantage counts once, and they stack (up to triple), cancelling one
+   for one, as in Nimble 2e. Hidden counts double. The second attack a hero makes on their turn has disadvantage and
+   the third double disadvantage (PF2e's multiple attack penalty); reactions are exempt. */
+const BOON_W={'Hidden':2,'3rd attack':2};
+const NET_CAP=3;
+function mapStep(a,p){return a&&a.kind==='pc'&&G&&G.cur===a.id&&isAttack(p)?Math.min(2,a.atk||0):0;}
 function netBoon(a,t,p,O){
   O=O||a;const pro=[],con=[];const melee=isMelee(p);
   if(a.st.bless)pro.push('Blessed');
-  if(a.hidden)pro.push('Hidden','Hidden');
+  if(a.hidden)pro.push('Hidden');
   if(p.edge)pro.push(p.name);
   if(a.kind==='pc'&&basicP(p)&&(wpnOf(a)||WEAPONS[START_WEAPON[a.cls]]||{}).dual&&a.dualR!==G.round)pro.push('Dual wield');
   if(t.st.root)pro.push('Rooted');else if(t.st.daze)pro.push('Dazed');
-  if(t.st.expose&&!t.object)pro.push('Exposed');
+  // a set-up only helps the hero's allies: nobody cashes in their own
+  if(t.st.expose&&!t.object&&t.exposeBy!==a.id)pro.push('Exposed');
   if(melee&&!t.object){
     if(a.kind==='pc'&&a.cls==='rogue'){if(allies(a).some(h=>h!==a&&!h.object&&man(h,t)===1))pro.push('Ally beside');}
     else if(SZ(t)===1&&SZ(a)===1){if(inB(2*t.x-O.x,2*t.y-O.y)){const h=unitAt(2*t.x-O.x,2*t.y-O.y);if(h&&h!==a&&h.side===a.side&&!h.object)pro.push('Flanking');}}
@@ -342,8 +355,10 @@ function netBoon(a,t,p,O){
     if(adjFoe(O,a))con.push('Foe beside you');
     if(p.area==null&&man(O,t)>1&&inCover(O,t))con.push('Cover');
   }
-  const net=clamp(Math.min(2,pro.length)-Math.min(2,con.length),-2,2);
-  return {net,pro,con};
+  const ms=mapStep(a,p);if(ms===1)con.push('2nd attack');else if(ms===2)con.push('3rd attack');
+  const P=[...new Set(pro)],Cn=[...new Set(con)],wt=s=>BOON_W[s]||1;
+  const net=clamp(P.reduce((n,s)=>n+wt(s),0)-Cn.reduce((n,s)=>n+wt(s),0),-NET_CAP,NET_CAP);
+  return {net,pro:P,con:Cn};
 }
 /* ---------------- DAMAGE DICE (after Nimble 2e) ----------------
    Every attack rolls damage dice. The first die is the primary die: a 1 on it is a graze (weak, no "on a hit"
@@ -392,11 +407,13 @@ function rollDice(d,net,forceCrit,bonusDie,side){
   return {d,tries,prim,rest,boom,res,total,net,stag:!!forceCrit};
 }
 /* Staggered: the attack is a critical hit, except against a boss, which only grants double advantage. */
-function stagNet(t,net){return t.boss?2:net;}
-function stagProbs(t,s,net){return t.boss?dieProbs(s,2):[0,0,1];}
+function stagNet(t,net){return t.boss?Math.min(NET_CAP,net+2):net;}
+function stagProbs(t,s,net){return t.boss?dieProbs(s,stagNet(t,net)):[0,0,1];}
+/* Can a cash in t being off balance? Anyone but the creature that staggered it. */
+const stagFor=(a,t)=>!!t.st.stag&&!t.object&&(!a||!t.stagBy||t.stagBy!==a.id);
 const sneakBonus=a=>TUNE.sneak+Math.floor(a.lvl/3);
 /* A foe is "set up" when an ally has thrown it off balance, exposed it, pinned it or stands beside it. */
-function setUp(a,t){return !t.object&&(!!t.st.stag||!!t.st.expose||!!t.st.root||!!t.st.daze||allies(a).some(h=>h!==a&&!h.object&&man(h,t)===1));}
+function setUp(a,t){return !t.object&&(stagFor(a,t)||(!!t.st.expose&&t.exposeBy!==a.id)||!!t.st.root||!!t.st.daze||allies(a).some(h=>h!==a&&!h.object&&man(h,t)===1));}
 function sneakOn(a,t){return a.kind==='pc'&&a.cls==='rogue'&&(!!a.hidden||setUp(a,t));}
 /* Exposed: every hit against it deals extra damage until the end of its next turn. */
 const EXPOSE_DMG=3;
@@ -411,7 +428,7 @@ function pcDmg(a,p,t,res,o){
   if(a.side==='hero'&&hasR('whetstone'))d+=1;
   d+=a.side==='hero'?(G.pcDmgAdd||0):(G.foeDmgAdd||0);
   if(o.sneak!=null?o.sneak:sneakOn(a,t))d+=sneakBonus(a);
-  if(t.st.expose)d+=EXPOSE_DMG;
+  if(t.st.expose&&t.exposeBy!==a.id)d+=EXPOSE_DMG;
   if(a.side==='hero')d+=comboBonus(o.combo!=null?o.combo:G.combo);
   if((p.radiant||wBonus(a,p,'radiant'))&&t.undead)d*=2;
   if(p.execute&&t.hp<=t.maxHp/2)d*=2;
@@ -430,6 +447,8 @@ function monDmg(a,A,t,res,dice){
 
 /* ---------------- POWERS (heroes and rival heroes) ---------------- */
 function powerOf(u,i){return POWERS[u.powers[i]];}
+/* Attacks count toward the multiple attack penalty: anything that rolls damage at foes, and powers foes save against. */
+function isAttack(p){return !!p&&(!!p.save||(!!p.dmg&&!p.noDmg&&p.tgt!=='ally'&&p.aff!=='ally'));}
 function usable(u,p){
   if(!p||p.cost>u.mom)return false;
   if(p.revive&&!G.units.some(h=>h.side===u.side&&h.kind==='pc'&&h.dead))return false;
@@ -458,19 +477,36 @@ function targetsFrom(u,p,O){
   }else if(p.tgt==='self')R.push({x:O.x,y:O.y});
   return R;
 }
-function canMoveNow(u){return u.mp>0&&!(u.st.daze&&u.acted)&&!u.st.root;}
+/* ---------------- ACTIONS ----------------
+   A hero has three actions a turn (PF2e, Nimble 2e): a move (up to their speed, which they can break up around other
+   actions), a basic attack and each power cost one. Actions left when the turn ends are saved for reactions. */
+function actCost(p){return p.free?0:(p.acts||1);}
+function canAct(u,p){return u.kind==='pc'&&usable(u,p)&&(u.acts||0)>=actCost(p);}
+/* How far u can go now: what is left of its current move, plus a fresh move if it can spare an action
+   (reserve: actions to keep for what it means to do afterwards). */
+function moveBudget(u,reserve){if(u.st.root)return 0;return (u.mp||0)+(u.kind==='pc'&&(u.acts||0)-(reserve||0)>=1?effSpeed(u):0);}
+function spendMove(u){if(u.kind==='pc'&&u.acts>0){u.acts--;u.mp=(u.mp||0)+effSpeed(u);u.acted=u.acts<=0;}}
+function canMoveNow(u){return !u.st.root&&effSpeed(u)>0&&((u.mp||0)>0||(u.kind==='pc'&&(u.acts||0)>0));}
+async function doPower(u,p,T){
+  u.acts=Math.max(0,(u.acts||0)-actCost(p));u.acted=u.acts<=0;
+  await usePower(u,p,T);
+  if(isAttack(p)&&G.cur===u.id)u.atk=(u.atk||0)+1;
+  if(p.canto&&live(u))u.mp=Math.max(u.mp||0,p.canto);
+  if(p.freeMove)u.mp=(u.mp||0)+p.freeMove;
+}
 /* Everything the active unit can do with power index pi right now. */
 function unitView(u,pi){
   const V={moves:new Map(),targets:new Map(),zone:new Set()};
   if(!live(u)||G.over)return V;
   const mv=canMoveNow(u);
-  if(mv)reach(u,u.mp).forEach((n,k)=>V.moves.set(k,n));
-  if(u.acted||u.kind!=='pc')return V;
+  if(mv)reach(u,moveBudget(u,0)).forEach((n,k)=>V.moves.set(k,n));
+  if(u.kind!=='pc')return V;
   const p=powerOf(u,pi);
-  if(!p||!usable(u,p))return V;
+  if(!p||!canAct(u,p))return V;
   const here={x:u.x,y:u.y,s:0,prov:0,haz:0,prev:null};
-  const combo=mv&&!u.st.daze&&(p.tgt==='enemy'||p.tgt==='ally');
-  const origins=combo?[...V.moves.values()]:[here];
+  const mb=moveBudget(u,actCost(p));
+  const combo=mv&&mb>0&&(p.tgt==='enemy'||p.tgt==='ally');
+  const origins=combo?[...reach(u,mb).values()]:[here];
   for(const O of origins){
     for(const t of targetsFrom(u,p,O)){const k=K(t.x,t.y);if(!V.targets.has(k))V.targets.set(k,[]);V.targets.get(k).push(O);}
     if(p.tgt==='enemy'||p.tgt==='ally')for(const t of tilesWithin(O,effRange(p.range,O)))V.zone.add(K(t.x,t.y));
@@ -482,6 +518,7 @@ function chooseOrigin(u,p,T,V){
   const score=o=>{
     let s=o.prov*10+o.haz*2+o.s*.1;
     if(o.x===u.x&&o.y===u.y)s-=.5;
+    if(o.s>(u.mp||0))s+=2;
     if(p.tgt==='enemy'&&p.range>1&&!p.reach){s-=man(o,T)*.3;if(adjFoe(o,u))s+=3;}
     if(p.tgt==='enemy'){const e=unitAt(T.x,T.y);if(e)s-=netBoon(u,e,p,o).net*1.5;}
     return s;
@@ -521,8 +558,8 @@ function forecast(u,p,T,O){
   const combo=u.side==='hero'?(G.combo||0)+(by.length?1:0):0;
   rows.by=by;rows.combo=combo;
   const mk=t=>{const nb=netBoon(u,t,p,O);const dd=p.dmg?atkDice(u,p):{n:1,s:6,b:0};let probs=dieProbs(dd.s,nb.net);const mod=0;
-    const st=!!t.st.stag&&!p.noDmg&&!!p.dmg&&!t.object;if(st)probs=stagProbs(t,dd.s,nb.net);
-    return {t,net:nb.net,pro:nb.pro,con:nb.con,mod,dice:dd,probs,stag:st,expose:!!t.st.expose,sneak:sneakOn(u,t)&&!!p.dmg&&!p.noDmg,dmg:[1,2,3].map(r=>pcDmg(u,p,t,r,{combo})*(p.hits||1)),ctrl:!!p.noDmg,save:p.save&&t.side!==u.side?saveFail(u,t,p):null};};
+    const st=stagFor(u,t)&&!p.noDmg&&!!p.dmg;if(st)probs=stagProbs(t,dd.s,nb.net);
+    return {t,net:nb.net,pro:nb.pro,con:nb.con,mod,dice:dd,probs,stag:st,expose:!!t.st.expose&&t.exposeBy!==u.id,sneak:sneakOn(u,t)&&!!p.dmg&&!p.noDmg,dmg:[1,2,3].map(r=>pcDmg(u,p,t,r,{combo})*(p.hits||1)),ctrl:!!p.noDmg,feint:p.feint&&t.side!==u.side&&!t.object?failChance(u,t,p,p.feint.a):null,save:p.save&&t.side!==u.side?saveFail(u,t,p):null};};
   if(p.tgt==='enemy'){
     for(const t of strikeTargets(u,p,T,O))rows.push(mk(t));
   }else if(p.tgt==='ally'){
@@ -548,22 +585,26 @@ async function pcStrike(u,p,t,C,fl){
     const sn=sneakOn(u,t);
     const dd=p.dmg?atkDice(u,p):{n:1,s:CLASS_DIE[u.cls]||6,b:0};
     // a staggered creature can't defend itself: the attack is a critical hit (a boss only gives double advantage)
-    const st=t.st.stag&&!p.noDmg&&p.dmg&&!t.object;
+    const st=stagFor(u,t)&&!p.noDmg&&!!p.dmg;
     const r=rollDice(dd,st?stagNet(t,nb.net):nb.net,st&&!t.boss,u.side==='hero'&&hasR('dice'),u.side);
     if(nb.pro.includes('Blessed'))fl.usedBless=true;
     if(nb.pro.includes('Dual wield'))u.dualR=G.round;
     if(st){delete t.st.stag;t.stagBy=null;H.pop(t,'Off balance!','call');}
     await H.dice(u,t,r);
-    const d=p.dmg?pcDmg(u,p,t,r.res,{sneak:sn,dice:r.total}):0;
+    let d=p.dmg?pcDmg(u,p,t,r.res,{sneak:sn,dice:r.total}):0;
     if(sn&&d>0)fl.sneak=true;
     H.result(t,r);
     NOTE=[];
     if(u.hidden&&h===0){u.hidden=false;}
+    if(d>0&&fl.react&&u.side==='hero'&&hasR('lens'))d+=3;
+    if(d>0)d=guardHit(u,t,d);
     if(d>0)await damage(u,t,d,{crit:r.res===3,radiant:p.radiant,area:p.area!=null});
     fl.hitIds.add(t.id);
     if(live(t)){
       if(p.mark){applyMark(t,u);note('Marked.');}
       applyEff(u,t,p.eff,r.res);
+      if(p.feint&&live(t)&&!t.object&&r.res>=2&&t.side!==u.side){const S=rollSave(u,t,p,p.feint.a);
+        if(S.saved)note(`${S.text}: it sees through the feint.`);else{addSt(t,'expose',1);t.exposeBy=u.id;note(`${S.text}: the feint leaves it exposed for ${u.name}'s allies.`);xp(u,1,'control');}}
       if(fl.stagIds&&t.st.stag&&t.stagBy===u.id)fl.stagIds.add(t.id);
       const w=basicP(p)&&wpnOf(u);
       if(w&&live(t)){
@@ -594,6 +635,49 @@ async function support(u,a,p,fl){
 async function usePower(u,p,T){
   HELPER=u;try{await usePower0(u,p,T);}finally{HELPER=null;}
 }
+/* A reaction strike with the hero's basic attack (opportunity attacks, the rogue's Opportunist): no momentum and no
+   multiple attack penalty, but it can cash in an ally's set-up for a combo. */
+async function heroStrike(u,t,label){
+  const id=u.powers.find(k=>POWERS[k]&&POWERS[k].basic)||BASIC[u.cls];const p=POWERS[id];if(!p||!live(t)||!live(u))return null;
+  const fl={hitIds:new Set(),stagIds:new Set(),sneak:false,healedOther:false,slam:false,combo:false,usedBless:false,react:true};
+  H.pop(u,label,'call');
+  const by=comboSetters(u,p,[t]);if(by.length)comboHit(u,by,fl);
+  const h0=HELPER;HELPER=u;
+  try{await H.strike(u,t,{proj:p.proj,power:p});await pcStrike(u,p,t,{x:u.x,y:u.y},fl);}finally{HELPER=h0;}
+  if(fl.usedBless){delete u.st.bless;u.blessBy=null;}
+  H.upd(u);return fl;
+}
+/* Defend: a hero who is hit spends a saved action to halve the blow. If it can't, a cleric within 3 may spend one to
+   halve it instead (Warding Word). Small knocks aren't worth an action. */
+function guardHit(src,t,d){
+  if(!src||!t||src.side===t.side||!live(t)||d<TUNE.guardMin)return d;
+  if(reactReady(t,'defend')){spendReact(t,'defend');const nd=Math.floor(d/2);H.pop(t,'Defend','shield');note(`${t.name} defends: ${d} halved to ${nd}.`);return nd;}
+  const C=t.side==='hero'&&G.units.find(c=>c!==t&&c.kind==='pc'&&c.cls==='cleric'&&c.side===t.side&&man(c,t)<=3&&reactReady(c,'sig'));
+  if(C){spendReact(C,'sig');const nd=Math.floor(d/2);H.pop(C,'Warding Word','gold');H.pop(t,'Warded','shield');note(`${C.name}'s Warding Word halves it: ${d} to ${nd}.`);return nd;}
+  return d;
+}
+/* Intercept: the fighter spends a saved action to take a blow meant for an ally beside her. */
+function interceptor(v,src){
+  if(!v||v.kind==='pc'&&v.cls==='fighter')return null;
+  return G.units.find(F=>F!==v&&F.kind==='pc'&&F.cls==='fighter'&&F.side===v.side&&man(F,v)===1&&reactReady(F,'sig'))||null;
+}
+/* Repelling Ward: when a foe steps up beside the wizard, the wizard spends a saved action to push it 1 square away. */
+async function repelWard(e){
+  if(!live(e)||e.object)return;
+  const W=G.units.find(w=>w.kind==='pc'&&w.cls==='wizard'&&w.side!==e.side&&man(w,e)===1&&reactReady(w,'sig'));if(!W)return;
+  spendReact(W,'sig');H.pop(W,'Repelling Ward','call');await H.strike(W,e,{proj:'#c39bff'});
+  NOTE=[];await forceMove(e,W,1,false,W,null,{noStag:true});const ex=NOTE||[];NOTE=null;
+  log(`${W.name}'s Repelling Ward shoves ${e.name} away. ${ex.join(' ')}`,sideCol(W));
+}
+/* Opportunist: when an ally hits a foe beside the rogue, the rogue spends a saved action to strike it too (not a
+   staggered foe: that one still loses its turn). */
+async function opportunist(u,fl){
+  if(u.kind!=='pc'||!fl.hitIds.size)return;
+  for(const R of G.units.filter(r=>r!==u&&r.kind==='pc'&&r.cls==='rogue'&&r.side===u.side)){
+    const t=[...fl.hitIds].map(U).find(t=>t&&live(t)&&!t.object&&t.side!==R.side&&!t.st.stag&&man(R,t)===1);
+    if(t&&reactReady(R,'sig')){spendReact(R,'sig');await heroStrike(R,t,'Opportunist!');if(G.over)return;}
+  }
+}
 /* Bless the ally best placed to use it: nearest to a foe, within r of u. */
 function blessNear(u,r,fl){
   const c=allies(u).filter(a=>a!==u&&!a.object&&!a.caged&&a.kind!=='npc'&&man(a,u)<=r);if(!c.length)return;
@@ -615,18 +699,25 @@ function comboHit(u,by,fl){
    attribute + a third of their level, or suffer the effect. */
 function saveDC(u,p){return TUNE.saveBase+(u.attrs[p.a]||0)+Math.floor((u.lvl||1)/3);}
 function saveMod(t,a){return (t.attrs&&t.attrs[a]||0)+(t.side==='enemy'?G.rollAdd||0:0);}
+/* Chance t fails a save against u's power p, rolling attribute a. A later attack in u's turn lets it roll again and keep the best. */
+function failChance(u,t,p,a){if(!t||t.object)return 0;const q=clamp((saveDC(u,p)-saveMod(t,a)-1)/20,0,1);return Math.pow(q,1+mapStep(u,p));}
 function saveFail(u,t,p){
   if(!t||t.object||(p.save.eff==='stag'&&t.st.steady))return 0;
-  return clamp((saveDC(u,p)-saveMod(t,p.save.a)-1)/20,0,1);
+  return failChance(u,t,p,p.save.a);
+}
+function rollSave(u,t,p,a){
+  const dc=saveDC(u,p),m=saveMod(t,a),rolls=[];for(let i=0;i<=mapStep(u,p);i++)rolls.push(1+rnd(20));
+  const best=Math.max(...rolls);
+  return {dc,m,rolls,best,saved:best+m>=dc,text:`${ATTR[a]} save ${rolls.length>1?'['+rolls.join('/')+'→'+best+']':best}+${m} vs ${dc}`};
 }
 async function savePower(u,p,t,fl){
   await H.strike(u,t,{proj:p.proj,power:p});
   NOTE=[];
   if(p.shove)await forceMove(t,u,p.shove,false,u,fl,{noStag:true});
   if(live(t)&&!t.object){
-    const dc=saveDC(u,p),m=saveMod(t,p.save.a),d=1+rnd(20),nm=ATTR[p.save.a];
-    if(d+m>=dc){H.pop(t,'Saved','call');note(`${nm} save ${d}+${m} vs ${dc}: saved.`);}
-    else{note(`${nm} save ${d}+${m} vs ${dc}: failed.`);applyEff(u,t,{[p.save.eff]:[1,1,1]},2);if(t.st.stag&&t.stagBy===u.id&&fl.stagIds)fl.stagIds.add(t.id);}
+    const S=rollSave(u,t,p,p.save.a);
+    if(S.saved){H.pop(t,'Saved','call');note(`${S.text}: saved.`);}
+    else{note(`${S.text}: failed.`);applyEff(u,t,{[p.save.eff]:[1,1,1]},2);if(t.st.stag&&t.stagBy===u.id&&fl.stagIds)fl.stagIds.add(t.id);}
   }
   const ex=NOTE||[];NOTE=null;
   log(`${u.name} uses ${p.name} on ${t.name}. ${ex.join(' ')}`,sideCol(u));
@@ -693,8 +784,9 @@ async function usePower0(u,p,T){
   if(p.gainRes)addMom(u,p.gainRes);
   if(p.hide){u.hidden=true;H.pop(u,'Hidden','call');H.sfx('whoosh');}
   if(fl.usedBless){delete u.st.bless;u.blessBy=null;}
-  // momentum comes from basic attacks and combos (comboHit) only
-  if(basicP(p)&&u.kind==='pc'){const n=1+(u.side==='hero'&&hasR('map')?1:0);addMom(u,n);H.pop(u,`+${n} ◆`,'res');}
+  // momentum comes from combos (comboHit) and from the first basic attack of each turn
+  if(basicP(p)&&u.kind==='pc'&&G.cur===u.id&&!u.momBasic){u.momBasic=true;const n=1+(u.side==='hero'&&hasR('map')?1:0);addMom(u,n);H.pop(u,`+${n} ◆`,'res');}
+  if(!G.over)await opportunist(u,fl);
   H.upd(u);
 }
 
@@ -706,35 +798,32 @@ function afterUnit(u){
 }
 async function cmdMove(u,dest){
   if(!G.await||G.cur!==u.id||!canMoveNow(u))return false;
-  const n=reach(u,u.mp).get(K(dest.x,dest.y));if(!n||(n.x===u.x&&n.y===u.y))return false;
+  const n=reach(u,moveBudget(u,0)).get(K(dest.x,dest.y));if(!n||(n.x===u.x&&n.y===u.y))return false;
   pushSnap();G.cmd++;
+  if(n.s>(u.mp||0))spendMove(u);
   await walk(u,pathOf(n),true);
   u.moved=true;
-  if(u.st.daze&&!u.acted){u.acted=true;}
   if(live(u))afterUnit(u);
   await checkEnd();H.save();
   return true;
 }
 async function cmdAct(u,pi,T,origin){
   const p=powerOf(u,pi);
-  if(!G.await||G.cur!==u.id||u.acted||!usable(u,p))return false;
+  if(!G.await||G.cur!==u.id||!canAct(u,p))return false;
   pushSnap();G.cmd++;
   if(origin&&(origin.x!==u.x||origin.y!==u.y)){
-    const n=reach(u,u.mp).get(K(origin.x,origin.y));if(!n)return false;
+    const n=reach(u,moveBudget(u,actCost(p))).get(K(origin.x,origin.y));if(!n)return false;
+    if(n.s>(u.mp||0))spendMove(u);
     await walk(u,pathOf(n),true);u.moved=true;
     if(!live(u)||G.over||u.x!==origin.x||u.y!==origin.y){afterUnit(u);await checkEnd();H.save();return false;}
     if(!targetsFrom(u,p,u).some(t=>t.x===T.x&&t.y===T.y)){afterUnit(u);await checkEnd();H.save();return false;}
   }
-  await usePower(u,p,T);
-  if(!p.free){u.acted=true;u.mp=0;}
-  if(u.st.daze)u.mp=0;
-  if(p.canto&&live(u))u.mp=p.canto;
-  if(p.freeMove)u.mp+=p.freeMove;
+  await doPower(u,p,T);
   if(live(u))afterUnit(u);
   await checkEnd();H.save();
   return true;
 }
-function turnDone(u){return !live(u)||(u.acted&&u.mp<=0)||(u.kind==='npc'&&u.mp<=0);}
+function turnDone(u){return !live(u)||(u.kind==='pc'?(u.acts||0)<=0&&!((u.mp||0)>0&&canMoveNow(u)):(u.mp||0)<=0);}
 
 /* ---------------- UNDO ---------------- */
 function snapG(){return JSON.stringify(G);}
@@ -768,7 +857,7 @@ function distField(sources){
 function evMon(e,A,t,O){
   const nb=netBoon(e,t,A,O);
   let probs=A.flat!=null?[0,1,0]:dieProbs(atkDice(e,A).s,nb.net);
-  if(A.flat==null&&t.st.stag)probs=stagProbs(t,atkDice(e,A).s,nb.net);
+  if(A.flat==null&&stagFor(e,t))probs=stagProbs(t,atkDice(e,A).s,nb.net);
   const hp=t.hp+t.shield;let ev=0,kp=0;
   for(let i=0;i<3;i++){const d=monDmg(e,A,t,i+1);ev+=probs[i]*Math.min(hp,d);if(d>=hp)kp+=probs[i];}
   return {ev,kill:kp,net:nb.net};
@@ -898,20 +987,21 @@ async function monAttack(e,A,t,isTile){
   if(A.tgt==='ally'){await H.strike(e,t,{support:true});NOTE=[];heal(t,A.heal+G.dmgAdd);const ex=NOTE||[];NOTE=null;log(`${e.name} mends ${t.name}. ${ex.join(' ')}`,'e');return;}
   if(A.rally){H.pop(e,'Rally!','call');log(`${e.name} rallies its allies!`,'e');for(const f of allies(e).filter(f=>f!==e&&!f.object&&man(f,e)<=3)){const h=fighters(f).find(h=>man(h,f)===1);if(h)await partingBlow(f,h);}return;}
   if(A.mom){H.pop(e,'Offering','call');NOTE=[];await damage(null,e,3,{});NOTE=null;G.foeMom+=A.mom;log(`${e.name} bleeds itself to feed the foes' momentum (+${A.mom}).`,'e');return;}
+  if(!A.area){const F=interceptor(t,e);if(F){spendReact(F,'sig');H.pop(F,'Intercept!','call');log(`${F.name} steps in to take the blow meant for ${t.name}!`,sideCol(F));t=F;}}
   await H.strike(e,t,{proj:A.range>1&&man(e,t)>1?(A.area?'#ff7a2a':'#ff9a7a'):null,monster:true,act:A});
   const victims=A.area?foesOf(e).filter(o=>cheb(o,t)<=A.area):[t];
   if(A.area)await H.area(t,A.area,/Chill/.test(A.name)?'ice':'fire');
   for(const v of victims){
     if(!live(v))continue;
     const nb=netBoon(e,v,A,e);
-    const st=A.flat==null&&!!v.st.stag;
+    const st=A.flat==null&&stagFor(e,v);
     const r=A.flat!=null?null:rollDice(atkDice(e,A),st?stagNet(v,nb.net):nb.net,st&&!v.boss,false,e.side);
     if(st){delete v.st.stag;v.stagBy=null;H.pop(v,'Off balance!','call');}
     const res=r?r.res:2;
     if(v.side==='hero'&&hasR('ward')){v.warded=v.warded||{};v.warded[e.id]=1;}
     if(r)H.result(v,r);
     NOTE=[];
-    await damage(e,v,monDmg(e,A,v,res,r?r.total:null),{crit:res===3,area:!!A.area});
+    await damage(e,v,guardHit(e,v,monDmg(e,A,v,res,r?r.total:null)),{crit:res===3,area:!!A.area});
     if(live(v)){
       applyEff(e,v,A.eff,res);
       const push=tv(A.eff&&A.eff.push,res),pull=tv(A.eff&&A.eff.pull,res);
@@ -937,7 +1027,7 @@ async function monTurn(e){
   const plan=planMon(e);
   if(!plan.node)return;
   const moved=plan.node.x!==e.x||plan.node.y!==e.y;
-  if(moved){await walk(e,pathOf(plan.node),true);if(!live(e))return;afterUnit(e);if(await checkEnd())return;}
+  if(moved){await walk(e,pathOf(plan.node),true);if(!live(e))return;afterUnit(e);if(await checkEnd())return;await repelWard(e);if(!live(e)||G.over)return;}
   let A=plan.act,t=plan.target;
   if(A&&!(e.st.daze&&moved)){
     if(plan.tile){if(man(e,t)<=A.range)await monAttack(e,A,t,true);}
@@ -1057,20 +1147,43 @@ function valuePower(u,p,T,O){
   // momentum spent is worth something, and a basic attack earns 1
   return v-(p.cost-(p.basic?1:0))*TUNE.momVal;
 }
-function planPc(u,stayOnly){
-  const nodes=stayOnly||!canMoveNow(u)?[{x:u.x,y:u.y,s:0,prov:0,haz:0,prev:null}]:[...reach(u,u.mp).values()];
-  let best={s:.5,O:null,pi:-1,T:null};
+/* What saving one more action is worth to u as a reaction: Defend halves a blow, the class reaction, an opportunity
+   attack. k is how many actions u would be saving; the k-th best reaction is the one this action would pay for. */
+function holdValue(u,k){
+  if(k<=0||u.st.daze||u.kind!=='pc')return 0;
+  const foes=fighters(u).filter(f=>!f.object);
+  const hitOf=f=>{if(f.kind!=='mon')return 6+G.dmgAdd;const A=mon(f).acts.find(a=>!a.tgt&&!a.trap);if(!A)return 0;return ((A.flat!=null?A.flat:tierDice(atkDice(f,A),2))+G.dmgAdd)*(mon(f).attacks||1);};
+  const rngOf=f=>f.kind==='mon'?Math.max(1,...mon(f).acts.filter(a=>!a.tgt&&!a.trap).map(a=>a.range)):2;
+  const near=(f,x)=>man(f,x)<=effSpeed(f)+rngOf(f);
+  const threats=foes.filter(f=>near(f,u));
+  const big=L=>L.length?Math.max(...L.map(hitOf)):0;
+  const vals=[];
+  vals.push(threats.length?.5*big(threats)*Math.min(1,.45+.2*threats.length):0);
+  let sig=0;
+  if(u.cls==='fighter'){const al=allies(u).filter(a=>a!==u&&!a.object&&man(a,u)===1);const tf=foes.filter(f=>al.some(a=>near(f,a)));if(tf.length)sig=.5*big(tf);}
+  else if(u.cls==='cleric'){const al=allies(u).filter(a=>a!==u&&!a.object&&man(a,u)<=3);const tf=foes.filter(f=>al.some(a=>near(f,a)));if(tf.length)sig=.4*big(tf);}
+  else if(u.cls==='wizard'){if(foes.some(f=>f.kind==='mon'&&man(f,u)>1&&man(f,u)<=effSpeed(f)+1&&mon(f).acts.some(a=>!a.tgt&&a.range===1)))sig=3;}
+  else if(u.cls==='rogue'){if(foes.some(f=>man(f,u)===1)&&payers(u).length)sig=3;}
+  vals.push(sig);
+  vals.push(foes.some(f=>man(f,u)===1)?2:0);
+  vals.sort((a,b)=>b-a);
+  return (vals[k-1]||0)*(TUNE.aiHold||1);
+}
+function planPc(u){
+  const here={x:u.x,y:u.y,s:0,prov:0,haz:0,prev:null};
+  const R=canMoveNow(u)&&moveBudget(u,1)>0?[...reach(u,moveBudget(u,1)).values()]:[here];
+  let best={s:-99,O:null,pi:-1,T:null};
   const foes=fighters(u);
   const taunt=u.side==='enemy'?tauntOf(u):null;
   SETUP_C={};
   try{
     for(let pi=0;pi<u.powers.length;pi++){
-      const p=powerOf(u,pi);if(!usable(u,p)||u.acted||p.teleport||p.wall||p.hide)continue;
-      const org=(p.tgt==='enemy'||p.tgt==='ally'||p.tgt==='self')&&!u.st.daze?nodes:nodes.filter(n=>n.x===u.x&&n.y===u.y);
+      const p=powerOf(u,pi);if(!canAct(u,p)||p.teleport||p.wall||p.hide||p.free)continue;
+      const org=(p.tgt==='enemy'||p.tgt==='ally'||p.tgt==='self')?R:[here];
       // a rival the fighter has taunted must attack her with any power that can reach her
       const mustT=taunt&&p.tgt==='enemy'&&org.some(O=>targetsFrom(u,p,O).some(q=>covers(taunt,q.x,q.y)));
       for(const O of org){
-        let pen=O.prov*8+O.haz*1.5+hazCost(u,O.x,O.y)*1.2-objBonus(u,O);
+        let pen=O.prov*8+O.haz*1.5+hazCost(u,O.x,O.y)*1.2-objBonus(u,O)+(O.s>(u.mp||0)?TUNE.aiMoveCost:0);
         const ranged=p.tgt==='enemy'&&p.range>1||p.tgt==='tile'||p.tgt==='ally';
         if(ranged&&foes.some(f=>man(f,O)===1))pen+=2.5;
         let T=targetsFrom(u,p,O);
@@ -1084,29 +1197,35 @@ function planPc(u,stayOnly){
   }finally{SETUP_C=null;}
   return best;
 }
+/* Autoplay heroes (and rival heroes): spend actions while they are worth more than saving them for reactions. */
 async function pcTurn(u){
   if(u.kind==='npc'){
     if(u.npc==='villager'&&!u.caged&&canMoveNow(u)){const R=reach(u,u.mp);let b=null;for(const n of R.values()){const s=n.y*3-n.prov*5-n.haz;if(!b||s>b.s)b={s,n};}if(b&&(b.n.x!==u.x||b.n.y!==u.y)){await walk(u,pathOf(b.n),true);afterUnit(u);}}
     return;
   }
-  for(let it=0;it<2&&live(u)&&!G.over;it++){
-    const best=planPc(u,it>0);
-    if(best.O){
-      if(best.O.x!==u.x||best.O.y!==u.y){await walk(u,pathOf(best.O),true);u.moved=true;if(!live(u)||G.over)return;afterUnit(u);if(await checkEnd())return;if(u.x!==best.O.x||u.y!==best.O.y)continue;}
+  for(let g=0;g<8&&live(u)&&!G.over&&!u.gone&&(u.acts||0)>0;g++){
+    const best=planPc(u);
+    if(best.O&&best.s>holdValue(u,u.acts)){
       const p=powerOf(u,best.pi);
-      if(!targetsFrom(u,p,u).some(t=>t.x===best.T.x&&t.y===best.T.y))return;
-      await usePower(u,p,best.T);
-      u.acted=true;u.mp=p.canto||0;afterUnit(u);if(await checkEnd())return;
-      if(p.canto&&live(u)){const R=reach(u,u.mp);let b=null;for(const n of R.values()){const s=-n.prov*8-n.haz*2+Math.min(3,minDist(n,u))*1.5;if(!b||s>b.s)b={s,n};}if(b&&(b.n.x!==u.x||b.n.y!==u.y))await walk(u,pathOf(b.n),true);}
-      return;
+      if(best.O.x!==u.x||best.O.y!==u.y){
+        if(best.O.s>(u.mp||0))spendMove(u);
+        await walk(u,pathOf(best.O),true);u.moved=true;if(!live(u)||G.over)return;afterUnit(u);if(await checkEnd())return;
+        if(u.x!==best.O.x||u.y!==best.O.y)continue;
+      }
+      if(!canAct(u,p)||!targetsFrom(u,p,u).some(t=>t.x===best.T.x&&t.y===best.T.y))continue;
+      await doPower(u,p,best.T);afterUnit(u);if(await checkEnd())return;
+      if(p.canto&&live(u)&&u.mp>0){const R=reach(u,u.mp);let b=null;for(const n of R.values()){const s=-n.prov*8-n.haz*2+Math.min(3,minDist(n,u))*1.5;if(!b||s>b.s)b={s,n};}if(b&&(b.n.x!==u.x||b.n.y!==u.y))await walk(u,pathOf(b.n),true);u.mp=0;}
+      continue;
     }
-    if(it===0&&canMoveNow(u)){
-      const foes=fighters(u);if(!foes.length)return;
-      const ranged=u.cls==='wizard'||u.cls==='cleric';
-      const field=distField(foes);let b=null;
-      for(const n of reach(u,u.mp).values()){const fd=field.has(K(n.x,n.y))?field.get(K(n.x,n.y)):40;const want=ranged?3:1;const s=-Math.abs(fd-want)*2-n.prov*8-n.haz*2-hazCost(u,n.x,n.y)-(ranged&&fd===1?3:0)+objBonus(u,n)*1.5;if(!b||s>b.s)b={s,n};}
-      if(b&&(b.n.x!==u.x||b.n.y!==u.y)){await walk(u,pathOf(b.n),true);u.moved=true;if(!live(u))return;afterUnit(u);if(await checkEnd())return;}
-    }else return;
+    // nothing within reach is worth an action: close in (or work the mission) while no foe can be hit from here
+    if(best.O||!canMoveNow(u))break;
+    const foes=fighters(u);if(!foes.length)break;
+    const ranged=u.cls==='wizard'||u.cls==='cleric';
+    const field=distField(foes);let b=null;
+    for(const n of reach(u,moveBudget(u,0)).values()){const fd=field.has(K(n.x,n.y))?field.get(K(n.x,n.y)):40;const want=ranged?3:1;const s=-Math.abs(fd-want)*2-n.prov*8-n.haz*2-hazCost(u,n.x,n.y)-(ranged&&fd===1?3:0)+objBonus(u,n)*1.5;if(!b||s>b.s)b={s,n};}
+    if(!b||(b.n.x===u.x&&b.n.y===u.y))break;
+    if(b.n.s>(u.mp||0))spendMove(u);
+    await walk(u,pathOf(b.n),true);u.moved=true;if(!live(u))return;afterUnit(u);if(await checkEnd())return;
   }
 }
 
@@ -1199,7 +1318,7 @@ function spawnMon(type,spot,extra){const e=makeMon(type,spot.x,spot.y,extra);G.u
 /* Weapons power up basic powers: the at-wills that cost no momentum. */
 const basicP=p=>!!p&&!!p.basic;
 const BASIC={fighter:'sword',rogue:'blades',wizard:'missile',cleric:'mace'};
-const SETUP={fighter:'shove',rogue:'feint',wizard:'force',cleric:'guidance'};
+const SETUP={fighter:'shove',wizard:'force',cleric:'guidance'};
 /* Every hero carries their basic weapon attack first, then the powers they have learned. */
 function withBasic(cls,powers){const b=[BASIC[cls],SETUP[cls]].filter(Boolean);return b.concat((powers||[]).filter(id=>!b.includes(id)&&POWERS[id]));}
 function wpnOf(u){return u&&u.kind==='pc'&&u.wpn?WEAPONS[u.wpn]:null;}
@@ -1211,7 +1330,24 @@ function makePc(h,x,y,side){
     wpn:h.weapon||(rival?rivalWeapon(h.cls,h.lvl):START_WEAPON[h.cls]),attrs:attrsFor(h.cls,h.lvl),steady:C.steady||0,nimble:!!C.nimble,mom:TUNE.momStart+(!rival&&hasR('hymn')?2:0),powers:withBasic(h.cls,h.powers),st:{},shield:0,react:true,mp:0,rival};
 }
 
-/* ---------------- ENCOUNTERS ---------------- */
+/* ---------------- ENCOUNTERS ----------------
+   Budgets are built the way the tabletop games build fights, then tuned with tools/sim.js:
+   - Party strength (Draw Steel): each hero is worth 4 + 2 x level, at the level a party is expected to have reached at
+     this depth of the journey (three levels a region), so fighting more battles still pays off.
+   - Threat (PF2e): a moderate fight spends the party's strength on foes, a severe one 1.5 times it and an extreme one
+     twice (80, 120 and 160 XP; our severe is tuned down to 1.35). Battles are moderate, elites severe, bosses
+     extreme; missions with waves of reinforcements, or other ways to win, start with a smaller share.
+   - Foe values (D&D 4e, Draw Steel): each foe costs what it is worth (4 minions = 1 standard foe). An elite costs a
+     third more, and a solo boss takes most of an extreme budget, leaving the rest for its escort.
+   - Nimble's rule of thumb: 1 to 4 foes a hero, not counting minions. */
+const THREAT={low:.75,moderate:1,severe:1.35,extreme:2};
+const MISSION_SHARE={rout:1,ambush:1.1,loot:.9,breakout:.85,rescue:.8,assassinate:.8,ritual:.75,hold:.7,defend:.65,survive:.6};
+function expLevel(f){return 1+.75*f;}
+function partyStrength(f){return 4*(TUNE.es0+TUNE.esLvl*expLevel(f));}
+function encBudget(f,type,act,elite){
+  const tier=type==='boss'?'extreme':elite?'severe':'moderate';
+  return partyStrength(f)*TUNE.esUnit*THREAT[tier]*((TUNE.actMul||[1,1,1])[act]||1)*(type==='boss'?1:MISSION_SHARE[type]||1);
+}
 const THEMES=[
   {obs:['rock','tree','tree'],cov:['crate','lowwall'],haz:['fire'],hazN:[0,2],water:true},
   {obs:['deadtree','column','rock'],cov:['tomb','sarc','tomb'],haz:['acid'],hazN:[1,3],water:true},
@@ -1270,12 +1406,10 @@ function genEncounter(f,type,opt){
   let list=[];
   if(opt.enemies)list=opt.enemies.slice();
   else{
-    let budget=TUNE.budget0+TUNE.budgetSlope*f;
-    const mult={hold:.7,survive:.6,defend:.65,rescue:.8,loot:.9,ritual:.75,assassinate:.8,ambush:1.1,breakout:.85,boss:TUNE.bossEscort,rout:1};
-    budget*=(mult[type]||1)*((TUNE.actMul||[1,1,1])[act]||1);
-    if(type==='boss')list.push({type:BOSSES[act],boss:true});
+    let budget=encBudget(f,type,act,opt.elite);
+    if(type==='boss'){list.push({type:BOSSES[act],boss:true});budget-=encBudget(f,'rout',act,false)*TUNE.solo;}
     if(type==='assassinate')list.push({type:LEADERS[act],leader:true});
-    if(opt.elite){const t=pick(ELITES[act]);list.push({type:t,elite:true});budget*=.85*((TUNE.eliteMul||[])[act]||1);}
+    if(opt.elite){const t=pick(ELITES[act]);list.push({type:t,elite:true});budget-=MON[t].cost*TUNE.eliteCost;}
     const pool=ACT_POOL[act];let g=0;
     while(list.length<12&&g++<80){
       const aff=pool.filter(t=>(SWARM.includes(t)?2:MON[t].cost)<=budget&&!(type==='boss'&&MON[t].cost>=5));
@@ -1333,16 +1467,18 @@ function setupBattle(enc,party){
   if(hasR('bulwark'))G.units.filter(u=>u.side==='hero'&&u.kind==='pc').forEach(h=>h.shield=8);
   for(const u of G.units)if(!u.object)u.init=initRoll(u);
   G.order=G.units.filter(u=>!u.object).sort(ordCmp).map(u=>u.id);
-  G.v=3;G.combo=0;
+  G.v=4;G.combo=0;
   if(enc.twist==='ring')ringFire();
   log(`${enc.title}: ${MISSIONS[enc.type].name}.`,'g');
   log('Initiative: '+G.order.map(id=>{const u=U(id);return `${u.name} ${u.init}`;}).join(', ')+'.','g');
   log('— Round 1 —','g');
 }
 function isPlayer(u){return u.side==='hero'&&(u.kind==='pc'||u.kind==='npc')&&!AUTOPLAY;}
-async function beginTurn(u){
+async function beginTurn(u,extra){
   if(G.round>1||u.side!=='hero')u.shield=0;
   u.react=true;u.acted=false;u.moved=false;
+  // heroes: fresh actions (fewer on an Inspired extra turn, one while dazed); unused reactions lapse
+  if(u.kind==='pc'){u.acts=u.st.daze?1:extra?TUNE.extraActs:TUNE.actions;u.saved=0;u.used={};u.atk=0;u.momBasic=false;}
   if(u.kind==='pc'&&TUNE.momTurn)u.mom=Math.min(10,u.mom+TUNE.momTurn);
   await H.turn(u);
   if(u.boss)await villain(u);
@@ -1351,10 +1487,12 @@ async function beginTurn(u){
   if(live(u)&&u.st.burn&&!immuneFire(u)){H.pop(u,'Burning','bad');H.sfx('fire');NOTE=[];await damage(null,u,3,{});const ex=NOTE||[];NOTE=null;log(`${u.name} burns: ${ex.join(' ')}`,sideCol(u));}
   for(const z of G.zones){if(!live(u)||u.object||z.side===u.side||cheb(u,z)>z.r)continue;
     NOTE=[];await damage(null,u,(z.radiant&&u.undead?2:1)*z.dmg,{radiant:z.radiant});if(live(u)&&z.eff){addSt(u,z.eff,1);note(ST_NAME[z.eff]+'.');}const ex=NOTE||[];NOTE=null;log(`${u.name} is caught in a zone: ${ex.join(' ')}`,sideCol(u));}
-  u.mp=live(u)?effSpeed(u):0;
+  u.mp=live(u)&&u.kind!=='pc'?effSpeed(u):0;
   await checkEnd();
 }
 async function endTurn(u){
+  // a hero's unused actions are saved for reactions until their next turn
+  if(u&&u.kind==='pc'){u.saved=live(u)&&!u.st.daze?Math.max(0,u.acts||0):0;u.acts=0;u.mp=0;u.acted=true;}
   if(u&&live(u)){const h=Tt(u.x,u.y).haz;if(h&&!HAZ[h.t].once){NOTE=[];await applyHazard(u);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));}}
   if(u&&live(u))decSt(u);
   if(u)u.brutal=false;
@@ -1403,7 +1541,8 @@ async function roundEnd(){
 async function nextTurn(){
   while(G&&!G.over){
     let u=null;
-    if(G.extra.length){u=U(G.extra.shift());if(!live(u)||u.caged)continue;}
+    let extra=false;
+    if(G.extra.length){u=U(G.extra.shift());if(!live(u)||u.caged)continue;extra=true;}
     else{
       G.ti++;
       if(G.ti>=G.order.length){await roundEnd();if(G.over)return;G.ti=0;}
@@ -1416,7 +1555,7 @@ async function nextTurn(){
       await H.turn(u);H.pop(u,'Loses its turn!','call');log(`${u.name} is staggered and loses its turn.`,'e');
       await endTurn(u);if(G.over)return;await H.pause(120);continue;
     }
-    await beginTurn(u);
+    await beginTurn(u,extra);
     if(G.over)return;
     if(!live(u)){G.cur=null;continue;}
     if(isPlayer(u)){G.await=true;pushSnap();H.upd();H.save();return;}
