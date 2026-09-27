@@ -527,7 +527,7 @@ const HOWTO=`{g:Turn order.} Everyone rolls initiative (d20 + Finesse) when a ba
 
 {g:Moving and acting.} Tap a blue square to move, or drag the hero. You can move in several steps until your speed runs out. Taking an action ends your movement (a few powers give some back).
 
-{g:Basic attack and powers.} Every hero has a basic weapon attack, free to use every turn; powers are their special moves, and the stronger ones cost momentum. Pick a card at the bottom, then tap a target: red squares are foes in range, green are allies. A forecast shows what can happen. Tap the target again, or press STRIKE, to act. Powers with no target, like Thunderwave, go off when you tap their card twice.
+{g:Basic attack and powers.} Every hero has a basic weapon attack: it is free and earns 1 momentum. Powers are their special moves, and every power costs momentum. Pick a card at the bottom, then tap a target: red squares are foes in range, green are allies. A forecast shows what can happen. Tap the target again, or press STRIKE, to act. Powers with no target, like Thunderwave, go off when you tap their card twice.
 
 {g:Foe intents.} Tap INTENT to see whom each foe means to attack, and how hard. Shove foes out of reach, taunt them or finish them first.
 
@@ -539,7 +539,7 @@ const HOWTO=`{g:Turn order.} Everyone rolls initiative (d20 + Finesse) when a ba
 
 {g:Advantage and disadvantage.} Advantage rolls the first die again and keeps the best; disadvantage keeps the worst. Flanking, high ground, blessings and dazed or rooted targets give advantage. Cover, being weakened and shooting with a foe beside you give disadvantage.
 
-{g:Momentum.} Shown as {p:◆} gems. Every hero starts a battle with none, gains 1 each turn, 1 per combo, and more for doing their job: each hero's sheet says how. Stronger powers cost momentum.
+{g:Momentum.} Shown as {p:◆} gems. Every hero starts a battle with 2. A hero gains 1 for each basic attack, and 1 for each combo: both the hero who lands it and the hero who set it up (a blessed critical hit pays the cleric too). Every power costs momentum.
 
 {g:Foe threats.} The foes share a pool of momentum (top of the screen) that grows every round, with no limit. When it reaches the cost of their next threat they unleash it: bloodlust at first, and deeper into the journey eruptions, reinforcements and dark rites. Tap it to see what is coming.
 

@@ -199,7 +199,7 @@ async function partingBlow(f,t){
   const dealt=await damage(f,t,d,{});
   const ex=NOTE||[];NOTE=null;
   log(`${f.name} lands a parting blow on ${t.name}: ${dealt} damage.${ex.length?' '+ex.join(' '):''}`,sideCol(f));
-  if(f.kind==='pc'&&f.cls==='fighter'&&live(t)&&!t.object){t.stopped=true;applyMark(t,f);addMom(f,1);}
+  if(f.kind==='pc'&&f.cls==='fighter'&&live(t)&&!t.object){t.stopped=true;applyMark(t,f);}
 }
 /* Pushes and pulls throw a creature off balance: once it has been moved (or slammed into something) it is
    staggered. A creature slammed into another creature knocks that one off balance too. */
@@ -254,7 +254,6 @@ async function damage(src,t,amt,o){
   const lost=Math.min(before,a);if(lost>0){if(src&&src.side!==t.side)xp(src,lost,'dealt');if(t.side==='hero')xp(t,lost,'taken');}
   H.pop(t,a<amt?`-${a} ⛨`:`-${a}`,o.crit?'crit':'dmg');
   note(`${a} damage${a<amt?` (${amt-a} absorbed)`:''} [${before}→${Math.max(0,t.hp)}].`);
-  if(t.kind==='pc'&&t.cls==='fighter'&&a>0)addMom(t,1);
   if(src&&src.kind==='mon'&&mon(src).drain&&a>0&&live(src))heal(src,Math.ceil(a/2));
   if(t.hp<=0)await kill(t,src,o);
   H.upd(t);
@@ -671,9 +670,8 @@ async function usePower0(u,p,T){
   if(p.gainRes)addMom(u,p.gainRes);
   if(p.hide){u.hidden=true;H.pop(u,'Hidden','call');H.sfx('whoosh');}
   if(fl.usedBless){delete u.st.bless;u.blessBy=null;}
-  if(u.cls==='rogue'&&fl.sneak){addMom(u,1);H.pop(u,'+1 ◆','res');}
-  if(u.cls==='wizard'&&(fl.stagIds.size>=2||fl.slam)){addMom(u,1);H.pop(u,'+1 ◆','res');}
-  if(u.cls==='cleric'&&fl.healedOther){addMom(u,1);H.pop(u,'+1 ◆','res');}
+  // momentum comes from basic attacks and combos (comboHit) only
+  if(basicP(p)&&u.kind==='pc'){const n=1+(u.side==='hero'&&hasR('map')?1:0);addMom(u,n);H.pop(u,`+${n} ◆`,'res');}
   H.upd(u);
 }
 
@@ -1027,7 +1025,8 @@ function valuePower(u,p,T,O){
   if(p.igniteCenter)v+=1;
   if(p.revive)v+=25;
   if(p.selfHeal)v+=Math.min(u.maxHp-u.hp,p.selfHeal)*.8;
-  return v-p.cost*.9;
+  // momentum spent is worth something, and a basic attack earns 1
+  return v-(p.cost-(p.basic?1:0))*TUNE.momVal;
 }
 function planPc(u,stayOnly){
   const nodes=stayOnly||!canMoveNow(u)?[{x:u.x,y:u.y,s:0,prov:0,haz:0,prev:null}]:[...reach(u,u.mp).values()];
@@ -1314,7 +1313,7 @@ function isPlayer(u){return u.side==='hero'&&(u.kind==='pc'||u.kind==='npc')&&!A
 async function beginTurn(u){
   if(G.round>1||u.side!=='hero')u.shield=0;
   u.react=true;u.acted=false;u.moved=false;
-  if(u.kind==='pc')u.mom=Math.min(10,u.mom+TUNE.momTurn+(u.side==='hero'&&hasR('map')?1:0));
+  if(u.kind==='pc'&&TUNE.momTurn)u.mom=Math.min(10,u.mom+TUNE.momTurn);
   await H.turn(u);
   if(u.boss)await villain(u);
   if(!live(u))return;
