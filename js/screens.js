@@ -523,27 +523,29 @@ function openSettings(inBattle,onMap){
     button(x+w/2-30,y+h-16,60,12,'CLOSE',closeModal,{hot:true});
   }});
 }
-const HOWTO=`{g:Turn order.} Everyone rolls initiative (d20 + Finesse) when a battle starts. Turns go from highest to lowest, heroes and foes mixed, every round. TURNS shows who is next. On a hero's turn they can move and take one action, then tap END TURN.
+const HOWTO=`{g:Turn order.} Everyone rolls initiative (d20 + Finesse) when a battle starts. Turns go from highest to lowest, heroes and foes mixed, every round. TURNS shows who is next. On a hero's turn they have {g:three actions}, then tap END TURN.
 
-{g:Moving and acting.} Tap a blue square to move, or drag the hero. You can move in several steps until your speed runs out. Taking an action ends your movement (a few powers give some back).
+{g:Actions.} Moving, a basic attack and each power cost one action, in any order. Tap a blue square to move, or drag the hero: a move takes you up to your speed, and you can split it around your other actions (brighter squares are what is left of your move). Your second attack in a turn has disadvantage and the third double disadvantage.
 
-{g:Basic attack and powers.} Every hero has a basic weapon attack: it is free and earns 1 momentum. Every hero also has a free set-up power: Brakka's {g:Shove}, Vex's {g:Feint}, Orin's {g:Force Push} and Sela's {g:Guidance}. The foe gets a {g:saving throw} against Shove, Feint and Force Push. Powers are their special moves, and every power costs momentum. Pick a card at the bottom, then tap a target: red squares are foes in range, green are allies. A forecast shows what can happen. Tap the target again, or press STRIKE, to act. Powers with no target, like Thunderwave, go off when you tap their card twice.
+{g:Reactions.} Actions you don't use are saved (blue pips) until your next turn and spent on reactions, each kind once: {g:Defend} halves a blow of 4 or more, an {g:opportunity attack} strikes a foe that steps away, and each hero has their own: Brakka {g:Intercepts} a blow meant for a friend beside her, Vex strikes as an {g:Opportunist} when an ally hits a foe beside her, Orin's {g:Repelling Ward} pushes away a foe that steps up to him, and Sela's {g:Warding Word} halves a blow on an ally within 3. Reactions happen on their own.
+
+{g:Basic attack and powers.} Every hero has a basic weapon attack: it costs no momentum, and the first each turn earns 1. Most heroes also have a free set-up power: Brakka's {g:Shove}, Orin's {g:Force Push} and Sela's {g:Guidance}; Vex's Blades are a feint in themselves, leaving a foe she hits exposed for her allies unless it makes a {g:saving throw}. Foes save against Shove and Force Push too. Powers are their special moves, and every power costs momentum. Pick a card at the bottom, then tap a target: red squares are foes in range, green are allies. A forecast shows what can happen. Tap the target again, or press STRIKE, to act. Powers with no target, like Thunderwave, go off when you tap their card twice.
 
 {g:Foe intents.} Tap INTENT to see whom each foe means to attack, and how hard. Shove foes out of reach, taunt them or finish them first.
 
-{g:Combos.} Heroes set each other up. A foe that is shoved, dragged or knocked down is {g:staggered}: it loses its next turn, unless someone attacks it first, and that attack is a sure critical hit. Attacks against an {g:exposed} foe have advantage and deal +3 damage. A {g:blessed} hero attacks with advantage. Set-ups on a foe fade when its own turn ends, so line up a hero who acts before it. When a hero cashes in a set-up another hero made, it is a {g:combo}: both gain 1 momentum, and every hero hit for the rest of the round deals +1 damage per combo (up to +3).
+{g:Combos.} Heroes set each other up, and nobody cashes in their own set-up. A foe that is shoved, dragged or knocked down is {g:staggered}: it loses its next turn, unless someone attacks it first, and that attack is a sure critical hit. Attacks against an {g:exposed} foe have advantage and deal +3 damage. A {g:blessed} hero attacks with advantage. Set-ups on a foe fade when its own turn ends, so line up a hero who acts before it. When a hero cashes in a set-up another hero made, it is a {g:combo}: both gain 1 momentum, and every hero hit for the rest of the round deals +1 damage per combo (up to +3).
 
 {g:The roles.} Brakka throws foes off balance and makes them fight her: foes she marks can only attack her. Orin does it to whole groups. Sela blesses her friends and exposes foes. Vex cashes it all in with sneak attacks on set-up foes.
 
 {g:Damage dice.} Every attack rolls damage dice and adds an attribute. Each hero's basic attack (Sword, Blades, Bolt, Mace) rolls their weapon's dice; powers roll the hero's own die: Brakka d8s, Orin and Sela d6s, Vex d4s. The first die decides the result: a 1 is a graze, the top number is a critical hit, anything else a hit. A critical hit rolls one more die and adds it, and one more again each time the top number comes up. Small dice crit more often. Vex fights with two knives: dual wielding gives advantage on the first Blades attack each round. {g:Armored} foes shrug off part of every blow except critical hits.
 
-{g:Advantage and disadvantage.} Advantage rolls the first die again and keeps the best; disadvantage keeps the worst. Flanking, high ground, blessings and dazed or rooted targets give advantage. Cover, being weakened and shooting with a foe beside you give disadvantage.
+{g:Advantage and disadvantage.} Advantage rolls the first die again and keeps the best; disadvantage keeps the worst. Different sources stack, up to triple, and cancel out one for one. Flanking, high ground, blessings and dazed, rooted or exposed targets give advantage. Cover, being weakened, shooting with a foe beside you and attacking again in the same turn give disadvantage.
 
-{g:Momentum.} Shown as {p:◆} gems. Every hero starts a battle with none. A hero gains 1 for each basic attack, and 1 for each combo: both the hero who lands it and the hero who set it up (a blessed critical hit pays the cleric too). Every power costs momentum.
+{g:Momentum.} Shown as {p:◆} gems. Every hero starts a battle with none. A hero gains 1 for their first basic attack each turn, and 1 for each combo: both the hero who lands it and the hero who set it up (a blessed critical hit pays the cleric too). Every power costs momentum.
 
 {g:Foe threats.} The foes share a pool of momentum (top of the screen) that grows every round, with no limit. When it reaches the cost of their next threat they unleash it: bloodlust at first, and deeper into the journey eruptions, reinforcements and dark rites. Tap it to see what is coming.
 
-{g:Parting blows.} Stepping away from a foe beside you lets it strike you for free. The path turns red when that will happen. Rogues never provoke them, and staggered foes can't make them.
+{g:Opportunity attacks.} Stepping away from a foe beside you lets it strike you (foes once a round; heroes only with a saved action). The path turns red when that will happen. Rogues never provoke them, and staggered foes can't make them.
 
 {g:Hazards.} Fire, acid and lava hurt anyone who enters them or ends a turn in them, even when pushed or pulled in. Shove your enemies into them!
 

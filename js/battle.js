@@ -95,7 +95,8 @@ function unitBody(u,full){
   if(u.kind==='pc'){
     s+=attrLine(u.attrs)+'\n';
     s+=`Speed ${effSpeed(u)}\n`;
-    if(G&&G.cur===u.id)s+=`Move {${u.mp>0?'h':'m'}:${u.mp} left} · Action ${u.acted?'{m:used}':'{h:ready}'}\n`;
+    if(G&&G.cur===u.id)s+=`Actions {${u.acts>0?'h':'m'}:${u.acts||0} of ${TUNE.actions} left}${u.mp>0?` · {h:${u.mp}} squares of movement left`:''}\n`;
+    else if(G&&u.saved>0)s+=`{b:${u.saved} action${u.saved>1?'s':''} saved for reactions}\n`;
     s+=condText(u);
     if(u.st.mark&&u.marker&&U(u.marker))s+=`(by ${U(u.marker).name}) `;
     if(full){s+='Skills: '+Object.keys(SKILLS).map(k=>{const t=CLASSES[u.cls].skills.includes(k);const v=u.attrs[SKILLS[k]]+(t?2:0);return (t?'{g:'+k+'}':k)+' '+(v>=0?'+':'')+v;}).join(', ')+'\n\n'+CLASSES[u.cls].trait+'\n';for(const id of u.powers)s+='\n'+'{g:'+POWERS[id].name+'}: '+powerText(POWERS[id],u)+'\n';}
@@ -444,7 +445,7 @@ function activeUnit(){return G&&G.cur?U(G.cur):null;}
 function playerUnit(){const u=activeUnit();return G&&G.await&&u&&live(u)&&isPlayer(u)?u:null;}
 function view(){
   const u=playerUnit();if(!u)return null;
-  const key=[G.cmd,G.cur,B.pi,u.x,u.y,u.mp,u.acted,u.mom,HIST.length,G.units.map(o=>o.x+','+o.y+(live(o)?'':'d')).join(';'),JSON.stringify(G.walls)].join('|');
+  const key=[G.cmd,G.cur,B.pi,u.x,u.y,u.mp,u.acts,u.mom,HIST.length,G.units.map(o=>o.x+','+o.y+(live(o)?'':'d')).join(';'),JSON.stringify(G.walls)].join('|');
   if(key!==B.vkey){B.vkey=key;B.V=unitView(u,B.pi);}
   return B.V;
 }
@@ -455,11 +456,11 @@ function setPend(k){
   if(p.tgt==='enemy'||p.tgt==='ally')O=chooseOrigin(u,p,T,V)||O;
   B.pend={k,T,O};B.inspect=null;sfx('select');
 }
-function selfPend(u){const p=powerOf(u,B.pi);if(p&&p.tgt==='self'&&usable(u,p)&&!u.acted)B.pend={k:K(u.x,u.y),T:{x:u.x,y:u.y},O:{x:u.x,y:u.y,s:0,prov:0,haz:0,prev:null}};}
+function selfPend(u){const p=powerOf(u,B.pi);if(p&&p.tgt==='self'&&canAct(u,p))B.pend={k:K(u.x,u.y),T:{x:u.x,y:u.y},O:{x:u.x,y:u.y,s:0,prov:0,haz:0,prev:null}};}
 async function afterCmd(u){
   B.busy=false;B.pend=null;B.vkey='';
   if(!G||G.over)return;
-  if(live(u)&&!u.acted)selfPend(u);
+  if(live(u)&&(u.acts||0)>0)selfPend(u);
   if(SET.autoEnd&&!G.tut&&G.await&&G.cur===u.id&&turnDone(u)){await sleep(250);if(G&&G.await&&G.cur===u.id&&!B.busy)await endTurnUI();}
 }
 async function doMove(n){
@@ -473,9 +474,9 @@ async function doMove(n){
 async function confirmPend(){
   const u=playerUnit();const P=B.pend;if(!u||!P||B.busy)return;
   if(G.tut&&!tutAllow('confirm'))return;
-  B.busy=true;
-  try{await cmdAct(u,B.pi,P.T,P.O);}catch(e){console.error(e);}
-  if(G&&G.tut&&u.acted)tutEvent('acted');
+  B.busy=true;let did=false;
+  try{did=await cmdAct(u,B.pi,P.T,P.O);}catch(e){console.error(e);}
+  if(G&&G.tut&&did)tutEvent('acted');
   await afterCmd(u);
 }
 async function endTurnUI(){
@@ -503,7 +504,7 @@ function boardTap0(x,y){
   if(!u||B.busy){if(t){B.inspect=t.id;}return;}
   const V=view();const p=u.kind==='pc'?powerOf(u,B.pi):null;
   if(B.pend&&B.pend.k===k)return confirmPend();
-  if(p&&!u.acted&&V.targets.has(k)){
+  if(p&&canAct(u,p)&&V.targets.has(k)){
     if((p.tgt==='enemy'||p.tgt==='ally')&&t)return setPend(k);
     if(p.tgt==='tile')return setPend(k);
     if(p.tgt==='self'&&t===u)return setPend(k);
@@ -519,7 +520,7 @@ const boardInput={
   dragStart:(px,py)=>{const t=tileAt(px,py);const u=playerUnit();if(t&&u&&!B.busy&&u.x===t.x&&u.y===t.y)B.drag={id:u.id};},
   drag:(px,py)=>{if(!B.drag)return;B.dragPos={x:px,y:py};const t=tileAt(px,py);B.dragTile=t;
     const u=playerUnit();const V=view();if(!u||!V||!t)return;const k=K(t.x,t.y);const p=u.kind==='pc'?powerOf(u,B.pi):null;const o=unitAt(t.x,t.y);
-    if(p&&!u.acted&&V.targets.has(k)&&o&&o!==u&&(p.tgt==='enemy'||p.tgt==='ally')){if(!B.pend||B.pend.k!==k)setPend(k);}else B.pend=null;},
+    if(p&&canAct(u,p)&&V.targets.has(k)&&o&&o!==u&&(p.tgt==='enemy'||p.tgt==='ally')){if(!B.pend||B.pend.k!==k)setPend(k);}else B.pend=null;},
   drop:(px,py)=>{if(!B.drag)return;B.drag=null;B.dragTile=null;const t=tileAt(px,py);const u=playerUnit();if(!t||!u)return;const k=K(t.x,t.y);const V=view();
     if(B.pend&&B.pend.k===k)return confirmPend();
     if(V&&V.moves.has(k)&&!unitAt(t.x,t.y))return doMove(V.moves.get(k));},
@@ -611,7 +612,7 @@ function openMissionInfo(){const E=G.enc;msg(E.title||MISSIONS[E.type].name,miss
 const COMBO_KEY='emberwatch.v3.combos';
 function comboSeen(){try{return !!localStorage.getItem(COMBO_KEY);}catch(e){return true;}}
 function showComboIntro(){return new Promise(res=>{try{localStorage.setItem(COMBO_KEY,'1');}catch(e){}
-  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Heroes and foes act in {g:initiative} order. Heroes {g:set up} attacks for each other, so watch who acts next. A foe that is shoved, dragged or knocked down is {g:staggered}: it loses its next turn, unless someone cashes it in with a sure critical hit. {g:Exposed} foes take +3 damage from every hit, and {g:blessed} heroes attack with advantage.\n\nA set-up lasts until the foe\'s own turn, so cash it in with a hero who acts before it: that is a {g:combo}, +1 momentum for both, and more damage for the rest of the round. Chain them!\n\nTap {g:INTENT} to see whom each foe means to attack.',
+  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Heroes and foes act in {g:initiative} order. A hero has {g:three actions} a turn (move, attack, powers), and saves any left over for {g:reactions} like Defend. Heroes {g:set up} attacks for each other, so watch who acts next. A foe that is shoved, dragged or knocked down is {g:staggered}: it loses its next turn, unless someone cashes it in with a sure critical hit. Attacks against {g:exposed} foes have advantage and deal +3, and {g:blessed} heroes attack with advantage.\n\nA set-up lasts until the foe\'s own turn, so cash it in with a hero who acts before it: that is a {g:combo}, +1 momentum for both, and more damage for the rest of the round. Chain them!\n\nTap {g:INTENT} to see whom each foe means to attack.',
     buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 function showObjective(){return new Promise(res=>{const E=G.enc;openModal(dialog({title:(E.title||MISSIONS[E.type].name).toUpperCase(),body:missionBody()+'\n\n{m:Tap the objective bar at the top to see this again.}',w:200,closable:false,buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 /* Name, health and momentum of the active (or inspected) unit. Tap for the full character sheet. */
@@ -637,7 +638,7 @@ function drawInfoBarP(){
     const ms=MOMSEEN[show.id];let gain=null;
     if(!ms||ms.n!==show.mom){MOMSEEN[show.id]={n:show.mom,t:ms&&show.mom>ms.n?NOW:(ms?ms.t:0),d:ms&&show.mom>ms.n?show.mom-ms.n:(ms?ms.d:0)};}
     const M=MOMSEEN[show.id];if(M.t&&NOW-M.t<700)gain={n:M.d,t:M.t};
-    let cost=0;if(u===show&&!u.acted&&!insp){const p=powerOf(u,B.pi);if(p&&p.cost&&usable(u,p))cost=p.cost;}
+    let cost=0;if(u===show&&!insp){const p=powerOf(u,B.pi);if(p&&p.cost&&canAct(u,p))cost=p.cost;}
     gemRow(rx-gw+1,y+13,show.mom,10,cost,gain);
     hit(rx-gw,y+11,gw,11,{fn:()=>openGloss('momentum'),id:'infomom'});
   }
@@ -664,10 +665,12 @@ function hintLines(){
   if(u.kind==='npc')return ['Tap a blue square to move the captive, then {g:End Turn}.'];
   const p=powerOf(u,B.pi);const V=view();
   if(B.pend&&p)return [p.tgt==='enemy'?'Tap the target again or press {g:STRIKE}.':'Tap again or press {g:CONFIRM} to use it.',p.desc];
-  if(u.acted){return V&&V.moves.size>1?['Move with your remaining steps, or {g:End Turn}.']:['Nothing left to do. Tap {g:End Turn}.'];}
+  const al=`{g:${u.acts} action${u.acts===1?'':'s'}} left. `;
+  if((u.acts||0)<=0){return V&&V.moves.size>1?['Move with your remaining steps, or {g:End Turn}.']:['No actions left. Tap {g:End Turn}.'];}
   if(p&&!usable(u,p))return [`{r:${p.name} needs ◆${p.cost}.} You have ◆${u.mom}.`,'Pick another power, or move.'];
+  if(p&&u.acts<TUNE.actions&&!B.pend)return [al+'Act again, move, or {g:End Turn}: unused actions are saved for {g:reactions}.',p.desc];
   if(p){
-    const how=p.tgt==='enemy'?'Tap a red foe to attack, or a blue square to move.':p.tgt==='ally'?'Tap a green ally, or a blue square to move.':p.tgt==='tile'?(p.area!=null?'Tap an orange square to aim, or move.':'Tap a purple square, or move.'):'Tap the card again to use it, or move.';
+    const how=al+(p.tgt==='enemy'?'Tap a red foe to attack, or a blue square to move.':p.tgt==='ally'?'Tap a green ally, or a blue square to move.':p.tgt==='tile'?(p.area!=null?'Tap an orange square to aim, or move.':'Tap a purple square, or move.'):'Tap the card again to use it, or move.');
     return [how,p.desc];
   }
   return ['Tap a blue square to move.'];
@@ -723,7 +726,7 @@ function drawTrayP(){
     text('▶',bx+side/2-1,py+ph/2-6,C.gold,{al:'c'});for(let i=0;i<pages;i++){rect(bx+3,py+ph/2+2+i*4,side-7,3,C.edge);rect(bx+4,py+ph/2+3+i*4,side-9,1,i===B.page?C.gold:C.dim);}}
 }
 function powerPill(u,i,x,y,w,h){
-  const p=powerOf(u,i);const ok=usable(u,p)&&!u.acted;const on=i===B.pi;const afford=u.mom>=(p.cost||0);
+  const p=powerOf(u,i);const ok=canAct(u,p);const on=i===B.pi;const afford=u.mom>=(p.cost||0);
   rect(x,y,w,h,C.edge);
   rect(x+1,y+1,w-2,h-2,on?'#4e3a18':ok?'#2c221a':'#1a1411');
   rect(x+1,y+1,w-2,1,on?'#c09040':ok?'#4e3e2e':'#241c16');
@@ -799,9 +802,9 @@ function foeIntents(){
   if(key===INT.key)return INT.list;
   INT.key=key;INT.list=[];
   for(const e of G.units.filter(u=>u.side==='enemy'&&live(u)&&!u.object&&!u.caged&&!losesTurn(u))){
-    const mp0=e.mp,ac0=e.acted;
+    const mp0=e.mp,ac0=e.acted,as0=e.acts;
     try{
-      e.mp=effSpeed(e);e.acted=false;
+      if(e.kind==='pc'){e.mp=0;e.acts=TUNE.actions;}else e.mp=effSpeed(e);e.acted=false;
       if(e.kind==='mon'){
         const P=planMon(e);if(!P.node||!P.act||P.act.tgt)continue;
         if(e.st.daze&&(P.node.x!==e.x||P.node.y!==e.y))continue;
@@ -813,7 +816,7 @@ function foeIntents(){
         INT.list.push({e,node:P.O,t,ev:r?evRow(r):0,kill:r?killP(r):0,act:p});
       }
     }catch(err){console.error(err);}
-    finally{e.mp=mp0;e.acted=ac0;}
+    finally{e.mp=mp0;e.acted=ac0;e.acts=as0;}
   }
   return INT.list;
 }
@@ -891,6 +894,8 @@ function drawUnit(u){
     if(pv){const lw=Math.min(fw,Math.round((bw-2)*pv/u.maxHp));if(Math.floor(NOW/180)%2)rect(bx+1+fw-lw,by+1,lw,Q>1?2:1,'#ffffff');}
   }
   if(u.shield>0){const ic=statusIcon('shield');if(ic)ctx.drawImage(ic,X+W-8,Y+W-10);}
+  // gold pips: actions left this turn; blue pips: actions saved for reactions
+  if(u.kind==='pc'){const cur=G.cur===u.id,n2=cur?(u.acts||0):(u.saved||0);const ps=3+Q;for(let i=0;i<n2;i++){const px=X+1+i*(ps+1),py=Y+1;rect(px,py,ps,ps,C.edge);rect(px+1,py+1,ps-2,ps-2,cur?'#ffd860':'#7fd0ff');rect(px+1,py+1,ps-2,1,cur?'#fff4c0':'#d0f0ff');}}
   const sts=unitStatuses(u).filter(k=>k!=='shield');
   sts.slice(0,3).forEach((k,i)=>{const ic=statusIcon(k);if(ic)ctx.drawImage(ic,X+W-7,Y-1+i*7);});
 }
@@ -909,7 +914,7 @@ function drawHighlights(){
   const p=u.kind==='pc'?powerOf(u,B.pi):null;
   const tcol=!p?'#e84030':p.tgt==='enemy'?'#e84030':p.tgt==='ally'?'#50d060':p.tgt==='tile'&&p.area!=null?'#ffa040':'#c080ff';
   V.zone.forEach(k=>{if(!V.moves.has(k)&&!V.targets.has(k)){ctx.globalAlpha=.25;rect(BX+KX(k)*TS+TS/2-1,BY+KY(k)*TS+TS/2-1,2,2,tcol);ctx.globalAlpha=1;}});
-  V.moves.forEach(n=>{if(n.x===u.x&&n.y===u.y)return;if(unitAt(n.x,n.y))return;tileRect(n.x,n.y,n.prov?'#a070ff':'#4a90f0',.26);});
+  V.moves.forEach(n=>{if(n.x===u.x&&n.y===u.y)return;if(unitAt(n.x,n.y))return;tileRect(n.x,n.y,n.prov?'#a070ff':'#4a90f0',n.s<=(u.mp||0)?.36:.22);});
   if(p&&p.tgt!=='self')V.targets.forEach((os,k)=>{const o=p.tgt!=='tile'&&unitAt(KX(k),KY(k));if(o&&SZ(o)>1)foot(o,o.x,o.y).forEach(f=>tileRect(f.x,f.y,tcol,.32));else tileRect(KX(k),KY(k),tcol,p.tgt==='tile'?.18:.32);});
   if(B.pend&&p){
     const T=B.pend.T;const a=.35+.15*Math.sin(NOW/150);
@@ -956,7 +961,7 @@ function drawUnitCard(u,x,y,w,h,closable){
   bar(x+37,y+16,w-37,5,u.hp/u.maxHp,u.side==='enemy'?'#d04030':'#50c050');
   text(`${Math.max(0,u.hp)}/${u.maxHp}`,x+37,y+23,C.parch);
   let by=y+37;
-  if(u.kind==='pc'){let cost=0;const pu=playerUnit();if(pu===u&&!u.acted){const p=powerOf(u,B.pi);if(p&&p.cost&&usable(u,p))cost=p.cost;}gemRow(x,by,u.mom,10,cost);hit(x,by,62,8,{fn:()=>openGloss('momentum'),id:'cmom'});by+=10;}
+  if(u.kind==='pc'){let cost=0;const pu=playerUnit();if(pu===u){const p=powerOf(u,B.pi);if(p&&p.cost&&canAct(u,p))cost=p.cost;}gemRow(x,by,u.mom,10,cost);hit(x,by,62,8,{fn:()=>openGloss('momentum'),id:'cmom'});by+=10;}
   if(closable){button(x+w-9,y-1,9,8,'×',()=>{B.inspect=null;},{});}
   const body=unitBody(u,false);
   const bh=richH(body,w-4);
@@ -1023,13 +1028,14 @@ function drawForecast(u,x,y0,w,h){
   B.strikeR={x,y:bot,w:w-27,h:13};button(x,bot,w-27,13,p.tgt==='enemy'?'STRIKE':'CONFIRM',confirmPend,{hot:true,disabled:B.busy});
   button(x+w-25,bot,25,13,'×',()=>{B.pend=null;},{});
 }
+function endLabel(u){return u.kind==='pc'&&(u.acts||0)>0?`END · SAVE ${u.acts}`:'END TURN';}
 function drawCtrlBar(){
   const y=PL.ctrlY,h=PL.ctrlH,pu=playerUnit();
   const bs=[['↶ UNDO',undoUI,{disabled:B.busy||!canUndo()}],['LOG',openLog,{}],['TURNS',openOrder,{}],['INTENT',toggleIntents,{on:SET.showIntents===true}]];
   const bw=Math.floor((SW-4)*.165);
   bs.forEach((b,i)=>button(2+i*(bw+2),y,bw,h,b[0],b[1],b[2]));
   const ex=2+4*(bw+2),done=!!pu&&turnDone(pu);
-  B.endR={x:ex,y,w:SW-2-ex,h};button(ex,y,SW-2-ex,h,pu?'END TURN':'…',()=>endTurnUI(),{hot:!!pu,disabled:!pu||B.busy,glow:done});
+  B.endR={x:ex,y,w:SW-2-ex,h};button(ex,y,SW-2-ex,h,pu?endLabel(pu):'…',()=>endTurnUI(),{hot:!!pu,disabled:!pu||B.busy,glow:done});
 }
 function drawRight(){
   panel(225,13,95,133,{});
@@ -1051,7 +1057,7 @@ function drawRight(){
   button(273,90,43,12,'LOG',openLog,{});
   button(229,104,42,12,'UNDO',undoUI,{disabled:B.busy||!canUndo()});
   button(273,104,43,12,'MENU',()=>openSettings(true),{});
-  B.endR={x:229,y:120,w:87,h:22};button(229,120,87,22,pu?'END TURN':'…',()=>endTurnUI(),{hot:!!pu&&turnDone(pu),disabled:!pu||B.busy});
+  B.endR={x:229,y:120,w:87,h:22};button(229,120,87,22,pu?endLabel(pu):'…',()=>endTurnUI(),{hot:!!pu&&turnDone(pu),disabled:!pu||B.busy});
 }
 function drawHotbar(){
   const py=PORT?PL.trayY:146,ph=PORT?PL.trayH:34;
@@ -1068,7 +1074,7 @@ function drawHotbar(){
   if(PORT)hit(0,py,SW,ph,Object.assign({id:'tray'},SWIPE));
   for(let i=start;i<Math.min(n,start+per);i++){
     const p=powerOf(u,i);const slot=i-start;const x=x0+(slot%cols)*sx,y=y0+Math.floor(slot/cols)*sy;
-    const ok=usable(u,p)&&!u.acted;const on=i===B.pi;
+    const ok=canAct(u,p);const on=i===B.pi;
     rect(x,y,cw,chh,C.edge);rect(x+1,y+1,cw-2,chh-2,on?'#4a3818':ok?'#2e241c':'#1e1814');rect(x+1,y+1,cw-2,1,on?'#a07828':ok?'#5a4632':'#2a221c');
     if(on){frame(x,y,cw,chh,C.gold);}
     if(!ok)ctx.globalAlpha=.4;ctx.drawImage(powerIcon(p),x+2,y+2);ctx.globalAlpha=1;
@@ -1087,7 +1093,7 @@ function cardTap(i){
   if(G.tut&&!tutAllow('power',i))return;
   const p=powerOf(u,i);
   if(i===B.pi&&B.pend&&(p.tgt==='self')){confirmPend();return;}
-  if(i===B.pi&&p.tgt==='self'&&usable(u,p)&&!u.acted){selfPend(u);if(B.pend)confirmPend();return;}
+  if(i===B.pi&&p.tgt==='self'&&canAct(u,p)){selfPend(u);if(B.pend)confirmPend();return;}
   B.pi=i;B.pend=null;B.inspect=null;B.vkey='';sfx('select');
   selfPend(u);
   if(G.tut)tutEvent('power');
