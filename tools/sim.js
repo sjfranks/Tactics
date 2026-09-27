@@ -20,6 +20,8 @@ for(const f of['data.js','engine.js','run.js'])vm.runInContext(fs.readFileSync(p
 vm.runInContext(`Object.assign(TUNE,${process.env.TUNE||'{}'});`,ctx);
 // MONS='{"lich":{"hp":100}}' overrides monster stats, for tuning one foe at a time
 vm.runInContext(`for(const [k,v] of Object.entries(${process.env.MONS||'{}'}))Object.assign(MON[k],v);`,ctx);
+// PRE='...' runs any code after the data loads, e.g. to try new power costs
+if(process.env.PRE)vm.runInContext(process.env.PRE,ctx);
 vm.runInContext(`
 CTX={mode:'sim',relics:[]};
 function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}

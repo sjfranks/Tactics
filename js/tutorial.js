@@ -27,7 +27,7 @@ const TUT_SCRIPT=[
   {wait:onTurn('fighter')},
   {say:'narrator',text:'Everyone takes turns in {g:initiative} order. On her turn a hero can move, then attack. Brakka is a fighter: she wants to be up close.'},
   {do:'move',text:'Move Brakka next to the cutthroat.',tiles:()=>tutBeside('cut')},
-  {say:'narrator',text:'Every hero has a {g:basic attack} they can use every turn. Brakka\'s is her {g:Sword}: its damage dice come from the weapon in her hand. The other cards are her special powers.'},
+  {say:'narrator',text:'Every hero has a {g:basic attack} they can use every turn. Brakka\'s is her {g:Sword}: its damage dice come from the weapon in her hand. The other cards are her special powers. Basic attacks earn {p:◆ momentum}, and every power spends it.'},
   {do:'target',pi:0,text:'Attack the cutthroat with your Sword!',tiles:()=>tutInTargets('cut',0,0)},
   {say:'narrator',text:'Before you strike, the {g:forecast} shows what could happen. Every attack rolls damage dice: a 1 on the first die is a {g:Graze}; its top number is a {g:Critical hit}, and you roll one more die (and one more again on another top number). You see the damage and the odds of each.'},
   {do:'confirm',text:'Tap the cutthroat again to strike.'},
@@ -40,7 +40,7 @@ const TUT_SCRIPT=[
   {say:'fighter',text:'Sela! Good timing. Let\'s show this brute how we fight.'},
   {say:'narrator',text:'Sela acts right after Brakka. Heroes can {g:set up} attacks for each other, but a set-up only lasts until the foe\'s own turn: so the order matters.'},
   {say:'narrator',text:'See the fire beside the brute? {g:Tide of Iron} shoves a foe back, and anything shoved into a {r:hazard} suffers it. Better still, a foe that is shoved or dragged is {g:staggered}: it will lose its next turn, and the next attack on it is a sure {g:critical hit}.',when:()=>tutInTargets('brute',0,0).length},
-  {do:'power',pi:1,text:'Tap {g:Tide of Iron}, one of Brakka\'s powers.',when:()=>B.pi!==1},
+  {do:'power',pi:1,text:'Tap {g:Tide of Iron}, one of Brakka\'s powers. It costs 1 {p:◆}.',when:()=>B.pi!==1},
   {do:'target',pi:1,text:'Shove the brute into the fire!',tiles:()=>tutInTargets('brute',0,1)},
   {do:'confirm',text:'Tap the brute again to shove it.'},
   {say:'fighter',text:'Off balance, on fire, and {g:marked}: it can only come for me now. Sela, strike!',when:()=>G.tut.lastDone==='confirm'&&tutFoe('brute')&&tutFoe('brute').st.stag},
@@ -55,8 +55,8 @@ const TUT_SCRIPT=[
   {say:'cleric',text:'Light guide your arm, Brakka!',when:()=>G.tut.lastDone==='confirm'},
   {do:'end',text:'Tap END TURN.'},
   {wait:()=>G.round>=3&&onTurn('fighter')()},
-  {run:()=>{const f=tutHero('fighter');if(f)f.mom=Math.max(f.mom,2);}},
-  {say:'narrator',text:'Brakka is still {g:blessed}. And every hit she took gave her {p:◆ momentum}, the purple gems by her name. {g:Hook Chain} costs 2: it reaches 3 squares and drags a foe to Brakka, staggered.',when:()=>tutInTargets('archer',0,2).length},
+  {run:()=>{const f=tutHero('fighter');if(f)f.mom=Math.max(f.mom,1);}},
+  {say:'narrator',text:'Brakka is still {g:blessed}. And setting up Sela\'s combo earned her {p:◆ momentum} too, the purple gems by her name. {g:Hook Chain} costs 1: it reaches 3 squares and drags a foe to Brakka, staggered.',when:()=>tutInTargets('archer',0,2).length},
   {do:'power',pi:2,text:'Tap {g:Hook Chain}.',when:()=>tutInTargets('archer',0,2).length},
   {do:'target',pi:2,text:'Drag that archer out of hiding!',tiles:()=>tutInTargets('archer',0,2)},
   {do:'confirm',text:'Tap the archer again to pull.'},
@@ -119,7 +119,7 @@ function tutJoin(){
   let spot=null;for(const [x,y] of [[3,6],[3,7],[2,7],[4,7],[1,7],[4,6],[1,6]])if(!spot&&freeTile(x,y,null))spot={x,y};
   if(!spot)return;
   const c=makePc(h,spot.x,spot.y,'hero');G.units.push(c);
-  c.init=99;c.mom=1;
+  c.init=99;c.mom=TUNE.momStart;
   const fi=G.order.indexOf('h_fighter');G.order.splice(fi+1,0,c.id);
   H.spawn(c);sfx('holy');log('Sela joins the fight!','g');
 }

@@ -77,7 +77,8 @@ function monActBlock(A,x,y,w,o){
 /* ---------- the sheet ---------- */
 function momRules(u){
   const Cc=CLASSES[u.cls],P=POSS[Cc.pro]||'their',hero=u.side==='hero';
-  const L=[`+${TUNE.momTurn+(hero&&hasR('map')?1:0)} at the start of each of ${P} turns.`].concat(Cc.mom);
+  const b=POWERS[BASIC[u.cls]];
+  const L=[`+${1+(hero&&hasR('map')?1:0)} each time ${Cc.pro} uses ${P} basic attack${b?` ({g:${b.name}})`:''}.`];
   L.push(`+1 for each {g:combo} ${Cc.pro} sets up for an ally or lands ${Cc.pro==='he'?'himself':'herself'}.`);
   L.push(`Starts each battle with ${TUNE.momStart+(hero&&hasR('hymn')?2:0)}. Holds up to 10.`);
   return L;
