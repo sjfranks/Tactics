@@ -322,6 +322,7 @@ function netBoon(a,t,p,O){
   if(p.edge)pro.push(p.name);
   if(a.kind==='pc'&&basicP(p)&&(wpnOf(a)||WEAPONS[START_WEAPON[a.cls]]||{}).dual&&a.dualR!==G.round)pro.push('Dual wield');
   if(t.st.root)pro.push('Rooted');else if(t.st.daze)pro.push('Dazed');
+  if(t.st.expose&&!t.object)pro.push('Exposed');
   if(melee&&!t.object){
     if(a.kind==='pc'&&a.cls==='rogue'){if(allies(a).some(h=>h!==a&&!h.object&&man(h,t)===1))pro.push('Ally beside');}
     else if(SZ(t)===1&&SZ(a)===1){if(inB(2*t.x-O.x,2*t.y-O.y)){const h=unitAt(2*t.x-O.x,2*t.y-O.y);if(h&&h!==a&&h.side===a.side&&!h.object)pro.push('Flanking');}}
@@ -983,7 +984,7 @@ function payoffGain(h,t,kind){
     if(man(h,t)>h.mp+rng)continue;
     const pr=dieProbs(atkDice(h,q).s,0);const d=[1,2,3].map(r=>pcDmg(h,q,t,r));
     const exp=pr[0]*d[0]+pr[1]*d[1]+pr[2]*d[2];
-    let g=kind==='stag'?(t.boss?pr[0]*(d[1]-d[0])+pr[1]*(d[2]-d[1]):d[2]-exp):kind==='expose'?EXPOSE_DMG*(q.hits||1):(pr[0]*.4+pr[1]*.4)*(d[2]-d[0])*.6;
+    let g=kind==='stag'?(t.boss?pr[0]*(d[1]-d[0])+pr[1]*(d[2]-d[1]):d[2]-exp):kind==='expose'?(EXPOSE_DMG+dieProbs(atkDice(h,q).s,1).reduce((a,x,i)=>a+(x-pr[i])*d[i],0))*(q.hits||1):(pr[0]*.4+pr[1]*.4)*(d[2]-d[0])*.6;
     if(h.cls==='rogue'&&kind!=='bless'&&!sneakOn(h,t))g+=sneakBonus(h);
     best=Math.max(best,g);
   }

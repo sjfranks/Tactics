@@ -531,7 +531,7 @@ const HOWTO=`{g:Turn order.} Everyone rolls initiative (d20 + Finesse) when a ba
 
 {g:Foe intents.} Tap INTENT to see whom each foe means to attack, and how hard. Shove foes out of reach, taunt them or finish them first.
 
-{g:Combos.} Heroes set each other up. A foe that is shoved, dragged or knocked down is {g:staggered}: it loses its next turn, unless someone attacks it first, and that attack is a sure critical hit. An {g:exposed} foe takes +3 damage from every hit. A {g:blessed} hero attacks with advantage. Set-ups on a foe fade when its own turn ends, so line up a hero who acts before it. When a hero cashes in a set-up another hero made, it is a {g:combo}: both gain 1 momentum, and every hero hit for the rest of the round deals +1 damage per combo (up to +3).
+{g:Combos.} Heroes set each other up. A foe that is shoved, dragged or knocked down is {g:staggered}: it loses its next turn, unless someone attacks it first, and that attack is a sure critical hit. Attacks against an {g:exposed} foe have advantage and deal +3 damage. A {g:blessed} hero attacks with advantage. Set-ups on a foe fade when its own turn ends, so line up a hero who acts before it. When a hero cashes in a set-up another hero made, it is a {g:combo}: both gain 1 momentum, and every hero hit for the rest of the round deals +1 damage per combo (up to +3).
 
 {g:The roles.} Brakka throws foes off balance and makes them fight her: foes she marks can only attack her. Orin does it to whole groups. Sela blesses her friends and exposes foes. Vex cashes it all in with sneak attacks on set-up foes.
 
