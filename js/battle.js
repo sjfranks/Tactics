@@ -984,7 +984,7 @@ function drawForecast(u,x,y0,w,h){
   else{text(p.tgt==='self'||p.area!=null?'No one in the area.':'',x,y,C.mute);y+=10;}
   let body='';
   if(r&&p.save){
-    const q=r.save||0,nm=ATTR[p.save.a],what=p.save.eff==='stag'?'{g:staggered}'+(tgt.boss?'':' (it loses its next turn)'):'{g:exposed} (every hit against it deals +3)';
+    const q=r.save||0,nm=ATTR[p.save.a],what=p.save.eff==='stag'?'{g:staggered}'+(tgt.boss?'':' (it loses its next turn)'):'{g:exposed} (attacks against it have advantage and deal +3)';
     body+=`${p.shove?'Pushed 1 square. ':''}${tgt.name} rolls a ${nm} save: {w:d20 + ${saveMod(tgt,p.save.a)}} against {w:${saveDC(u,p)}}. {g:${Math.round(q*100)}%} it fails and is ${what}.\n`;
     if(p.save.eff==='stag'&&tgt.st.steady)body+='{m:It has only just recovered: it can\'t be staggered again yet.}\n';
     if(rows.by&&rows.by.length)body+=`{g:COMBO!} ${rows.by.map(id=>U(id).name).join(' and ')} set this up: +1 {p:◆} each.\n`;

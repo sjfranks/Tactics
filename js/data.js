@@ -68,7 +68,7 @@ const POWERS={
   mace:{c:'cleric',lv:1,a:'M',name:'Mace',basic:true,cost:0,tgt:'enemy',range:1,dmg:[2,4,6],desc:'A solid blow. Its damage comes from your weapon.'},
   /* ---- free set-ups every hero has: the foe makes a saving throw (d20 + attribute) against 12 + your attribute + a third of your level ---- */
   shove:{c:'fighter',lv:1,a:'M',name:'Shove',innate:true,cost:0,tgt:'enemy',range:1,noDmg:true,shove:1,save:{a:'M',eff:'stag'},desc:'Push the foe 1 square. It makes a Might save or is staggered.'},
-  feint:{c:'rogue',lv:1,a:'F',name:'Feint',innate:true,cost:0,tgt:'enemy',range:1,noDmg:true,save:{a:'W',eff:'expose'},desc:'A false opening. The foe makes a Wits save or is exposed: every hit against it deals +3.'},
+  feint:{c:'rogue',lv:1,a:'F',name:'Feint',innate:true,cost:0,tgt:'enemy',range:1,noDmg:true,save:{a:'W',eff:'expose'},desc:'A false opening. The foe makes a Wits save or is exposed: attacks against it have advantage and deal +3.'},
   force:{c:'wizard',lv:1,a:'W',name:'Force Push',innate:true,cost:0,tgt:'enemy',range:4,noDmg:true,shove:1,save:{a:'M',eff:'stag'},proj:'#c39bff',desc:'Range 4. Push the foe 1 square away. It makes a Might save or is staggered.'},
   guidance:{c:'cleric',lv:1,a:'P',name:'Guidance',innate:true,cost:0,tgt:'ally',range:3,noSelf:true,empower:1,desc:'Range 3. Bless an ally: advantage on their next attack, and a combo for you both.'},
   /* ---- Fighter: staggers foes and makes them fight her ---- */
@@ -122,7 +122,7 @@ const POWERS={
   disint:{c:'wizard',lv:9,a:'W',name:'Disintegrate',cost:4,tgt:'enemy',range:4,dmg:[8,12,18],proj:'#7dff8a',desc:'Range 4. An annihilating ray that rolls three dice.'},
   /* ---- Cleric: blesses friends, exposes foes, mends and moves ---- */
   rally:{c:'cleric',lv:1,a:'M',name:'Rallying Strike',cost:1,tgt:'enemy',range:1,dmg:[2,4,6],blessNear:3,desc:'Strike, and bless the nearest ally within 3 of you: advantage on their next attack.'},
-  brand:{c:'cleric',lv:1,a:'M',name:'Brand of Judgment',cost:1,tgt:'enemy',range:1,dmg:[2,4,6],eff:{expose:[1,1,1]},desc:'The foe is exposed: every hit against it deals +3 damage until the end of its next turn.'},
+  brand:{c:'cleric',lv:1,a:'M',name:'Brand of Judgment',cost:1,tgt:'enemy',range:1,dmg:[2,4,6],eff:{expose:[1,1,1]},desc:'The foe is exposed: attacks against it have advantage and deal +3 damage until the end of its next turn.'},
   healWord:{c:'cleric',lv:1,a:'P',name:'Healing Word',cost:1,tgt:'ally',range:4,heal:5,cleanse:true,desc:'Range 4. Heal 5 and end conditions.'},
   transpose:{c:'cleric',lv:1,a:'P',name:'Divine Shift',cost:1,tgt:'ally',range:4,noSelf:true,swap:true,shield:4,desc:'Swap places with an ally within 4. You both gain 4 shield.'},
   bless:{c:'cleric',lv:1,a:'P',name:'Bless',cost:1,tgt:'self',area:2,aff:'ally',empower:1,desc:'You and allies within 2 are blessed: advantage on your next attack.'},
@@ -315,7 +315,7 @@ const GLOSS={
   graze:{name:'Graze',forms:['grazes','grazed','graze'],text:'A 1 on the first damage die. The attack deals little damage and none of its "on a hit" effects.'},
   hit:{name:'Hit',forms:['on a hit'],text:'Anything between a 1 and the top number on the first damage die. Effects listed "on a hit" happen on a Hit or a Critical hit.'},
   crit:{name:'Critical Hit',forms:['critical hits','critical hit','on a crit','crits','crit'],text:'The top number on the first damage die (a 4 on a d4, an 8 on a d8). Roll one more die and add it, and one more again each time the top number comes up. Critical hits ignore armor and add any "on a crit" effects. Small dice crit more often.'},
-  advantage:{name:'Advantage',forms:['double advantage','advantage'],text:'Roll the first damage die again and keep the best (twice with double advantage), so hits and crits come more often. It comes from flanking, high ground, dazed or rooted targets, being blessed or hidden, and some powers. Advantage and disadvantage cancel out one for one.'},
+  advantage:{name:'Advantage',forms:['double advantage','advantage'],text:'Roll the first damage die again and keep the best (twice with double advantage), so hits and crits come more often. It comes from flanking, high ground, dazed, rooted or exposed targets, being blessed or hidden, and some powers. Advantage and disadvantage cancel out one for one.'},
   disadvantage:{name:'Disadvantage',forms:['disadvantage'],text:'Roll the first damage die again and keep the worst. It comes from being weakened or marked by someone else, a target in cover, or shooting while a foe stands beside you.'},
   momentum:{name:'Momentum',forms:['momentum'],text:'Every hero starts a battle with none. They gain 1 for each basic attack and 1 for each combo they land or set up for an ally, and spend it on powers. Foes share a pool that grows each round and spend it on threats (shown in the top bar) and on their own special attacks.'},
   savingthrow:{name:'Saving Throw',forms:['saving throws','saving throw'],text:'Some powers let the foe resist. It rolls d20 + one of its attributes (plus a little for how deep into the journey you are). If the total reaches 12 + your attribute + a third of your level, it shrugs the effect off. The forecast shows the odds.'},
@@ -334,7 +334,7 @@ const GLOSS={
   weak:{name:'Weakened',forms:['weakened','weakens','weak'],text:'Has disadvantage on its attacks.'},
   bleed:{name:'Bleeding',forms:['bleeding','bleeds','bleed'],text:'Takes damage at the start of each of its turns.'},
   burn:{name:'Burning',forms:['burning'],text:'Takes 3 fire damage at the start of each of its turns. Stepping into water puts it out.'},
-  expose:{name:'Exposed',forms:['exposed','expose'],text:'Every hit against it deals +3 damage, until the end of its next turn.'},
+  expose:{name:'Exposed',forms:['exposed','expose'],text:'Attacks against it have advantage, and every hit deals +3 damage, until the end of its next turn.'},
   bless:{name:'Blessed',forms:['blessed','bless','blessing'],text:'Advantage on the next attack. It lasts until then, or the end of the blessed hero\'s next turn.'},
   hidden:{name:'Hidden',forms:['hidden','hide'],text:'Unseen. The next attack has double advantage, then the creature is revealed.'},
   shield:{name:'Shield',forms:['shield'],text:'Absorbs damage before health. Shields fade at the start of the owner\'s next turn.'},
