@@ -43,13 +43,6 @@ No build step. Open `index.html` in a browser (or serve the folder). GitHub Acti
 - `js/screens.js`: title, map, compendium, skirmish and other screens
 - `js/audio.js`: synthesized sound effects and music
 
-## Paragon: D&D 4e character builder
-
-[`dnd4e/`](dnd4e/) holds Paragon, a phone-first character builder and play tracker for Dungeons & Dragons 4th Edition
-(races, classes, abilities, skills, feats, powers with worked-out attack and damage, gear, and a hit point and power tracker).
-It is published alongside the game at [sjfranks.github.io/Tactics/dnd4e/](https://sjfranks.github.io/Tactics/dnd4e/).
-See its [README](dnd4e/README.md); `node tools/dnd4e-test.js` checks its rules engine.
-
 ## Archive
 
 - [`archive/emberwatch-v1/`](archive/emberwatch-v1/) is the first Emberwatch prototype, a single HTML page.
