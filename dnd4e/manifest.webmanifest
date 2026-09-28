@@ -1,0 +1,17 @@
+{
+  "name": "Paragon: D&D 4e Character Builder",
+  "short_name": "Paragon",
+  "description": "Build, level and play Dungeons & Dragons 4th Edition characters on your phone.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eceff4",
+  "theme_color": "#1f3b5c",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

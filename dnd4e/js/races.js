@@ -1,0 +1,290 @@
+/* Races from Player's Handbook 1 and 2. Summaries written for this app.
+   abil.fixed: +2 bonuses every member gets; abil.choice: pick one of these for the other +2
+   (the updated racial ability options; the original Player's Handbook pair is always one of the choices).
+   mods: [target, value, bonus type, situational note]. value may be a function of the calc context. */
+'use strict';
+
+/* Racial powers share the power format used by class powers (see powers-*.js). */
+D4.addPowers = function (list, defaults) {
+  list.forEach(p => {
+    const o = Object.assign({}, defaults, p);
+    o.id = o.id || ((o.cls || o.src || 'x') + '-' + o.n.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+    D4.powers[o.id] = o;
+  });
+};
+
+D4.addPowers([
+  { id: 'race-dragon-breath', n: 'Dragon Breath', u: 'enc', k: 'Varies', a: 'minor', r: 'Close blast 3', t: 'Each creature in the blast',
+    atk: 'Strength + 2, Constitution + 2 or Dexterity + 2 vs. Reflex (choose the ability when you create your character). The bonus becomes +4 at 11th level and +6 at 21st level.',
+    hit: '1d6 + Constitution modifier damage. The damage becomes 2d6 at 11th level and 3d6 at 21st level.',
+    eff: 'Choose acid, cold, fire, lightning or poison when you create your character. The power deals that type of damage.',
+    s: 'Once per encounter, breathe a 3-square blast of your chosen element at everyone in front of you.',
+    x: 'breath' },
+  { id: 'race-fey-step', n: 'Fey Step', u: 'enc', k: 'Teleportation', a: 'move', r: 'Personal', eff: 'Teleport up to 5 squares.',
+    s: 'Once per encounter, teleport 5 squares as a move action.' },
+  { id: 'race-elven-accuracy', n: 'Elven Accuracy', u: 'enc', a: 'free', r: 'Personal', eff: 'Reroll an attack roll you just made. You must use the second roll, even if it is lower.',
+    s: 'Once per encounter, reroll one attack roll.' },
+  { id: 'race-second-chance', n: 'Second Chance', u: 'enc', a: 'int', r: 'Personal', trig: 'An attack hits you.',
+    eff: 'The attacker must reroll the attack and use the second roll, even if it is higher.',
+    s: 'Once per encounter, make an enemy reroll an attack that hit you.' },
+  { id: 'race-infernal-wrath', n: 'Infernal Wrath', u: 'enc', k: 'Fire', a: 'free', r: 'Close burst 10', trig: 'An enemy within 10 squares of you hits you.', t: 'The triggering enemy',
+    eff: 'The target takes 1d6 + your Intelligence or Charisma modifier fire damage. The damage becomes 2d6 at 11th level and 3d6 at 21st level.',
+    s: 'Once per encounter, burn an enemy that hits you. (Updated version; the original Player\'s Handbook power instead gave +1 to your next attack against that enemy.)' },
+  { id: 'race-dilettante', n: 'Dilettante', u: 'enc', a: 'std', r: 'Varies',
+    eff: 'Choose a 1st-level at-will attack power from a class other than your own. You can use it once per encounter.',
+    s: 'Use one at-will attack power from another class once per encounter.' },
+  { id: 'race-memory', n: 'Memory of a Thousand Lifetimes', u: 'enc', a: 'no', r: 'Personal', trig: 'You make an attack roll, saving throw, skill check or ability check and dislike the result.',
+    eff: 'Add 1d6 to the triggering roll.', s: 'Once per encounter, add 1d6 to a d20 roll after you see it.' },
+  { id: 'race-fade-away', n: 'Fade Away', u: 'enc', k: 'Illusion', a: 'rea', r: 'Personal', trig: 'You take damage.',
+    eff: 'You are invisible until you attack or until the end of your next turn.', s: 'Once per encounter, turn invisible after you take damage.' },
+  { id: 'race-ghost-sound', n: 'Ghost Sound', u: 'enc', k: 'Arcane, Illusion', a: 'std', r: 'Ranged 10', t: 'One object or unoccupied square',
+    eff: 'You make a sound as quiet as a whisper or as loud as a yelling or fighting creature come from the target. You can create nonvocal sounds, or speech in any language you know.',
+    s: 'Gnomes can use the wizard cantrip ghost sound once per encounter.' },
+  { id: 'race-stones-endurance', n: 'Stone\'s Endurance', u: 'enc', a: 'minor', r: 'Personal',
+    eff: 'You gain resist 5 to all damage until the end of your next turn. The resistance becomes 10 at 11th level and 15 at 21st level.',
+    s: 'Once per encounter, resist 5 to all damage for a round.' },
+  { id: 'race-furious-assault', n: 'Furious Assault', u: 'enc', a: 'free', r: 'Personal', trig: 'You hit an enemy.',
+    eff: 'The enemy takes 1[W] extra damage if the attack used a weapon, or 1d8 extra damage otherwise. At 11th level this becomes 2[W] or 2d8; at 21st level, 3[W] or 3d8.',
+    s: 'Once per encounter, add extra damage to a hit.' },
+  { id: 'race-longtooth-shifting', n: 'Longtooth Shifting', u: 'enc', k: 'Healing', a: 'minor', r: 'Personal', req: 'You must be bloodied.',
+    eff: 'Until the end of the encounter, you gain a +2 bonus to damage rolls, and while you are bloodied you have regeneration 2. At 11th level the bonus and regeneration become 4; at 21st level, 6.',
+    s: 'When bloodied, shift into your bestial form: extra damage and regeneration for the rest of the encounter.' },
+  { id: 'race-razorclaw-shifting', n: 'Razorclaw Shifting', u: 'enc', a: 'minor', r: 'Personal', req: 'You must be bloodied.',
+    eff: 'Until the end of the encounter, you gain a +1 bonus to speed, and while you are bloodied you gain a +2 bonus to AC and Reflex.',
+    s: 'When bloodied, shift into your bestial form: faster and harder to hit for the rest of the encounter.' },
+], { src: 'race', ty: 'util' });
+D4.powers['race-dragon-breath'].ty = 'atk';
+D4.powers['race-infernal-wrath'].ty = 'atk';
+
+D4.races = {
+  dragonborn: {
+    name: 'Dragonborn', src: 'PHB', size: 'medium', speed: 6, vision: 'Normal',
+    abil: { fixed: { cha: 2 }, choice: ['str', 'con'] },
+    skills: { history: 2, intimidate: 2 }, langs: ['Common', 'Draconic'],
+    height: '6\'2" - 6\'8"', weight: '220 - 320 lb',
+    desc: 'Proud, honorable dragon-folk descended from the dragon god Bahamut\'s servants. They breathe elemental energy and grow more dangerous when wounded. Good as paladins, fighters, warlords and sorcerers.',
+    traits: [
+      { name: 'Dragonborn Fury', desc: 'When you are bloodied, you gain a +1 racial bonus to attack rolls.' },
+      { name: 'Draconic Heritage', desc: 'Your healing surge value is equal to one-quarter of your maximum hit points + your Constitution modifier.' },
+      { name: 'Dragon Breath', desc: 'You can use the dragon breath power.' },
+    ],
+    powers: ['race-dragon-breath'],
+    mods: [['surgeValue', c => c.mod.con, 'racial'], ['atk', 1, 'racial', 'while you are bloodied']],
+    choices: [
+      { id: 'breathAbil', label: 'Dragon breath ability', opts: { str: 'Strength', con: 'Constitution', dex: 'Dexterity' } },
+      { id: 'breathType', label: 'Dragon breath damage type', opts: { Acid: 'Acid', Cold: 'Cold', Fire: 'Fire', Lightning: 'Lightning', Poison: 'Poison' } },
+    ],
+  },
+  dwarf: {
+    name: 'Dwarf', src: 'PHB', size: 'medium', speed: 5, vision: 'Low-light',
+    abil: { fixed: { con: 2 }, choice: ['str', 'wis'] },
+    skills: { dungeoneering: 2, endurance: 2 }, langs: ['Common', 'Dwarven'],
+    height: '4\'3" - 4\'9"', weight: '160 - 220 lb',
+    desc: 'Stout, stubborn folk of the mountains, masters of stone and steel. Hard to move and hard to put down. Good as fighters, clerics and paladins.',
+    traits: [
+      { name: 'Cast-Iron Stomach', desc: '+5 racial bonus to saving throws against poison.' },
+      { name: 'Dwarven Resilience', desc: 'You can use your second wind as a minor action instead of a standard action.' },
+      { name: 'Dwarven Weapon Proficiency', desc: 'You gain proficiency with the throwing hammer and the warhammer.' },
+      { name: 'Encumbered Speed', desc: 'You move at your normal speed even when it would be reduced by armor or a heavy load. Other effects that reduce speed (difficult terrain, magic) still affect you.' },
+      { name: 'Stand Your Ground', desc: 'When an effect forces you to move (pull, push or slide), you can move 1 square less than the effect specifies. When an attack would knock you prone, you can immediately make a saving throw to avoid falling prone.' },
+    ],
+    profs: { weapons: ['throwing-hammer', 'warhammer'] },
+    flags: { encumberedSpeed: true, secondWindMinor: true },
+    saves: ['+5 against poison'],
+  },
+  eladrin: {
+    name: 'Eladrin', src: 'PHB', size: 'medium', speed: 6, vision: 'Low-light',
+    abil: { fixed: { int: 2 }, choice: ['dex', 'cha'] },
+    skills: { arcana: 2, history: 2 }, langs: ['Common', 'Elven'],
+    height: '5\'5" - 6\'1"', weight: '130 - 180 lb',
+    desc: 'Graceful fey from the Feywild who can step through space. Good as wizards, warlocks, rogues and swordmages.',
+    traits: [
+      { name: 'Eladrin Education', desc: 'You gain training in one additional skill of your choice.' },
+      { name: 'Eladrin Weapon Proficiency', desc: 'You gain proficiency with the longsword.' },
+      { name: 'Eladrin Will', desc: '+1 racial bonus to Will. +5 racial bonus to saving throws against charm effects.' },
+      { name: 'Fey Origin', desc: 'You are a fey creature, not a natural one, for the purpose of effects that depend on origin.' },
+      { name: 'Trance', desc: 'Instead of sleeping, you meditate for 4 hours, which gives you the benefits of a 6-hour extended rest. You stay aware of your surroundings.' },
+      { name: 'Fey Step', desc: 'You can use the fey step power.' },
+    ],
+    powers: ['race-fey-step'],
+    profs: { weapons: ['longsword'] },
+    mods: [['Will', 1, 'racial']],
+    saves: ['+5 against charm effects'],
+    bonusSkill: 'any',
+  },
+  elf: {
+    name: 'Elf', src: 'PHB', size: 'medium', speed: 7, vision: 'Low-light',
+    abil: { fixed: { dex: 2 }, choice: ['int', 'wis'] },
+    skills: { nature: 2, perception: 2 }, langs: ['Common', 'Elven'],
+    height: '5\'4" - 6\'0"', weight: '130 - 170 lb',
+    desc: 'Quick, wild and perceptive people of the forests, at home in the natural world. Good as rangers, rogues, druids and clerics.',
+    traits: [
+      { name: 'Elven Weapon Proficiency', desc: 'You gain proficiency with the longbow and the shortbow.' },
+      { name: 'Fey Origin', desc: 'You are a fey creature, not a natural one, for the purpose of effects that depend on origin.' },
+      { name: 'Group Awareness', desc: 'Non-elf allies within 5 squares of you gain a +1 racial bonus to Perception checks.' },
+      { name: 'Wild Step', desc: 'You ignore difficult terrain when you shift (even with powers that let you shift several squares).' },
+      { name: 'Elven Accuracy', desc: 'You can use the elven accuracy power.' },
+    ],
+    powers: ['race-elven-accuracy'],
+    profs: { weapons: ['longbow', 'shortbow'] },
+  },
+  'half-elf': {
+    name: 'Half-Elf', src: 'PHB', size: 'medium', speed: 6, vision: 'Low-light',
+    abil: { fixed: { con: 2 }, choice: ['wis', 'cha'] },
+    skills: { diplomacy: 2, insight: 2 }, langs: ['Common', 'Elven'], extraLangs: 1,
+    height: '5\'5" - 6\'2"', weight: '130 - 190 lb',
+    desc: 'Born of two worlds, half-elves are natural diplomats who borrow a trick from another class. Good as warlords, paladins, bards and warlocks.',
+    traits: [
+      { name: 'Dilettante', desc: 'At 1st level, choose a 1st-level at-will attack power from a class other than yours. You can use that power once per encounter.' },
+      { name: 'Dual Heritage', desc: 'You can take feats that have either elf or human as a prerequisite (as well as half-elf feats).' },
+      { name: 'Group Diplomacy', desc: 'Allies within 10 squares of you gain a +1 racial bonus to Diplomacy checks.' },
+      { name: 'Extra language', desc: 'You know one extra language of your choice.' },
+    ],
+    dilettante: true,
+  },
+  halfling: {
+    name: 'Halfling', src: 'PHB', size: 'small', speed: 6, vision: 'Normal',
+    abil: { fixed: { dex: 2 }, choice: ['cha', 'con'] },
+    skills: { acrobatics: 2, thievery: 2 }, langs: ['Common'], extraLangs: 1,
+    height: '3\'10" - 4\'2"', weight: '75 - 85 lb',
+    desc: 'Small, lucky and brave wanderers of rivers and roads. Hard to pin down in a fight. Good as rogues, rangers, bards and warlocks.',
+    traits: [
+      { name: 'Bold', desc: '+5 racial bonus to saving throws against fear.' },
+      { name: 'Nimble Reaction', desc: '+2 racial bonus to AC against opportunity attacks.' },
+      { name: 'Second Chance', desc: 'You can use the second chance power.' },
+      { name: 'Small', desc: 'You can\'t use two-handed weapons that are not small, and you must use versatile weapons two-handed (without the extra +1 damage).' },
+      { name: 'Extra language', desc: 'You know one extra language of your choice.' },
+    ],
+    powers: ['race-second-chance'],
+    mods: [['AC', 2, 'racial', 'against opportunity attacks']],
+    saves: ['+5 against fear'],
+  },
+  human: {
+    name: 'Human', src: 'PHB', size: 'medium', speed: 6, vision: 'Normal',
+    abil: { any: 1 },
+    skills: {}, langs: ['Common'], extraLangs: 1,
+    height: '5\'6" - 6\'2"', weight: '135 - 220 lb',
+    desc: 'Adaptable, ambitious and found everywhere. Humans get an extra feat, skill and at-will power, and a bonus to every defense. Good as any class.',
+    traits: [
+      { name: 'Bonus At-Will Power', desc: 'You know one extra at-will attack power from your class.' },
+      { name: 'Bonus Feat', desc: 'You gain a bonus feat at 1st level.' },
+      { name: 'Bonus Skill', desc: 'You gain training in one additional skill from your class skill list.' },
+      { name: 'Human Defense Bonuses', desc: '+1 racial bonus to Fortitude, Reflex and Will.' },
+      { name: 'Extra language', desc: 'You know one extra language of your choice.' },
+    ],
+    mods: [['Fort', 1, 'racial'], ['Ref', 1, 'racial'], ['Will', 1, 'racial']],
+    bonusFeat: true, bonusAtWill: true, bonusSkill: 'class',
+  },
+  tiefling: {
+    name: 'Tiefling', src: 'PHB', size: 'medium', speed: 6, vision: 'Low-light',
+    abil: { fixed: { cha: 2 }, choice: ['con', 'int'] },
+    skills: { bluff: 2, stealth: 2 }, langs: ['Common'], extraLangs: 1,
+    height: '5\'6" - 6\'2"', weight: '140 - 230 lb',
+    desc: 'Heirs of a fallen empire that made pacts with devils. They carry infernal fire in their blood and hunt down the wounded. Good as warlocks, rogues, sorcerers and warlords.',
+    traits: [
+      { name: 'Bloodhunt', desc: '+1 racial bonus to attack rolls against bloodied foes.' },
+      { name: 'Fire Resistance', desc: 'You have resist fire equal to 5 + one-half your level.' },
+      { name: 'Infernal Wrath', desc: 'You can use the infernal wrath power.' },
+      { name: 'Extra language', desc: 'You know one extra language of your choice.' },
+    ],
+    powers: ['race-infernal-wrath'],
+    mods: [['atk', 1, 'racial', 'against bloodied foes']],
+    resist: [['Fire', c => 5 + c.half]],
+  },
+
+  /* Player's Handbook 2 */
+  deva: {
+    name: 'Deva', src: 'PHB2', size: 'medium', speed: 6, vision: 'Normal',
+    abil: { fixed: { int: 2, wis: 2 } },
+    skills: { history: 2, religion: 2 }, langs: ['Common'], extraLangs: 1,
+    height: '6\'0" - 6\'6"', weight: '160 - 250 lb',
+    desc: 'Immortal spirits who serve the gods, reborn again and again in mortal bodies. They draw on memories of past lives. Good as invokers, clerics, avengers and wizards.',
+    traits: [
+      { name: 'Astral Majesty', desc: '+1 bonus to all defenses against attacks by bloodied creatures.' },
+      { name: 'Astral Resistance', desc: 'Resist necrotic and resist radiant equal to 5 + one-half your level.' },
+      { name: 'Immortal Origin', desc: 'You are an immortal creature, not a natural one, for the purpose of effects that depend on origin.' },
+      { name: 'Memory of a Thousand Lifetimes', desc: 'You can use the memory of a thousand lifetimes power.' },
+      { name: 'Extra language', desc: 'You know one extra language of your choice.' },
+    ],
+    powers: ['race-memory'],
+    mods: [['AC', 1, 'untyped', 'against bloodied attackers'], ['Fort', 1, 'untyped', 'against bloodied attackers'], ['Ref', 1, 'untyped', 'against bloodied attackers'], ['Will', 1, 'untyped', 'against bloodied attackers']],
+    resist: [['Necrotic', c => 5 + c.half], ['Radiant', c => 5 + c.half]],
+  },
+  gnome: {
+    name: 'Gnome', src: 'PHB2', size: 'small', speed: 5, vision: 'Low-light',
+    abil: { fixed: { int: 2, cha: 2 } },
+    skills: { arcana: 2, stealth: 2 }, langs: ['Common', 'Elven'],
+    height: '3\'4" - 3\'8"', weight: '50 - 75 lb',
+    desc: 'Small, sly fey who survive by illusion and misdirection. Good as bards, wizards, warlocks and sorcerers.',
+    traits: [
+      { name: 'Fey Origin', desc: 'You are a fey creature, not a natural one, for the purpose of effects that depend on origin.' },
+      { name: 'Master Trickster', desc: 'You can use the wizard cantrip ghost sound as an encounter power.' },
+      { name: 'Reactive Stealth', desc: 'If you have any cover or concealment when you make an initiative check, you can make a Stealth check to hide.' },
+      { name: 'Trickster\'s Cunning', desc: '+5 racial bonus to saving throws against illusions.' },
+      { name: 'Fade Away', desc: 'You can use the fade away power.' },
+      { name: 'Small', desc: 'You can\'t use two-handed weapons that are not small, and you must use versatile weapons two-handed.' },
+    ],
+    powers: ['race-ghost-sound', 'race-fade-away'],
+    saves: ['+5 against illusions'],
+  },
+  goliath: {
+    name: 'Goliath', src: 'PHB2', size: 'medium', speed: 6, vision: 'Normal',
+    abil: { fixed: { str: 2, con: 2 } },
+    skills: { athletics: 2, nature: 2 }, langs: ['Common'], extraLangs: 1,
+    height: '7\'2" - 7\'6"', weight: '280 - 340 lb',
+    desc: 'Towering mountain nomads who love competition and shrug off blows like stone. Good as barbarians, wardens, fighters and paladins.',
+    traits: [
+      { name: 'Mountain\'s Tenacity', desc: '+1 racial bonus to Will.' },
+      { name: 'Powerful Athlete', desc: 'When you make an Athletics check to jump or climb, roll twice and use either result.' },
+      { name: 'Stone\'s Endurance', desc: 'You can use the stone\'s endurance power.' },
+      { name: 'Extra language', desc: 'You know one extra language of your choice.' },
+    ],
+    powers: ['race-stones-endurance'],
+    mods: [['Will', 1, 'racial']],
+  },
+  'half-orc': {
+    name: 'Half-Orc', src: 'PHB2', size: 'medium', speed: 6, vision: 'Low-light',
+    abil: { fixed: { str: 2, dex: 2 } },
+    skills: { endurance: 2, intimidate: 2 }, langs: ['Common', 'Giant'],
+    height: '5\'9" - 6\'4"', weight: '150 - 230 lb',
+    desc: 'Fierce, quick and hard to kill, with the fury of their orc ancestors. Good as barbarians, fighters, rangers and rogues.',
+    traits: [
+      { name: 'Half-Orc Resilience', desc: 'The first time you are bloodied during an encounter, you gain 5 temporary hit points (10 at 11th level, 15 at 21st level).' },
+      { name: 'Swift Charge', desc: '+2 bonus to speed when charging.' },
+      { name: 'Furious Assault', desc: 'You can use the furious assault power.' },
+    ],
+    powers: ['race-furious-assault'],
+    mods: [['speed', 2, 'untyped', 'when charging']],
+  },
+  'shifter-longtooth': {
+    name: 'Shifter (Longtooth)', src: 'PHB2', size: 'medium', speed: 6, vision: 'Low-light',
+    abil: { fixed: { str: 2, wis: 2 } },
+    skills: { athletics: 2, endurance: 2 }, langs: ['Common'], extraLangs: 1,
+    height: '5\'6" - 6\'0"', weight: '130 - 180 lb',
+    desc: 'Descendants of lycanthropes who can call on their bestial side. Longtooth shifters are fierce and tough. Good as barbarians, wardens, fighters and druids.',
+    traits: [
+      { name: 'Longtooth Shifting', desc: 'You can use the longtooth shifting power.' },
+      { name: 'Extra language', desc: 'You know one extra language of your choice.' },
+    ],
+    powers: ['race-longtooth-shifting'],
+  },
+  'shifter-razorclaw': {
+    name: 'Shifter (Razorclaw)', src: 'PHB2', size: 'medium', speed: 6, vision: 'Low-light',
+    abil: { fixed: { dex: 2, wis: 2 } },
+    skills: { acrobatics: 2, stealth: 2 }, langs: ['Common'], extraLangs: 1,
+    height: '5\'6" - 6\'0"', weight: '130 - 180 lb',
+    desc: 'Descendants of lycanthropes who can call on their bestial side. Razorclaw shifters are quick and elusive. Good as rangers, rogues, druids and avengers.',
+    traits: [
+      { name: 'Razorclaw Shifting', desc: 'You can use the razorclaw shifting power.' },
+      { name: 'Extra language', desc: 'You know one extra language of your choice.' },
+    ],
+    powers: ['race-razorclaw-shifting'],
+  },
+};
+D4.races.custom = {
+  name: 'Custom race', src: 'Custom', size: 'medium', speed: 6, vision: 'Normal', abil: { fixed: {} }, skills: {}, langs: ['Common'], extraLangs: 1,
+  desc: 'Build any other race (Player\'s Handbook 3, Forgotten Realms, Eberron, Dark Sun, homebrew). Set its ability bonuses, skills, speed and traits yourself.',
+  traits: [], custom: true,
+};
+
+for (const k in D4.races) D4.races[k].id = k;
