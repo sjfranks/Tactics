@@ -27,6 +27,10 @@ The whole game draws to a pixel canvas scaled up with crisp pixels: 320×180 on 
 - **Skill challenges:** animated illustrations, the odds of each choice, and a 3d6 roll you watch land
 - **Presentation:** hand-drawn pixel art for heroes, monsters, terrain, power icons, relics and map nodes; particle effects, screen shake and a synthesized soundtrack with music for each place
 
+## Rules
+
+The game is moving onto the **Rogue Tactics 1e** rule books in [`docs/rules/`](docs/rules/) (Core Rules, Heroes, Bestiary, Design Notes). [`docs/rules/ALIGNMENT.md`](docs/rules/ALIGNMENT.md) lists every difference between the books and the code, and the order they are being ported in. [`docs/RULEBOOK.md`](docs/RULEBOOK.md) still describes the rules the code runs today.
+
 ## Development
 
 No build step. Open `index.html` in a browser (or serve the folder). GitHub Actions publishes `index.html` and `js/` from `main` to GitHub Pages.
