@@ -6,21 +6,24 @@ const COLS=6,ROWS=8;
 const ATTR={M:'Strength',F:'Dexterity',W:'Intelligence',P:'Presence'};
 const ATTR_SHORT={M:'STR',F:'DEX',W:'INT',P:'PRE'};
 const ATTR_USE={M:'Force, endurance and heavy melee.',F:'Precision, agility, stealth and ranged weapons.',W:'Reasoning, magic and reading the environment.',P:'Conviction, leadership and reading people.'};
-const SKILLS={Athletics:'M',Acrobatics:'F',Stealth:'F',Thievery:'F',Magic:'W',Lore:'W',Survival:'W',Insight:'P',Influence:'P'};
 const RESULT=['Miss','Hit','Critical hit'];
 const RESULT_SHORT=['Miss','Hit','Crit'];
 /* Difficulty, tuned with tools/sim.js (whole journeys played by the autoplay AI). Encounter budgets: see encBudget in
    engine.js (es0/esLvl: a hero's strength by level, esUnit: strength to foe cost, actMul: each region's foes, solo: a
    boss's share of its fight, eliteCost: an elite's cost multiplier, bossAct: each region's boss health). */
 const TUNE={es0:4,esLvl:2,esUnit:.4,solo:1.25,eliteCost:1.3,hpSlope:.03,dmgSlope:.15,rollStep:4,bossHp:.55,foeMomRound:1,foeMomRamp:0,eliteMul:[.7,.4,.5],eliteBudget:[.9,1,1],summonAt:8,actMul:[1.1,1.05,.65],bossAct:[1.2,1.25,.8],
-  healAfter:.05,pbBonus:3,fallenHp:.25,momTurn:0,momStart:0,momVal:.9,actHeal:.6,maxLvl:12,winXp:30,bossXp:50,sneak:3,aiCombo:1,saveBase:12,
+  pbBonus:3,fallenHp:.25,momTurn:0,momStart:0,momVal:.9,maxLvl:10,xpLvl:2,sneak:3,aiCombo:1,saveBase:12,
   actions:3,extraActs:2,guardMin:4,aiMoveCost:1.5,aiHold:1,
-  /* Interim until foes move to the Bestiary's numbers: Malice gain is scaled (1 = the rule book's round number + Downs),
+  /* maliceMul scales Malice gain (1 = the rule book: the round number + Downs each round),
      and foeDef shifts every foe's DEF die up or down the ladder. */
-  maliceMul:.5,foeDef:0};
-/* Experience needed to reach each level (index = level). Heroes earn it by doing their job in battle. */
-const XP_AT=[0,0,55,125,210,315,440,580,740,910,1100,1320,1560];
-/* How much each kind of deed is worth to each role: defenders shove foes around and soak blows, strikers
+  maliceMul:1,foeDef:0};
+/* Experience (Core Rules 4.2): Victories become XP at a Camp; every TUNE.xpLvl XP is a level. The book says 4 (TBC); the
+   map has about 7 Victories a region, so 2 keeps heroes on the book's level bands (1-3, 4-6, 7-9). */
+const xpAt=l=>Math.max(0,l-1)*TUNE.xpLvl;
+/* Power rarity (Heroes book 2.1). */
+const RARITY={C:'Common',U:'Uncommon',R:'Rare'};
+const RAR_W={C:60,U:30,R:10};
+/* Old per-deed experience weights, still tallied in battle for the statistics. How much each kind of deed is worth to each role: defenders shove foes around and soak blows, strikers
    deal damage and finish foes, controllers catch many foes and hinder them, leaders mend and empower. Everyone
    earns some for combos: setting one up for a friend (setup) or cashing in a friend's set-up (combo). */
 const ROLE_XP={
@@ -36,27 +39,27 @@ const XP_WHY={dealt:'Damage dealt',taken:'Blows absorbed',control:'Foes moved an
    does it to whole groups; the cleric blesses friends and exposes foes; the rogue cashes it all in. */
 const CLASSES={
   fighter:{name:'Brakka',rival:'Grask',title:'Fighter',role:'Tank',hp:40,grow:6,hd:10,speed:3,attrs:{M:3,F:2,W:1,P:3},prime:'M',second:'P',steady:1,
-    skills:['Athletics','Survival'],start:['tide','hook','brace'],
+    spec:'Forcing doors and bars, lifting and bracing, intimidating, soldiers and war.',start:['tide','hook','brace'],
     style:'The stagger engine: shoves and drags foes off balance for her friends, and makes them fight her instead.',
-    xpText:'Pushing, pulling and hindering foes, setting up combos, marking foes and soaking up blows.',
+    xpText:'Victories: every battle won is one, an elite two, a boss three. They become XP at a Camp.',
     trait:'Heavy armour and a shield: Defend rolls a d8 with advantage. Steadfast 1. Reaction, Intercept: she takes a blow meant for an ally beside her. Her marks taunt: a marked foe that can reach her must attack her.',
     pro:'she'},
   rogue:{name:'Vex',rival:'Shade',title:'Rogue',role:'Striker',hp:32,grow:5,hd:8,speed:4,attrs:{M:2,F:3,W:3,P:1},prime:'F',second:'W',
-    skills:['Acrobatics','Stealth','Thievery'],start:['pierce','deepcut','finisher'],
+    spec:'Locks, traps, pockets, sneaking past guards, spotting an ambush.',start:['pierce','deepcut','finisher'],
     style:'The crit engine: finishes the foes her friends set up, then slips away.',
-    xpText:'Dealing damage, landing combos and finishing foes.',
+    xpText:'Victories: every battle won is one, an elite two, a boss three. They become XP at a Camp.',
     trait:'Sneak Attack: one extra weapon die against a foe that is staggered, exposed, rooted, dazed or flanked, or from hiding. Nimble from level 2: never provokes free strikes. Reaction, Opportunist: when an ally hits a foe beside her, she attacks it too.',
     pro:'she'},
   wizard:{name:'Orin',rival:'Morvane',title:'Wizard',role:'Controller',hp:24,grow:4,hd:6,speed:4,attrs:{M:1,F:3,W:3,P:2},prime:'W',second:'F',
-    skills:['Magic','Lore'],start:['scorch','frost','eager'],
+    spec:'Magic items and runes, ancient writing, wards and rituals, strange beasts.',start:['scorch','frost','eager'],
     style:'The lock engine: roots, burns and shoves whole groups of foes, so his friends\' hits land harder.',
-    xpText:'Catching several foes at once, moving or hindering them, and setting up combos.',
+    xpText:'Victories: every battle won is one, an elite two, a boss three. They become XP at a Camp.',
     trait:'His Arcane Staff never misses but never crits. Force Adept from level 2: his pushes and pulls move foes 1 extra square. Reaction, Repelling Ward: when a foe steps up beside him, he pushes it 1 square away.',
     pro:'he'},
   cleric:{name:'Sela',rival:'Ilsa',title:'Cleric',role:'Support',hp:32,grow:5,hd:8,speed:3,attrs:{M:3,F:1,W:2,P:3},prime:'P',second:'M',
-    skills:['Insight','Influence','Lore'],start:['brand','healWord','medic'],
+    spec:'Healing the sick, spirits and the undead, shrines and holy relics, telling truth from lies.',start:['brand','healWord','medic'],
     style:'The favour engine: blesses her friends, exposes foes for them and mends their wounds.',
-    xpText:'Healing, shielding, blessing and moving allies, and setting up combos.',
+    xpText:'Victories: every battle won is one, an elite two, a boss three. They become XP at a Camp.',
     trait:'Medium armour and a shield: Defend rolls a d6 with advantage. Mace or sling. Channel Divinity from level 2: her heals add her Presence and her attacks deal radiant damage. Reaction, Warding Word: when a foe hits an ally within 3 for 4 or more, she halves it.',
     pro:'she'},
 };
@@ -310,9 +313,25 @@ const WEAPONS={
   sunflail:{dice:[1,8],cls:'cleric',tier:3,name:'Sunforged Flail',runes:['radiant','keen'],desc:'A d8 flail. Radiant and Keen.'},
   dawn:{dice:[1,10],cls:'cleric',tier:4,name:'Relic of Dawn',runes:['radiant','warding'],desc:'A d10 mace. Radiant and Warding.'},
 };
-for(const k in WEAPONS){const w=WEAPONS[k];w.id=k;for(const r of w.runes)w[r]=1;if(w.long)w.range=w.reach=1;if(w.radiant)w.dtype='radiant';if(w.flame)w.dtype='fire';if(w.frost)w.dtype='cold';}
+const RUNE_KEYS=['keen','vicious','steady','flame','frost','radiant','venom','thunder','warding','long','twin'];
+/* Rune flags: w.keen, w.flame... plus what they change (range, damage type, a pair). */
+function weaponFlags(w){for(const r of RUNE_KEYS)delete w[r];for(const r of w.runes)w[r]=1;w.range=w.reach=w.long?1:0;
+  w.dtype=w.radiant?'radiant':w.flame?'fire':w.frost?'cold':undefined;if(w.twin)w.dual=1;return w;}
+for(const k in WEAPONS){const w=WEAPONS[k];w.id=k;w.base=k;weaponFlags(w);}
+/* Light weapons (the rogue's) can be honed down to a d2. Plain weapons have 1 rune socket, magic ones (tier 3+) 2. */
+const isLight=w=>w.cls==='rogue';
+const weaponSockets=w=>Math.max(w.runes.length,w.tier>=3?2:1);
+/* A weapon as the smith has left it: RUN.wup[id] holds its die and runes (Heroes book 3.2). */
+function weaponData(id){
+  const b=WEAPONS[id];const ok=typeof CTX!=='undefined'&&CTX&&(CTX.mode==='run'||CTX.mode==='sim');const U=ok&&typeof RUN!=='undefined'&&RUN&&RUN.wup?RUN.wup[id]:null;if(!b||!U)return b;
+  const w=Object.assign({},b,{dice:[b.dice[0],U.s||b.dice[1]],runes:(U.runes||b.runes).slice(),dual:b.dual,sockets:U.sockets});
+  if(w.dice[1]===2)w.nomiss=0;return weaponFlags(w);
+}
 const START_WEAPON={fighter:'longsword',rogue:'daggers',wizard:'wand',cleric:'mace'};
 const WEAPON_PRICE=[0,0,70,120,180];
+const RUNE_DESC={keen:'Crits on the top number or one below it (d6 or larger).',vicious:'A crit rolls 1 more weapon die.',steady:'Once a turn, reroll a weapon die that came up 1.',
+  flame:'Fire damage. A crit sets the foe burning.',frost:'Cold damage. A crit slows the foe.',radiant:'Radiant damage: double against the undead.',venom:'A crit makes the foe bleed.',
+  thunder:'A crit pushes the foe 1 square.',warding:'A hit shields you and allies beside you for 2.',long:'1 more square of reach or range.',twin:'A light weapon becomes a pair: advantage on one attack each round.'};
 const RUNE_NAME={keen:'Keen',vicious:'Vicious',steady:'Steady',flame:'Flame',frost:'Frost',radiant:'Radiant',venom:'Venom',thunder:'Thunder',warding:'Warding',long:'Long',twin:'Twin'};
 function weaponText(w){const b=[`d${w.dice[1]}`];if(w.twoHanded)b.push('two-handed');if(w.dual)b.push('pair');if(w.nocrit)b.push('no crits');if(w.nomiss)b.push('no misses');const r=w.runes.map(k=>RUNE_NAME[k]);return `Weapon die ${b.join(', ')}${r.length?'. Runes: '+r.join(', '):''}. Every attack and attacking power rolls it. `+w.desc;}
 /* Foe Malice buys threats (Bestiary). Which ones a battle can use depends on its type and region. */
@@ -422,47 +441,89 @@ const GLOSS={
   free:{name:'Free Action',forms:['free action'],text:'Costs none of your three actions.'},
 };
 
-/* ---------------- OVERWORLD EVENTS ---------------- */
-/* Each option: check {skill, dc} with win/lose outcomes, or a direct outcome.
-   Outcomes: gold, heal (fraction of max), dmg (each hero), relic, train, fight ('battle'|'elite'), text. */
+/* ---------------- EVENTS (Core Rules 4.3 to 4.5) ----------------
+   An option tests an attribute (a), with extra advantage (adv) or none; the party's best hero rolls it and another
+   hero Helps (+1 advantage). Class options (cls) need that class: auto ones need no roll, the rest roll with advantage.
+   There is always a safe option. Outcomes: gold, heal (rolls of each hero's hit die), hdUp (hit dice back), dmg (every
+   hero), hurt (the hero who rolled), wound (the hero who rolled), vic (Victories), relic, weapon, draft, fight.
+   A critical failure (crit) is worse than a failure (lose); without one, the roller also takes 4 damage. */
 const EVENTS=[
-  {id:'bridge',title:'The Collapsed Bridge',text:'A rope bridge over a gorge has half given way. Wreckage and a merchant\'s lost strongbox dangle below.',opts:[
-    {label:'Haul up the strongbox',check:{skill:'Athletics',dc:13},win:{gold:45,text:'Muscles burn, but the strongbox comes up full of coin.'},lose:{dmg:5,text:'The rope snaps back and lashes the whole party.'}},
-    {label:'Dance across the beams',check:{skill:'Acrobatics',dc:14},win:{weapon:true,text:'On the far side, a traveller\'s pack holds a fine weapon.'},lose:{dmg:4,text:'A slip, a scramble and a lot of bruises.'}},
-    {label:'Take the long way round',win:{text:'The detour costs nothing but time.'}}]},
+  {id:'bridge',title:'The Collapsed Bridge',text:'A rope bridge over a gorge has half given way. A merchant\'s strongbox dangles from the wreckage below.',opts:[
+    {label:'Haul up the strongbox',a:'M',win:{gold:45,text:'Muscles burn, but the strongbox comes up full of coin.'},lose:{dmg:4,text:'The rope snaps back and lashes the whole party.'}},
+    {label:'Brace the beam while the others cross',cls:'fighter',auto:true,win:{gold:30,text:'Brakka holds the beam like a doorpost. Everyone crosses, strongbox and all.'}},
+    {label:'Dance across the beams',a:'F',win:{weapon:true,text:'On the far side, a traveller\'s pack holds a fine weapon.'},lose:{hurt:5,text:'A slip, a scramble and a lot of bruises.'}},
+    {label:'Go the long way round (each hero spends a hit die)',hd:1,win:{text:'The detour is long and cold.'}}]},
   {id:'pilgrim',title:'The Wandering Pilgrim',text:'An old woman in grey rags offers to pray over your wounds, for a price.',opts:[
-    {label:'Read her intentions',check:{skill:'Insight',dc:12},win:{heal:.35,text:'She is genuine. Her prayer mends the whole party.'},lose:{gold:-20,text:'She lifts a purse while you watch her eyes.'}},
-    {label:'Pay her 30 gold',cost:30,win:{heal:.5,text:'Warm light washes over the party.'}},
+    {label:'Read her intentions',a:'P',win:{heal:1,text:'She is genuine. Her prayer mends the whole party.'},lose:{gold:-20,text:'She lifts a purse while you watch her eyes.'}},
+    {label:'Tell true faith from false',cls:'cleric',auto:true,win:{heal:1,hdUp:1,text:'Sela knows the old words. The two of them pray together, and the party is mended.'}},
+    {label:'Pay her 30 gold',cost:30,win:{heal:2,text:'Warm light washes over the party.'}},
     {label:'Walk on',win:{text:'She mutters a curse, or a blessing.'}}]},
   {id:'shrine',title:'A Forgotten Shrine',text:'Runes circle a moss-covered altar. Something old still hums inside the stone.',opts:[
-    {label:'Decipher the runes',check:{skill:'Lore',dc:13},win:{train:true,text:'The runes teach an old technique.'},lose:{text:'The script is too worn to read.'}},
-    {label:'Draw on its power',check:{skill:'Magic',dc:15},win:{relic:true,text:'The altar yields a humming relic.'},lose:{dmg:6,text:'The stone lashes out with cold green fire.'}},
-    {label:'Pry out the offerings',win:{gold:40,fight:'battle',text:'Coins rattle loose, and the shrine\'s guardians wake.'}}]},
-  {id:'toll',title:'The Goblin Toll',text:'Goblins block the road with a cart and demand a toll: 25 gold a head.',opts:[
-    {label:'Talk them down',check:{skill:'Influence',dc:13},win:{text:'The goblins let you pass, grumbling.'},lose:{fight:'battle',text:'Negotiations fail. Knives come out.'}},
+    {label:'Read the inscription',a:'W',win:{draft:true,text:'The runes teach an old technique.'},lose:{text:'The script is too worn to read.'},crit:{hurt:6,text:'A misread word, and cold green fire leaps from the stone.'}},
+    {label:'Pray at the altar',cls:'cleric',auto:true,win:{relic:true,text:'The altar answers Sela\'s prayer with a humming relic.'}},
+    {label:'Pay 30 gold for a blessing',cost:30,win:{hdUp:2,text:'You leave an offering. The party feels rested.'}},
+    {label:'Pry out the offerings',win:{gold:40,fight:'rout',text:'Coins rattle loose, and the shrine\'s guardians wake.'}}]},
+  {id:'toll',title:'The Goblin Toll',text:'Goblins block the road with a cart and demand a toll: 25 gold.',opts:[
+    {label:'Talk your way past',a:'P',win:{text:'The goblins let you pass, grumbling.'},lose:{fight:'rout',text:'Talk fails. Knives come out.'}},
+    {label:'Slip past in the dark',cls:'rogue',a:'F',win:{gold:15,text:'Vex leads the party round the cart, and lifts a purse on the way.'},lose:{fight:'ambush',text:'A goblin trips over Vex. They are all around you.'}},
     {label:'Pay 25 gold',cost:25,win:{text:'They count every coin, then wave you on.'}},
-    {label:'Clear the road',win:{fight:'battle',text:'You draw steel.'}}]},
-  {id:'reliquary',title:'The Locked Reliquary',text:'A sealed iron casket rests in a roadside chapel.',opts:[
-    {label:'Pick the lock',check:{skill:'Thievery',dc:14},win:{relic:true,text:'The lock clicks. A relic lies inside.'},lose:{dmg:3,text:'A needle trap! Its poison spreads through the party.'}},
-    {label:'Force it open',check:{skill:'Athletics',dc:15},win:{weapon:true,text:'Hinges scream and give way. A blessed weapon lies inside.'},lose:{dmg:6,text:'The casket bursts into flame.'}},
+    {label:'Clear the road',win:{fight:'rout',vic:0,text:'You draw steel.'}}]},
+  {id:'reliquary',title:'The Locked Reliquary',text:'A sealed iron casket rests in a roadside chapel. Something clicks inside it when you touch the lid.',opts:[
+    {label:'Lift the relic without springing the trap',a:'F',win:{relic:true,text:'Steady hands. The relic is yours.'},lose:{dmg:3,text:'A needle trap! Its poison spreads through the party.'}},
+    {label:'Disarm the trap',cls:'rogue',auto:true,win:{relic:true,text:'Vex finds the needle, bends it back and opens the lid.'}},
+    {label:'Force it open',a:'M',win:{weapon:true,text:'Hinges scream and give way. A blessed weapon lies inside.'},lose:{hurt:6,text:'The casket bursts into flame.'}},
     {label:'Leave it be',win:{text:'Some things are locked for a reason.'}}]},
   {id:'hunter',title:'The Wounded Hunter',text:'A hunter lies in the heather with a bolt in his leg.',opts:[
-    {label:'Tend his wound',check:{skill:'Survival',dc:12},win:{gold:25,heal:.2,text:'He shares his camp and a purse of coin.'},lose:{text:'You do your best. He limps away, silent.'}},
+    {label:'Tend his wound',a:'W',win:{gold:25,hdUp:1,text:'He shares his camp and a purse of coin.'},lose:{text:'You do your best. He limps away, silent.'}},
+    {label:'Heal him',cls:'cleric',auto:true,win:{gold:30,heal:1,text:'Sela closes the wound. The grateful hunter shares his supper and his purse.'}},
     {label:'Search his pack',win:{gold:30,text:'You take what he has. It doesn\'t sit well.'}},
     {label:'Leave him',win:{text:'You press on.'}}]},
   {id:'mist',title:'Shapes in the Mist',text:'Figures move in the fog ahead, spears glinting.',opts:[
-    {label:'Slip past unseen',check:{skill:'Stealth',dc:14},win:{gold:20,text:'You pass unseen and lift a purse from a sleeping sentry.'},lose:{fight:'battle',text:'A twig snaps. They charge.'}},
-    {label:'Attack first',win:{fight:'battle',text:'Surprise is yours.'}}]},
+    {label:'Slip past unseen',a:'F',win:{gold:20,text:'You pass unseen and lift a purse from a sleeping sentry.'},lose:{fight:'ambush',text:'A twig snaps. They charge.'}},
+    {label:'Spot the ambush first',cls:'rogue',auto:true,win:{gold:20,vic:1,text:'Vex sees the trap before it springs. You turn it around and scatter them.'}},
+    {label:'Attack first',win:{fight:'rout',text:'Surprise is yours.'}}]},
   {id:'smith',title:'The Wandering Smith',text:'A dwarf smith has set up her anvil by the road. She eyes your gear and sniffs.',opts:[
-    {label:'Help at the forge',check:{skill:'Athletics',dc:13},win:{weapon:true,text:'You work the bellows till dawn. She gives you a blade for your trouble.'},lose:{dmg:3,text:'A spray of sparks. She shoos you away.'}},
+    {label:'Help at the forge',a:'M',win:{weapon:true,text:'You work the bellows till dawn. She gives you a blade for your trouble.'},lose:{hurt:4,text:'A spray of sparks. She shoos you away.'}},
+    {label:'Read the runes on her anvil',cls:'wizard',auto:true,win:{weapon:true,gold:10,text:'Orin names every rune. Delighted, she gives him her best piece and a tip.'}},
     {label:'Pay 60 gold',cost:60,win:{weapon:true,text:'She sells you her best piece.'}},
     {label:'Move on',win:{text:'The ring of her hammer fades behind you.'}}]},
   {id:'field',title:'The Old Battlefield',text:'Rusted arms and bones lie thick in the grass where two armies met long ago.',opts:[
-    {label:'Search the fallen',check:{skill:'Survival',dc:13},win:{weapon:true,text:'Beneath a broken shield lies a weapon still keen.'},lose:{fight:'battle',text:'The bones stir. Something did not rest.'}},
-    {label:'Honour the dead',check:{skill:'Lore',dc:12},win:{heal:.25,text:'A strange peace settles on the party.'},lose:{text:'The old words will not come.'}},
+    {label:'Search the fallen',a:'W',win:{weapon:true,text:'Beneath a broken shield lies a weapon still keen.'},lose:{fight:'rout',text:'The bones stir. Something did not rest.'}},
+    {label:'Lay the dead to rest',cls:'cleric',auto:true,win:{heal:1,draft:true,text:'Sela speaks the rites. The dead sleep, and a fallen captain\'s ghost teaches you a trick of war.'}},
     {label:'Pass by',win:{text:'You leave the dead to their sleep.'}}]},
   {id:'well',title:'The Whispering Well',text:'Voices rise from a dry well, promising power to those who listen.',opts:[
-    {label:'Listen closely',check:{skill:'Insight',dc:14},win:{train:true,text:'The voices teach a secret before fading.'},lose:{dmg:5,text:'The voices rise to a scream that rattles your bones.'}},
-    {label:'Toss in 20 gold',cost:20,win:{heal:.3,text:'The well sighs. Wounds close.'}},
+    {label:'Listen closely',a:'P',win:{draft:true,text:'The voices teach a secret before fading.'},lose:{hurt:5,text:'The voices rise to a scream that rattles your bones.'},crit:{wound:1,text:'The voices find something in you and twist it.'}},
+    {label:'Seal it with a ward',cls:'wizard',a:'W',win:{relic:true,text:'Orin\'s ward silences the voices. At the bottom lies what they guarded.'},lose:{hurt:4,text:'The ward cracks. A cold wind slams him back.'}},
+    {label:'Toss in 20 gold',cost:20,win:{hdUp:1,text:'The well sighs. You feel rested.'}},
     {label:'Seal it with stones',win:{text:'The whispers stop.'}}]},
+
+  /* Dramatic tasks (Core Rules 4.4): every hero makes one attempt a round; success 1 token, an exploding roll 2, a
+     critical failure loses 1. win / cost (1-2 short) / lose (more than 2 short). */
+  {id:'fire',kind:'task',ill:'mist',title:'The Burning Mill',text:'Smoke pours from a mill by the river. Villagers are trapped on the upper floor, and the roof is going.',rounds:3,target:8,approaches:[
+    {label:'Carry people out',a:'M'},{label:'Climb the waterwheel',a:'F'},{label:'Find the safe way through',a:'W'},{label:'Calm the crowd',a:'P'},
+    {label:'Smash a wall open',a:'M',cls:'fighter'},{label:'Quench the flames with a prayer',a:'P',cls:'cleric'}],
+    win:{gold:40,vic:1,text:'Every villager gets out. The miller presses his savings on you.'},cost:{vic:1,dmg:3,text:'Everyone gets out, but the heroes are scorched.'},lose:{dmg:6,text:'The roof falls in. Some are lost, and the heroes are burned.'}},
+  {id:'river',kind:'task',ill:'bridge',title:'The Flooded Ford',text:'The ford is in flood. The wagon with your supplies must cross before the water rises any higher.',rounds:3,target:6,approaches:[
+    {label:'Haul on the ropes',a:'M'},{label:'Lead the mules',a:'P'},{label:'Leap the stepping stones with a line',a:'F'},{label:'Read the current',a:'W'},
+    {label:'Ward the wagon from the water',a:'W',cls:'wizard'}],
+    win:{vic:1,hdUp:1,gold:15,text:'The wagon crosses dry. A good meal on the far bank.'},cost:{vic:1,gold:-15,text:'You cross, but a crate of coin is swept away.'},lose:{hd:1,gold:-20,text:'The wagon tips. You spend the night drying out what is left.'}},
+  {id:'ritual',kind:'task',ill:'shrine',title:'The Moonrise Rite',text:'Cultists have fled a stone circle, leaving a rite half done. When the moon rises it will finish itself.',rounds:4,target:10,approaches:[
+    {label:'Topple the standing stones',a:'M'},{label:'Snatch the idols from the altar',a:'F'},{label:'Unpick the circle',a:'W'},{label:'Chant against it',a:'P'},
+    {label:'Counter the spell',a:'W',cls:'wizard'},{label:'Consecrate the ground',a:'P',cls:'cleric'}],
+    win:{vic:1,relic:true,text:'The rite collapses. The cult\'s relic lies cold on the altar.'},cost:{vic:1,hurt:6,text:'The rite breaks, and its backlash catches one of you.'},lose:{fight:'rout',text:'The moon rises. Something answers the call.'}},
+
+  /* Negotiations (Core Rules 4.5): up to three rounds; one argument a round, rolled by the best hero with Help.
+     mood: -1 hostile, 0 wary, 1 friendly. Gifts and evidence (adv 1) help; offence (adv -1) hurts. results[tokens]. */
+  {id:'captain',kind:'talk',ill:'toll',title:'The Gate Captain',text:'A tired captain holds the only bridge. His orders say no one crosses.',who:'The captain',request:'Let you cross, and lend you supplies.',mood:0,pay:25,args:[
+    {label:'Appeal to his duty: the road needs clearing',a:'P'},{label:'Show him the raiders\' orders you found',a:'W',adv:1},{label:'Threaten him',a:'M',adv:-1},
+    {label:'Soldier to soldier',a:'P',cls:'fighter',adv:1}],
+    results:[{fight:'rout',text:'He calls his guards. So be it.'},{gold:-10,text:'He lets you cross, for a fee.'},{text:'He waves you through.'},{gold:30,hdUp:1,text:'He waves you through with a sack of supplies and a purse.'}]},
+  {id:'guild',kind:'talk',ill:'merchant',title:'The Guild Master',text:'A guild master has a cellar full of old weapons and no one to sell them to.',who:'The guild master',request:'Sell you her best weapon cheap.',mood:1,pay:30,args:[
+    {label:'Flatter her taste',a:'P'},{label:'Point out the flaws in her stock',a:'W'},{label:'Haggle hard',a:'P',adv:-1},
+    {label:'Read the maker\'s marks',a:'W',cls:'wizard',adv:1}],
+    results:[{text:'She shows you the door.'},{gold:-40,weapon:true,text:'She sells you a weapon at the full price.'},{gold:-15,weapon:true,text:'She sells you a weapon for a song.'},{weapon:true,gold:10,text:'She gives you the weapon, and a tip for clearing the road.'}]},
+  {id:'chief',kind:'talk',ill:'mist',title:'The Hobgoblin Chief',text:'A hobgoblin chief and his warband block the pass. He is curious, and hungry.',who:'The chief',request:'Let you pass without a fight.',mood:-1,pay:40,args:[
+    {label:'Offer him a better target',a:'W'},{label:'Stare him down',a:'P'},{label:'Show him your blades',a:'M',adv:1},
+    {label:'Steal his banner while he talks',a:'F',cls:'rogue',adv:1}],
+    results:[{fight:'rout',text:'He laughs and raises his axe.'},{gold:-20,text:'He takes a toll and lets you by.'},{text:'He lets you pass.'},{vic:1,gold:20,text:'He lets you pass, and pays you to go and bother his rivals.'}]},
 ];

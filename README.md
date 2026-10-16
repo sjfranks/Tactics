@@ -10,7 +10,7 @@ The whole game draws to a pixel canvas scaled up with crisp pixels: 320×180 on 
 
 ## What is in the game
 
-- **The journey:** a Slay the Spire–style branching map for each act, with battles, elite fights, merchants, campfires, treasure and skill-check events, ending in a boss
+- **The journey:** a Slay the Spire–style branching map for each act, with battles, elite fights, merchants and their smith, Camps, treasure, road events and events (attribute checks, dramatic tasks and negotiations), ending in a boss. Victories become levels at a Camp; hit dice heal between battles; Wounds pile up until you rest, and a hero's fourth Down is their last
 - **Heroes:** Brakka (Fighter), Vex (Rogue), Orin (Wizard) and Sela (Cleric), each with Might, Finesse, Wits and Presence, and skills such as Athletics, Stealth, Lore and Influence
 - **Initiative:** d20 + Finesse decides a single mixed turn order for heroes and foes, repeated each round and shown in the TURNS window. The INTENT button shows whom each foe means to attack, and how hard
 - **Combos:** heroes set each other up. Shoved, dragged or knocked-down foes are staggered (the next attack is a sure critical hit), exposed foes take extra damage from every hit, and blessed heroes attack with advantage. Cashing in another hero's set-up is a combo: momentum for both, and a damage bonus that grows with each combo in the round. Set-ups fade at the foe's own turn, so turn order matters. The fighter's marks taunt foes into attacking her; armored foes shrug off everything but critical hits
@@ -43,7 +43,8 @@ No build step. Open `index.html` in a browser (or serve the folder). GitHub Acti
 - `js/core.js`: canvas sizing (landscape or portrait), input, widgets, rich text
 - `js/battle.js`: the battle screen and its effects
 - `js/sheet.js`: character sheets and power cards
-- `js/run.js`: the journey, rewards, shops, events and saves
+- `js/run.js`: the journey's rules: map, Victories, Camps, hit dice and Wounds, power drafts, the smith, events, dramatic tasks, negotiations, road events and saves
+- `js/journey.js`: the journey's screens: rewards and drafts, the Camp, events, tasks, negotiations and the smith
 - `js/screens.js`: title, map, compendium, skirmish and other screens
 - `js/audio.js`: synthesized sound effects and music
 

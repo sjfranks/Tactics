@@ -45,6 +45,8 @@ const keyA=u=>u&&u.kind==='pc'&&CLASSES[u.cls]?CLASSES[u.cls].prime:null;
 const HD={fighter:10,rogue:8,wizard:6,cleric:8};
 const HERO_DEF={fighter:[8,1],rogue:[4,0],wizard:[4,-1],cleric:[6,1]};
 const bloodied=u=>!!u&&u.hp<=u.maxHp/2;
+/* Wounds (Core Rules 2.4): -1 per Wound to attack totals, saves and checks, up to -3. Nerves of Steel ignores one. */
+const woundsOf=u=>u&&u.kind==='pc'?Math.max(0,Math.min(3,u.wounds||0)-(u.pas&&u.pas.nerves?1:0)):0;
 /* Passive powers (Heroes book 2.1) live in u.pas; resonance (2.4) is counted per tag across the party at battle start. */
 const hasP=(u,id)=>!!u&&!!u.pas&&!!u.pas[id];
 function resLv(tag,u){if(u&&u.side!=='hero')return 0;const n=(G&&G.resN||{})[tag]||0;return n>=8?2:n>=4?1:0;}
@@ -330,6 +332,7 @@ async function kill(t,src,o){
   if(t.side==='hero'&&t.kind==='pc'&&hasR('phoenix')&&!G.phoenixUsed){G.phoenixUsed=true;t.hp=Math.ceil(t.maxHp/2);H.pop(t,'Phoenix!','gold');H.sfx('heal');note(`${t.name} rises from the ashes!`);return;}
   if(t.kind==='pc'&&hasP(t,'laststand')&&!t.lsUsed){t.lsUsed=true;t.hp=1;t.shield+=6;H.pop(t,'Last Stand!','gold');note(`${t.name} refuses to fall (1 health, 6 shield).`);H.upd(t);return;}
   t.dead=true;t.hp=0;t.shield=0;if(t.kind==='pc')t.grow={};
+  if(t.kind==='pc'&&t.side==='hero'&&!t.rival&&t.wounds!=null){if(t.wounds>=3){t.slain=true;note(`${t.name} has taken one wound too many.`);}else{t.wounds++;note(`${t.name} gains a Wound (${t.wounds}).`);}}
   H.sfx(t.kind==='pc'?'fall':t.object?'crumble':'death');
   note(t.kind==='pc'?`${t.name} has fallen!`:`${t.name} is slain.`);
   await H.death(t);
@@ -576,12 +579,13 @@ function pcDmgX(a,p,t,res,o){
   add(wBonus(a,p,'dmg')+wBonus(a,p,'acc'),'weapon');
   if(a.side==='hero'&&hasR('whetstone'))add(1,'whetstone');
   add(a.side==='hero'?(G.pcDmgAdd||0):(G.foeDmgAdd||0),'skirmish');
+  add(-woundsOf(a),'wounds');
   const dz=defDie(t);
   if(dz&&res<3&&!p.pierceArmor){const v=o.defRoll!=null?o.defRoll:Math.round(exAvg(dz));const b=d;d=Math.max(1,d-v);if(d!==b)S.push([`DEF d${dz}`,d-b]);}
   const tm=typeMul(t,typeOf(a,p));if(tm===2){S.push(['weakness ×2',d]);d*=2;}else if(tm===0&&d){S.push(['immune',-d]);d=0;}else if(tm===.5&&d){const b=d;d=Math.max(1,Math.floor(d/2));S.push(['resists',d-b]);}
   if(res===3&&d&&dd.dbl&&dd.dbl.length){const k=Math.min(3,1+dd.dbl.length),b=d;d*=k;S.push([dd.dbl.join(' + ')+' ×'+k,d-b]);}
   if(p.execute&&bloodied(t)){S.push(['bloodied ×2',d]);d*=2;}
-  return {d:Math.max(0,d),S};
+  return {d:Math.max(tm===0?0:1,d),S};
 }
 function pcDmg(a,p,t,res,o){return pcDmgX(a,p,t,res,o).d;}
 /* How many of a tiny swarm's critters are still standing (1-4). */
@@ -607,9 +611,9 @@ function powerCost(u,p){return p.cost>0&&hasP(u,'warmup')&&!u.warmUsed?p.cost-1:
 function usable(u,p){
   if(!p||p.passive||powerCost(u,p)>u.mom)return false;
   if(p.swapPrev&&G&&G.order&&(u.repR===G.round||!prevHero(u)))return false;
-  if(p.helpUp&&!G.units.some(h=>h.side===u.side&&h.kind==='pc'&&h.dead&&!h.gone))return false;
-  if(p.selfWind&&(u.swUsed||u.hp>=u.maxHp))return false;
-  if(p.revive&&!G.units.some(h=>h.side===u.side&&h.kind==='pc'&&h.dead))return false;
+  if(p.helpUp&&!G.units.some(h=>h.side===u.side&&h.kind==='pc'&&h.dead&&!h.gone&&!h.slain))return false;
+  if(p.selfWind&&(u.swUsed||u.hp>=u.maxHp||(u.hd!=null&&u.hd<=0)))return false;
+  if(p.revive&&!G.units.some(h=>h.side===u.side&&h.kind==='pc'&&h.dead&&!h.slain))return false;
   return true;
 }
 function targetsFrom(u,p,O){
@@ -625,7 +629,7 @@ function targetsFrom(u,p,O){
       if(man(O,a)<=p.range&&!(O.x===a.x&&O.y===a.y))R.push({x:a.x,y:a.y});
     }
   }else if(p.tgt==='tile'&&p.helpUp){
-    for(const h of G.units.filter(h=>h.side===u.side&&h.kind==='pc'&&h.dead&&!h.gone))if(man(O,h)===1&&freeTile(h.x,h.y,null))R.push({x:h.x,y:h.y});
+    for(const h of G.units.filter(h=>h.side===u.side&&h.kind==='pc'&&h.dead&&!h.gone&&!h.slain))if(man(O,h)===1&&freeTile(h.x,h.y,null))R.push({x:h.x,y:h.y});
   }else if(p.tgt==='tile'){
     const r=effRange(p.range,O);
     for(const t of tilesWithin(O,r)){
@@ -916,8 +920,8 @@ function saveFail(u,t,p){
 }
 function rollSave(u,t,p,a){
   const d=saveDie(t,a),rolls=[];for(let i=0;i<=Math.abs(d.net);i++)rolls.push(rollEx(d.s));
-  const best=d.net>=0?Math.max(...rolls):Math.min(...rolls);
-  return {die:d,rolls,best,saved:best>=4,text:`${ATTR[a]} save d${d.s} ${rolls.length>1?'['+rolls.join('/')+'→'+best+']':best}`};
+  const best=d.net>=0?Math.max(...rolls):Math.min(...rolls),w=woundsOf(t);
+  return {die:d,rolls,best,saved:best-w>=4,text:`${ATTR[a]} save d${d.s} ${rolls.length>1?'['+rolls.join('/')+'→'+best+']':best}${w?' −'+w+' wounds':''}`};
 }
 async function savePower(u,p,t,fl){
   await H.strike(u,t,{proj:p.proj,power:p});
@@ -980,7 +984,7 @@ async function usePower1(u,p,T){
     if(p.refresh){xp(u,8,'support');if(!G.extra.includes(a.id))G.extra.push(a.id);H.pop(a,'Inspired!','gold');H.sfx('holy');log(`${a.name} will take an extra turn.`,sideCol(u));}
     await support(u,a,p,fl);
   }else if(p.helpUp){
-    const f=G.units.find(h=>h.side===u.side&&h.kind==='pc'&&h.dead&&!h.gone&&h.x===T.x&&h.y===T.y);
+    const f=G.units.find(h=>h.side===u.side&&h.kind==='pc'&&h.dead&&!h.gone&&!h.slain&&h.x===T.x&&h.y===T.y);
     if(f&&freeTile(f.x,f.y,null)){f.dead=false;f.hp=Math.min(f.maxHp,rollEx(HD[f.cls]||8));f.st={};f.shield=0;H.spawn(f);H.sfx('heal');xp(u,4,'support');fl.healedOther=true;log(`${u.name} helps ${f.name} up (${f.hp} HP).`,sideCol(u));}
   }else if(p.teleport){
     await teleport(u,T);
@@ -988,7 +992,7 @@ async function usePower1(u,p,T){
     for(const dx of[-1,0,1]){const x=T.x+dx,y=T.y;if(inB(x,y)&&!blocked(x,y)&&!unitAt(x,y))G.walls[K(x,y)]=3;}
     await H.area(T,0,'ice');H.sfx('ice');
   }else if(p.revive){
-    const f=G.units.filter(h=>h.side===u.side&&h.kind==='pc'&&h.dead).pop();
+    const f=G.units.filter(h=>h.side===u.side&&h.kind==='pc'&&h.dead&&!h.slain).pop();
     const spot=freeAdj(u,u)[0]||tilesWithin(u,3).find(t=>freeTile(t.x,t.y,null));
     if(f&&spot){f.dead=false;f.hp=Math.min(f.maxHp,rollEx(HD[f.cls]||8)+rollEx(HD[f.cls]||8));f.x=spot.x;f.y=spot.y;f.st={};f.shield=0;H.spawn(f);H.sfx('holy');log(`${f.name} is revived!`,sideCol(u));}
   }else if(p.area!=null&&!p.hide){
@@ -1010,7 +1014,7 @@ async function usePower1(u,p,T){
     if(p.webArea)for(let y=C.y-1;y<=C.y+1;y++)for(let x=C.x-1;x<=C.x+1;x++)if(inB(x,y)&&!unitAt(x,y)&&!Tt(x,y).haz)setHaz(x,y,'web',3,u.side);
   }
   if(p.shieldDice){const w=wpnOf(u)||WEAPONS[START_WEAPON[u.cls]];let v=0;for(let i=0;i<p.shieldDice;i++)v+=rollEx(w.dice[1]);u.shield+=v;H.pop(u,'⛨ '+v,'shield');log(`${u.name} gains ${v} shield.`,sideCol(u));}
-  if(p.selfWind){u.swUsed=true;u.swDef=true;NOTE=[];const r=rollEx(HD[u.cls]||8)+(resLv('Mend',u)>=1?1:0)+(hasP(u,'gift')?2:0);heal(u,r+(u.attrs.M||0));const ex=NOTE||[];NOTE=null;log(`${u.name} catches a second wind (d${HD[u.cls]||8}: ${r} + Might ${u.attrs.M||0}). ${ex.join(' ')}`,sideCol(u));}
+  if(p.selfWind){u.swUsed=true;u.swDef=true;if(u.hd!=null)u.hd--;NOTE=[];const r=rollEx(HD[u.cls]||8)+(resLv('Mend',u)>=1?1:0)+(hasP(u,'gift')?2:0);heal(u,r+(u.attrs.M||0));const ex=NOTE||[];NOTE=null;log(`${u.name} catches a second wind (d${HD[u.cls]||8}: ${r} + Might ${u.attrs.M||0}). ${ex.join(' ')}`,sideCol(u));}
   if(p.selfHeal){NOTE=[];heal(u,p.selfHeal);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));}
   if(p.markAround)for(const f of fighters(u).filter(e=>cheb(e,u)<=p.markAround))applyMark(f,u);
   if(p.healNear){const w=allies(u).filter(a=>!a.object&&!a.caged&&man(a,u)<=3&&a.hp<a.maxHp).sort((a,b)=>a.hp/a.maxHp-b.hp/b.maxHp)[0];if(w){NOTE=[];const g=heal(w,p.healNear);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));if(g>0&&w!==u)fl.healedOther=true;}}
@@ -1550,16 +1554,17 @@ const SETUP={fighter:'shove',wizard:'force',cleric:'guidance'};
 /* Every hero carries their basic weapon attack first, then the powers they have learned. */
 const EXTRA={cleric:['sling']};
 function withBasic(cls,powers){const b=[BASIC[cls],SETUP[cls]].filter(Boolean),u=(EXTRA[cls]||[]).concat(['secondwind','helpup']);return b.concat((powers||[]).filter(id=>!b.includes(id)&&!u.includes(id)&&POWERS[id]),u.filter(id=>POWERS[id]));}
-function wpnOf(u){return u&&u.kind==='pc'&&u.wpn?WEAPONS[u.wpn]:null;}
+function wpnOf(u){return u&&u.kind==='pc'&&u.wpn?(u.wpd||WEAPONS[u.wpn]):null;}
 function wBonus(u,p,k){const w=wpnOf(u);return w&&basicP(p)?(w[k]||0):0;}
 function rivalWeapon(cls,lvl){const t=Math.min(4,1+Math.floor((lvl+1)/3));const L=Object.values(WEAPONS).filter(w=>w.cls===cls&&w.tier<=t).sort((a,b)=>b.tier-a.tier);return (L[0]||WEAPONS[START_WEAPON[cls]]).id;}
 function makePc(h,x,y,side){
   const C=CLASSES[h.cls];const rival=side==='enemy';
   const all=withBasic(h.cls,h.powers),pas={};for(const id of all)if(POWERS[id].passive)pas[id]=1;
   const mhp=h.maxHp+(!rival&&hasR('heart')?8:0)+(pas.hardy?6:0);
-  const mom=Math.min(5,TUNE.momStart+(pas.eager?1:0)+(!rival&&pas.afterglow?(h.glow||0):0)+(!rival&&G&&G.resN&&resLv('Surge',{side})>=1?1:0))+(!rival&&hasR('hymn')?2:0);
+  const vic=!rival&&typeof CTX!=='undefined'&&CTX&&CTX.vic!=null?Math.min(3,CTX.vic):TUNE.momStart;
+  const mom=Math.min(5,vic+(pas.eager?1:0)+(!rival&&pas.afterglow?(h.glow||0):0)+(!rival&&G&&G.resN&&resLv('Surge',{side})>=1?1:0))+(!rival&&hasR('hymn')?2:0);
   return {id:(rival?'r_':'h_')+h.cls,side,kind:'pc',cls:h.cls,name:rival?C.rival:C.name,x,y,hp:Math.min(h.hp,mhp),maxHp:mhp,speed:C.speed+(pas.quick?1:0),lvl:h.lvl,
-    wpn:h.weapon||(rival?rivalWeapon(h.cls,h.lvl):START_WEAPON[h.cls]),attrs:attrsFor(h.cls,h.lvl),steady:C.steady||0,nimble:!!C.nimble&&(h.lvl||1)>=2,mom,powers:all.filter(id=>!POWERS[id].passive),pas,grow:Object.assign({},h.grow||{}),st:{},shield:0,react:true,mp:0,rival};
+    wpn:h.weapon||(rival?rivalWeapon(h.cls,h.lvl):START_WEAPON[h.cls]),attrs:attrsFor(h.cls,h.lvl),steady:C.steady||0,nimble:!!C.nimble&&(h.lvl||1)>=2,mom,powers:all.filter(id=>!POWERS[id].passive),pas,wounds:rival?0:(h.wounds||0),hd:rival||h.hd==null?null:h.hd,wpd:rival?null:weaponData(h.weapon||START_WEAPON[h.cls]),grow:Object.assign({},h.grow||{}),st:{},shield:0,react:true,mp:0,rival};
 }
 
 /* ---------------- ENCOUNTERS ----------------

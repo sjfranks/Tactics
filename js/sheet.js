@@ -2,7 +2,7 @@
 /* =====================================================================
    EMBERWATCH — character sheets and power cards
    Laid out in sections instead of one paragraph: header, momentum,
-   attributes and skills, trait, conditions, powers.
+   attributes, specialties, trait, conditions, powers.
    ===================================================================== */
 const POSS={she:'her',he:'his',they:'their'};
 function secHead(label,x,y,w,col){
@@ -88,7 +88,7 @@ function momRules(u){
   const b=POWERS[BASIC[u.cls]];
   const L=[`+${1+(hero&&hasR('map')?1:0)} for ${P} first basic attack${b?` ({g:${b.name}})`:''} each turn.`];
   L.push(`+2 for each {g:combo} ${Cc.pro} sets up for an ally or lands ${Cc.pro==='he'?'himself':'herself'}.`);
-  L.push(`Starts each battle with ${TUNE.momStart+(hero&&hasR('hymn')?2:0)}. Holds up to 10.`);
+  L.push(`Starts each battle with momentum equal to the party's Victories since the last Camp (up to 3)${hero&&hasR('hymn')?', +2 from the Hymnal':''}. Holds up to 10.`);
   return L;
 }
 function attrTiles(a,x,y,w,clip){
@@ -142,16 +142,16 @@ function sheetLayout(u,x,y,w,clip,o){
     // attributes & skills
     cy+=secHead('ATTRIBUTES',x,cy,w);
     cy+=attrTiles(u.attrs,x,cy,w,clip)+2;
-    const Cc=CLASSES[u.cls];const sk=Object.keys(SKILLS);const colW=Math.floor((w-4)/2);
-    sk.forEach((k,i)=>{const t=Cc.skills.includes(k);const v=u.attrs[SKILLS[k]]+(t?2:0);const sx=x+(i%2)*(colW+4),sy=cy+Math.floor(i/2)*8;
-      if(t)rect(sx,sy+2,2,2,C.gold);text(k,sx+4,sy,t?C.gold:C.parch);text((v>=0?'+':'')+v,sx+colW,sy,t?C.gold:C.mute,{al:'r'});});
-    cy+=Math.ceil(sk.length/2)*8+2;
-    cy+=rich('{g:Gold} skills are trained (+2). Skills are tested on the road.',x,cy,w,C.mute,{clip})+5;
+    const Cc=CLASSES[u.cls];
+    cy+=rich('Checks and saves roll the die: '+['M','F','W','P'].map(k=>`${ATTR_SHORT[k]} {w:d${attrDie(u.attrs[k]).s}}`).join(' · ')+'. 4+ succeeds.',x,cy,w,C.parch,{clip})+2;
+    cy+=rich(`{g:Specialties:} ${Cc.spec}`,x,cy,w,C.parch,{clip})+3;
+    if(u.side==='hero'&&!u.rival&&(u.hd!=null||u.wounds)){const H=HD[u.cls]||8;
+      cy+=rich(`{h:Hit dice:} ${u.hd!=null?u.hd:'?'} of ${(u.lvl||1)+1} d${H} left.`+(u.wounds?` {r:Wounds: ${u.wounds}} (−${Math.min(3,u.wounds)} to attacks, saves and checks; the 4th Down kills).`:''),x,cy,w,C.parch,{clip})+5;}
     // role, weapon, experience
     cy+=secHead(`ROLE: ${Cc.role.toUpperCase()}`,x,cy,w);
     cy+=rich(Cc.style,x,cy,w,C.parch,{clip})+2;
     cy+=rich(`{m:Earns experience by:} ${Cc.xpText}`,x,cy,w,C.parch,{clip})+3;
-    if(u.side==='hero'&&!u.rival&&u.xp!=null){const lo=XP_AT[u.lvl]||0,hi=XP_AT[u.lvl+1]||XP_AT[TUNE.maxLvl];const f=u.lvl>=TUNE.maxLvl?1:clamp((u.xp-lo)/(hi-lo),0,1);
+    if(u.side==='hero'&&!u.rival&&u.xp!=null){const lo=xpAt(u.lvl),hi=xpAt(Math.min(TUNE.maxLvl,u.lvl+1));const f=u.lvl>=TUNE.maxLvl?1:clamp((u.xp-lo)/(hi-lo),0,1);
       rect(x,cy+1,w-50,4,C.edge);rect(x+1,cy+2,Math.round((w-52)*f),2,'#6ac0ff');text(u.lvl>=TUNE.maxLvl?'MAX LEVEL':`${u.xp}/${hi} XP`,x+w,cy,C.mute,{al:'r'});cy+=9;}
     const W=u.wpn&&WEAPONS[u.wpn];
     if(W){cy+=secHead('WEAPON',x,cy,w);inset(x,cy,20,20,'#100b08');ctx.drawImage(weaponArt(W.id),x+2,cy+2);text(W.name,x+24,cy+2,C.gold);cy+=Math.max(22,10+rich(weaponText(W),x+24,cy+10,w-24,C.parch,{clip}))+3;}
