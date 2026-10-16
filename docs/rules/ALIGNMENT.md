@@ -14,6 +14,13 @@ This file lists every difference and the order in which they will be ported. Eac
 | **3** | **Run layer:** Victories and XP, levels at Camp, hit-dice healing and Camps, power drafts, the smith, events with attribute checks, dramatic tasks, negotiations, road events | `js/run.js`, `js/screens.js`, `js/data.js` |
 | **4** | **Words and teaching:** glossary and tappable keywords, compendium, tutorial, character sheets, simulator report, README; archive `docs/RULEBOOK.md` | `js/data.js`, `js/tutorial.js`, `js/screens.js`, `tools/sim.js` |
 
+## Status
+
+- **Phase 1 (combat core): done.** Interim: Malice comes in at half the book's rate (`TUNE.maliceMul: .5`) until the run layer lands.
+- **Phase 2 (content): done.** Heroes use STR/DEX/INT/PRE, the four classes have the Heroes book's numbers, start kits and powers, the 34 general powers are in the draft pool, weapons carry runes (Keen, Vicious, Steady, Flame, Frost, Radiant, Venom, Thunder, Warding, Long), the rogue can find a d2 weapon, and foes and bosses use the Bestiary's stat blocks, damage types, Terrifying, hidden starts and bloodied phases. Passive powers, Chain/Link/Growth keywords and party resonance all work in battle.
+  - Not yet in the game: Overchannel, the Vanishing Act/Beacon style upcasts, Nerves of Steel (needs Wounds, Phase 3), the elite +1 attack, power slots and drafts (Phase 3). Earthshaker's "knocked down" is shown as slowed; Web roots on a hit roll rather than automatically. New foes borrow existing art.
+  - Tuning: with the Heroes book's higher hero health, regions 1 and 2 were easy and the dragon a wall, so foe budgets per region are `actMul [1.1, 1.05, .65]` and boss health per region `bossAct [1.2, 1.25, .8]`. Simulator (150 runs, seed 7): 31% of journeys won, against 20% after Phase 1.
+
 ## Differences, system by system
 
 ### Dice and checks

@@ -3,7 +3,7 @@
    EMBERWATCH — the journey: overworld map, rewards, shops, events, saves
    ===================================================================== */
 let RUN=null;
-const SAVE_KEY='emberwatch.v3.run',BEST_KEY='emberwatch.v3.best';
+const SAVE_KEY='emberwatch.v4.run',BEST_KEY='emberwatch.v3.best';
 const MAP_F=7,MAP_L=4;
 const NODE_INFO={
   battle:{name:'Battle',desc:'A fight on the road. Win for gold, experience and a new power.'},
@@ -17,7 +17,7 @@ const NODE_INFO={
 function newHeroes(){return ORDER.map(c=>({cls:c,lvl:1,xp:0,maxHp:CLASSES[c].hp,hp:CLASSES[c].hp,powers:CLASSES[c].start.slice(),weapon:START_WEAPON[c]}));}
 function newRun(){
   unseedRng();
-  RUN={v:8,act:0,map:genMap(0),pos:null,gold:40,heroes:newHeroes(),relics:[],gear:[],stash:[],stats:{wins:0,kills:0,battles:0,gold:0},stage:'map',pending:null,seen:[],shop:null,event:null,enc:null};
+  RUN={v:9,act:0,map:genMap(0),pos:null,gold:40,heroes:newHeroes(),relics:[],gear:[],stash:[],stats:{wins:0,kills:0,battles:0,gold:0},stage:'map',pending:null,seen:[],shop:null,event:null,enc:null};
   saveGame();
 }
 function genMap(act){
@@ -87,7 +87,7 @@ function beginBattleScreen(onEnd){
   go(BATTLE_SCREEN);
   (async()=>{await sleep(300);if(!AUTOPLAY&&G&&!G.tut&&!comboSeen())await showComboIntro();if(!AUTOPLAY&&G&&!G.tut&&(G.enc.type!=='rout'||G.enc.twist))await showObjective();await nextTurn();const u=playerUnit();if(u)selfPend(u);})();
 }
-function effMaxHp(h){return h.maxHp+(RUN&&RUN.gear.includes('heart')?8:0);}
+function effMaxHp(h){return h.maxHp+(RUN&&RUN.gear.includes('heart')?8:0)+((h.powers||[]).includes('hardy')?6:0);}
 function onRunBattleEnd(o){
   if(o==='win'){
     openModal(dialog({title:'VICTORY',body:`${G.enc.title} is won.`,closable:false,buttons:[{l:'CONTINUE',hot:true,fn:()=>{resolveVictory();goReward();}}]}));
@@ -106,10 +106,14 @@ function resolveVictory(){
   if(RUN.gear.includes('coin'))gold=Math.round(gold*1.5);
   RUN.gold+=gold;RUN.stats.gold+=gold;
   const heal=TUNE.healAfter+(RUN.gear.includes('waterskin')?.15:0);
+  // Down heroes stand up with 1 HP after a win (Core Rules 2.4), or a Triage healer's hit die
+  const tri=Math.max(1,...G.units.filter(x=>x.side==='hero'&&x.kind==='pc'&&!x.dead&&x.pas&&x.pas.triage).map(x=>HD[x.cls]||8));
   for(const h of RUN.heroes){
     const u=G.units.find(x=>x.id==='h_'+h.cls);const mhp=effMaxHp(h);
-    if(!u||u.dead)h.hp=1; // Down heroes stand up with 1 HP after a win (Core Rules 2.4)
+    if(!u||u.dead)h.hp=Math.min(mhp,tri);
     else h.hp=Math.min(mhp,u.hp+Math.ceil(mhp*heal));
+    // Growth counters (Heroes book 2.3) travel with the hero; going Down wiped them in battle
+    if(u){h.grow=Object.assign({},u.grow||{});if(!u.dead&&u.pas&&u.pas.pride)h.grow.pride=Math.min(4,(h.grow.pride||0)+1);h.glow=!u.dead&&u.pas&&u.pas.afterglow?Math.min(3,Math.floor(u.mom/2)):0;}
   }
   const xpList=awardXp(G.xp,kind);
   const steps=['xp','train'];
@@ -125,7 +129,10 @@ function resolveVictory(){
 }
 function powerOffers(n){
   const cand=[];
-  for(const h of RUN.heroes)for(const id in POWERS){const p=POWERS[id];if(p.c===h.cls&&!p.basic&&!p.innate&&p.lv<=h.lvl&&!h.powers.includes(id))cand.push({cls:h.cls,id});}
+  const gen=[];
+  for(const h of RUN.heroes)for(const id in POWERS){const p=POWERS[id];if((p.c===h.cls||p.c==='gen')&&!p.basic&&!p.innate&&p.lv<=h.lvl&&!h.powers.includes(id))(p.c==='gen'?gen:cand).push({cls:h.cls,id});}
+  // general powers (Heroes book Part 6) make up about a third of the offers
+  shuffle(gen);cand.push(...gen.slice(0,Math.ceil(cand.length/2)));
   shuffle(cand);const out=[];const seen=new Set();
   for(const c of cand){if(!seen.has(c.cls)){out.push(c);seen.add(c.cls);}if(out.length>=n)break;}
   for(const c of cand){if(out.length>=n)break;if(!out.includes(c))out.push(c);}
@@ -247,7 +254,7 @@ function saveGame(){
     localStorage.setItem(SAVE_KEY,JSON.stringify(d));
   }catch(e){}
 }
-function loadSave(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');return d&&d.RUN&&d.RUN.v===8?d:null;}catch(e){return null;}}
+function loadSave(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');return d&&d.RUN&&d.RUN.v===9?d:null;}catch(e){return null;}}
 function clearSave(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
 function continueRun(){
   const d=loadSave();if(!d)return;RUN=d.RUN;CTX={mode:'run',relics:RUN.gear};

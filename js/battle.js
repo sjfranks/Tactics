@@ -55,6 +55,7 @@ function effText(eff){
 }
 function dmgLine(dmg,bonus){return dmg.map(d=>d+bonus).join('/');}
 function powerText(p,u){
+  if(p.passive)return `Passive${p.tag?' · '+p.tag:''}.\n`+p.desc;
   const ka=(u&&keyA(u))||p.a,ab=u&&p.a?u.attrs[ka]:null;
   const bits=[];
   bits.push(p.tgt==='self'?(p.area!=null?(p.area>=99?'Every ally':`Area ${p.area*2+1}x${p.area*2+1} around you`):'Self'):p.tgt==='tile'?`Range ${p.range}`+(p.area!=null?`, ${p.area*2+1}x${p.area*2+1} area`:''):p.tgt==='ally'?`Ally within ${p.range}`:p.range===1?'Melee':`Range ${p.range}`);
@@ -62,7 +63,7 @@ function powerText(p,u){
   bits.push(p.cost?`${p.cost} momentum`:'No cost');
   let s=bits.join(' · ')+(p.free?' · free action':'')+'.\n';
   if(p.dmg&&!p.noDmg)s+=`Damage {w:${diceText(powDice(p,u))}${ab!=null?'+'+(ab+(u.side==='hero'&&hasR('whetstone')?1:0)+(u.wpn?wBonus(u,p,'dmg')+wBonus(u,p,'acc'):0)):''}}${ab==null&&p.a?' + '+ATTR[ka]:''}${p.hits>1?` x${p.hits}`:''}${p.radiant?' radiant':''}. `;
-  if(p.heal)s+=`Heals {h:${p.heal}${u&&u.cls==='cleric'?'+'+u.attrs.P:''}}. `;
+  if(p.heal)s+=`Heals {h:${p.healDie?'d'+(HD[(u&&u.cls)||p.c]||8):p.heal}${u&&u.cls==='cleric'&&(u.lvl||1)>=2?'+'+u.attrs.P:''}}. `;
   s+=p.desc;
   const et=effText(p.eff);if(et&&!/on a hit|on a crit/i.test(p.desc)&&!Object.keys(p.eff).some(k=>p.desc.toLowerCase().includes(EFF_NAME[k])))s+=' '+et;
   return s;
@@ -697,7 +698,7 @@ function powerStat(u,p){
   if(p.dmg&&!p.noDmg){a=`${diceText(powDice(p,u))}${b?'+'+b:''}${p.hits>1?'×'+p.hits:''}`;}
   else if(p.save)a=p.save.eff==='stag'?'stagger?':'expose?';
   else if(p.empower&&p.tgt==='ally')a='bless';
-  else if(p.heal)a=`heal ${healAmt(u,p.heal)}`;
+  else if(p.heal)a=`heal ${healAmt(u,p.heal,p)}`;
   else if(p.shield)a=`${p.shield}⛨`;
   else if(p.selfHeal)a=`heal ${p.selfHeal}`;
   let r='';

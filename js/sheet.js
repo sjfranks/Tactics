@@ -15,16 +15,23 @@ function secHead(label,x,y,w,col){
 }
 /* ---------- power text pieces ---------- */
 function powerReach(p){
+  if(p.passive)return p.react?'Reaction':'Passive';
   if(p.tgt==='self')return p.area!=null?(p.area>=99?'Every ally':`Around you, ${p.area*2+1}x${p.area*2+1}`):'Yourself';
   if(p.tgt==='tile')return `Range ${p.range}`+(p.area!=null?`, ${p.area*2+1}x${p.area*2+1} area`:'');
   if(p.tgt==='ally')return p.noSelf?`Another ally within ${p.range}`:`Ally within ${p.range}`;
   return p.range===1?'Melee':`Range ${p.range}`;
 }
+function critNote(p,u,d){
+  const w=u&&!p.wdie&&u.wpn?WEAPONS[u.wpn]:null;
+  if(w&&w.nocrit&&!(u.pas&&u.pas.battlemage))return 'never misses or crits';
+  const lo=w&&w.keen&&d.s>=6?d.s-1:d.s;
+  return (w&&w.nomiss?'never misses · ':'')+`crit on ${lo<d.s?lo+'-'+d.s:'a '+d.s}: roll one more`;
+}
 function powerDmgLine(p,u){
-  const b=u?(u.attrs[p.a]||0)+(u.side==='hero'&&hasR('whetstone')?1:0):0;
+  const ka=(u&&keyA(u))||p.a,b=u?(u.attrs[ka]||0)+(u.side==='hero'&&hasR('whetstone')?1:0):0;
   if(p.dmg&&!p.noDmg){const d=powDice(p,u);
-    return `{m:Damage} {w:${diceText(d)}${u&&b?'+'+b:''}}${p.hits>1?` {w:×${p.hits}}`:''}${u?'':' {m:+ '+ATTR[p.a]+'}'}${p.radiant?' radiant':''} {m:· crit on a ${d.s}: roll one more}`;}
-  if(p.heal)return `{h:Heals ${u?healAmt(u,p.heal):p.heal+(p.c==='cleric'?' + Presence':'')}}`+(p.shield?` {b:and ${p.shield} shield}`:'');
+    return `{m:Damage} {w:${diceText(d)}${u&&b?'+'+b:''}}${p.hits>1?` {w:×${p.hits}}`:''}${u?'':' {m:+ key stat}'}${p.dtype?' '+p.dtype:''} {m:· ${critNote(p,u,d)}}`;}
+  if(p.heal)return `{h:Heals ${u?(p.healDie?'d'+(HD[u.cls]||8)+(healAmt(u,0)?'+'+healAmt(u,0):''):healAmt(u,p.heal)):(p.healDie?'a hit die roll':p.heal)}}`+(p.shield?` {b:and ${p.shield} shield}`:'');
   if(p.shield)return `{b:${p.shield} shield}`;
   return '';
 }
@@ -43,7 +50,8 @@ function powerBlock(p,u,x,y,w,o){
   text(fitText(p.name,w-26-cw),x+24,y+3,C.gold);
   if(p.cost){const poor=!!(u&&G&&G.units&&G.units.includes(u)&&u.mom<p.cost);gem(x+w-19,y+2,poor?'empty':'full');text(String(p.cost),x+w-11,y+3,poor?C.red:'#e0c8ff');}
   else if(p.free)text('free',x+w-3,y+3,C.green,{al:'r'});
-  text(fitText(`${powerReach(p)} · ${ATTR[p.a]}${p.free?' · free action':''}`,w-26),x+24,y+11,C.mute);
+  const ka=(u&&keyA(u))||p.a;
+  text(fitText(`${powerReach(p)}${ka&&!p.passive?' · '+ATTR[ka]:''}${p.tag?' · '+p.tag:''}${p.free?' · free action':''}`,w-26),x+24,y+11,C.mute);
   let cy=y+22;
   const dl=powerDmgLine(p,u);if(dl){rich(dl,x+3,cy,w-6,C.parch,{clip:o.clip,nohit:!!o.nohit});cy+=LINE_H;}
   rich(powerDesc(p),x+3,cy,w-6,C.parch,{clip:o.clip,nohit:!!o.nohit});
@@ -88,7 +96,7 @@ function attrTiles(a,x,y,w,clip){
   ['M','F','W','P'].forEach((k,i)=>{
     const tx=x+i*(tw+2);
     rect(tx,y,tw,22,C.edge);rect(tx+1,y+1,tw-2,20,'#241b15');rect(tx+1,y+1,tw-2,1,'#3a2e24');
-    text(ATTR[k].toUpperCase(),tx+tw/2,y+3,C.mute,{al:'c'});
+    text(ATTR_SHORT[k],tx+tw/2,y+3,C.mute,{al:'c'});
     const v=a[k];text((v>0?'+':'')+v,tx+tw/2,y+11,v>=3?C.gold:v>0?C.white:C.parch,{al:'c',sc:2,sh:C.edge});
     if(!clip||(y>=clip[0]&&y+22<=clip[1]))hit(tx,y,tw,22,{fn:()=>openGloss(ATTR[k].toLowerCase()),id:'at'+k+y});
   });
@@ -152,8 +160,9 @@ function sheetLayout(u,x,y,w,clip,o){
     cy+=secHead('TRAIT',x,cy,w);
     const rest=tr.slice(ci+1).trim();cy+=rich(`{g:${tr.slice(0,ci)}.} `+rest[0].toUpperCase()+rest.slice(1),x,cy,w,C.parch,{clip})+5;
     // powers
-    cy+=secHead(`POWERS (${u.powers.length})`,x,cy,w);
-    for(const id of u.powers){cy+=powerBlock(POWERS[id],u,x,cy,w,{clip})+3;}
+    const PL=u.powers.concat(Object.keys(u.pas||{}).filter(id=>!u.powers.includes(id)));
+    cy+=secHead(`POWERS (${PL.length})`,x,cy,w);
+    for(const id of PL){cy+=powerBlock(POWERS[id],u,x,cy,w,{clip})+3;}
   }else if(m){
     cy+=secHead('ATTRIBUTES',x,cy,w);
     cy+=attrTiles(u.attrs||m.attrs,x,cy,w,clip)+4;
