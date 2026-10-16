@@ -38,9 +38,10 @@ const _roundEnd=roundEnd;roundEnd=async function(){if(G.round>=30){G.over=true;G
 vm.runInContext(`
 AUTOPLAY=true;
 async function simBattle(enc,kind){
-  CTX={mode:'sim',relics:RUN.gear};
-  for(const h of RUN.heroes)if(h.hp<=0)h.hp=1;
-  setupBattle(enc,RUN.heroes);
+  CTX={mode:'sim',relics:RUN.gear,vic:RUN.vic};RUN.encKind=kind;
+  for(const h of living())if(h.hp<=0)h.hp=1;
+  setupBattle(enc,living());
+  if(kind==='boss'&&RUN.omen){RUN.omen=false;for(const u of G.units)if(u.side==='hero'&&u.kind==='pc')u.mom=Math.min(5,u.mom+1);}
   let guard=0;await nextTurn();
   while(!G.over&&guard++<5){await nextTurn();}
   const hs=G.units.filter(u=>u.side==='hero'&&u.kind==='pc');
@@ -49,63 +50,93 @@ async function simBattle(enc,kind){
   if(!G.over)return 'lose';
   return G.result;
 }
-function hpFrac(){let a=0,b=0;for(const h of RUN.heroes){a+=Math.max(0,h.hp);b+=effMaxHp(h);}return a/b;}
+function hpFrac(){let a=0,b=0;for(const h of living()){a+=Math.max(0,h.hp);b+=effMaxHp(h);}return b?a/b:0;}
+/* Catch Breath before a fight when a hero is below 60%. */
+function simCatch(){for(const h of living())while(h.hd>0&&h.hp<effMaxHp(h)*.6)catchBreath(h);}
 function takeOffers(P,S){
-  while(P&&P.steps&&P.steps.length){
+  let g=0;
+  while(P&&P.steps&&P.steps.length&&g++<40){
     const s=nextRewardStep();if(!s)break;
-    if(s==='xp'){P.xp=null;continue;}
+    if(s==='summary'){takeReward(null);continue;}
     const o=P.offers;const choice=o&&o.length?o[Math.floor(Math.random()*o.length)]:null;
-    if(s==='train'&&choice){S.picks.push(choice.id);(S.offers=S.offers||[]).push({o:o.map(x=>x.id),p:choice.id});}
-    takeReward(choice);
+    let drop=null;
+    if(s==='draft'&&choice){const h=heroOf(choice.cls);if(h.powers.length>=slotsOf(h))drop=h.powers[Math.floor(Math.random()*h.powers.length)];
+      S.picks.push(choice.id);(S.offers=S.offers||[]).push({o:o.map(x=>x.id),p:choice.id});}
+    takeReward(choice,drop);
   }
-  // equip the best weapon each hero owns, and keep the two relics we have (the first two found)
-  for(const h of RUN.heroes){const best=RUN.stash.filter(id=>WEAPONS[id].cls===h.cls).sort((a,b)=>WEAPONS[b].tier-WEAPONS[a].tier)[0];if(best&&WEAPONS[best].tier>WEAPONS[h.weapon].tier)equipWeapon(h.cls,best);}
+  for(const h of living()){const best=RUN.stash.filter(id=>WEAPONS[id].cls===h.cls).sort((a,b)=>WEAPONS[b].tier-WEAPONS[a].tier)[0];if(best&&WEAPONS[best].tier>WEAPONS[h.weapon].tier&&!RUN.wup[h.weapon])equipWeapon(h.cls,best);}
   RUN.pending=null;
+}
+function simCamp(S){
+  (S.restHp=S.restHp||[]).push(+hpFrac().toFixed(2));
+  for(const h of living())if(h.wounds>=2)tendWound(h.cls);
+  if(breakCamp()==='reward')takeOffers(RUN.pending,S);
+  RUN.stage='map';
+}
+async function simFollow(F,S,n){
+  if(F.battle){const r=await simBattle(F.battle.enc||F.battle,'battle');S.battles++;const L=globalThis.__last;
+    (S.fights=S.fights||[]).push({act:RUN.act,kind:'battle',type:F.battle.type,foes:[],hp:+L.hpEnd.toFixed(2),r:L.rounds,down:L.down,why:L.why,combos:L.combos});
+    if(r!=='win'){S.diedAt='event@'+RUN.act;S.why=L.why;return false;}resolveVictory();takeOffers(RUN.pending,S);}
+  else if(F.reward)takeOffers(RUN.pending,S);
+  return true;
 }
 async function simRun(seed){
   globalThis.__seed=seed*7919+13;
   newRun();
-  const S={seed,result:'lose',act:0,floor:0,battles:0,picks:[],bossHp:[],bossLvl:[],bossGold:[],hpAfter:[],diedAt:null,shopSpent:0,goldEnd:0,weapons:[],relics:[]};
+  const S={seed,result:'lose',act:0,floor:0,battles:0,picks:[],bossHp:[],bossLvl:[],bossGold:[],hpAfter:[],diedAt:null,shopSpent:0,goldEnd:0,weapons:[],relics:[],deaths:0,wounds:[]};
   while(true){
+    simCatch();
     const av=availableNodes().map(id=>RUN.map.nodes[id]);
     let n;const hf=hpFrac();
-    const want=hf<.45?['rest','shop','event','treasure','battle','elite']:hf<.7?['rest','treasure','event','shop','battle','elite']:null;
+    const tired=living().some(h=>h.wounds>=2)||living().reduce((a,h)=>a+h.hd,0)<living().length;
+    const want=hf<.45||tired?['rest','shop','event','road','treasure','battle','elite']:hf<.7?['rest','treasure','event','shop','road','battle','elite']:null;
     if(want){for(const t of want){const c=av.filter(q=>q.type===t);if(c.length){n=c[Math.floor(Math.random()*c.length)];break;}}}
     if(!n)n=av[Math.floor(Math.random()*av.length)];
-    RUN.pos=n.id;RUN.map.visited.push(n.id);S.floor=n.f;S.act=RUN.act;
+    S.floor=n.f;S.act=RUN.act;
     if(n.type==='battle'||n.type==='elite'||n.type==='boss'){
-      if(n.type==='boss'){S.bossHp.push(+hpFrac().toFixed(2));S.bossLvl.push(RUN.heroes.map(h=>h.lvl).join(','));S.bossGold.push(RUN.gold);}
-      const f=nodeF(n,n.type==='elite');const type=n.type==='boss'?'boss':nodeMission(n);
-      const enc=genEncounter(f,type,{act:RUN.act,elite:n.type==='elite'});RUN.encKind=n.type;
+      if(n.type==='boss'){S.bossHp.push(+hpFrac().toFixed(2));S.bossLvl.push(living().map(h=>h.lvl).join(','));S.bossGold.push(RUN.gold);}
+      const A=arrive(n.id);const enc=A.battle;const type=enc.type;
       (S.preHp=S.preHp||[]).push({act:RUN.act,kind:n.type,hp:+hpFrac().toFixed(2)});
       const r=await simBattle(enc,n.type);S.battles++;
       const L=globalThis.__last;(S.fights=S.fights||[]).push({act:RUN.act,kind:n.type,type,twist:enc.twist,foes:enc.enemies.map(e=>e.type||'rival'),hp:+L.hpEnd.toFixed(2),r:L.rounds,down:L.down,why:L.why,combos:L.combos});
       if(r!=='win'){S.diedAt=(n.type==='boss'?'boss':n.type)+'@'+RUN.act+':'+type;S.why=L.why;break;}
-      resolveVictory();S.hpAfter.push(+hpFrac().toFixed(2));
-      const final=RUN.pending&&RUN.pending.final;takeOffers(RUN.pending,S);
+      resolveVictory();S.hpAfter.push(+hpFrac().toFixed(2));S.deaths=RUN.heroes.filter(h=>h.dead).length;
+      const P=RUN.pending,final=P&&P.final,boss=n.type==='boss';takeOffers(P,S);
       if(final){S.result='win';break;}
-      if(n.type==='boss'){RUN.act++;RUN.map=genMap(RUN.act);RUN.pos=null;}
-    }else if(n.type==='rest'){(S.restHp=S.restHp||[]).push(+hpFrac().toFixed(2));
-      if(hpFrac()<.8)RUN.heroes.forEach(h=>h.hp=Math.min(effMaxHp(h),h.hp+Math.ceil(effMaxHp(h)*.4)));
-      else{RUN.pending={steps:['train'],kind:'rest'};takeOffers(RUN.pending,S);}
-    }else if(n.type==='shop'){
-      const items=genShop().items;const g0=RUN.gold;
-      if(hpFrac()<.7){const it=items.find(i=>i.kind==='heal');if(it)buyItem(it);}
-      for(const it of shuffle(items.filter(i=>i.kind==='weapon')))if(RUN.gold>=it.price&&WEAPONS[it.id].tier>WEAPONS[RUN.heroes.find(h=>h.cls===WEAPONS[it.id].cls).weapon].tier)buyItem(it);
-      for(const it of shuffle(items.filter(i=>i.kind!=='heal'&&i.kind!=='weapon')))if(RUN.gold>=it.price&&Math.random()<.75){buyItem(it);if(it.kind==='power')S.picks.push(it.id);}
-      S.shopSpent+=g0-RUN.gold;
-      takeOffers({steps:[]},S);
-    }else if(n.type==='treasure'){RUN.pending={steps:['loot'],kind:'treasure'};RUN.gold+=15;takeOffers(RUN.pending,S);}
-    else if(n.type==='event'){
-      const ev=EVENTS[Math.floor(Math.random()*EVENTS.length)];
-      const opts=ev.opts.filter(o=>!o.cost||RUN.gold>=o.cost);const opt=opts[Math.floor(Math.random()*opts.length)];
-      const res=resolveEvent(opt);
-      if(res.fight){const enc=genEncounter(nodeF(n,false),'rout',{act:RUN.act});RUN.encKind='battle';const r=await simBattle(enc,'battle');S.battles++;
-        if(r!=='win'){S.diedAt='event@'+RUN.act;break;}resolveVictory();takeOffers(RUN.pending,S);}
-      if(res.relic||res.train||res.weapon){RUN.pending={steps:[res.relic?'relic2':res.weapon?'weapon':'train'],kind:'event'};takeOffers(RUN.pending,S);}
+      if(boss){RUN.act++;RUN.map=genMap(RUN.act);RUN.pos=null;makeCamp({newAct:true});simCamp(S);}
+      if(!living().length)break;
+      continue;
     }
+    const A=arrive(n.id);
+    if(n.type==='rest'){simCamp(S);}
+    else if(n.type==='shop'){
+      const items=RUN.shop.items;const g0=RUN.gold;
+      if(living().reduce((a,h)=>a+h.hd,0)<living().length*1.5){const it=items.find(i=>i.kind==='heal');if(it)buyItem(it);}
+      for(const it of shuffle(items.filter(i=>i.kind==='weapon')))if(RUN.gold>=it.price&&hasClass(WEAPONS[it.id].cls)&&WEAPONS[it.id].tier>WEAPONS[heroOf(WEAPONS[it.id].cls).weapon].tier)buyItem(it);
+      for(const it of shuffle(items.filter(i=>i.kind!=='heal'&&i.kind!=='weapon')))if(RUN.gold>=it.price&&Math.random()<.75){const h=it.kind==='power'?heroOf(it.cls):null;const drop=h&&h.powers.length>=slotsOf(h)?h.powers[0]:null;if(buyItem(it,drop)&&it.kind==='power')S.picks.push(it.id);}
+      // the smith: temper a random hero's weapon if there is gold to spare
+      for(const h of shuffle(living().slice())){const m=smithMenu(h.weapon).find(o=>o.k==='temper');if(m&&RUN.gold>=m.cost+20){smithDo(h.weapon,m);break;}}
+      S.shopSpent+=g0-RUN.gold;RUN.shop=null;RUN.stage='map';
+      takeOffers({steps:[]},S);
+    }else if(n.type==='treasure'){takeOffers(RUN.pending,S);}
+    else if(A&&A.screen==='event'){
+      const ev=eventOf(RUN.event);const opts=ev.opts.filter(optOk);
+      const o=opts.find(q=>q.cls&&q.auto)||opts[Math.floor(Math.random()*opts.length)];
+      const res=resolveEvent(o);RUN.event=null;
+      if(!await simFollow(afterOutcome(res),S,n))break;
+    }else if(A&&A.screen==='task'){
+      let g=0;while(!RUN.task.done&&g++<40){for(const h of living()){if(RUN.task.done||RUN.task.acted.includes(h.cls))continue;
+        const ap=taskApproaches().sort((a,b)=>checkChance(h,b.a,b.cls===h.cls?1:0)-checkChance(h,a.a,a.cls===h.cls?1:0))[0];taskAttempt(h.cls,ap);}}
+      const res=finishTask();if(!await simFollow(afterOutcome(res),S,n))break;
+    }else if(A&&A.screen==='talk'){
+      let g=0;while(!RUN.talk.done&&g++<5){const args=talkArgs();const arg=args.sort((a,b)=>checkChance(bestFor(b.a,b.cls),b.a,talkNet(b))-checkChance(bestFor(a.a,a.cls),a.a,talkNet(a)))[0];talkArg(arg);}
+      const res=finishTalk();if(!await simFollow(afterOutcome(res),S,n))break;
+    }
+    RUN.stage='map';
+    if(!living().length)break;
   }
-  S.goldEnd=RUN.gold;S.lvlEnd=RUN.heroes.reduce((a,h)=>a+h.lvl,0)/4;S.weapons=RUN.heroes.map(h=>h.weapon);S.relics=RUN.gear.slice();S.lvls=RUN.heroes.map(h=>h.lvl);
+  S.goldEnd=RUN.gold;const LV=RUN.heroes;S.lvlEnd=LV.reduce((a,h)=>a+h.lvl,0)/LV.length;S.weapons=LV.map(h=>h.weapon);S.relics=RUN.gear.slice();S.lvls=LV.map(h=>h.lvl);
+  S.deaths=RUN.heroes.filter(h=>h.dead).length;S.woundsEnd=RUN.heroes.reduce((a,h)=>a+(h.wounds||0),0);
   return S;
 }
 `,ctx);
@@ -131,6 +162,7 @@ function report(R){
     const lv=hs.reduce((s,r)=>s+r.bossLvl[a].split(',').reduce((x,y)=>x+ +y,0)/4,0)/hs.length;
     console.log(`Act ${a+1} boss: party health on arrival ${pct(avg('bossHp'))}, gold ${avg('bossGold').toFixed(0)}, average hero level ${lv.toFixed(1)}`);}
   {const W=R.filter(r=>r.result==='win');if(W.length)console.log(`Average hero level at the end of a won journey: ${(W.reduce((s,r)=>s+r.lvlEnd,0)/W.length).toFixed(1)}`);}
+  console.log(`Heroes dead per run: ${(R.reduce((s,r)=>s+r.deaths,0)/n).toFixed(2)}   Wounds at the end: ${(R.reduce((s,r)=>s+(r.woundsEnd||0),0)/n).toFixed(1)}`);
   const hpa=R.flatMap(r=>r.hpAfter);console.log(`Party health after a battle (avg): ${pct(hpa.reduce((a,b)=>a+b,0)/hpa.length)}   shop spend/run: ${(R.reduce((s,r)=>s+r.shopSpent,0)/n).toFixed(0)}   gold left at end: ${(R.reduce((s,r)=>s+r.goldEnd,0)/n).toFixed(0)}`);
   const W={};for(const r of R)if(r.why)W[r.why]=(W[r.why]||0)+1;console.log('Loss reasons:',JSON.stringify(W));
   for(let a=0;a<3;a++)for(const k of['battle','elite','boss']){const F=R.flatMap(r=>(r.fights||[]).filter(f=>f.act===a&&f.kind===k));if(!F.length)continue;

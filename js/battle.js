@@ -101,7 +101,7 @@ function unitBody(u,full){
     else if(G&&u.kind==='pc'&&u.debt)s+=`{b:${u.debt} of next turn's actions spent on reactions}\n`;
     s+=condText(u);
     if(u.st.mark&&u.marker&&U(u.marker))s+=`(by ${U(u.marker).name}) `;
-    if(full){s+='Skills: '+Object.keys(SKILLS).map(k=>{const t=CLASSES[u.cls].skills.includes(k);const v=u.attrs[SKILLS[k]]+(t?2:0);return (t?'{g:'+k+'}':k)+' '+(v>=0?'+':'')+v;}).join(', ')+'\n\n'+CLASSES[u.cls].trait+'\n';for(const id of u.powers)s+='\n'+'{g:'+POWERS[id].name+'}: '+powerText(POWERS[id],u)+'\n';}
+    if(full){s+=(u.wounds?`{r:Wounds ${u.wounds}} (−${Math.min(3,u.wounds)} to attacks and saves). `:'')+(u.hd!=null?`Hit dice ${u.hd}.`:'')+'\n\n'+CLASSES[u.cls].trait+'\n';for(const id of u.powers)s+='\n'+'{g:'+POWERS[id].name+'}: '+powerText(POWERS[id],u)+'\n';}
     else if(G&&G.cur===u.id&&u.powers.length){const p=powerOf(u,B.pi);if(p)s+='\n{g:'+p.name+'}\n'+powerText(p,u);}
   }else if(u.kind==='mon'){
     const m=mon(u);
@@ -614,7 +614,7 @@ function openMissionInfo(){const E=G.enc;msg(E.title||MISSIONS[E.type].name,miss
 const COMBO_KEY='emberwatch.v3.combos';
 function comboSeen(){try{return !!localStorage.getItem(COMBO_KEY);}catch(e){return true;}}
 function showComboIntro(){return new Promise(res=>{try{localStorage.setItem(COMBO_KEY,'1');}catch(e){}
-  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Heroes and foes act in {g:initiative} order. A hero has {g:three actions} a turn (move, attack, powers), and saves any left over for {g:reactions} like Defend. Heroes {g:set up} attacks for each other, so watch who acts next. A foe that is shoved, dragged or knocked down is {g:staggered}: it loses its next turn, unless someone cashes it in with a sure critical hit. Attacks against {g:exposed} foes have advantage and deal +3, and {g:blessed} heroes attack with advantage.\n\nA set-up lasts until the foe\'s own turn, so cash it in with a hero who acts before it: that is a {g:combo}, +1 momentum for both, and more damage for the rest of the round. Chain them!\n\nTap {g:INTENT} to see whom each foe means to attack.',
+  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Heroes and foes act in {g:initiative} order. A hero has {g:three actions} a turn (move, attack, powers); an action saved can pay for a {g:reaction} like Defend. Heroes {g:set up} attacks for each other, so watch who acts next. A foe slammed into something is {g:staggered}: it loses its next turn, and the next hit on it from an ally is a sure critical hit. Allies attack {g:exposed} foes with advantage, and {g:blessed} heroes attack with advantage.\n\nA set-up lasts until the foe\'s own turn, so cash it in with a hero who acts before it: that is a {g:combo}, +2 momentum for both heroes. Chain them!\n\nTap {g:INTENT} to see whom each foe means to attack.',
     buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 function showObjective(){return new Promise(res=>{const E=G.enc;openModal(dialog({title:(E.title||MISSIONS[E.type].name).toUpperCase(),body:missionBody()+'\n\n{m:Tap the objective bar at the top to see this again.}',w:200,closable:false,buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 /* Name, health and momentum of the active (or inspected) unit. Tap for the full character sheet. */

@@ -16,10 +16,14 @@ This file lists every difference and the order in which they will be ported. Eac
 
 ## Status
 
-- **Phase 1 (combat core): done.** Interim: Malice comes in at half the book's rate (`TUNE.maliceMul: .5`) until the run layer lands.
+- **Phase 1 (combat core): done.**
 - **Phase 2 (content): done.** Heroes use STR/DEX/INT/PRE, the four classes have the Heroes book's numbers, start kits and powers, the 34 general powers are in the draft pool, weapons carry runes (Keen, Vicious, Steady, Flame, Frost, Radiant, Venom, Thunder, Warding, Long), the rogue can find a d2 weapon, and foes and bosses use the Bestiary's stat blocks, damage types, Terrifying, hidden starts and bloodied phases. Passive powers, Chain/Link/Growth keywords and party resonance all work in battle.
   - Not yet in the game: Overchannel, the Vanishing Act/Beacon style upcasts, Nerves of Steel (needs Wounds, Phase 3), the elite +1 attack, power slots and drafts (Phase 3). Earthshaker's "knocked down" is shown as slowed; Web roots on a hit roll rather than automatically. New foes borrow existing art.
   - Tuning: with the Heroes book's higher hero health, regions 1 and 2 were easy and the dragon a wall, so foe budgets per region are `actMul [1.1, 1.05, .65]` and boss health per region `bossAct [1.2, 1.25, .8]`. Simulator (150 runs, seed 7): 31% of journeys won, against 20% after Phase 1.
+
+- **Phase 3 (run layer): done.** Victories (battle 1, elite 2, boss 3, task or negotiation 1) set each hero's starting momentum (up to 3) and become XP at a Camp. Camps spend and refill hit dice, remove a Wound and level heroes up, with Tend Wounds, Train and Hand Over in downtime. Hit dice heal out of battle (Catch Breath) and pay for Second Wind. Going Down gives a Wound; a hero Downed with 3 Wounds dies. Power slots (level + 3, up to 8) and drafts (level-ups, elites with an Uncommon, bosses with a Rare, treasure, events, shop by rarity), with skip and reroll. The smith tempers, hones (light weapons to a d2) and inscribes runes. Events use attribute checks with Help, class options and a safe option; there are dramatic tasks, negotiations and d6 road events. Malice now comes in at the book's rate.
+  - Deviations: **2 XP a level** (the book's 4 is TBC; the map gives about 7 Victories a region, and 2 keeps heroes on the book's level bands: they reach the bosses at about 3, 7 and 9.5). After a boss, the new region opens with a Camp. Help is automatic on single checks. Level-ups take the average hit-die roll. Not yet: healing potions and Provisions (the shop sells Bandages and Rations, +2 hit dice, instead), Haggle, Prayer and favours, selling items to the shop, the fate-token omen (an Omen gives +1 momentum in the boss fight instead).
+  - Simulator (150 runs, seed 7): 27% of journeys won; 0.2 heroes die per run.
 
 ## Differences, system by system
 
