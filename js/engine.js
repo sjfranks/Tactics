@@ -51,8 +51,10 @@ function dieList(r){
 /* Short captions, as on the 3D dice: how advantage worked, and the result. */
 function advCap(net,n,st,t){const k=Math.abs(net);if(st)return t&&t.boss?'STAGGERED: +2 advantage':'STAGGERED: sure critical hit';
   if(n<2)return null;return net>0?`ADVANTAGE${k>1?' ×'+k:''}: best of ${n}`:`DISADVANTAGE${k>1?' ×'+k:''}: worst of ${n}`;}
-function atkVerdict(r,d,def){if(r.res===1)return 'MISS: a 1 on the first die';const m=d-r.total+(def||0);
-  return `${diceText(r.d)} = ${r.total}${r.res===3?' CRIT!':''}${m?(m>0?' +':' −')+Math.abs(m):''}${def!=null?` − DEF ${def}`:''} → ${d} damage`;}
+function atkVerdict(r,X){if(r.res===1)return 'MISS: a 1 on the first die';
+  const sh=l=>{for(const k in ATTR)if(ATTR[k]===l)return ATTR_SHORT[k];return l;};
+  const steps=(X.S||[]).filter(([l,v])=>l&&v).map(([l,v])=>/×/.test(l)?' '+l:` ${v>0?'+':'−'}${Math.abs(v)} ${sh(l)}`).join('');
+  return `${diceText(r.d)} = ${r.total}${r.res===3?' CRIT!':''}${steps} → ${X.d} damage`;}
 function exAvg(s){return s<2?1:(s+1)/2*s/(s-1);}
 function dieSucc(s,net){const p=s>=4?(s-3)/s:0;const k=Math.abs(net);return net>=0?1-Math.pow(1-p,k+1):Math.pow(p,k+1);}
 /* The class key stat: the attribute every attack and attacking power adds once (Core Rules 3.5). */
@@ -802,7 +804,7 @@ async function pcStrike(u,p,t,C,fl){
     if(dz&&r.res===2&&!p.pierceArmor){const a=rollExF(dz);defF=exDice(dz,a.f,'def');defR=a.t;if(wall){const b=rollExF(dz);if(b.t>a.t){defR=b.t;defF.forEach(q=>q.k='drop');defF=defF.concat(exDice(dz,b.f,'def'));}else defF=defF.concat(exDice(dz,b.f,'drop'));}}
     const X=pcDmgX(u,p,t,r.res,{dd,dice:r.total,defRoll:defR});let d=X.d;const miss=r.res===1;
     {const dice=(shown3d?[]:dieList(r)).concat(defF);
-     if(dice.length)showRoll({side:u.side,title:shown3d?'DEF':`${u.name.toUpperCase()}: ${p.name.toUpperCase()}`,sub:shown3d?null:advCap(r.net,r.tries.length,st,t),dice,verdict:shown3d?`${t.name}'s armour blocks ${defR}`:atkVerdict(r,X.d,defR),res:shown3d?2:r.res});}
+     if(dice.length)showRoll({side:u.side,title:shown3d?'DEF':`${u.name.toUpperCase()}: ${p.name.toUpperCase()}`,sub:shown3d?null:advCap(r.net,r.tries.length,st,t),dice,verdict:shown3d?`${t.name}'s armour blocks ${defR}`:atkVerdict(r,X),res:shown3d?2:r.res});}
     await H.rolls();
     if(r.res===3&&G.cur===u.id&&hasP(u,'flurry'))u.flurry=true;
     if(sn&&d>0)fl.sneak=true;
@@ -1275,7 +1277,7 @@ async function monAttack(e,A,t,isTile){
     if(v.side==='hero'&&hasR('ward')){v.warded=v.warded||{};v.warded[e.id]=1;}
     NOTE=[];
     const X=monDmgX(e,A,v,res,r?r.total:null);
-    if(r){showRoll({side:e.side,title:`${e.name.toUpperCase()}: ${A.name.toUpperCase()}`,sub:advCap(r.net,r.tries.length,st,v),dice:dieList(r),verdict:atkVerdict(r,X.d),res:r.res});await H.rolls();}
+    if(r){showRoll({side:e.side,title:`${e.name.toUpperCase()}: ${A.name.toUpperCase()}`,sub:advCap(r.net,r.tries.length,st,v),dice:dieList(r),verdict:atkVerdict(r,X),res:r.res});await H.rolls();}
     if(r)H.result(v,r);
     if(X.d>0)await damage(e,v,guardHit(e,v,X.d,res===3),{crit:res===3,area:!!A.area});
     if(live(v)&&res>1){
