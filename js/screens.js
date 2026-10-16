@@ -8,7 +8,7 @@ const BATTLE_SCREEN={draw:drawBattle};
 const ROMAN=['I','II','III'];
 function coin(x,y){text('●',x,y,C.gold,{sh:C.edge});}
 function relicIcon(r,x,y){rect(x,y,11,11,C.edge);rect(x+1,y+1,9,9,'#1a1410');frame(x+1,y+1,9,9,RELIC_COL[r]);text(RELIC_ICON[r]||'?',x+6,y+3,RELIC_COL[r],{al:'c',sh:false});}
-function heroSheetUnit(h){return {id:'sheet_'+h.cls,side:'hero',kind:'pc',cls:h.cls,name:CLASSES[h.cls].name,lvl:h.lvl,hp:h.hp,maxHp:effMaxHp(h),attrs:attrsFor(h.cls,h.lvl),powers:withBasic(h.cls,h.powers),mom:0,st:{},shield:0,speed:CLASSES[h.cls].speed,steady:0,wpn:h.weapon,xp:h.xp};}
+function heroSheetUnit(h){return {id:'sheet_'+h.cls,side:'hero',kind:'pc',cls:h.cls,name:CLASSES[h.cls].name,lvl:h.lvl,hp:h.hp,maxHp:effMaxHp(h),attrs:attrsFor(h.cls,h.lvl),powers:withBasic(h.cls,h.powers),pas:Object.fromEntries((h.powers||[]).filter(id=>POWERS[id]&&POWERS[id].passive).map(id=>[id,1])),mom:0,st:{},shield:0,speed:CLASSES[h.cls].speed,steady:0,wpn:h.weapon,xp:h.xp};}
 
 /* ---------------- backgrounds ---------------- */
 const BGC={};
@@ -618,8 +618,8 @@ const SK={lvl:3,act:0,haz:true,mission:'rout',slots:[],partyPow:{},rivalPow:{},f
   diff:{foeHp:100,foeDmg:0,partyHp:100,partyDmg:0}};
 ORDER.forEach(c=>{SK.rivalPow[c]=CLASSES[c].start.slice();SK.partyPow[c]=CLASSES[c].start.slice();});
 SK.slots=[{t:'orc'},{t:'runner'},{t:'runner'},{t:'runner'},{t:'runner'},{t:'rats'}];
-try{const sv=JSON.parse(localStorage.getItem('emberwatch.v3.skirmish')||'null');if(sv&&Array.isArray(sv.slots)){Object.assign(SK,sv,{diff:Object.assign(SK.diff,sv.diff||{})});SK.slots=sv.slots.filter(e=>e&&(MON[e.t]||CLASSES[e.pc]));}}catch(e){}
-function saveSK(){try{localStorage.setItem('emberwatch.v3.skirmish',JSON.stringify({lvl:SK.lvl,act:SK.act,haz:SK.haz,mission:SK.mission,slots:SK.slots,partyPow:SK.partyPow,rivalPow:SK.rivalPow,diff:SK.diff}));}catch(e){}}
+try{const sv=JSON.parse(localStorage.getItem('emberwatch.v4.skirmish')||'null');if(sv&&Array.isArray(sv.slots)){Object.assign(SK,sv,{diff:Object.assign(SK.diff,sv.diff||{})});SK.slots=sv.slots.filter(e=>e&&(MON[e.t]||CLASSES[e.pc]));}}catch(e){}
+function saveSK(){try{localStorage.setItem('emberwatch.v4.skirmish',JSON.stringify({lvl:SK.lvl,act:SK.act,haz:SK.haz,mission:SK.mission,slots:SK.slots,partyPow:SK.partyPow,rivalPow:SK.rivalPow,diff:SK.diff}));}catch(e){}}
 const SK_MISSIONS=['rout','ambush','hold','survive','rescue','defend','loot','breakout','ritual'];
 const SK_FILTERS=[['ALL',()=>true],['GREEN',m=>m.act===0],['MOORS',m=>m.act===1],['ASHEN',m=>m.act===2],['SPECIAL',m=>m.act<0]];
 const LAND_TXT=['Meadows, woods and streams. Fire is the only hazard.','Graveyards and black water. Acid pools.','Basalt, ash and rivers of lava.'];
@@ -710,7 +710,7 @@ function openPowerEditor(cls,list,label){
   scrollTo('pedit',0);
   openModal({closable:true,draw(){
     dim();const w=Math.min(260,SW-8),h=Math.min(164,SH-16),x=Math.floor((SW-w)/2),y=Math.floor((SH-h)/2);panel(x,y,w,h,{title:(PORT?CLASSES[cls].title:label+' · '+CLASSES[cls].title).toUpperCase()});
-    const ps=Object.values(POWERS).filter(p=>p.c===cls&&!p.basic&&!p.innate).sort((a,b)=>a.lv-b.lv);
+    const ps=Object.values(POWERS).filter(p=>(p.c===cls||p.c==='gen')&&!p.basic&&!p.innate).sort((a,b)=>a.lv-b.lv);
     scrollArea('pedit',x+6,y+10,w-10,h-30,ps.length*13,(yy,clip)=>{ps.forEach((p,i)=>{const cy=yy+i*13;const on=list.includes(p.id);
       rect(x+8,cy+2,8,8,C.edge);rect(x+9,cy+3,6,6,on?C.green:'#2a2018');if(on)text('✓',x+10,cy+3,C.edge,{sh:false});
       text(p.name,x+20,cy+3,on?C.gold:C.parch);const lc=`L${p.lv}${p.cost?' ◆'+p.cost:''}`;

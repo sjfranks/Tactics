@@ -38,6 +38,16 @@ function statusIcon(k){return STATUS7[k]?artCanvas('s'+k,STATUS7[k],ART_PAL):nul
 function relicArt(k){return artCanvas('r'+k,RELIC16[k]||RELIC16.coin,ART_PAL);}
 function mapIcon(k){return MAPICON24[k]?artCanvas('m'+k,MAPICON24[k],ART_PAL):null;}
 const POWER_ICON={secondwind:'heart',helpup:'heart',
+  sword:'sword',blades:'twin',mace:'mace',sling:'arrow:gold',shove:'bash',force:'wave:purple',guidance:'halo',
+  feint:'spiral',backstab:'dagger:gold',openveins:'cut',counter:'swap',needle:'dagger',flurry:'whirl:gleam',coup:'skull',
+  bodyguard:'shield:steel',sentinel:'banner',block:'shield',anvil:'hammer',shieldbreaker:'hammer:gold',heavy:'axe',bloodwater:'cut',
+  mshield:'shield:holyShield',kindling:'flame',battlemage:'bolt:gold',shatter:'icewall',rod:'lightning',wildfire:'fireball',
+  gift:'heart',shepherd:'halo',favour:'star',smite:'sun',martyr:'ankh',judgment:'sun',
+  gambit:'star',exploit:'skull:purple',followthru:'boot',domino:'swap',rhythm:'whirl',conductor:'banner:gold',openstrike:'sword',
+  finisher:'skull',feet:'boot',overkill:'axe',pride:'banner',glass:'potion',brace:'shield',hardy:'heart',counterguard:'shield:steel',
+  bulwark:'shield',nerves:'halo',laststand:'ankh',quick:'boot',hardshove:'fist',tripwire:'trap',pinball:'bash',reposition:'swap',
+  eager:'star',adrenaline:'potion',warmup:'star',overflow:'beacon',echo:'wave',afterglow:'sun',medic:'potion',rallyp:'banner',
+  quickrevive:'heart',triage:'ankh',echomercy:'heart',
   grind:'sword',tide:'bash',sweep:'whirl',cagi:'horn',shieldWall:'shield',hook:'chain',crush:'hammer',hurl:'fist',interpose:'swap',
   unbreak:'shield:steel',whirl:'whirl:red',quake:'quake',bastion:'banner',titan:'hammer:gold',cleave:'axe',spin:'boot',
   pierce:'dagger',knives:'knives',tumble:'boot',deepcut:'cut',shadow:'blink:dark',barrage:'whirl:gleam',vanish:'hood',assassinate:'skull',
