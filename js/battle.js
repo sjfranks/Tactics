@@ -98,7 +98,7 @@ function unitBody(u,full){
     s+=attrLine(u.attrs)+'\n';
     s+=`Speed ${effSpeed(u)}\n`;
     if(G&&G.cur===u.id)s+=`Actions {${u.acts>0?'h':'m'}:${u.acts||0} of ${TUNE.actions} left}${u.mp>0?` · {h:${u.mp}} squares of movement left`:''}\n`;
-    else if(G&&u.kind==='pc'&&u.debt)s+=`{b:${u.debt} of next turn's actions spent on reactions}\n`;
+    else if(G&&u.kind==='pc'&&G.cur!==u.id&&(u.acts||0)>0)s+=`{b:${u.acts} ready ${u.acts>1?'actions':'action'} for reactions (Defend) until ${u.name}'s next turn}\n`;
     s+=condText(u);
     if(u.st.mark&&u.marker&&U(u.marker))s+=`(by ${U(u.marker).name}) `;
     if(full){s+=(u.wounds?`{r:Wounds ${u.wounds}} (−${Math.min(3,u.wounds)} to attacks and saves). `:'')+(u.hd!=null?`Hit dice ${u.hd}.`:'')+'\n\n'+CLASSES[u.cls].trait+'\n';for(const id of u.powers)s+='\n'+'{g:'+POWERS[id].name+'}: '+powerText(POWERS[id],u)+'\n';}
@@ -586,6 +586,9 @@ function drawRollCard(){
   ctx.globalAlpha=1;
   hit(0,0,SW,SH,{fn:()=>{if(B.roll)B.roll.dur=Math.min(B.roll.dur,NOW-B.roll.t0+120);},id:'rollskip'});
 }
+/* A reaction prompt: the game pauses on the foe's turn and asks whether the hero reacts. */
+H.ask=(u,title,body,yes)=>new Promise(res=>{if(AUTOPLAY){res(true);return;}sfx('select');B.ask={title,res:v=>{B.ask=null;closeModal();res(v);}};
+  openModal(dialog({title,body,w:200,closable:false,buttons:[{l:yes||'YES',hot:true,fn:()=>{B.ask=null;res(true);}},{l:'NO',fn:()=>{B.ask=null;res(false);}}]}));});
 H.rolls=async()=>{
   while(ROLLQ.length){
     const o=ROLLQ.shift();
@@ -630,6 +633,7 @@ function drawBoardFrame(){
   rect(x,y,w,h,C.edge);rect(x+1,y+1,w-2,h-2,C.rim);rect(x+1,y+1,w-2,1,C.rim2);rect(x+1,y+1,1,h-2,'#8a6a40');rect(x+2,y+2,w-4,h-4,C.edge);
   for(const[cx,cy]of[[x,y],[x+w-4,y],[x,y+h-4],[x+w-4,y+h-4]]){rect(cx,cy,4,4,C.edge);rect(cx+1,cy+1,2,2,C.gold);rect(cx+1,cy+1,1,1,'#fff0b0');}
 }
+function maliceShown(){return threatList(G.enc).length>0||G.units.some(u=>u.side==='enemy'&&u.kind==='mon'&&live(u)&&(mon(u).acts||[]).some(A=>A.cost));}
 function openFoeMomInfo(){
   const T=G.threat&&THREATS[G.threat];const L=threatList(G.enc);
   const body=`The foes gain {r:◆} Malice every round (the round number, plus 1 for each hero who is Down), with no limit, and spend it on threats. They have {r:◆${Math.max(0,G.foeMom)}} now.\n\n`+
@@ -644,10 +648,12 @@ function drawTopBarP(){
   const mb=15;button(SW-mb-2,1,mb,12,'≡',()=>openSettings(true),{});
   const rd=`ROUND ${G.round}`,rw=textW(rd)+10;let x=SW-mb-4-rw;
   chip(x,1,rw,12,'#241c16',C.rim);text(rd,x+rw/2,4,C.parch,{al:'c'});
-  const T=G.threat&&THREATS[G.threat];const fm=String(Math.max(0,G.foeMom)),fw=textW(fm)+16;x-=fw+2;
-  const near=T&&G.foeMom+maliceNext()>=T.cost;
-  chip(x,1,fw,12,'#2e1426',near&&Math.floor(NOW/300)%2?'#ff6a9a':'#8a3a6a');gem(x+3,3,'foe');text(fm,x+12,4,'#ffc8e0');
-  hit(x,1,fw,12,{fn:openFoeMomInfo,id:'fm'});
+  // Malice only shows once it matters: the first land's ordinary battles have no threats
+  const T=G.threat&&THREATS[G.threat];
+  if(maliceShown()){const fm=String(Math.max(0,G.foeMom)),fw=textW(fm)+16;x-=fw+2;
+    const near=T&&G.foeMom+maliceNext()>=T.cost;
+    chip(x,1,fw,12,'#2e1426',near&&Math.floor(NOW/300)%2?'#ff6a9a':'#8a3a6a');gem(x+3,3,'foe');text(fm,x+12,4,'#ffc8e0');
+    hit(x,1,fw,12,{fn:openFoeMomInfo,id:'fm'});}
   const ow=x-4;chip(2,1,ow,12,'#241c16',C.rim);
   text(fitText(objText(),ow-10),7,4,C.gold);
   hit(2,1,ow,12,{fn:openMissionInfo,id:'obj'});
@@ -660,7 +666,7 @@ function openMissionInfo(){const E=G.enc;msg(E.title||MISSIONS[E.type].name,miss
 const COMBO_KEY='emberwatch.v3.combos';
 function comboSeen(){try{return !!localStorage.getItem(COMBO_KEY);}catch(e){return true;}}
 function showComboIntro(){return new Promise(res=>{try{localStorage.setItem(COMBO_KEY,'1');}catch(e){}
-  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Heroes and foes act in {g:initiative} order. A hero has {g:three actions} a turn (move, attack, powers); an action saved can pay for a {g:reaction} like Defend. Heroes {g:set up} attacks for each other, so watch who acts next. A foe slammed into something is {g:staggered}: it loses its next turn, and the next hit on it from an ally is a sure critical hit. Allies attack {g:exposed} foes with advantage, and {g:blessed} heroes attack with advantage.\n\nA set-up lasts until the foe\'s own turn, so cash it in with a hero who acts before it: that is a {g:combo}, +2 momentum for both heroes. Chain them!\n\nTap {g:INTENT} to see whom each foe means to attack.',
+  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Heroes and foes act in {g:initiative} order. A hero gets {g:three actions} at the start of each turn: move, attack (once a turn) or use a power. Actions you don\'t use stay ready: when a foe hits you, you may spend one to {g:Defend}. Heroes {g:set up} attacks for each other, so watch who acts next. A foe slammed into something is {g:staggered}: it loses its next turn, and the next hit on it from an ally is a sure critical hit. Allies attack {g:exposed} foes with advantage, and {g:blessed} heroes attack with advantage.\n\nA set-up lasts until the foe\'s own turn, so cash it in with a hero who acts before it: that is a {g:combo}, +2 momentum for both heroes. Chain them!\n\nTap {g:INTENT} to see whom each foe means to attack.',
     buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 function showObjective(){return new Promise(res=>{const E=G.enc;openModal(dialog({title:(E.title||MISSIONS[E.type].name).toUpperCase(),body:missionBody()+'\n\n{m:Tap the objective bar at the top to see this again.}',w:200,closable:false,buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 /* Name, health and momentum of the active (or inspected) unit. Tap for the full character sheet. */
@@ -716,7 +722,7 @@ function hintLines(){
   const al=`{g:${u.acts} action${u.acts===1?'':'s'}} left. `;
   if((u.acts||0)<=0){return V&&V.moves.size>1?['Move with your remaining steps, or {g:End Turn}.']:['No actions left. Tap {g:End Turn}.'];}
   if(p&&!usable(u,p))return [`{r:${p.name} needs ◆${p.cost}.} You have ◆${u.mom}.`,'Pick another power, or move.'];
-  if(p&&u.acts<TUNE.actions&&!B.pend)return [al+'Act again, move, or {g:End Turn}: unused actions are saved for {g:reactions}.',p.desc];
+  if(p&&u.acts<TUNE.actions&&!B.pend)return [al+'Act again, move, or {g:End Turn}: actions you keep stay ready to {g:Defend} until your next turn.',p.desc];
   if(p){
     const how=al+(p.tgt==='enemy'?'Tap a red foe to attack, or a blue square to move.':p.tgt==='ally'?'Tap a green ally, or a blue square to move.':p.tgt==='tile'?(p.area!=null?'Tap an orange square to aim, or move.':'Tap a purple square, or move.'):'Tap the card again to use it, or move.');
     return [how,p.desc];
@@ -963,8 +969,8 @@ function drawUnit(u){
     if(pv){const lw=Math.min(fw,Math.round((bw-2)*pv/u.maxHp));if(Math.floor(NOW/180)%2)rect(bx+1+fw-lw,by+1,lw,Q>1?2:1,'#ffffff');}
   }
   if(u.shield>0){const ic=statusIcon('shield');if(ic)ctx.drawImage(ic,X+W-8,Y+W-10);}
-  // gold pips: actions left this turn; blue pips: reactions still possible before their next turn
-  if(u.kind==='pc'){const cur=G.cur===u.id,n2=cur?(u.acts||0):Math.max(0,reactLeft(u)-1);const ps=3+Q;for(let i=0;i<n2;i++){const px=X+1+i*(ps+1),py=Y+1;rect(px,py,ps,ps,C.edge);rect(px+1,py+1,ps-2,ps-2,cur?'#ffd860':'#7fd0ff');rect(px+1,py+1,ps-2,1,cur?'#fff4c0':'#d0f0ff');}}
+  // gold pips: actions left this turn; blue pips: actions kept ready for reactions until their next turn
+  if(u.kind==='pc'){const cur=G.cur===u.id,n2=u.acts||0;const ps=3+Q;for(let i=0;i<n2;i++){const px=X+1+i*(ps+1),py=Y+1;rect(px,py,ps,ps,C.edge);rect(px+1,py+1,ps-2,ps-2,cur?'#ffd860':'#7fd0ff');rect(px+1,py+1,ps-2,1,cur?'#fff4c0':'#d0f0ff');}}
   const sts=unitStatuses(u).filter(k=>k!=='shield');
   sts.slice(0,3).forEach((k,i)=>{const ic=statusIcon(k);if(ic)ctx.drawImage(ic,X+W-7,Y-1+i*7);});
 }
@@ -1097,7 +1103,7 @@ function drawForecast(u,x,y0,w,h){
   B.strikeR={x,y:bot,w:w-27,h:13};button(x,bot,w-27,13,p.tgt==='enemy'?'STRIKE':'CONFIRM',confirmPend,{hot:true,disabled:B.busy});
   button(x+w-25,bot,25,13,'×',()=>{B.pend=null;},{});
 }
-function endLabel(u){return u.kind==='pc'&&(u.acts||0)>0?`END · SAVE ${u.acts}`:'END TURN';}
+function endLabel(u){return u.kind==='pc'&&(u.acts||0)>0?`END · KEEP ${u.acts}`:'END TURN';}
 function drawCtrlBar(){
   const y=PL.ctrlY,h=PL.ctrlH,pu=playerUnit();
   const bs=[['↶ UNDO',undoUI,{disabled:B.busy||!canUndo()}],['LOG',openLog,{}],['TURNS',openOrder,{}],['INTENT',toggleIntents,{on:SET.showIntents===true}]];

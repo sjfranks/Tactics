@@ -198,7 +198,7 @@ function breakCamp(){
 
 /* ---------------- power drafts (Heroes book 2.1) ---------------- */
 const RAR_RANK={C:0,U:1,R:2};
-function rollRarity(){const t=RAR_W.C+RAR_W.U+RAR_W.R;let r=Math.random()*t;for(const k of['C','U','R']){r-=RAR_W[k];if(r<0)return k;}return 'C';}
+function rollRarity(){const W=(RUN&&RAR_BY_ACT[RUN.act])||RAR_W,t=W.C+W.U+W.R;let r=Math.random()*t;for(const k of['C','U','R']){r-=W[k];if(r<0)return k;}return 'C';}
 /* Three powers for a hero: at least one class power and one general power. o.min: at least one of that rarity or
    better; o.only: all of that rarity. */
 function draftOffers(h,o){

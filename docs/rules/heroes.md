@@ -1,13 +1,13 @@
 ---
 title: Rogue Tactics 1e — Heroes
-version: 0.23
+version: 0.24
 book: 2 of 3 (Core Rules · Heroes · Bestiary)
 tags: [game-design, rulebook, roguelite, tactics, classes, powers]
 ---
 
 # Rogue Tactics 1e — Heroes
 
-> v 0.23. Book 2 of 3. The classes, their **powers**, and how weapons and powers grow during a run. Basic rules are in [Core Rules](core-rules.md). **Powers and numbers are drafts (TBC).**
+> v 0.24. Book 2 of 3. The classes, their **powers**, and how weapons and powers grow during a run. Basic rules are in [Core Rules](core-rules.md). **Powers and numbers are drafts (TBC).**
 >
 > **The idea of this book:** the basic rules stay simple. The depth comes from what you build during a run: the powers you draft, the weapons you upgrade, and how your four heroes' powers feed each other.
 
@@ -33,7 +33,7 @@ A party of four works best with one hero in each **role**. The default party is 
 
 **Complexity** (♦) is how much a class juggles. ♦ is a good first class.
 
-**Each class page has:** a stat table; its **specialties** (event options only it unlocks, Core 1.3); its **class reaction** (1 action, once per round, Core 3.6); a **level table** (heroes have the level 1 and 2 rows from the start; the rest is parked, see The Level Rhythm); its **class powers**; sample **builds**; and the classes it **combos** with best.
+**Each class page has:** a stat table; its **specialties** (event options only it unlocks, Core 1.3); its **class reaction**, now a reaction power learned as a reward (Core 3.6); a **level table** (heroes have the level 1 and 2 rows from the start; the rest is parked, see The Level Rhythm); its **class powers**; sample **builds**; and the classes it **combos** with best.
 
 ---
 
@@ -51,7 +51,7 @@ Powers come from two lists: **class powers** (on each class page; only that clas
 ### 2.1 Slots, Rewards and Drafts
 
 - **Slots.** A hero has **8** power slots. Active and passive powers share them. *(Phone screens show active powers as buttons; at most 6 actives fit, TBC.)*
-- **Start.** Each hero has their innate power, **two Common class powers** of their choice, and **one Common general power** drafted from 3.
+- **Start.** Each hero has their basic attack, their innate power (if any) and **one class power**: Brakka *Tide of Iron*, Vex *Piercing Strike*, Orin *Scorching Burst*, Sela *Healing Word*. Everything else comes from rewards, so the first battles stay simple.
 - **No levels.** Heroes do not level up (Core 4.2). Powers come from **rewards** and **drafts**.
 - **Rewards** (the main source). After every battle won, the party picks **1 of 3 cards**: each a power for a named hero (class or general), or a **growth** card (Vigor: +1½ hit dice of max HP; Training: +1 key stat).
 - **Drafts.** A draft shows **one hero 3 powers** (at least one class power and one general power). Take one or skip.
@@ -65,7 +65,7 @@ Powers come from two lists: **class powers** (on each class page; only that clas
 | **Boon** (start of a run) | A Master's Lesson (one hero, a Rare) or A Blood Oath (every hero) |
 | **Shop** | Buy powers on offer: 30 / 60 / 120 gold for C / U / R |
 
-- **Rarity:** Common 60%, Uncommon 30%, Rare 10%. Skipping a pick or draft pays 10 gold; one reroll costs 10 gold.
+- **Rarity ramps by region:** region I Common 85%, Uncommon 15%; region II 55 / 35 / 10%; region III 40 / 40 / 20% (Common / Uncommon / Rare). Skipping a pick or draft pays 10 gold; one reroll costs 10 gold.
 - **Full slots:** discard a power (it is gone) or skip.
 - **At a Camp** you may discard powers, hand a **general** power to another hero, or **Train** (25 gold: discard one power and draft a replacement of the same rarity).
 
@@ -156,7 +156,7 @@ Shops have a **smith**. Weapons found as loot can come with upgrades already.
 | **Thunder** | A crit **pushes** the target 1 tile (it can slam). |
 | **Warding** | A hit gives you and adjacent allies a **shield of 2**. |
 | **Long** | +1 reach or +1 range. |
-| **Twin** | A **Light** weapon becomes a **pair** (always dual wielding). |
+| **Twin** | A **Light** weapon becomes a **pair**. |
 
 ### 3.4 How Builds Come Together
 
@@ -209,17 +209,17 @@ The four core classes. Each page ends with sample builds and the classes it comb
 
 **Specialties:** locks, traps, pockets, sneaking past guards, spotting an ambush.
 
-**Class reaction: Opportunist.** An ally hits a foe next to you. Make a basic attack against that foe (not if it is staggered).
+**Class reaction: Opportunist** (reaction power, Uncommon). An ally hits a foe next to you. Spend a ready action to make a basic attack against that foe (not if it is staggered).
 
 | Level | Gain |
 |---|---|
-| **1** | **Sneak Attack:** your attacks roll **one extra weapon die** against a foe that is **staggered, exposed, rooted, dazed or flanked**. Opportunist. Two class powers. |
-| **2** | **Nimble:** your moves never provoke free strikes. |
+| **1** | **Sneak Attack:** your attacks roll **one extra weapon die** against a foe that is **staggered, exposed, rooted, dazed or flanked**. One class powers. |
+| **2** | **Nimble:** a Sentinel's strike never catches you. |
 | **3** | Choose a **path**. |
 | **4** | **+1 attribute.** |
 | **5** | **Vanishing Act:** once per battle, Hide as a free power, with no check. Path feature. |
 
-**Class powers.** Choose two Common powers at level 1.
+**Class powers.** Start with *Piercing Strike*; the rest come as rewards.
 
 | Power | R | Tag | MP | Actions | Range | Effect |
 |---|---|---|---|---|---|---|
@@ -232,8 +232,9 @@ The four core classes. Each page ends with sample builds and the classes it comb
 | **Open Veins** | C | Set-up | — | passive | — | Your crits make the foe **bleed**. |
 | **Shadowstep** | U | Reach | 2 | 1 | 5 | Teleport next to a foe within 5 and attack it with **advantage** and **2 weapon dice**. |
 | **Counterattack** | U | Guard | 0 | reaction | 1 | A foe misses you with a melee attack: make a basic attack against it. |
+| **Opportunist** | U | Burst | 0 | reaction | 1 | An ally hits a foe next to you: make a basic attack against it. |
 | **Needle and Thread** | U | Burst | — | passive | — | If your weapon is a **d2**, your extra weapon dice (Sneak Attack and powers) roll **d6** instead. |
-| **Flurry** | R | Burst | — | passive | — | **Each time** you crit, your next basic attack this turn is **not rushed**. |
+| **Flurry** | R | Burst | — | passive | — | When your basic attack **crits** on your turn, you may make **one more basic attack** this turn. |
 | **Coup de Grâce** | R | Burst | — | passive | — | Your crits against a **staggered** foe deal **double damage**. |
 
 **Builds.**
@@ -266,17 +267,17 @@ The four core classes. Each page ends with sample builds and the classes it comb
 
 **Specialties:** forcing doors and bars, lifting and bracing, intimidating, soldiers and war.
 
-**Class reaction: Intercept.** An attack against an ally next to you would hit. It hits you instead; roll the attack again against you.
+**Class reaction: Intercept** (reaction power, Uncommon). A foe attacks an ally next to you. Spend a ready action to take the attack instead.
 
 | Level | Gain |
 |---|---|
-| **1** | **Shove** (innate). Intercept. Two class powers. |
+| **1** | **Shove** (innate). One class powers. |
 | **2** | **Steadfast 1** (Core 3.9). |
 | **3** | Choose a **path**. |
 | **4** | **+1 attribute.** |
 | **5** | **Rampart:** when you Intercept, you also gain a shield of 3. Path feature. |
 
-**Class powers.** *Shove* is innate (always known, no slot). Choose two Common powers at level 1.
+**Class powers.** *Shove* is innate (always known, no slot). Start with *Tide of Iron*; the rest come as rewards.
 
 | Power | R | Tag | MP | Actions | Range | Effect |
 |---|---|---|---|---|---|---|
@@ -285,9 +286,10 @@ The four core classes. Each page ends with sample builds and the classes it comb
 | **Hook Chain** | C | Reach | 1 | 1 | 3 | Attack. On a hit, **pull** the foe 2 tiles. It is **slowed**, **staggered** and **marked**. |
 | **Shield Wall** | C | Guard | 1 | 1 | self | You and adjacent allies gain a **shield of 6**. Adjacent foes are **marked**. |
 | **Sweep** | C | Burst | 1 | 1 | adjacent | Attack **every adjacent foe**, each with **1 disadvantage**. |
-| **Bodyguard** | C | Guard | — | passive | — | When you **Intercept**, the attack against you has **disadvantage**. |
-| **Sentinel** | C | Guard | — | passive | — | Your free strikes **end the foe's move** and roll **+1 weapon die**. |
-| **Block** | U | Guard | 0 | reaction | 1 | An adjacent ally Defends: they roll with **+1 advantage**. |
+| **Intercept** | U | Guard | 0 | reaction | 1 | A foe attacks an ally next to you: take the attack instead. |
+| **Sentinel** | U | Guard | 0 | reaction | 1 | A foe leaves a tile next to you: make a basic attack against it; on a hit it **stops** and is **marked**. |
+| **Block** | U | Guard | — | passive | — | Allies next to you Defend with **+1 advantage**. |
+| **Bodyguard** | R | Guard | — | passive | — | When you **Intercept**, the attack against you has **disadvantage**. |
 | **Anvil** | U | Set-up | — | passive | — | When a foe you push or pull ends **next to an ally**, that ally may make a **basic attack** against it at no action cost (once per round). |
 | **Shieldbreaker** | U | Set-up | — | passive | — | Your crits make the foe **exposed**. |
 | **Heavy Blows** | U | Burst | — | passive | — | With a **two-handed** weapon, your crits roll **+1 weapon die**. |
@@ -325,17 +327,17 @@ The four core classes. Each page ends with sample builds and the classes it comb
 
 **Specialties:** magic items and runes, ancient writing, wards and rituals, strange beasts.
 
-**Class reaction: Repelling Ward.** A foe ends its move next to you. Push it 1 tile away.
+**Class reaction: Repelling Ward** (reaction power, Uncommon). A foe ends its move next to you. Spend a ready action to push it 1 tile away.
 
 | Level | Gain |
 |---|---|
-| **1** | **Force Push** (innate). Repelling Ward. Two class powers. |
+| **1** | **Force Push** (innate). One class powers. |
 | **2** | **Force Adept:** your pushes and pulls move **1 more tile**. |
 | **3** | Choose a **path**. |
 | **4** | **+1 attribute.** |
 | **5** | **Overchannel:** once per battle, upcast a power by 1 for free. Path feature. |
 
-**Class powers.** *Force Push* is innate (always known, no slot). Choose two Common powers at level 1. Her damage powers roll her **staff's** die.
+**Class powers.** *Force Push* is innate (always known, no slot). Start with *Scorching Burst*; the rest come as rewards. Her damage powers roll her **staff's** die.
 
 | Power | R | Tag | MP | Actions | Range | Effect |
 |---|---|---|---|---|---|---|
@@ -345,6 +347,7 @@ The four core classes. Each page ends with sample builds and the classes it comb
 | **Ray of Frost** | C | Set-up | 1 | 1 | 4 | 1 weapon die of **cold** damage. On a hit the foe is **slowed** (**rooted** on a crit). |
 | **Blink** | C | Reach | 1 | free | self | Teleport up to 3 tiles. |
 | **Mage Shield** | C | Guard | 1 | free | self | Gain a shield of **2 rolls of your weapon die**. |
+| **Repelling Ward** | U | Guard | 0 | reaction | 1 | A foe ends its move next to you: push it 1 tile away. |
 | **Kindling** | C | Burst | — | passive | — | Your fire powers roll **+1 weapon die** against **burning** foes. |
 | **Web** | U | Set-up | 2 | 1 | 4, 3×3 | Foes in the area are **slowed**, and **rooted** on a failed **DEX save**. |
 | **Battlemage** | U | Burst | — | passive | — | Your **Arcane Staff** can crit (it still never misses). Temper it to a d6 to add Keen. |
@@ -386,17 +389,17 @@ The four core classes. Each page ends with sample builds and the classes it comb
 
 **Specialties:** healing the sick, spirits and the undead, shrines and holy relics, telling truth from lies.
 
-**Class reaction: Warding Word.** A foe hits an ally within 3 for **4 or more** damage. **Halve** that damage.
+**Class reaction: Warding Word** (reaction power, Uncommon). A foe hits an ally within 3 for **4 or more** damage. Spend a ready action to **halve** that damage.
 
 | Level | Gain |
 |---|---|
-| **1** | **Guidance** (innate). Warding Word. Two class powers. |
+| **1** | **Guidance** (innate). One class powers. |
 | **2** | **Channel Divinity:** your healing adds your PRE, and your attacks and powers deal **radiant** damage. |
 | **3** | Choose a **path**. |
 | **4** | **+1 attribute.** |
 | **5** | **Beacon:** *Guidance* and *Bless* affect one extra ally. Path feature. |
 
-**Class powers.** *Guidance* is innate (always known, no slot). Choose two Common powers at level 1.
+**Class powers.** *Guidance* is innate (always known, no slot). Start with *Healing Word*; the rest come as rewards.
 
 | Power | R | Tag | MP | Actions | Range | Effect |
 |---|---|---|---|---|---|---|
@@ -406,6 +409,7 @@ The four core classes. Each page ends with sample builds and the classes it comb
 | **Bless** | C | Set-up | 1 | 1 | 2 | You and every ally within 2 tiles are **blessed**. |
 | **Sanctuary** | C | Guard | 1 | 1 | 4 | An ally gains a **shield of 8**. |
 | **Brand of Judgment** | C | Set-up | 1 | 1 | weapon | Attack. On a hit the foe is **exposed**. Against a **bloodied** foe, the attack has **advantage**. |
+| **Warding Word** | U | Guard | 0 | reaction | 1 | An ally within 3 is about to take **4 or more** damage: **halve** it. |
 | **Healer's Gift** | C | Mend | — | passive | — | Your healing powers heal **+2**, and *Second Wind* heals you **+2**. |
 | **Shepherd** | C | Guard | — | passive | — | **Link:** allies around you roll their Defend with **+1 advantage**. |
 | **Divine Favour** | U | Set-up | — | passive | — | An ally **you blessed** who crits deals **double damage**. |
@@ -547,7 +551,7 @@ The level tables stop at 5 for now. Levels 6 to 10 continued the pattern (**TBC*
 
 | Level | What a class gains |
 |---|---|
-| **1** | Signature feature, innate power, class reaction, two class powers |
+| **1** | Signature feature, innate power, one class power (the class reaction is a reward since v0.24) |
 | **2** | A class feature |
 | **3** | A path |
 | **4** | +1 attribute |

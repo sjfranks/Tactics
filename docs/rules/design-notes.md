@@ -1,16 +1,32 @@
 ---
 title: Rogue Tactics 1e — Design Notes
-version: 0.23
+version: 0.24
 tags: [game-design, rulebook, notes]
 ---
 
 # Rogue Tactics 1e — Design Notes
 
-> v 0.23. Not for play. This file holds the changelog, the open questions, what was borrowed from Nimble and Emberwatch Tactics, and ideas that were parked. Books: [Core Rules](core-rules.md) · [Heroes](heroes.md) · [Bestiary](bestiary.md).
+> v 0.24. Not for play. This file holds the changelog, the open questions, what was borrowed from Nimble and Emberwatch Tactics, and ideas that were parked. Books: [Core Rules](core-rules.md) · [Heroes](heroes.md) · [Bestiary](bestiary.md).
 
 ---
 
 ## 1. What Changed
+
+### v0.24 (from v0.23): a simple start that grows
+
+The game was hard to read in its first battles: every hero had three powers and a class reaction, reactions fired on their own (often several in one foe turn), free strikes punished every step, and a dozen sources of advantage and disadvantage could stack on one roll. A roguelite should start small and grow with the run, as a Slay the Spire deck does. So:
+
+- **Actions refill at the start of your turn** (not at the end), and **actions you don't spend stay ready** until then. Each ready action pays for one reaction. Heroes start a battle with 1 ready action. Keeping actions back is now the one defensive choice every hero always has.
+- **Reactions are choices.** The game asks before each one ("Goblin hits Vex for 6. DEFEND?"); Settings can make them automatic.
+- **Only Defend at the start.** The class reactions (Intercept, Opportunist, Repelling Ward, Warding Word) and Sentinel are **Uncommon reaction powers**, learned as rewards.
+- **No free strikes.** Moving away from a foe is safe; Sentinel brings them back for one fighter.
+- **One basic attack a turn**, instead of rushed second and third attacks.
+- **Fewer modifiers.** High ground no longer gives advantage (only range), nor does dual wielding; shooting with a foe beside you no longer gives disadvantage. The first battles use flanking, exposed and cover.
+- **A small starting kit.** Each hero starts with a basic attack, their innate set-up and **one** class power (Tide of Iron, Piercing Strike, Scorching Burst, Healing Word); the cleric's sling is gone.
+- **Ramps by region.** Rewards in region I are 85% Common; Uncommon and Rare powers (with their chains, links and reactions) come later. Malice threats start in region II (and in region I elites and boss); Terrifying foes frighten from region II.
+- **Retune.** Heroes deal less damage per turn, so every foe has 55% of its listed health (`foeHpMul`), with ordinary battles × 1.6 / 1.7 / 1.1, elites × 1.4 / 1.35 / 0.8 and boss health × 1.2 / 1.45 / 0.22 by region. Simulator: 28% and 33% of runs won on two seeds; region I is gentle (a battle costs about 13% of the party's health), region III hard.
+
+**Open questions from v0.24:** Is 1 ready action at the start of a battle right? Should Help (advantage for an ally's attack) come back as a reaction power? Do players feel the one-attack limit is a loss, or does keeping actions for Defend fill the turn?
 
 ### v0.23 (from v0.22): rewards replace levels; boons, the Chronicle and Dread
 

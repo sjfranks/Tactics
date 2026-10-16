@@ -11,7 +11,7 @@ const RESULT_SHORT=['Miss','Hit','Crit'];
 /* Difficulty, tuned with tools/sim.js (whole journeys played by the autoplay AI). Encounter budgets: see encBudget in
    engine.js (es0/esLvl: a hero's strength by level, esUnit: strength to foe cost, actMul: each region's foes, solo: a
    boss's share of its fight, eliteCost: an elite's cost multiplier, bossAct: each region's boss health). */
-const TUNE={es0:4,esLvl:.85,esUnit:.4,solo:1.25,eliteCost:1.3,hpSlope:.015,dmgSlope:.08,rollStep:4,bossHp:.55,foeMomRound:1,foeMomRamp:0,eliteMul:[.7,.4,.5],eliteBudget:[1.4,1.35,.95],summonAt:8,actMul:[1.1,1.05,.65],bossAct:[1.2,1.45,.3],
+const TUNE={es0:4,esLvl:.85,esUnit:.4,solo:1.25,eliteCost:1.3,hpSlope:.015,dmgSlope:.08,rollStep:4,bossHp:.55,foeMomRound:1,foeMomRamp:0,eliteMul:[.7,.4,.5],eliteBudget:[1.4,1.35,.8],summonAt:8,actMul:[1.1,1.05,.65],bossAct:[1.2,1.45,.22],
   pbBonus:3,fallenHp:.25,momTurn:0,momStart:0,momVal:.9,maxLvl:10,xpLvl:80,easyShare:.25,sneak:3,aiCombo:1,saveBase:12,
   actions:3,extraActs:2,guardMin:4,aiMoveCost:1.5,aiHold:1,
   /* maliceMul scales Malice gain (1 = the rule book: the round number + Downs each round),
@@ -20,10 +20,12 @@ const TUNE={es0:4,esLvl:.85,esUnit:.4,solo:1.25,eliteCost:1.3,hpSlope:.015,dmgSl
   /* bossCap: Reinforcements stop once a boss fight has this many foes, so a long boss fight does not snowball */
   bossCap:4,
   /* battleMul: each region's ordinary battles (not elites or bosses) */
-  battleMul:[2,2.2,1.25],
+  battleMul:[1.6,1.7,1.1],
   /* Journey heroes do not level up (Core Rules 4.2): they hold TUNE.hdBase hit dice and TUNE.slots powers, and grow by the
      rewards they pick after each fight. growChance: the chance that a reward card is growth (health or a key stat) */
-  hdBase:3,slots:8,growChance:.3,vigor:1.5};
+  hdBase:3,slots:8,growChance:.3,vigor:1.5,
+  /* foeHpMul: every foe's health (one basic attack a turn since v0.24) */
+  foeHpMul:.55};
 /* Experience (after PF2e): encounters give XP by difficulty (Easy 30, Medium 60, Hard 90, Extreme 120; see DIFF in
    engine.js) and accomplishments 10 to 30. XP is banked and turns into levels at a Camp: every TUNE.xpLvl XP is a level,
    which keeps heroes on the book's level bands (1-3, 4-6, 7-9). */
@@ -45,6 +47,8 @@ const xpAt=l=>Math.max(0,l-1)*TUNE.xpLvl;
 /* Power rarity (Heroes book 2.1). */
 const RARITY={C:'Common',U:'Uncommon',R:'Rare'};
 const RAR_W={C:60,U:30,R:10};
+/* Rewards ramp up: the first land offers almost only Common powers, the last more Uncommon and Rare ones. */
+const RAR_BY_ACT=[{C:85,U:15,R:0},{C:55,U:35,R:10},{C:40,U:40,R:20}];
 /* Old per-deed experience weights, still tallied in battle for the statistics. How much each kind of deed is worth to each role: defenders shove foes around and soak blows, strikers
    deal damage and finish foes, controllers catch many foes and hinder them, leaders mend and empower. Everyone
    earns some for combos: setting one up for a friend (setup) or cashing in a friend's set-up (combo). */
@@ -61,28 +65,28 @@ const XP_WHY={dealt:'Damage dealt',taken:'Blows absorbed',control:'Foes moved an
    does it to whole groups; the cleric blesses friends and exposes foes; the rogue cashes it all in. */
 const CLASSES={
   fighter:{name:'Brakka',rival:'Grask',title:'Fighter',role:'Tank',hp:40,grow:6,hd:10,speed:3,attrs:{M:3,F:2,W:1,P:3},prime:'M',second:'P',steady:1,
-    spec:'Forcing doors and bars, lifting and bracing, intimidating, soldiers and war.',start:['tide','hook','brace'],
+    spec:'Forcing doors and bars, lifting and bracing, intimidating, soldiers and war.',start:['tide'],
     style:'The stagger engine: shoves and drags foes off balance for her friends, and makes them fight her instead.',
     xpText:'Battles by difficulty (Easy 30, Medium 60, Hard 90, a boss 120 XP) and deeds on the road (10 to 30). Every 80 XP is a level, gained at a Camp.',
-    trait:'Heavy armour and a shield: Defend rolls a d8 with advantage. Steadfast 1. Reaction, Intercept: she takes a blow meant for an ally beside her. Her marks taunt: a marked foe that can reach her must attack her.',
+    trait:'Heavy armour and a shield: Defend rolls a d8 with advantage. Steadfast 1: pushes move her 1 square less. Her marks taunt: a marked foe that can reach her must attack her.',
     pro:'she'},
   rogue:{name:'Vex',rival:'Shade',title:'Rogue',role:'Striker',hp:32,grow:5,hd:8,speed:4,attrs:{M:2,F:3,W:3,P:1},prime:'F',second:'W',
-    spec:'Locks, traps, pockets, sneaking past guards, spotting an ambush.',start:['pierce','deepcut','finisher'],
+    spec:'Locks, traps, pockets, sneaking past guards, spotting an ambush.',start:['pierce'],
     style:'The crit engine: finishes the foes her friends set up, then slips away.',
     xpText:'Battles by difficulty (Easy 30, Medium 60, Hard 90, a boss 120 XP) and deeds on the road (10 to 30). Every 80 XP is a level, gained at a Camp.',
-    trait:'Sneak Attack: one extra weapon die against a foe that is staggered, exposed, rooted, dazed or flanked, or from hiding. Nimble from level 2: never provokes free strikes. Reaction, Opportunist: when an ally hits a foe beside her, she attacks it too.',
+    trait:'Sneak Attack: one extra weapon die against a foe that is staggered, exposed, rooted, dazed or flanked, or from hiding. Light armour: Defend rolls a d4.',
     pro:'she'},
   wizard:{name:'Orin',rival:'Morvane',title:'Wizard',role:'Controller',hp:24,grow:4,hd:6,speed:4,attrs:{M:1,F:3,W:3,P:2},prime:'W',second:'F',
-    spec:'Magic items and runes, ancient writing, wards and rituals, strange beasts.',start:['scorch','frost','eager'],
+    spec:'Magic items and runes, ancient writing, wards and rituals, strange beasts.',start:['scorch'],
     style:'The lock engine: roots, burns and shoves whole groups of foes, so his friends\' hits land harder.',
     xpText:'Battles by difficulty (Easy 30, Medium 60, Hard 90, a boss 120 XP) and deeds on the road (10 to 30). Every 80 XP is a level, gained at a Camp.',
-    trait:'His Arcane Staff never misses but never crits. Force Adept from level 2: his pushes and pulls move foes 1 extra square. Reaction, Repelling Ward: when a foe steps up beside him, he pushes it 1 square away.',
+    trait:'His Arcane Staff never misses but never crits. Force Adept: his pushes and pulls move foes 1 extra square. No armour: Defend rolls a d4 with disadvantage, so he likes to stay back.',
     pro:'he'},
   cleric:{name:'Sela',rival:'Ilsa',title:'Cleric',role:'Support',hp:32,grow:5,hd:8,speed:3,attrs:{M:3,F:1,W:2,P:3},prime:'P',second:'M',
-    spec:'Healing the sick, spirits and the undead, shrines and holy relics, telling truth from lies.',start:['brand','healWord','medic'],
+    spec:'Healing the sick, spirits and the undead, shrines and holy relics, telling truth from lies.',start:['healWord'],
     style:'The favour engine: blesses her friends, exposes foes for them and mends their wounds.',
     xpText:'Battles by difficulty (Easy 30, Medium 60, Hard 90, a boss 120 XP) and deeds on the road (10 to 30). Every 80 XP is a level, gained at a Camp.',
-    trait:'Medium armour and a shield: Defend rolls a d6 with advantage. Mace or sling. Channel Divinity from level 2: her heals add her Presence and her attacks deal radiant damage. Reaction, Warding Word: when a foe hits an ally within 3 for 4 or more, she halves it.',
+    trait:'Medium armour and a shield: Defend rolls a d6 with advantage. Channel Divinity: her heals add her Presence and her attacks deal radiant damage.',
     pro:'she'},
 };
 const ORDER=['fighter','rogue','wizard','cleric'];
@@ -96,7 +100,7 @@ function attrsFor(cls,lvl,up){const C=CLASSES[cls];const a=Object.assign({},C.at
 const POWERS={
   /* ---- Basic attacks: one weapon die plus the key stat ---- */
   sword:{c:'fighter',lv:1,a:'M',name:'Sword',basic:true,cost:0,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,desc:'A plain weapon attack: your weapon die plus your Strength.'},
-  blades:{c:'rogue',lv:1,a:'F',name:'Blades',basic:true,cost:0,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,desc:'Quick knife work: your weapon die plus your Dexterity. A pair of blades gives advantage on one attack each round.'},
+  blades:{c:'rogue',lv:1,a:'F',name:'Blades',basic:true,cost:0,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,desc:'Quick knife work: your weapon die plus your Dexterity.'},
   missile:{c:'wizard',lv:1,a:'W',name:'Staff Bolt',basic:true,cost:0,tgt:'enemy',range:4,dmg:[1,1,1],wd:1,proj:'#c39bff',desc:'Range 4. A dart of force from your staff: your weapon die plus your Intelligence. The Arcane Staff never misses, but never crits.'},
   mace:{c:'cleric',lv:1,a:'P',name:'Mace',basic:true,cost:0,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,desc:'A solid blow: your weapon die plus your Presence.'},
   sling:{c:'cleric',lv:1,a:'P',name:'Sling',innate:true,cost:0,tgt:'enemy',range:3,dmg:[1,1,1],wd:1,wdie:4,proj:'#d8c8a0',sling:true,desc:'Range 3. Your sling: a d4 plus your Presence. The first sling or mace attack each turn earns momentum.'},
@@ -114,9 +118,10 @@ const POWERS={
   backstab:{c:'rogue',rar:'C',tag:'Burst',lv:1,passive:true,name:'Backstab',desc:'Attacking from hiding, your Sneak Attack rolls 2 extra weapon dice instead of 1.'},
   openveins:{c:'rogue',rar:'C',tag:'Set-up',lv:1,passive:true,name:'Open Veins',desc:'Your critical hits make the foe bleed.'},
   shadow:{c:'rogue',rar:'U',tag:'Reach',lv:3,a:'F',name:'Shadowstep',cost:2,tgt:'enemy',range:5,teleportAdj:true,edge:1,dmg:[1,1,1],wd:2,desc:'Teleport beside a foe within 5 and attack it with advantage and 2 weapon dice.'},
-  counter:{c:'rogue',rar:'U',tag:'Guard',lv:3,passive:true,react:true,name:'Counterattack',desc:'Reaction (1 action, once a round): a foe misses you with a melee attack. Make a basic attack against it.'},
+  counter:{c:'rogue',rar:'U',tag:'Guard',lv:3,passive:true,react:true,name:'Counterattack',desc:'Reaction (1 ready action, once a round): a foe misses you with a melee attack. Make a basic attack against it.'},
+  opportunist:{c:'rogue',rar:'U',tag:'Burst',lv:3,passive:true,react:true,name:'Opportunist',desc:'Reaction (1 ready action, once a round): an ally hits a foe beside you. Strike it too with your basic attack.'},
   needle:{c:'rogue',rar:'U',tag:'Burst',lv:3,passive:true,name:'Needle and Thread',desc:'If your weapon is a d2, your extra weapon dice (Sneak Attack and powers) roll d6 instead.'},
-  flurry:{c:'rogue',rar:'R',tag:'Burst',lv:5,passive:true,name:'Flurry',desc:'Each time you land a critical hit on your turn, your next basic attack this turn is not rushed.'},
+  flurry:{c:'rogue',rar:'R',tag:'Burst',lv:5,passive:true,name:'Flurry',desc:'When your basic attack lands a critical hit on your turn, you may make one more basic attack this turn.'},
   coup:{c:'rogue',rar:'R',tag:'Burst',lv:5,passive:true,name:'Coup de Grâce',desc:'Your critical hits against a staggered foe deal double damage.'},
 
   /* ---- Fighter: the stagger engine ---- */
@@ -124,9 +129,10 @@ const POWERS={
   hook:{c:'fighter',rar:'C',tag:'Reach',stagPush:1,lv:1,a:'M',name:'Hook Chain',cost:1,tgt:'enemy',range:3,reach:true,dmg:[1,1,1],wd:1,mark:1,eff:{pull:[2,2,2],slow:[0,1,1]},desc:'Range 3. Attack. On a hit, drag the foe 2 squares to you: it is slowed, staggered and marked.'},
   shieldWall:{c:'fighter',rar:'C',tag:'Guard',lv:1,a:'M',name:'Shield Wall',cost:1,tgt:'self',area:1,aff:'ally',shield:6,markAround:1,desc:'You and allies around you gain 6 shield. Adjacent foes are marked.'},
   sweep:{c:'fighter',rar:'C',tag:'Burst',lv:1,a:'M',name:'Sweep',cost:1,tgt:'self',area:1,adjOnly:true,aff:'foe',dmg:[1,1,1],wd:1,dis:1,desc:'Attack every foe beside you, each with 1 disadvantage.'},
-  bodyguard:{c:'fighter',rar:'C',tag:'Guard',lv:1,passive:true,name:'Bodyguard',desc:'When you Intercept, the attack against you has disadvantage.'},
-  sentinel:{c:'fighter',rar:'C',tag:'Guard',lv:1,passive:true,name:'Sentinel',desc:'Your free strikes end the foe\'s move, mark it, and roll 1 extra weapon die.'},
-  block:{c:'fighter',rar:'U',tag:'Guard',lv:3,passive:true,react:true,name:'Block',desc:'Reaction (1 action, once a round): an ally beside you Defends. They roll with 1 extra advantage.'},
+  bodyguard:{c:'fighter',rar:'R',tag:'Guard',lv:5,passive:true,name:'Bodyguard',desc:'When you Intercept, the attack against you has disadvantage.'},
+  sentinel:{c:'fighter',rar:'U',tag:'Guard',lv:3,passive:true,react:true,name:'Sentinel',desc:'Reaction (1 ready action, once a round): a foe moves away from beside you. Strike it with your basic attack; on a hit it stops and is marked.'},
+  intercept:{c:'fighter',rar:'U',tag:'Guard',lv:3,passive:true,react:true,name:'Intercept',desc:'Reaction (1 ready action, once a round): a foe attacks an ally beside you. You take the attack instead.'},
+  block:{c:'fighter',rar:'U',tag:'Guard',lv:3,passive:true,name:'Block',desc:'Allies beside you Defend with 1 extra advantage.'},
   anvil:{c:'fighter',rar:'U',tag:'Set-up',lv:3,passive:true,name:'Anvil',desc:'When a foe you push or pull ends beside an ally, that ally makes a basic attack against it at no cost (once a round).'},
   shieldbreaker:{c:'fighter',rar:'U',tag:'Set-up',lv:3,passive:true,name:'Shieldbreaker',desc:'Your critical hits leave the foe exposed.'},
   heavy:{c:'fighter',rar:'U',tag:'Burst',lv:3,passive:true,name:'Heavy Blows',desc:'With a two-handed weapon, your critical hits roll 1 extra weapon die.'},
@@ -140,6 +146,7 @@ const POWERS={
   frost:{c:'wizard',rar:'C',tag:'Set-up',lv:1,a:'W',name:'Ray of Frost',cost:1,tgt:'enemy',range:4,dmg:[1,1,1],wd:1,dtype:'cold',eff:{slow:[0,1,1],root:[0,0,1]},proj:'#8fe3ff',desc:'Range 4. 1 weapon die of cold damage. On a hit the foe is slowed (rooted on a crit).'},
   blink:{c:'wizard',rar:'C',tag:'Reach',lv:1,a:'W',name:'Blink',cost:1,tgt:'tile',range:3,teleport:true,free:true,desc:'Free power. Teleport up to 3 squares.'},
   mshield:{c:'wizard',rar:'C',tag:'Guard',lv:1,a:'W',name:'Mage Shield',cost:1,tgt:'self',free:true,shieldDice:2,desc:'Free power. Gain a shield of 2 rolls of your weapon die.'},
+  repel:{c:'wizard',rar:'U',tag:'Guard',lv:3,passive:true,react:true,name:'Repelling Ward',desc:'Reaction (1 ready action, once a round): a foe ends its move beside you. Push it 1 square away.'},
   kindling:{c:'wizard',rar:'C',tag:'Burst',lv:1,passive:true,name:'Kindling',desc:'Your fire powers roll 1 extra weapon die against burning foes.'},
   web:{c:'wizard',rar:'U',tag:'Set-up',lv:3,a:'W',name:'Web',cost:2,tgt:'tile',range:4,area:1,aff:'foe',noDmg:true,eff:{slow:[1,1,1],root:[0,1,1]},fx:'web',webArea:true,desc:'Range 4, 3x3. No damage. Foes are slowed, and rooted unless the roll misses. Empty squares fill with web.'},
   battlemage:{c:'wizard',rar:'U',tag:'Burst',lv:3,passive:true,name:'Battlemage',desc:'Your Arcane Staff can crit (it still never misses).'},
@@ -155,6 +162,7 @@ const POWERS={
   bless:{c:'cleric',rar:'C',tag:'Set-up',lv:1,a:'P',name:'Bless',cost:1,tgt:'self',area:2,aff:'ally',empower:1,desc:'You and allies within 2 are blessed: advantage on your next attack.'},
   sanct:{c:'cleric',rar:'C',tag:'Guard',lv:1,a:'P',name:'Sanctuary',cost:1,tgt:'ally',range:4,shield:8,desc:'Range 4. An ally gains 8 shield.'},
   brand:{c:'cleric',rar:'C',tag:'Set-up',lv:1,a:'P',name:'Brand of Judgment',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,edgeBloodied:true,eff:{expose:[1,1,1]},desc:'Attack. On a hit the foe is exposed. Against a bloodied foe the attack has advantage.'},
+  warding:{c:'cleric',rar:'U',tag:'Guard',lv:3,passive:true,react:true,name:'Warding Word',desc:'Reaction (1 ready action, once a round): an ally within 3 is about to take 4 or more damage. Halve it.'},
   gift:{c:'cleric',rar:'C',tag:'Mend',lv:1,passive:true,name:'Healer\'s Gift',desc:'Your healing powers heal 2 more, and your Second Wind heals 2 more.'},
   shepherd:{c:'cleric',rar:'C',tag:'Guard',lv:1,passive:true,name:'Shepherd',desc:'Link: allies around you Defend with 1 extra advantage.'},
   favour:{c:'cleric',rar:'U',tag:'Set-up',lv:3,passive:true,name:'Divine Favour',desc:'An ally you blessed who lands a critical hit deals double damage.'},
@@ -419,16 +427,16 @@ const GLOSS={
   graze:{name:'Miss',forms:['misses','missed','miss'],text:'A 1 on the first damage die (the primary die, thrown larger and in ivory). The attack deals no damage and none of its effects. Wizard staffs never miss.'},
   hit:{name:'Hit',forms:['on a hit'],text:'Anything between a 1 and the top number on the first damage die. Effects listed "on a hit" happen on a Hit or a Critical hit.'},
   crit:{name:'Critical Hit',forms:['critical hits','critical hit','on a crit','crits','crit'],text:'The top number on the first damage die (a 4 on a d4, a 2 on a d2), or one below it with a Keen weapon. Roll one more die and add it, and one more again each time the top number comes up. Critical hits ignore DEF and add any "on a crit" effects. Small dice crit more often; some powers double a critical hit\'s damage (up to ×3).'},
-  advantage:{name:'Advantage',forms:['double advantage','advantage'],text:'Roll the die again and keep the best: on an attack that is the first damage die, on a check or save the attribute die. It comes from flanking, high ground, dazed, rooted or exposed targets, being blessed or hidden, Help, and some powers. Different sources stack, up to triple, and cancel disadvantage one for one.'},
+  advantage:{name:'Advantage',forms:['double advantage','advantage'],text:'Roll the die again and keep the best: on an attack that is the first damage die, on a check or save the attribute die. It comes from flanking, exposed, rooted or dazed targets, being blessed or hidden, and some powers. Different sources stack (up to triple) and cancel disadvantage one for one. The dice caption always names the reason.'},
   disadvantage:{name:'Disadvantage',forms:['disadvantage'],text:'Roll the die again and keep the worst. It comes from being weakened, frightened or marked by someone else, a target in cover, shooting while a foe stands beside you, and attacking more than once in a turn. Different sources stack.'},
   momentum:{name:'Momentum (MP)',forms:['momentum'],text:'Heroes start a battle with momentum equal to the party\'s Victories since the last Camp (up to 3). They gain 1 for their first basic attack each turn and 2 for each combo they land or set up, and spend it on powers. It holds up to 10.'},
   savingthrow:{name:'Saving Throw',forms:['saving throws','saving throw','save'],text:'When something acts on you, roll the die for the attribute it names (Strength 3 is a d8, for example): 4 or more saves. Each class saves with advantage in one attribute and disadvantage in another; foes list their own. Wounds count against a hero\'s saves.'},
   initiative:{name:'Initiative',forms:['initiative'],text:'At the start of a battle everyone rolls their Dexterity die (it explodes on its top number). Turns go from highest to lowest, heroes and foes mixed, and the order stays the same all battle. Ties go to the higher Dexterity, then to heroes. Minions of one kind share a roll.'},
-  actions:{name:'Actions',forms:['three actions','actions'],text:'On their turn a hero has three actions. Moving (up to their speed, split up as they like), a basic attack and each power cost one, in any order. A reaction on someone else\'s turn costs one action from your next turn. Foes simply move and act.'},
-  parting:{name:'Free Strike',forms:['free strikes','free strike','parting blows','parting blow','opportunity attacks','opportunity attack'],text:'When a creature steps away from an enemy beside it, that enemy gets a free strike: a basic attack. It costs nothing, and each enemy gets at most one per move. Staggered and dazed creatures can\'t make one.'},
-  reaction:{name:'Reaction',forms:['reactions','reaction'],text:'Something a hero does on someone else\'s turn: Defend, a class reaction, or helping. Each reaction costs 1 action from the hero\'s next turn. Defend has no limit; other reactions work once a round. The game reacts for you, and always leaves you at least 1 action.'},
-  defend:{name:'Defend',forms:['defends','defend'],text:'A reaction: when a foe hits a hero for 4 or more with anything but a critical hit, the hero spends 1 action from their next turn to roll their armour\'s DEF die (it explodes; a shield gives advantage) and takes that much less damage, but at least 1.'},
-  mapen:{name:'Multiple Attacks',forms:['2nd attack','3rd attack'],text:'The second attack a hero makes in a turn has disadvantage, and the third double disadvantage. Reactions don\'t count. For powers a foe saves against, the foe rolls its save again and keeps the best instead.'},
+  actions:{name:'Actions',forms:['three actions','actions'],text:'A hero gets three actions at the start of each turn. Moving (up to their speed, split up as they like), the basic attack (once a turn) and each power cost one, in any order. Actions you don\'t spend stay ready until your next turn: each can pay for a reaction, such as Defend. Foes simply move and act.'},
+  parting:{name:'Free Strike',forms:['free strikes','free strike','parting blows','parting blow','opportunity attacks','opportunity attack'],text:'Moving away from a foe is safe: there are no free strikes, except from a fighter with the Sentinel power, who may spend a ready action to strike a foe leaving her side.'},
+  reaction:{name:'Reaction',forms:['reactions','reaction'],text:'Something a hero does on someone else\'s turn, paid for with one ready action (an action kept from their own turn). Every hero can Defend. Powers add others, such as Intercept, Opportunist, Repelling Ward and Warding Word (once a round each). The game asks you each time; Settings can make reactions automatic.'},
+  defend:{name:'Defend',forms:['defends','defend'],text:'A reaction: when a foe hits a hero with anything but a critical hit, you may spend one of the hero\'s ready actions to roll their armour\'s DEF die (it explodes; a shield gives advantage) and take that much less damage, but at least 1.'},
+  mapen:{name:'One Attack a Turn',forms:['basic attack once'],text:'A hero makes one basic attack a turn. Powers that attack are separate: they cost momentum, which the basic attack earns.'},
   mark:{name:'Marked',forms:['marks','marked','mark'],text:'A marked creature has disadvantage on attacks that don\'t include whoever marked it. A foe the fighter marks can only attack her while it can reach her.'},
   push:{name:'Push',forms:['pushes','pushed','push','shoves','shove'],text:'Move the target directly away. A creature pushed into something slams. A push on its own staggers only if the power says so.'},
   pull:{name:'Pull',forms:['pulls','pulled','pull','drags','drag'],text:'Move the target directly toward the source. A pull on its own staggers only if the power says so.'},
@@ -447,7 +455,7 @@ const GLOSS={
   shield:{name:'Shield',forms:['shield'],text:'Absorbs damage before health. Shields fade at the start of the owner\'s next turn.'},
   flank:{name:'Flanking',forms:['flanking','flank'],text:'A melee attack has advantage when an ally stands on the far side of the target.'},
   cover:{name:'Cover',forms:['cover'],text:'Crates, low walls and gravestones give cover: a ranged attack against a creature standing behind one has disadvantage. Tall obstacles block sight completely.'},
-  high:{name:'High Ground',forms:['high ground'],text:'Raised ground. Attacks from high ground against creatures below have advantage, and ranged powers reach 1 square further.'},
+  high:{name:'High Ground',forms:['high ground'],text:'Raised ground. Ranged attacks and powers from high ground reach 1 square further.'},
   difficult:{name:'Difficult Terrain',forms:['difficult terrain'],text:'Water, brambles, rubble and ash cost 2 movement to enter.'},
   hazard:{name:'Hazard',forms:['hazards','hazard'],text:'Fire, acid, lava, snares and webs. Creatures suffer a hazard when they enter it, even when pushed or pulled in, or start their turn in it.'},
   fire:{name:'Fire',forms:['fire'],text:HAZ.fire.desc},
@@ -460,14 +468,14 @@ const GLOSS={
   setup:{name:'Set-up',forms:['set-ups','set-up','set up'],text:'A foe is set up when it is staggered, exposed, rooted or dazed, or flanked. Allies cash set-ups in for combos, and the rogue\'s Sneak Attack rolls an extra die against them. Nobody cashes in their own set-up.'},
   armor:{name:'DEF',forms:['armored','armor','armour','DEF'],text:'Armour gives a creature a DEF die (d4 to d10). Foes roll it against every hit that is not a critical hit and take that much less damage, but at least 1. Heroes roll theirs when they Defend.'},
   intent:{name:'Intent',forms:['intents','intent'],text:'Tap INTENT during a hero\'s turn to see what each foe means to do on its next turn: whom it will attack, and roughly how much damage it will deal. They change as you shove foes around, taunt them or get out of reach.'},
-  nimble:{name:'Nimble',forms:['nimble'],text:'Never provokes free strikes.'},
+  nimble:{name:'Nimble',forms:['nimble'],text:'Never provokes a Sentinel\'s strike.'},
   swarm:{name:'Swarm',forms:['swarms','swarm'],text:'Up to four tiny critters sharing one square and one pool of health. You attack the swarm as a single foe. Area attacks deal double damage to it, and it deals less damage as its critters fall. Its attacks never roll.'},
   minion:{name:'Minion',forms:['minions','minion'],text:'A foe with a single hit point: any hit slays it. Minions come in hordes, often raised or rallied by a boss or summoner. Their attacks never roll.'},
   large:{name:'Large',forms:['large'],text:'A huge creature that fills a 2×2 block of squares. It is beside anything touching any of its squares, and needs a 2×2 gap to move through.'},
   undead:{name:'Undead',forms:['undead'],text:'Weak to radiant damage (double) and immune to poison and necrotic damage.'},
   radiant:{name:'Radiant',forms:['radiant'],text:'Holy damage. Doubled against undead, and stops skeletons reassembling. The cleric always deals it; Radiant weapons do too.'},
   surge:{name:'Boss Surge',forms:['boss surges','boss surge'],text:'A boss unleashes a special action at the start of its turn on rounds 1, 3 and 5.'},
-  threat:{name:'Malice',forms:['malice','threats','threat'],text:'Foes gain Malice every round: the round number, plus 1 for each hero who is Down (shown in the top bar). When they have enough, they unleash their next threat. Harder battles and later regions unlock nastier threats.'},
+  threat:{name:'Malice',forms:['malice','threats','threat'],text:'From the second land (and in elite and boss battles), foes gain Malice every round: the round number, plus 1 for each hero who is Down (shown in the top bar). When they have enough, they unleash their next threat. Later lands unlock nastier threats.'},
   zone:{name:'Zone',forms:['zone'],text:'A lingering area. It affects foes that start their turn inside it.'},
   dread:{name:'Dread',forms:['dread'],text:'The difficulty ladder. Slay the Ashen Dragon to unlock Dread 1; win at your highest Dread to unlock the next, up to 8. Each level adds a hardship and keeps the ones below it, and raises your score by a quarter. Choose it when you set out.'},
   boon:{name:'Boon',forms:['boons','boon'],text:'At the start of each journey, fortune offers two gifts and a bargain: choose one. Bargains are stronger, but cost you something, such as a Wound on every hero.'},
@@ -497,7 +505,7 @@ const GLOSS={
   d2:{name:'d2 Weapon',forms:['d2'],text:'A needle-thin blade honed below a d4. Half its swings miss and half are critical hits, which ignore DEF and love every power that doubles a crit.'},
   keystat:{name:'Key Stat',forms:['key stat'],text:'The attribute a class fights with: Strength for the fighter, Dexterity for the rogue, Intelligence for the wizard, Presence for the cleric. It is added once to every hit.'},
   weakness:{name:'Weak, Resist, Immune',forms:['weakness','resists','resistance','immune'],text:'Damage types: physical, fire, cold, force, radiant, necrotic and poison. A weakness doubles the damage, a resistance halves it (at least 1), an immunity stops it. Incorporeal foes resist physical damage.'},
-  terrifying:{name:'Terrifying',forms:['terrifying'],text:'At the start of the battle, every hero makes a Presence save with disadvantage equal to the foe\'s rating, or is frightened until the end of their first turn.'},
+  terrifying:{name:'Terrifying',forms:['terrifying'],text:'From the second land on: at the start of the battle, every hero makes a Presence save with disadvantage equal to the foe\'s rating, or is frightened until the end of their first turn.'},
   help:{name:'Help',forms:['helps','helping'],text:'One hero gives another +1 advantage on a check. In a dramatic task, helping uses up the helper\'s attempt.'},
   teleport:{name:'Teleport',forms:['teleport'],text:'Move instantly without provoking free strikes.'},
   free:{name:'Free Action',forms:['free action'],text:'Costs none of your three actions.'},
