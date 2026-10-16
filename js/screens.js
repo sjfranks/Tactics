@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — screens
+   ROGUE TACTICS — screens
    ===================================================================== */
 let SCREEN=null;
 function go(s){SCREEN=s;closeAllModals();if(s.enter)s.enter();}
@@ -62,7 +62,7 @@ function drawEmbers(col){for(const e of EMBERS){e.y-=e.s;e.x+=Math.sin(NOW/900+e
 /* A glint that sweeps across the letters of the logo every few seconds. */
 const LOGO={};
 function logoShine(lx,ly,tw){
-  if(!LOGO.c){LOGO.c=hiCanvas(tw+2,17);const m=ctx;ctx=LOGO.c.getContext('2d');try{text('EMBERWATCH',1,1,'#ffffff',{sc:3,sh:false});}finally{ctx=m;}
+  if(!LOGO.c){LOGO.c=hiCanvas(tw+2,17);const m=ctx;ctx=LOGO.c.getContext('2d');try{text('ROGUE',1,1,'#ffffff',{sc:3,sh:false});}finally{ctx=m;}
     LOGO.s=hiCanvas(tw+2,17);}
   const per=3600,ph=(NOW%per)/per;if(ph>.35)return;
   const g=LOGO.s.getContext('2d');g.globalCompositeOperation='source-over';g.clearRect(0,0,tw+2,17);g.drawImage(LOGO.c,0,0);
@@ -72,9 +72,9 @@ function logoShine(lx,ly,tw){
 }
 const TITLE_SCREEN={enter(){this.save=loadSave();},draw(){
   ctx.drawImage(titleBG(),0,0);drawEmbers();
-  const tw=textW('EMBERWATCH',3);const lx=PORT?Math.floor((SW-tw)/2):16,ly=PORT?30:22;
-  text('EMBERWATCH',lx+2,ly+2,'#5a2008',{sc:3,sh:false});
-  text('EMBERWATCH',lx,ly,C.gold,{sc:3,ol:'#2a0e04'});
+  const tw=textW('ROGUE',3);const lx=PORT?Math.floor((SW-tw)/2):16,ly=PORT?30:22;
+  text('ROGUE',lx+2,ly+2,'#5a2008',{sc:3,sh:false});
+  text('ROGUE',lx,ly,C.gold,{sc:3,ol:'#2a0e04'});
   logoShine(lx,ly,tw);
   rect(lx,ly+20,tw,1,C.gold2);
   text('T A C T I C S',PORT?SW/2:lx,ly+24,'#ffb070',{ol:'#2a0e04',al:PORT?'c':undefined});
@@ -162,7 +162,7 @@ const MAP_SCREEN={enter(){MAPSEL=null;MAPS.anim=null;const M=RUN.map;const cur=R
     text(`ACT ${ROMAN[RUN.act]}`,4,3,C.gold,{sc:2,ol:C.edge});
     text(ACTS[RUN.act].sub.toUpperCase(),4+textW(`ACT ${ROMAN[RUN.act]}`,2)+6,7,C.parch);
     coin(SW-34,7);text(String(RUN.gold),SW-26,7,C.gold);
-    text(`★${RUN.vic}`,SW-56,7,'#ffe070');hit(SW-60,4,22,10,{fn:()=>msg('VICTORIES',`${RUN.vic} since the last Camp. Every hero starts a battle with momentum equal to the Victories (up to 3). At a Camp they become experience: every ${TUNE.xpLvl} XP is a level.`),id:'vic'});
+    {const xs=`${RUN.xpBank||0} XP  ★${RUN.vic}`;text(xs,SW-40,7,'#ffe070',{al:'r'});hit(SW-42-textW(xs),4,textW(xs)+4,10,{fn:()=>msg('XP AND VICTORIES',`{b:${RUN.xpBank||0} XP} earned since the last Camp. Easy battles give 30, Medium 60, Hard 90 and Extreme 120; deeds on the road give 10 to 30. At a Camp every hero gains it: every ${TUNE.xpLvl} XP is a level.\n\n{g:${RUN.vic} Victories} since the last Camp. Every hero starts a battle with momentum equal to the Victories (up to 3).`),id:'vic'});}
     RUN.gear.forEach((r,i)=>{ctx.drawImage(relicArt(r),3+i*17,14);hit(2+i*17,13,17,18,{fn:()=>relicMenu(r),id:'mr'+r});});
     button(SW-94,17,52,12,RUN.stash.length||RUN.relics.length>RUN.gear.length?'EQUIP ✦':'EQUIP',openEquip,{glow:RUN.stash.some(id=>WEAPONS[id].tier>WEAPONS[RUN.heroes.find(h=>h.cls===WEAPONS[id].cls).weapon].tier)});
     button(SW-40,17,37,12,'MENU',()=>openSettings(false,true),{});
@@ -189,7 +189,8 @@ function mapNodeTap(n,av){
   else if(n.type==='battle'||n.type==='elite'){const m=nodeMission(n),M=MISSIONS[m];
     title=(n.type==='elite'?'ELITE · ':'')+M.name.toUpperCase();
     const tw=TWISTS[m+':'+RUN.act];
-    body=`{g:${M.name}.} ${(tw&&tw.desc)||MISSION_BLURB[m]||M.desc}\n\n{m:${(tw&&tw.desc)||M.desc}}\n\n`+(tw?`{r:Twist: ${tw.name}.} ${tw.text}\n\n`:'')+(n.type==='elite'?'{r:A dangerous champion and its guards.} Win for gold, 2 Victories, a power draft for every hero and treasure.':'Win for gold and 1 Victory.');}
+    body=`{g:${M.name}.} ${(tw&&tw.desc)||MISSION_BLURB[m]||M.desc}\n\n{m:${(tw&&tw.desc)||M.desc}}\n\n`+(tw?`{r:Twist: ${tw.name}.} ${tw.text}\n\n`:'')+(n.type==='elite'?'{r:A dangerous champion and its guards.} Win for gold, 2 Victories, a power draft for every hero and treasure.':'Win for gold and 1 Victory.');
+    const D=DIFF[n.diff||'medium'];title=D.name.toUpperCase()+' · '+title;body+=`\n\n{b:${D.name}: ${D.xp} XP.}`;}
   else body=I.desc;
   openModal(dialog({title,body:body+(av?'':'\n{m:You cannot reach this yet.}'),w:180,buttons:av?[{l:'TRAVEL',hot:true,fn:()=>startTravel(n.id)},{l:'CANCEL'}]:[{l:'OK'}]}));
 }
@@ -331,7 +332,7 @@ const END_SCREEN={draw(){
   const lines=PORT?(won?['THE DRAGON','FALLS']:['THE WATCH','IS BROKEN']):[won?'THE DRAGON FALLS':'THE WATCH IS BROKEN'];
   const ph=lines.length*16+10;rect(0,y-6,SW,ph,'rgba(10,6,4,.7)');rect(0,y-6,SW,1,won?C.gold2:C.red2);rect(0,y-6+ph,SW,1,won?C.gold2:C.red2);
   for(const l of lines){text(l,SW/2,y,won?'#ffe070':'#ff7a6a',{al:'c',sc:2,ol:C.edge});y+=16;}
-  y+=10;for(const l of wrap(won?'Emberwatch stands. Songs will be sung of this company for an age.':`Your company fell in ${ACTS[RUN.act].sub}. Another will rise.`,SW-16)){text(l,SW/2,y,C.parch,{al:'c'});y+=7;}
+  y+=10;for(const l of wrap(won?'The dragon is dead. Songs will be sung of this company for an age.':`Your company fell in ${ACTS[RUN.act].sub}. Another will rise.`,SW-16)){text(l,SW/2,y,C.parch,{al:'c'});y+=7;}
   y+=8;
   const st=[['BATTLES',RUN.stats.wins],['FOES SLAIN',RUN.stats.kills],['GOLD',RUN.stats.gold]];
   const bw=PORT?Math.floor((SW-16)/3):76,gap=PORT?4:8,sx=Math.floor((SW-3*bw-2*gap)/2);
@@ -399,7 +400,7 @@ const HOWTO=`{g:Turn order.} Everyone rolls {g:initiative} (their Dexterity die)
 
 {g:Down and Wounds.} A hero at 0 health is {g:Down} and gains a {g:Wound} (-1 to attacks, saves and checks). An ally beside them can Help them up. A hero who goes Down with 3 Wounds dies. If every hero is Down, the battle is lost.
 
-{g:The journey.} Pick your path through three lands: battles, elites, merchants, {g:Camps}, treasure, road events and events. Battles give gold and {g:Victories}; elites and bosses give every hero a {g:power draft}. Between battles, spend {g:hit dice} to heal (EQUIP, then HEAL). At a Camp heroes heal, refill their hit dice, lose a Wound and turn Victories into levels, each with a new power. Events test an attribute ({g:check}: 4+ on its die), and some are {g:dramatic tasks} or {g:negotiations}.
+{g:The journey.} Pick your path through three lands: battles, elites, merchants, {g:Camps}, treasure, road events and events. Battles give gold, XP by difficulty (Easy 30, Medium 60, Hard 90, a boss 120) and {g:Victories}; elites and bosses give every hero a {g:power draft}. Between battles, spend {g:hit dice} to heal (EQUIP, then HEAL). At a Camp heroes heal, refill their hit dice, lose a Wound and turn their XP into levels (80 XP a level), each with a new power. Events test an attribute ({g:check}: 4+ on its die), and some are {g:dramatic tasks} or {g:negotiations}.
 
 {g:Equipment.} Each hero carries one weapon; its die and {g:runes} power every attack. Better ones turn up in shops, treasure and events, and the {g:smith} can temper, hone or inscribe them. You can own many relics but wear only two.
 

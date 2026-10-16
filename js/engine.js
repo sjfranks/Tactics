@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — rules engine. No drawing here: the UI hooks in through H.
+   ROGUE TACTICS — rules engine. No drawing here: the UI hooks in through H.
    ===================================================================== */
 /* Game rules draw from RNG. The tutorial swaps in a seeded generator so it plays out the same way every time. */
 let RNG=Math.random;
@@ -1565,19 +1565,24 @@ function makePc(h,x,y,side){
    Budgets are built the way the tabletop games build fights, then tuned with tools/sim.js:
    - Party strength (Draw Steel): each hero is worth 4 + 2 x level, at the level a party is expected to have reached at
      this depth of the journey (three levels a region), so fighting more battles still pays off.
-   - Threat (PF2e): a moderate fight spends the party's strength on foes, a severe one 1.5 times it and an extreme one
-     twice (80, 120 and 160 XP; our severe is tuned down to 1.35). Battles are moderate, elites severe, bosses
-     extreme; missions with waves of reinforcements, or other ways to win, start with a smaller share.
+   - Difficulty and XP (PF2e's encounter builder, at three quarters of its numbers): an encounter has an XP budget for
+     four heroes: Easy 30, Medium 60, Hard 90, Extreme 120. A foe as strong as one hero at the party's level is worth
+     30 XP, so a Medium fight is two of them, or more weaker foes. Each hero more or fewer than four adds or takes away
+     a quarter of the budget, as PF2e's character adjustment does. Most battles are Medium (the first is Easy, and
+     some are), elites Hard, bosses Extreme; winning gives the encounter's XP. Missions with waves of reinforcements,
+     or other ways to win, spend a smaller share of the budget on foes at the start.
    - Foe values (D&D 4e, Draw Steel): each foe costs what it is worth (4 minions = 1 standard foe). An elite costs a
      third more, and a solo boss takes most of an extreme budget, leaving the rest for its escort.
    - Nimble's rule of thumb: 1 to 4 foes a hero, not counting minions. */
-const THREAT={low:.75,moderate:1,severe:1.35,extreme:2};
+const DIFF={easy:{xp:30,name:'Easy'},medium:{xp:60,name:'Medium'},hard:{xp:90,name:'Hard'},extreme:{xp:120,name:'Extreme'}};
+function encDiff(type,elite,diff){return type==='boss'?'extreme':diff||(elite?'hard':'medium');}
 const MISSION_SHARE={rout:1,ambush:1.1,loot:.9,breakout:.85,rescue:.8,assassinate:.8,ritual:.75,hold:.7,defend:.65,survive:.6};
 function expLevel(f){return 1+.75*f;}
 function partyStrength(f){return 4*(TUNE.es0+TUNE.esLvl*expLevel(f));}
-function encBudget(f,type,act,elite){
-  const tier=type==='boss'?'extreme':elite?'severe':'moderate';
-  return partyStrength(f)*TUNE.esUnit*THREAT[tier]*((TUNE.actMul||[1,1,1])[act]||1)*(type==='boss'?1:MISSION_SHARE[type]||1)*(elite?((TUNE.eliteBudget||[])[act]||1):1);
+/* A foe's cost converts to XP against the party's strength: a Medium (60 XP) budget buys partyStrength x esUnit of foes. */
+function encBudget(f,type,act,elite,diff,n){
+  const d=encDiff(type,elite,diff);
+  return partyStrength(f)*TUNE.esUnit*DIFF[d].xp/60*((n||4)/4)*((TUNE.actMul||[1,1,1])[act]||1)*(type==='boss'?1:MISSION_SHARE[type]||1)*(elite?((TUNE.eliteBudget||[])[act]||1):1);
 }
 const THEMES=[
   {obs:['rock','tree','tree'],cov:['crate','lowwall'],haz:['fire'],hazN:[0,2],water:true},
@@ -1617,7 +1622,8 @@ function genEncounter(f,type,opt){
   const act=opt.act!=null?opt.act:Math.min(2,Math.floor(f/4));
   const M=MISSIONS[type];
   const tw=TWISTS[type+':'+act];
-  const enc={type,f,act,enemies:[],npcs:[],zone:[],chests:[],elite:!!opt.elite,twist:tw?tw.id:null,
+  const diff=encDiff(type,opt.elite,opt.diff);
+  const enc={type,f,act,enemies:[],npcs:[],zone:[],chests:[],elite:!!opt.elite,twist:tw?tw.id:null,diff,xp:DIFF[diff].xp,
     title:type==='boss'?MON[BOSSES[act]].name:opt.title||pick(M.titles),
     heroPos:type==='ambush'?'center':type==='defend'?'wagon':'normal'};
   const reserved=new Set();
@@ -1637,8 +1643,8 @@ function genEncounter(f,type,opt){
   let list=[];
   if(opt.enemies)list=opt.enemies.slice();
   else{
-    let budget=encBudget(f,type,act,opt.elite);
-    if(type==='boss'){list.push({type:BOSSES[act],boss:true});budget-=encBudget(f,'rout',act,false)*TUNE.solo;}
+    let budget=encBudget(f,type,act,opt.elite,diff,opt.party);
+    if(type==='boss'){list.push({type:BOSSES[act],boss:true});budget-=encBudget(f,'rout',act,false,'medium',opt.party)*TUNE.solo;}
     if(type==='assassinate')list.push({type:LEADERS[act],leader:true});
     if(opt.elite){const t=pick(ELITES[act]);list.push({type:t,elite:true});budget-=MON[t].cost*TUNE.eliteCost;}
     const pool=ACT_POOL[act];let g=0;

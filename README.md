@@ -1,16 +1,16 @@
-# Emberwatch Tactics
+# Rogue Tactics
 
 A pixel-art tactics roguelite. Lead four heroes down a branching road through three lands (the Greenmarch, the Barrow Moors and the Ashen Waste) and slay the Ashen Dragon.
 
 ## Play
 
-[Play Emberwatch on GitHub Pages](https://sjfranks.github.io/Tactics/)
+[Play Rogue Tactics on GitHub Pages](https://sjfranks.github.io/Tactics/)
 
 The whole game draws to a pixel canvas scaled up with crisp pixels: 320×180 on landscape screens, and at least 196 wide on portrait screens such as a phone held upright, where the 6×8 battle board uses 32×32 hand-drawn tiles. The portrait canvas matches the screen's shape, and the game switches layout when you rotate the device.
 
 ## What is in the game
 
-- **The journey:** a Slay the Spire–style branching map for each region, with battles, elite fights, merchants and their smith, Camps, treasure, road events and events (attribute checks, dramatic tasks and negotiations), ending in a boss. Battles earn **Victories**, which give heroes momentum at the start of a fight and become levels at a Camp. **Hit dice** heal between battles; **Wounds** pile up until you rest, and a hero's fourth Down is their last
+- **The journey:** a Slay the Spire–style branching map for each region, with battles, elite fights, merchants and their smith, Camps, treasure, road events and events (attribute checks, dramatic tasks and negotiations), ending in a boss. Encounters give **XP** by difficulty, after PF2e's encounter builder (Easy 30, Medium 60, Hard 90, a boss 120; 80 XP a level, taken at a Camp), and **Victories**, which give heroes momentum at the start of a fight. **Hit dice** heal between battles; **Wounds** pile up until you rest, and a hero's fourth Down is their last
 - **Heroes:** Brakka (Fighter), Vex (Rogue), Orin (Wizard) and Sela (Cleric), with Strength, Dexterity, Intelligence and Presence. Each attribute sets a die (d4 to d12): checks and saves succeed on 4+
 - **Powers:** class and general powers, active and passive, drafted 1 of 3 at level-ups, elites, bosses and treasure, with Common, Uncommon and Rare rarities, level + 3 slots and party **resonance** for powers that share a tag. Martial damage always comes from the weapon
 - **Weapons:** every attack rolls weapon dice plus the hero's key stat. The smith tempers, hones (down to a d2 for the rogue) and inscribes **runes** such as Keen, Vicious, Flame and Thunder

@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — painted pixel illustrations for events and places.
+   ROGUE TACTICS — painted pixel illustrations for events and places.
    Each scene paints a static layer once (cached) and animates a few
    things on top every frame: mist, flames, wisps, swinging ropes.
    ===================================================================== */

@@ -417,14 +417,14 @@ Each **region** is a map of **7 floors**. Each floor offers a few stops, linked 
 
 | Stop | What happens | Reward |
 |---|---|---|
-| **Battle** | A fight on the grid. | Gold, 1 Victory |
-| **Elite battle** | A harder fight. | Gold, 2 Victories, a **power draft**, a weapon or relic |
+| **Battle** | A fight on the grid: usually Medium, sometimes Easy (4.2). | Gold, XP, 1 Victory |
+| **Elite battle** | A Hard fight. | Gold, XP, 2 Victories, a **power draft**, a weapon or relic |
 | **Event** | A choice, often with a check (4.3). | As the event says |
 | **Road event** | A quick surprise on the way (4.6). | As rolled |
 | **Shop** | Buy weapons, armour, potions, powers and relics; upgrade weapons at the smith (4.8). | — |
 | **Camp** | Heal, level up, remove Wounds, downtime (4.7). | — |
 | **Treasure** | Pick a relic or a weapon, or a power draft for one hero. | — |
-| **Boss** | The fight that ends the region. | Gold, 3 Victories, a power draft with a Rare, a relic |
+| **Boss** | The Extreme fight that ends the region. | Gold, XP, 3 Victories, a power draft with a Rare, a relic |
 
 | Region | Hero levels |
 |---|---|
@@ -432,9 +432,27 @@ Each **region** is a map of **7 floors**. Each floor offers a few stops, linked 
 | II · Barrow Moors | 4 to 6 |
 | III · Ashen Waste | 7 to 9 |
 
-### 4.2 Victories and Levels
+### 4.2 Experience, Victories and Levels
 
-**Victories** are the party's progress since its last Camp.
+**Experience (XP)** comes from encounters and deeds, as in PF2e (at three quarters of its numbers). Every encounter has a **difficulty**, which is also its XP budget for four heroes (Bestiary, Encounter Building):
+
+| Difficulty | XP | Typical stop |
+|---|---|---|
+| **Easy** | 30 | The first battle of a region, a quarter of other battles, fights from events and road ambushes |
+| **Medium** | 60 | Most battles |
+| **Hard** | 90 | Elite battles |
+| **Extreme** | 120 | Bosses |
+
+| Deed | XP |
+|---|---|
+| An event check passed, or a class option used | 10 |
+| A dramatic task done at a cost | 20 |
+| A dramatic task done, or a negotiation that gets 2+ influence | 30 (10 for 1 influence) |
+
+- The party **banks** its XP. **At a Camp**, every living hero gains the banked XP and the bank resets to 0.
+- **Levels.** Every **80 XP** is a level, up to **10**. A party that camps once a region reaches about level 3 by the first boss, 6 or 7 by the second and 9 by the third.
+
+**Victories** are the party's wins since its last Camp.
 
 | Challenge | Victories |
 |---|---|
@@ -444,8 +462,7 @@ Each **region** is a map of **7 floors**. Each floor offers a few stops, linked 
 | A dramatic task or negotiation succeeded | +1 |
 
 - **Victories make the party sharper:** every hero starts each battle with **MP equal to the Victories, up to 3** (3.7).
-- **At a Camp, Victories become XP.** Each Victory is **1 XP**, and the Victories reset to 0. Pushing on without camping means stronger starts but more Wounds and fewer hit dice.
-- **Levels.** Every **4 XP** is a level (**TBC**). Heroes level up at a Camp. The level cap is **10**.
+- **A Camp resets the Victories to 0.** Pushing on without camping means stronger starts, but more Wounds, fewer hit dice and levels not yet taken.
 
 ### 4.3 Events
 
@@ -524,7 +541,7 @@ At a **Camp**, in order:
 1. **Heal.** Each hero spends **all of their remaining hit dice** to heal (as Catch Breath).
 2. **Restore.** Each hero's hit-dice pool fills up again (**level + 1** dice).
 3. **Rest.** Each hero **removes 1 Wound**.
-4. **Grow.** The party turns its **Victories into XP** and heroes level up (4.2).
+4. **Grow.** Every hero gains the party's banked **XP** and levels up (4.2); the Victories reset.
 5. **Downtime.** Spend gold or favours (below). Heroes may also swap their active relics, and discard or hand over powers (Heroes book).
 
 | Downtime | Cost | Effect |
@@ -753,5 +770,6 @@ A **power** is anything a hero learns during a run. The full rules, every class'
 | **Set-up** | A condition for another hero to cash in (3.8) |
 | **Shield** | Temporary HP (2.2); a carried shield gives Defend advantage (6.2) |
 | **SPD** | Tiles per Move (3.1) |
-| **Victory** | Party progress since the last Camp: starting MP, then XP (4.2) |
+| **Victory** | A win since the last Camp: starting MP (4.2) |
+| **XP** | Experience from encounters (Easy 30 to Extreme 120) and deeds; 80 a level, taken at a Camp (4.2) |
 | **Wound** | −1 to checks, saves and attacks (max −3); the fourth Down kills (2.4) |

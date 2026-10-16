@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — journey screens (Core Rules chapter 4): rewards and power drafts, the Camp, events and checks,
+   ROGUE TACTICS — journey screens (Core Rules chapter 4): rewards and power drafts, the Camp, events and checks,
    dramatic tasks, negotiations and the smith
    ===================================================================== */
 
@@ -50,7 +50,8 @@ function drawSummary(P){
   panel(x,y,w,ph,{});
   scrollArea('sum',x+4,y+4,w-8,ph-8,REW.sumH||100,(yy,clip)=>{let cy=yy+2;const tw=w-16;
     if(P.gold){const g=`+${P.gold} gold`;coin(x+6,cy);text(g,x+16,cy,C.gold);cy+=10;}
-    cy+=rich(`{g:+${P.vic} ${P.vic>1?'Victories':'Victory'}} (${RUN.vic} since the last Camp). Every hero starts a battle with momentum equal to the Victories, up to 3. At a Camp they become experience.`,x+6,cy,tw,C.parch,{clip})+4;
+    if(P.xp)cy+=rich(`{b:+${P.xp} XP} for a${P.diff==='easy'||P.diff==='extreme'?'n':''} ${(DIFF[P.diff]||DIFF.medium).name} battle (${RUN.xpBank} XP waiting). XP becomes levels at a Camp: every ${TUNE.xpLvl} XP is a level.`,x+6,cy,tw,C.parch,{clip})+4;
+    cy+=rich(`{g:+${P.vic} ${P.vic>1?'Victories':'Victory'}} (${RUN.vic} since the last Camp). Every hero starts a battle with momentum equal to the Victories, up to 3.`,x+6,cy,tw,C.parch,{clip})+4;
     for(const n of P.notes||[])cy+=rich(n,x+6,cy,tw,C.parch,{clip})+3;
     if(P.who&&P.who.length)cy+=rich(`{g:Power drafts:} every hero picks 1 of 3 powers${P.kind==='boss'?', with at least one Rare':', with at least one Uncommon'}.`,x+6,cy,tw,C.parch,{clip})+3;
     cy+=rich('{m:Out of battle, spend hit dice to heal (EQUIP, then HEAL). A Camp refills them.}',x+6,cy,tw,C.parch,{clip})+3;
@@ -126,7 +127,7 @@ const REST_SCREEN={enter(){scrollTo('camp',0);},draw(){
   scrollArea('camp',px+4,py+4,pw-8,bottom-py-8,C0.h||300,(yy,clip)=>{let y=yy+2;const tx=px+8,tw=pw-18;
     y+=rich(C0.newAct?'A new land. Before you set out, the company makes camp.':'The company makes camp: every hero heals with their remaining hit dice, refills them and shakes off a Wound.',tx,y,tw,C.parch,{clip})+4;
     for(const l of C0.lines){const b=[];if(l.healed)b.push(`heals ${l.healed}`);b.push(`hit dice ${heroOf(l.cls).hd}`);if(l.wound)b.push('1 Wound healed');y+=rich(`{g:${heroName(l.cls)}:} ${b.join(', ')}.`,tx,y,tw,C.parch,{clip})+1;}
-    y+=4;y+=rich(C0.xp?`{b:+${C0.xp} XP} from Victories (every ${TUNE.xpLvl} XP is a level).`:'{m:No Victories since the last Camp: no new experience.}',tx,y,tw,C.parch,{clip})+3;
+    y+=4;y+=rich(C0.xp?`{b:+${C0.xp} XP} for every hero from the battles and deeds since the last Camp (every ${TUNE.xpLvl} XP is a level).`:'{m:No XP since the last Camp.}',tx,y,tw,C.parch,{clip})+3;
     for(const L of C0.leveled){y+=rich(`{g:${heroName(L.cls)} reaches level ${L.lvl1}!} ${levelGains(L.cls,L.lvl0,L.lvl1).join(', ')}.`,tx,y,tw,C.parch,{clip})+2;}
     if(C0.drafts.length)y+=rich(`{g:${C0.drafts.length} power draft${C0.drafts.length>1?'s':''}} when you break camp.`,tx,y,tw,C.parch,{clip})+3;
     y+=4;secHead('DOWNTIME',tx,y,tw);y+=12;

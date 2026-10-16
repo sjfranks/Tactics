@@ -271,15 +271,21 @@ A land of fire, ash and stone. Hazards: fire, lava. Fireproof foes are immune to
 
 ### Budgets
 
-Every foe has a **cost**. A battle spends a **budget** on foes drawn at random from the region's pool, **up to 12 creatures**. A boss is free; its escort has its own budget and **excludes foes costing 5 or more**.
+Encounters are built like PF2e's, at three quarters of its numbers. An encounter's **difficulty** is an **XP budget** for four heroes:
 
-| Region | Standard battle | Elite battle | Boss escort |
-|---|---|---|---|
-| **I** | 8 to 12 | 10 to 15 | about 6 |
-| **II** | 14 to 20 | 18 to 26 | about 8 |
-| **III** | 16 to 22 | 21 to 29 | about 8 |
+| Difficulty | XP budget | Used for |
+|---|---|---|
+| **Easy** | 30 | The first battle of a region, a quarter of other battles, event fights and road ambushes |
+| **Medium** | 60 | Most battles |
+| **Hard** | 90 | Elite battles (the elite foe is bought from the budget) |
+| **Extreme** | 120 | Bosses (the boss takes most of it; the rest buys its escort, no foe costing 5 or more) |
 
-Use the low end early in a region and the high end near its end. *TBC: tune with playtesting. These come from a rough formula: party strength × a region multiplier (1, 0.9, 0.65) × a threat multiplier.*
+- **Foe XP.** A foe as strong as one hero at the party's level is worth **30 XP**, so a Medium fight is two of them, or a crowd of weaker ones. A foe's **cost** turns into XP against the party: a Medium budget buys foes costing *party strength* (4 × (4 + 2 × the expected level)) × 0.4, scaled by region (1.1, 1.05, 0.65). As the party levels up, the same foe is worth less.
+- **Party size.** Each hero more or fewer than four adds or removes a quarter of the budget (PF2e's character adjustment). XP rewards do not change.
+- **Up to 12 creatures** per battle, drawn at random from the region's pool.
+- **Reward.** Winning gives every hero the encounter's XP (Core 4.2), however many foes it ended up with.
+
+*TBC: tune with playtesting. Missions with reinforcements or other goals spend a smaller share of the budget on the foes present at the start (below).*
 
 ### Missions
 
@@ -331,7 +337,7 @@ Hazard rules and damage are in Core 3.1. Place **one to three hazard tiles** on 
 
 ### Rewards
 
-Rewards follow Core 4.1: **battles** give gold and 1 Victory; **elite battles** give gold, 2 Victories, a power draft and a weapon or relic; **bosses** give gold, 3 Victories, a power draft with a Rare, and a relic.
+Rewards follow Core 4.1: **battles** give gold, XP by difficulty and 1 Victory; **elite battles** give gold, 90 XP, 2 Victories, a power draft and a weapon or relic; **bosses** give gold, 3 Victories, a power draft with a Rare, and a relic.
 
 ---
 

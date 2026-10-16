@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — pixel canvas (320×180 landscape, 196 wide portrait), input, widgets
+   ROGUE TACTICS — pixel canvas (320×180 landscape, 196 wide portrait), input, widgets
    ===================================================================== */
 let SW=320,SH=180,PORT=false;
 /* The canvas stores twice as many pixels as its logical size: layout works in logical pixels, while art,

@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — battle screen
+   ROGUE TACTICS — battle screen
    ===================================================================== */
 /* The board is drawn into its own canvas (board space, origin BX/BY inside a margin) and copied onto the
    screen. Portrait uses 32px tiles with 32×32 sprites; landscape uses 16px tiles. Q scales fixed offsets. */

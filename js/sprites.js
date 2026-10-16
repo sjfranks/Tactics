@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — pixel sprites. Each sprite is 16 strings of 16 chars.
+   ROGUE TACTICS — pixel sprites. Each sprite is 16 strings of 16 chars.
    Letters index the shared palette below; a sprite may override it.
    ===================================================================== */
 const PAL={

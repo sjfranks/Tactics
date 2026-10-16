@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — synthesized sound effects and music. No audio files:
+   ROGUE TACTICS — synthesized sound effects and music. No audio files:
    everything is built from oscillators and noise, through a shared
    reverb, and kept in the range a phone speaker can actually play.
    ===================================================================== */

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Emberwatch journey simulator.
+/* Rogue Tactics journey simulator.
    Plays whole journeys headlessly with the heroes' autoplay AI and reports win rates, where runs end,
    how worn down the party is before each boss, and how often winning runs picked each power.
    Usage: node tools/sim.js [runs=200] [seed=1] [--json]            */
