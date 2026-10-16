@@ -48,9 +48,11 @@ function dieList(r){
   if(r.rr&&keep>=0)L[keep].k='drop';
   for(const v of r.rest)L.push({s:r.d.s,v});for(const v of r.boom)L.push({s:r.d.s,v,k:'boom'});
   return L;}
-function advText(nb,st,t){const L=[];if(st)L.push(t&&t.boss?'Staggered boss: +2 advantage':'Staggered: a sure critical hit');
-  if(nb&&nb.pro.length)L.push('▲ '+nb.pro.join(', '));if(nb&&nb.con.length)L.push('▼ '+nb.con.join(', '));return L.join('  ');}
-function atkVerdict(r,d){return r.res===1?'MISS: a 1 on the first die':r.res===3?`CRITICAL HIT: ${d} damage (ignores DEF)`:`HIT: ${d} damage`;}
+/* Short captions, as on the 3D dice: how advantage worked, and the result. */
+function advCap(net,n,st,t){const k=Math.abs(net);if(st)return t&&t.boss?'STAGGERED: +2 advantage':'STAGGERED: sure critical hit';
+  if(n<2)return null;return net>0?`ADVANTAGE${k>1?' ×'+k:''}: best of ${n}`:`DISADVANTAGE${k>1?' ×'+k:''}: worst of ${n}`;}
+function atkVerdict(r,d,def){if(r.res===1)return 'MISS: a 1 on the first die';const m=d-r.total+(def||0);
+  return `${diceText(r.d)} = ${r.total}${r.res===3?' CRIT!':''}${m?(m>0?' +':' −')+Math.abs(m):''}${def!=null?` − DEF ${def}`:''} → ${d} damage`;}
 function exAvg(s){return s<2?1:(s+1)/2*s/(s-1);}
 function dieSucc(s,net){const p=s>=4?(s-3)/s:0;const k=Math.abs(net);return net>=0?1-Math.pow(1-p,k+1):Math.pow(p,k+1);}
 /* The class key stat: the attribute every attack and attacking power adds once (Core Rules 3.5). */
@@ -291,7 +293,7 @@ async function forceMove(t,from,n,pull,src,fl,o){
     if(!fits(t,nx,ny)){
       if(!pull){
         const sdie=srcDie(src);let sd=rollEx(sdie);let sf=exDice(sdie,LASTEX);if(src&&resLv('Reach',src)>=2){sd+=rollEx(sdie);sf=sf.concat(exDice(sdie,LASTEX));}slam=true;
-        {const o2=foot(t,nx,ny).map(q=>inB(q.x,q.y)?unitAt(q.x,q.y):null).find(q=>q&&q!==t&&!q.object);showRoll({side:src?src.side:'enemy',title:`SLAM! ${t.name} hits ${o2?o2.name:'an obstacle'}`,sub:`One roll of ${src?src.name+'\'s':'a'} d${sdie} (explodes). Ignores DEF${o2?'; '+o2.name+' takes it too':''}. A slam staggers.`,dice:sf.map(q=>q.k?q:Object.assign(q,{k:'key'})),formula:`${sd} damage`,verdict:`${sd} damage${o2?' to both':''}, ${t.name} is staggered`,res:2});}H.pop(t,'Slam!','call');H.sfx('slam');if(fl)fl.slam=true;
+        {const o2=foot(t,nx,ny).map(q=>inB(q.x,q.y)?unitAt(q.x,q.y):null).find(q=>q&&q!==t&&!q.object);showRoll({side:src?src.side:'enemy',title:'SLAM!',dice:sf.map(q=>q.k?q:Object.assign(q,{k:'key'})),verdict:`d${sdie} = ${sd} damage${o2?' to both':''}`,res:2});}H.pop(t,'Slam!','call');H.sfx('slam');if(fl)fl.slam=true;
         const o=foot(t,nx,ny).map(q=>inB(q.x,q.y)?unitAt(q.x,q.y):null).find(q=>q&&q!==t&&!q.object);
         note(`${moved?'Pushed '+moved+', s':'S'}lams ${o?'into '+o.name+' ':''}for ${sd}.`);
         if(src&&hasP(src,'wildfire')&&t.st.burn)for(const q of G.units.filter(q=>live(q)&&!q.object&&q!==t&&cheb(q,t)===1)){addSt(q,'burn',2);note(`${q.name} catches fire.`);}
@@ -720,7 +722,7 @@ function healAmt(u,base,p,roll){
   let v=p&&p.healDie?(roll?rollEx(HD[u.cls]||8):Math.round(exAvg(HD[u.cls]||8))):base;const f=LASTEX.slice(),r0=v;
   if(p&&p.healDie&&resLv('Mend',u)>=1)v+=1;
   if(u.kind==='pc'&&u.cls==='cleric'&&feat2(u))v+=u.attrs.P||0;
-  if(p&&p.healDie&&roll)showRoll({side:u.side,title:`${u.name}: ${p.name}`,sub:`Heals one roll of ${u.name}'s hit die, d${HD[u.cls]||8} (explodes)${v>r0?`, +${v-r0} (${u.cls==='cleric'?'Presence':'Mend'})`:''}`,dice:exDice(HD[u.cls]||8,f,'key'),formula:`${r0}${v>r0?' + '+(v-r0)+' = '+v:''}`,verdict:`Heals up to ${v}`,res:3});
+  if(p&&p.healDie&&roll)showRoll({side:u.side,title:p.name.toUpperCase(),dice:exDice(HD[u.cls]||8,f,'key'),verdict:`d${HD[u.cls]||8}${v>r0?'+'+(v-r0):''} = heals ${v}`,res:3});
   return v;
 }
 /* What the healer's build adds when they heal ally a (roll: spend the once-a-turn bonuses). */
@@ -800,9 +802,7 @@ async function pcStrike(u,p,t,C,fl){
     if(dz&&r.res===2&&!p.pierceArmor){const a=rollExF(dz);defF=exDice(dz,a.f,'def');defR=a.t;if(wall){const b=rollExF(dz);if(b.t>a.t){defR=b.t;defF.forEach(q=>q.k='drop');defF=defF.concat(exDice(dz,b.f,'def'));}else defF=defF.concat(exDice(dz,b.f,'drop'));}}
     const X=pcDmgX(u,p,t,r.res,{dd,dice:r.total,defRoll:defR});let d=X.d;const miss=r.res===1;
     {const dice=(shown3d?[]:dieList(r)).concat(defF);
-     if(dice.length)showRoll({side:u.side,title:shown3d?`${t.name} rolls its armour (DEF d${dz})`:`${u.name} → ${t.name}: ${p.name}`,
-       sub:shown3d?`A foe rolls DEF against every hit that is not a crit${wall?' (Bone Wall: best of 2)':''}`:`${diceText(r.d)}: the first die decides (1 misses, top number crits)${advText(nb,st,t)?'. '+advText(nb,st,t):''}${defR!=null?`. ${t.name} rolls DEF d${dz}`:''}`,
-       dice,formula:dmgLog(r,X),verdict:atkVerdict(r,X.d),res:r.res});}
+     if(dice.length)showRoll({side:u.side,title:shown3d?'DEF':`${u.name.toUpperCase()}: ${p.name.toUpperCase()}`,sub:shown3d?null:advCap(r.net,r.tries.length,st,t),dice,verdict:shown3d?`${t.name}'s armour blocks ${defR}`:atkVerdict(r,X.d,defR),res:shown3d?2:r.res});}
     await H.rolls();
     if(r.res===3&&G.cur===u.id&&hasP(u,'flurry'))u.flurry=true;
     if(sn&&d>0)fl.sneak=true;
@@ -877,7 +877,7 @@ function defendRoll(t,extra){let [s,adv]=HERO_DEF[t.cls]||[4,0];const w=wpnOf(t)
   let v=net>=0?Math.max(...rolls):Math.min(...rolls),plus=0;const ki=rolls.indexOf(v);
   if(resLv('Guard',t)>=1)plus++;if(hasP(t,'brace')&&t.braceR!==G.round){t.braceR=G.round;plus+=2;}
   const dice=faces.flatMap((f,i)=>exDice(s,f,i===ki?'key':'drop').map(q=>i===ki?q:Object.assign(q,{k:'drop'})));
-  return {s,rolls,v:v+plus,plus,why,dice};}
+  return {s,rolls,v:v+plus,plus,why,dice,net};}
 function guardHit(src,t,d,crit){
   if(!src||!t||src.side===t.side||!live(t)||d<TUNE.guardMin)return d;
   const gFree=t.kind==='pc'&&resLv('Guard',t)>=2&&t.g2R!==G.round&&canReact(t)&&G.cur!==t.id;
@@ -885,7 +885,7 @@ function guardHit(src,t,d,crit){
     if(gFree)t.g2R=G.round;else spendReact(t,'defend');
     const B=G.units.find(F=>F!==t&&F.kind==='pc'&&F.side===t.side&&hasP(F,'block')&&man(F,t)===1&&reactReady(F,'block'));if(B){spendReact(B,'block');H.pop(B,'Block!','call');}
     const R=defendRoll(t,B?1:0);const nd=Math.max(1,d-R.v);
-    showRoll({side:t.side,title:`${t.name} DEFENDS`,sub:`A reaction: costs 1 action from ${t.name}'s next turn. Armour DEF d${R.s} (explodes)${R.why.length?'. '+R.why.join(', '):''}${R.plus?`. +${R.plus} from powers`:''}`,dice:R.dice,formula:`Blocks ${R.v}: ${d} − ${R.v} = ${nd} (at least 1)`,verdict:`${t.name} takes ${nd} instead of ${d}`,res:2});
+    showRoll({side:t.side,title:'DEFEND',sub:advCap(R.net,R.rolls.length),dice:R.dice,verdict:`Blocks ${R.v}: ${d} → ${nd} damage`,res:2});
     H.pop(t,'Defend','shield');t.hitSince=true;
     note(`${t.name} defends${B?' ('+B.name+' blocks)':''} (DEF d${R.s}${R.rolls.length>1?' ['+R.rolls.join('/')+']':''}${R.plus?'+'+R.plus:''}: ${R.v}): ${d} to ${nd}.`);d=nd;
     if(hasP(t,'counterguard')&&t.cgR!==G.round){t.cgR=G.round;addMom(t,1);}
@@ -951,8 +951,7 @@ function saveFail(u,t,p){
 function rollSave(u,t,p,a){
   const d=saveDie(t,a),rolls=[];for(let i=0;i<=Math.abs(d.net);i++)rolls.push(rollEx(d.s));
   const best=d.net>=0?Math.max(...rolls):Math.min(...rolls),w=woundsOf(t),saved=best-w>=4,k=Math.abs(d.net);
-  showRoll({side:t.side,title:`${t.name}: ${ATTR[a]} save${p&&p.name?' against '+p.name:u&&u!==t?' against '+u.name:''}`,sub:`d${d.s}: 4 or more saves${k?`, ${k>1?k+'× ':''}${d.net>0?'advantage':'disadvantage'} (${d.net>0?'best':'worst'} of ${rolls.length})`:''}${w?`. −${w} for Wounds`:''}`,
-    dice:rolls.map((v,i)=>({s:d.s,v,k:rolls.length>1?(i===rolls.indexOf(best)?'key':'drop'):'key'})),formula:`${best}${w?' − '+w+' = '+(best-w):''} ${saved?'≥':'<'} 4`,verdict:saved?'SAVED: no effect':'FAILED: the effect takes hold',res:saved?3:1});
+  showRoll({side:t.side,title:`${ATTR_SHORT[a]} SAVE`,sub:advCap(d.net,rolls.length),dice:rolls.map((v,i)=>({s:d.s,v,k:rolls.length>1?(i===rolls.indexOf(best)?'key':'drop'):'key'})),verdict:`${saved?'SAVED':'FAILED'} (4+ saves${w?', −'+w+' Wounds':''})`,res:saved?3:1});
   return {die:d,rolls,best,saved,text:`${ATTR[a]} save d${d.s} ${rolls.length>1?'['+rolls.join('/')+'→'+best+']':best}${w?' −'+w+' wounds':''}`};
 }
 async function savePower(u,p,t,fl){
@@ -1017,7 +1016,7 @@ async function usePower1(u,p,T){
     await support(u,a,p,fl);
   }else if(p.helpUp){
     const f=G.units.find(h=>h.side===u.side&&h.kind==='pc'&&h.dead&&!h.gone&&!h.slain&&h.x===T.x&&h.y===T.y);
-    if(f&&freeTile(f.x,f.y,null)){const hu=rollEx(HD[f.cls]||8);showRoll({side:u.side,title:`${u.name} helps ${f.name} up`,sub:`${f.name} stands with one roll of their hit die, d${HD[f.cls]||8} (explodes)`,dice:exDice(HD[f.cls]||8,LASTEX,'key'),formula:`${hu} HP`,verdict:`${f.name} is back up with ${Math.min(f.maxHp,hu)} HP`,res:3});await H.rolls();f.dead=false;f.hp=Math.min(f.maxHp,hu);f.st={};f.shield=0;H.spawn(f);H.sfx('heal');xp(u,4,'support');fl.healedOther=true;log(`${u.name} helps ${f.name} up (${f.hp} HP).`,sideCol(u));}
+    if(f&&freeTile(f.x,f.y,null)){const hu=rollEx(HD[f.cls]||8);showRoll({side:u.side,title:'HELP UP',dice:exDice(HD[f.cls]||8,LASTEX,'key'),verdict:`${f.name} stands with ${Math.min(f.maxHp,hu)} HP`,res:3});await H.rolls();f.dead=false;f.hp=Math.min(f.maxHp,hu);f.st={};f.shield=0;H.spawn(f);H.sfx('heal');xp(u,4,'support');fl.healedOther=true;log(`${u.name} helps ${f.name} up (${f.hp} HP).`,sideCol(u));}
   }else if(p.teleport){
     await teleport(u,T);
   }else if(p.wall){
@@ -1045,9 +1044,9 @@ async function usePower1(u,p,T){
     if(p.igniteCenter){setHaz(C.x,C.y,'fire',3,u.side);log(`Fire takes hold at ${tileName(C.x,C.y)}.`,sideCol(u));}
     if(p.webArea)for(let y=C.y-1;y<=C.y+1;y++)for(let x=C.x-1;x<=C.x+1;x++)if(inB(x,y)&&!unitAt(x,y)&&!Tt(x,y).haz)setHaz(x,y,'web',3,u.side);
   }
-  if(p.shieldDice){const w=wpnOf(u)||WEAPONS[START_WEAPON[u.cls]];let v=0,sf=[];for(let i=0;i<p.shieldDice;i++){v+=rollEx(w.dice[1]);sf=sf.concat(exDice(w.dice[1],LASTEX,'key'));}showRoll({side:u.side,title:`${u.name}: ${p.name}`,sub:`Shield: ${p.shieldDice} weapon ${p.shieldDice>1?'dice':'die'} (d${w.dice[1]}, exploding)`,dice:sf,formula:`${v} shield`,verdict:`${u.name} gains ${v} shield`,res:3});await H.rolls();u.shield+=v;H.pop(u,'⛨ '+v,'shield');log(`${u.name} gains ${v} shield.`,sideCol(u));}
+  if(p.shieldDice){const w=wpnOf(u)||WEAPONS[START_WEAPON[u.cls]];let v=0,sf=[];for(let i=0;i<p.shieldDice;i++){v+=rollEx(w.dice[1]);sf=sf.concat(exDice(w.dice[1],LASTEX,'key'));}showRoll({side:u.side,title:p.name.toUpperCase(),dice:sf,verdict:`+${v} shield`,res:3});await H.rolls();u.shield+=v;H.pop(u,'⛨ '+v,'shield');log(`${u.name} gains ${v} shield.`,sideCol(u));}
   if(p.selfWind){u.swUsed=(+u.swUsed||0)+1;u.swDef=true;if(u.hd!=null)u.hd--;NOTE=[];const r0=rollEx(HD[u.cls]||8),swf=LASTEX.slice(),r=r0+(resLv('Mend',u)>=1?1:0)+(hasP(u,'gift')?2:0);
-    showRoll({side:u.side,title:`${u.name}: Second Wind`,sub:`Spends a hit die: roll d${HD[u.cls]||8} (explodes) and add Strength. Next DEF roll has advantage`,dice:exDice(HD[u.cls]||8,swf,'key'),formula:`${r0}${r>r0?' + '+(r-r0):''} + STR ${u.attrs.M||0} = ${r+(u.attrs.M||0)}`,verdict:`Heals up to ${r+(u.attrs.M||0)}`,res:3});await H.rolls();heal(u,r+(u.attrs.M||0));const ex=NOTE||[];NOTE=null;log(`${u.name} catches a second wind (d${HD[u.cls]||8}: ${r} + Strength ${u.attrs.M||0}). ${ex.join(' ')}`,sideCol(u));}
+    showRoll({side:u.side,title:'SECOND WIND',dice:exDice(HD[u.cls]||8,swf,'key'),verdict:`d${HD[u.cls]||8}+${r-r0+(u.attrs.M||0)} = heals ${r+(u.attrs.M||0)}`,res:3});await H.rolls();heal(u,r+(u.attrs.M||0));const ex=NOTE||[];NOTE=null;log(`${u.name} catches a second wind (d${HD[u.cls]||8}: ${r} + Strength ${u.attrs.M||0}). ${ex.join(' ')}`,sideCol(u));}
   if(p.selfHeal){NOTE=[];heal(u,p.selfHeal);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));}
   if(p.markAround)for(const f of fighters(u).filter(e=>cheb(e,u)<=p.markAround))applyMark(f,u);
   if(p.healNear){const w=allies(u).filter(a=>!a.object&&!a.caged&&man(a,u)<=3&&a.hp<a.maxHp).sort((a,b)=>a.hp/a.maxHp-b.hp/b.maxHp)[0];if(w){NOTE=[];const g=heal(w,p.healNear);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));if(g>0&&w!==u)fl.healedOther=true;}}
@@ -1276,7 +1275,7 @@ async function monAttack(e,A,t,isTile){
     if(v.side==='hero'&&hasR('ward')){v.warded=v.warded||{};v.warded[e.id]=1;}
     NOTE=[];
     const X=monDmgX(e,A,v,res,r?r.total:null);
-    if(r){showRoll({side:e.side,title:`${e.name} → ${v.name}: ${A.name}`,sub:`${diceText(r.d)}: the first die decides (1 misses, top number crits)${advText(nb,st,v)?'. '+advText(nb,st,v):''}`,dice:dieList(r),formula:dmgLog(r,X),verdict:atkVerdict(r,X.d),res:r.res});await H.rolls();}
+    if(r){showRoll({side:e.side,title:`${e.name.toUpperCase()}: ${A.name.toUpperCase()}`,sub:advCap(r.net,r.tries.length,st,v),dice:dieList(r),verdict:atkVerdict(r,X.d),res:r.res});await H.rolls();}
     if(r)H.result(v,r);
     if(X.d>0)await damage(e,v,guardHit(e,v,X.d,res===3),{crit:res===3,area:!!A.area});
     if(live(v)&&res>1){
@@ -1750,12 +1749,11 @@ function setupBattle(enc,party){
   G.order=G.units.filter(u=>!u.object).sort(ordCmp).map(u=>u.id);
   G.v=4;G.combo=0;
   ROLLQ.length=0;
-  {const hs=G.units.filter(u=>u.side==='hero'&&u.kind==='pc');showRoll({side:'hero',title:'INITIATIVE',sub:`Everyone rolls their Dexterity die (explodes). Highest acts first, all battle long. The foes rolled too: see TURNS`,dice:hs.map(h=>({s:attrDie(Math.max(1,h.attrs.F||0)).s,v:h.init,k:'key',l:h.name})),formula:G.order.slice(0,6).map(id=>U(id).name).join(' → ')+(G.order.length>6?' …':''),verdict:`${U(G.order[0]).name} goes first`,res:2});}
   // Fear (Core Rules 4.1): against a Terrifying foe, every hero makes a PRE save with disadvantage equal to its rating
   const terr=Math.max(0,...G.units.filter(u=>u.side==='enemy'&&u.kind==='mon').map(u=>mon(u).terr||0));
   if(terr&&!(typeof CTX!=='undefined'&&CTX&&CTX.mode==='tutorial'))for(const h of G.units.filter(u=>u.side==='hero'&&u.kind==='pc')){
     const d=saveDie(h,'P'),net=clamp(d.net-terr,-NET_CAP,NET_CAP),rolls=[];for(let i=0;i<=Math.abs(net);i++)rolls.push(rollEx(d.s));const b=net>=0?Math.max(...rolls):Math.min(...rolls);
-    showRoll({side:'hero',title:`${h.name}: Presence save against fear`,sub:`A Terrifying ${terr} foe: d${d.s} with ${Math.abs(net)} ${net<0?'disadvantage':'advantage'}, 4 or more saves`,dice:rolls.map(v=>({s:d.s,v,k:v===b?'key':'drop'})),formula:`${b} ${b>=4?'≥':'<'} 4`,verdict:b<4?'FRIGHTENED until the end of their first turn':'Steady: not frightened',res:b<4?1:3});
+    showRoll({side:'hero',title:'FEAR: PRE SAVE',sub:advCap(net,rolls.length),dice:rolls.map(v=>({s:d.s,v,k:v===b?'key':'drop'})),verdict:b<4?`${h.name} is frightened`:`${h.name} stands firm`,res:b<4?1:3});
     if(b<4){h.st.fear=1;log(`${h.name} is frightened (Presence save ${rolls.join('/')}).`,'e');}}
   if(enc.twist==='ring')ringFire();
   log(`${enc.title}: ${MISSIONS[enc.type].name}.`,'g');
@@ -1779,7 +1777,7 @@ async function beginTurn(u,extra){
   await H.turn(u);
   if(u.boss)await villain(u);
   if(!live(u))return;
-  if(u.st.bleed){H.pop(u,'Bleeding','bad');NOTE=[];const bs=u.bleedDie||4,bv=1+rnd(bs);showRoll({side:u.side,title:`${u.name} is bleeding`,sub:`At the start of its turn: one roll of the d${bs} that cut it. Ignores DEF`,dice:[{s:bs,v:bv,k:'key'}],formula:`${bv} damage`,verdict:`${bv} damage`,res:1});await damage(null,u,bv,{});const ex=NOTE||[];NOTE=null;log(`${u.name} bleeds: ${ex.join(' ')}`,sideCol(u));}
+  if(u.st.bleed){H.pop(u,'Bleeding','bad');NOTE=[];const bs=u.bleedDie||4,bv=1+rnd(bs);showRoll({side:u.side,title:'BLEEDING',dice:[{s:bs,v:bv,k:'key'}],verdict:`d${bs} = ${bv} damage`,res:1});await damage(null,u,bv,{});const ex=NOTE||[];NOTE=null;log(`${u.name} bleeds: ${ex.join(' ')}`,sideCol(u));}
   if(live(u)&&u.st.burn&&!immuneFire(u)){H.pop(u,'Burning','bad');H.sfx('fire');NOTE=[];await damage(null,u,3,{});const ex=NOTE||[];NOTE=null;log(`${u.name} burns: ${ex.join(' ')}`,sideCol(u));}
   for(const z of G.zones){if(!live(u)||u.object||z.side===u.side||cheb(u,z)>z.r)continue;
     NOTE=[];await damage(null,u,(z.radiant&&u.undead?2:1)*z.dmg,{radiant:z.radiant});if(live(u)&&z.eff){addSt(u,z.eff,1);note(ST_NAME[z.eff]+'.');}const ex=NOTE||[];NOTE=null;log(`${u.name} is caught in a zone: ${ex.join(' ')}`,sideCol(u));}

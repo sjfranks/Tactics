@@ -392,7 +392,7 @@ const HOWTO=`{g:Turn order.} Everyone rolls {g:initiative} (their Dexterity die)
 
 {g:Damage dice.} Every attack rolls {g:weapon dice} and adds the hero's {g:key stat} once. A basic attack rolls one weapon die; powers say how many. The first die (thrown larger, in ivory) decides the result: a 1 is a miss, the top number is a {g:critical hit} that ignores DEF and rolls one more die (again and again on more top numbers), anything else a hit. Small dice crit more often: a rogue honed down to a {g:d2} crits on every other swing. A better weapon makes every power better.
 
-{g:Every roll is shown.} Attacks, Defend, foe armour, saves, slams, bleeding, healing and initiative each pop up as a card over the board: who rolls, what for, the dice (the one that counts is lit, dice lost to advantage or disadvantage are dimmed, explosions are gold, DEF dice blue), the sum and what it means. Tap to skip one; turn them off with Show every roll in Settings.
+{g:Every roll is shown.} Attacks, Defend, foe armour, saves, slams, bleeding and healing each pop up over the board with their dice: the one that counts is lit, dice lost to advantage or disadvantage are dimmed, explosions are gold, DEF dice blue. Tap to skip one; turn them off with Show every roll in Settings.
 
 {g:Advantage and disadvantage.} Advantage rolls the first die again and keeps the best; disadvantage keeps the worst. Different sources stack, up to triple, and cancel out one for one. Flanking, high ground, blessings and dazed, rooted or exposed targets give advantage. Cover, being weakened or frightened, shooting with a foe beside you and attacking again in the same turn give disadvantage.
 
