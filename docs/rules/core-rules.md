@@ -1,13 +1,13 @@
 ---
 title: Rogue Tactics 1e — Core Rules
-version: 0.22
+version: 0.23
 book: 1 of 3 (Core Rules · Heroes · Bestiary)
 tags: [game-design, rulebook, roguelite, tactics]
 ---
 
 # Rogue Tactics 1e — Core Rules
 
-> v 0.22. Book 1 of 3. The other books are [Heroes](heroes.md) and [Bestiary](bestiary.md). Why the rules are the way they are, and what is still open, is in [Design Notes](design-notes.md). Numbers marked **TBC** are first guesses waiting for playtesting.
+> v 0.23. Book 1 of 3. The other books are [Heroes](heroes.md) and [Bestiary](bestiary.md). Why the rules are the way they are, and what is still open, is in [Design Notes](design-notes.md). Numbers marked **TBC** are first guesses waiting for playtesting.
 
 ---
 
@@ -71,7 +71,7 @@ An attribute is a number. The number sets its die:
 |---|---|---|---|---|---|---|---|
 | **Die** | d4 with disadvantage | d4 | d6 | d8 | d10 | d12 | d20, never critically fails |
 
-- Starting heroes have attributes of **1 to 4**. A **5** is earned by leveling up or with items.
+- Starting heroes have attributes of **1 to 4**. A **5** is earned with **Training** rewards (4.2) or items.
 - A **6** only happens when a buff raises a 5. It is always temporary.
 
 ### 1.3 Checks
@@ -144,15 +144,15 @@ When something acts on you (a shove, a curse, a gas cloud), you make a **save**:
 
 Every class has a **hit die (⚅)**, from d6 to d12. Hit dice do two jobs:
 
-- **They set your HP.** At level 1, your HP is your hit die's **maximum × 4**. Each level, roll your hit die (exploding) and add it to your maximum HP, or take the average (d6 4, d8 5, d10 6, d12 7).
-- **They heal you.** You have a **pool of hit dice equal to your level + 1**. You spend them to heal (2.5), and a Camp restores the pool (4.7).
+- **They set your HP.** A hero starts with HP equal to their hit die's **maximum × 4**. **Vigor** rewards (4.2) add more: one and a half times the die's maximum each.
+- **They heal you.** You have a **pool of 3 hit dice**. You spend them to heal (2.5), and a Camp restores the pool (4.7).
 
-| Hit die | Classes | HP at level 1 | Average HP at level 5 |
+| Hit die | Classes | Starting HP | Vigor reward |
 |---|---|---|---|
-| d6 | Wizard | 24 | 41 |
-| d8 | Rogue, Cleric | 32 | 53 |
-| d10 | Fighter | 40 | 64 |
-| d12 | Barbarian | 48 | 76 |
+| d6 | Wizard | 24 | +9 |
+| d8 | Rogue, Cleric | 32 | +12 |
+| d10 | Fighter | 40 | +15 |
+| d12 | Barbarian | 48 | +18 |
 
 ### 2.2 Shields
 
@@ -399,7 +399,7 @@ A hero may have **one companion**, such as a wolf, a hawk or a mule, from a clas
 | **Hawk** | 6 | 6 | 1 | **Spot:** once per battle, reveals a hidden foe or snare, and its owner's next attack has advantage. |
 | **Mule** | 14 | 3 | 1 | **Pack animal:** +2 pack slots. Once per round, a hit on its adjacent owner can hit the mule instead. |
 
-A companion gains **+4 HP per level** and **+1 damage** at levels 3, 6 and 9.
+A companion gains **+4 HP** and **+1 damage** after each boss.
 
 ### 3.14 Winning and Losing
 
@@ -417,40 +417,45 @@ Each **region** is a map of **7 floors**. Each floor offers a few stops, linked 
 
 | Stop | What happens | Reward |
 |---|---|---|
-| **Battle** | A fight on the grid: usually Medium, sometimes Easy (4.2). | Gold, XP, 1 Victory |
-| **Elite battle** | A Hard fight. | Gold, XP, 2 Victories, a **power draft**, a weapon or relic |
+| **Battle** | A fight on the grid: usually Medium, sometimes Easy (below). | Gold, 1 Victory, a **reward** |
+| **Elite battle** | A Hard fight. | Gold, 2 Victories, **two rewards** (Uncommon or better), a weapon or relic |
 | **Event** | A choice, often with a check (4.3). | As the event says |
 | **Road event** | A quick surprise on the way (4.6). | As rolled |
 | **Shop** | Buy weapons, armour, potions, powers and relics; upgrade weapons at the smith (4.8). | — |
-| **Camp** | Heal, level up, remove Wounds, downtime (4.7). | — |
-| **Treasure** | Pick a relic or a weapon, or a power draft for one hero. | — |
-| **Boss** | The Extreme fight that ends the region. | Gold, XP, 3 Victories, a power draft with a Rare, a relic |
+| **Camp** | Heal, refill hit dice, remove Wounds, downtime (4.7). | — |
+| **Treasure** | Pick a relic, a weapon, or a reward. | — |
+| **Boss** | The Extreme fight that ends the region. | Gold, 3 Victories, **two rewards** (Rare or better), a relic |
 
-| Region | Hero levels |
+Every encounter has a **difficulty** (Bestiary, Encounter Building):
+
+| Difficulty | Typical stop |
 |---|---|
-| I · Greenmarch | 1 to 3 |
-| II · Barrow Moors | 4 to 6 |
-| III · Ashen Waste | 7 to 9 |
+| **Easy** | The first battle of a region, a quarter of other battles, fights from events and road ambushes |
+| **Medium** | Most battles |
+| **Hard** | Elite battles |
+| **Extreme** | Bosses |
 
-### 4.2 Experience, Victories and Levels
+### 4.2 Rewards and Victories
 
-**Experience (XP)** comes from encounters and deeds, as in PF2e (at three quarters of its numbers). Every encounter has a **difficulty**, which is also its XP budget for four heroes (Bestiary, Encounter Building):
+Heroes **do not level up**. They grow the way a deck grows in *Slay the Spire*: by what the party picks after each fight.
 
-| Difficulty | XP | Typical stop |
-|---|---|---|
-| **Easy** | 30 | The first battle of a region, a quarter of other battles, fights from events and road ambushes |
-| **Medium** | 60 | Most battles |
-| **Hard** | 90 | Elite battles |
-| **Extreme** | 120 | Bosses |
+**Rewards.** After every battle won, the party picks **1 of 3 reward cards**:
 
-| Deed | XP |
+- Each card is either a **power for one hero** (the card names the hero; the three cards go to different heroes where possible), or a **growth card** (each card has a 30% chance, at most one per pick, so about two picks in three hold one; never in elite or boss picks). A growth card is Training about a third of the time, while the hero's key stat is below 5:
+
+| Growth | Effect |
 |---|---|
-| An event check passed, or a class option used | 10 |
-| A dramatic task done at a cost | 20 |
-| A dramatic task done, or a negotiation that gets 2+ influence | 30 (10 for 1 influence) |
+| **Vigor** | The hero gains max HP equal to **1½ × their hit die's maximum** (d10: +15), and heals that much now. |
+| **Training** | **+1 to the hero's key stat**, up to 5. |
 
-- The party **banks** its XP. **At a Camp**, every living hero gains the banked XP and the bank resets to 0.
-- **Levels.** Every **80 XP** is a level, up to **10**. A party that camps once a region reaches about level 3 by the first boss, 6 or 7 by the second and 9 by the third.
+- **Elite battles** give **two** picks, each with at least one **Uncommon** power or better. **Bosses** give **two** picks with at least one **Rare**.
+- Powers roll their rarity as in a draft (7): Common 60%, Uncommon 30%, Rare 10%.
+- **Skip** a pick for **10 gold**, or pay **10 gold** once to **reroll** its cards.
+- A hero with every slot full who takes a power discards one.
+- **Treasure**, some **events** and the *Scholar's Tome* relic (4 cards) also offer picks.
+
+> **Why no levels?** Levels came in big steps at a Camp, far from the fights that earned them. A pick after every fight gives a decision every few minutes, lets the party steer toward a build, and makes skipping a choice too.
+
 
 **Victories** are the party's wins since its last Camp.
 
@@ -462,7 +467,7 @@ Each **region** is a map of **7 floors**. Each floor offers a few stops, linked 
 | A dramatic task or negotiation succeeded | +1 |
 
 - **Victories make the party sharper:** every hero starts each battle with **MP equal to the Victories, up to 3** (3.7).
-- **A Camp resets the Victories to 0.** Pushing on without camping means stronger starts, but more Wounds, fewer hit dice and levels not yet taken.
+- **A Camp resets the Victories to 0.** Pushing on without camping means stronger starts, but more Wounds and fewer hit dice.
 
 ### 4.3 Events
 
@@ -539,10 +544,9 @@ At a **Road event** stop, the game rolls a d6. Later regions make each result ha
 At a **Camp**, in order:
 
 1. **Heal.** Each hero spends **all of their remaining hit dice** to heal (as Catch Breath).
-2. **Restore.** Each hero's hit-dice pool fills up again (**level + 1** dice).
-3. **Rest.** Each hero **removes 1 Wound**.
-4. **Grow.** Every hero gains the party's banked **XP** and levels up (4.2); the Victories reset.
-5. **Downtime.** Spend gold or favours (below). Heroes may also swap their active relics, and discard or hand over powers (Heroes book).
+2. **Restore.** Each hero's hit-dice pool fills up again (**3** dice).
+3. **Rest.** Each hero **removes 1 Wound**. The Victories reset to 0.
+4. **Downtime.** Spend gold or favours (below). Heroes may also swap their active relics, and discard or hand over powers (Heroes book).
 
 | Downtime | Cost | Effect |
 |---|---|---|
@@ -557,6 +561,56 @@ At a **Camp**, in order:
 ### 4.8 Shops and Gold
 
 **Gold** is the only currency. Shops sell weapons, armour, potions and powers, and sometimes a relic. Each shop has a **smith** who tempers, hones and inscribes weapons (Heroes book, Part 3). A shop buys items at half price. *TBC: whether gold carries over between runs.*
+
+### 4.9 Boons
+
+Each run begins with a **boon**: fortune offers **two gifts and a bargain**, and the party takes one (or none).
+
+| Gift | Effect |
+|---|---|
+| **An Old Cache** | Choose 1 of 2 relics. |
+| **A Patron's Purse** | +100 gold. |
+| **A Master's Lesson** | One named hero drafts a power, with at least one Rare. |
+| **The Armory** | Choose 1 of 2 weapons. |
+| **Veterans** | Every hero gains a Vigor (2.1). |
+| **The Smith's Favour** | One named hero's weapon is tempered one step. |
+
+| Bargain | Effect |
+|---|---|
+| **A Dark Pact** | Choose 1 of 3 relics; every hero starts with a Wound. |
+| **A Cursed Hoard** | +250 gold; every hero starts with a Wound. |
+| **A Blood Oath** | Every hero drafts a power (at least one Uncommon); start with no gold. |
+
+### 4.10 Between Runs: the Chronicle and Dread
+
+**The Chronicle** keeps what carries over from run to run: totals (runs, wins, battles, elites, foes slain), the best **score**, the last twelve runs, and **unlocked relics**. Unlocked relics join the pool that treasure, rewards, shops and boons draw from.
+
+| Relic | Unlocked by |
+|---|---|
+| **War Drum** | Finishing a run, won or lost |
+| **Scholar's Tome** | Winning 15 battles |
+| **Camp Kettle** | Defeating a boss |
+| **Merchant's Seal** | Finishing 8 events |
+| **Executioner's Hood** | Winning 5 elite battles |
+| **Mender's Thread** | Reaching the Ashen Waste |
+| **Ember Censer** | Slaying 250 foes |
+| **Blood Chalice** | Finishing 5 runs |
+| **Crown of Thorns** | Slaying the Ashen Dragon |
+
+**Score** = 10 per battle won + 20 per elite + 100 per boss + 1 per foe slain + 300 for a win, then **+25% per Dread level**.
+
+**Dread** is the difficulty ladder. Slaying the dragon unlocks **Dread 1**; winning at your highest Dread unlocks the next. Choose the Dread when you set out. Each level keeps every level below it:
+
+| Dread | Name | Hardship |
+|---|---|---|
+| 1 | Bolder Foes | Foes have 15% more HP. |
+| 2 | Lean Purses | Start with no gold; battles pay 20% less. |
+| 3 | Hardened Elites | Elite battles field 25% more foes. |
+| 4 | Gathering Dark | Foes gain 1 more Malice every other round. |
+| 5 | Dear Markets | Merchants and the smith charge 25% more. |
+| 6 | No Easy Roads | Only the first battle of each region is Easy. |
+| 7 | Tyrants | Bosses have 20% more HP. |
+| 8 | Gritty | The **third** Down kills a hero, not the fourth. |
 
 ---
 
@@ -588,8 +642,8 @@ The Heroes book has a ready-made hero for each class. To make your own:
 
 | Stat | How to work it out |
 |---|---|
-| **HP** | Hit die maximum × 4 at level 1 (2.1) |
-| **Hit dice** | A pool of level + 1, of your class's die |
+| **HP** | Hit die maximum × 4, plus Vigor rewards (2.1) |
+| **Hit dice** | A pool of 3, of your class's die |
 | **SPD** | 2 + half your DEX, rounded up |
 | **Initiative** | Your DEX die |
 | **ATK** | Weapon die + key stat |
@@ -597,18 +651,13 @@ The Heroes book has a ready-made hero for each class. To make your own:
 | **Saves** | One + and one − from your class |
 | **Pack slots** | 2 + STR |
 
-### 5.4 Leveling Up
+### 5.4 Growing Stronger
 
-Heroes level up at a **Camp** (4.2). With each level:
-
-- **HP:** roll your hit die (exploding) and add it to your maximum HP, or take the average. Your hit-dice pool grows by 1.
-- **Class features:** take your new features from your class's level table (Heroes book).
-- **Powers:** gain **1 power slot** and a **power draft** (chapter 7).
-- **+1 attribute** at **levels 4 and 8** (maximum 5).
+Heroes do not level up (4.2). A hero starts with their class's **level 1 and level 2 features** (Heroes book) and grows only through **rewards**: new powers, **Vigor** (max HP) and **Training** (+1 key stat, up to 5), and through weapons, relics and the smith.
 
 ### 5.5 Powers
 
-Everything a hero learns during a run is a **power**, active or passive (chapter 7). A level-1 hero has an innate power, two class powers and one general power.
+Everything a hero learns during a run is a **power**, active or passive (chapter 7). A new hero has an innate power, two class powers and one general power.
 
 ---
 
@@ -694,7 +743,9 @@ Each consumable takes **1 pack slot** (5.3).
 > - **Reroll** a die they just rolled (attack, check, save or DEF), keeping the new result; or
 > - **Shake it off:** end one condition on themselves.
 
-*The full relic list is to be written.*
+**Other relics.** Boots of Striding (+1 SPD), Dwarven Whetstone (+1 damage), Heart of the Oak (+8 max HP), Battle Hymn (+2 starting MP), Tactician's Map (+1 MP on the first basic attack), Phoenix Feather (the first hero Down each battle rises at half HP), Vampire Fang (heal 4 on a kill), Bulwark Sigil (start with a shield of 8), Loaded Bones (crits roll one more die), Sentinel Lens (+3 on free strikes and other reaction strikes), Warding Charm (each foe's first attack on each hero has disadvantage), Salamander Scale (immune to fire and lava), Gauntlet of Force (+1 to pushes and pulls), Fenwalker Boots (ignore difficult terrain), Hourglass of Haste (initiative with advantage), Lucky Coin (+50% gold), Healer's Satchel (heal 15% of max HP after each battle).
+
+**Unlocked relics** (4.10): War Drum (+1 MP to the hero who cashes in a combo), Scholar's Tome (picks and drafts show 4 cards), Camp Kettle (+1 hit die; Camps remove 2 Wounds), Merchant's Seal (merchants and the smith charge 25% less), Executioner's Hood (advantage against bloodied foes), Ember Censer (every foe but a boss starts each battle burning), Mender's Thread (Second Wind twice a battle), Crown of Thorns (+3 starting MP; foes gain 2 more Malice each round), Blood Chalice (when a hero goes Down, every other hero gains 2 MP).
 
 ---
 
@@ -704,7 +755,7 @@ A **power** is anything a hero learns during a run. The full rules, every class'
 
 - **Two kinds.** An **active** power is used on your turn and costs **MP** and **actions**. A **passive** power is always on, or triggers by itself, and costs nothing.
 - **Two lists.** **Class powers** are on each class page; **general powers** can be taken by any class. Each class also has an **innate** power that takes no slot.
-- **Slots and drafts.** A hero has **level + 3** power slots (maximum 8). Level-ups, elite battles, bosses and some Treasure stops offer a **draft**: pick 1 of 3. Shops sell powers.
+- **Slots, rewards and drafts.** A hero has **8** power slots. Most powers come from **rewards** after each fight (4.2). A **draft** is a pick of 3 powers for one hero, from boons, Treasure, Training at a Camp and some events. Shops sell powers.
 - **Damage is weapon dice.** No power adds flat damage. Powers add **weapon dice**, widen the **crit range**, or **double** a hit (×3 at most). Upgrading your weapon makes every power stronger.
 - **Tags.** Every power has one of six tags (Set-up, Burst, Guard, Reach, Surge, Mend). If the party holds **4** or **8** powers of one tag, it gains a **Resonance** bonus.
 
@@ -734,7 +785,7 @@ A **power** is anything a hero learns during a run. The full rules, every class'
 - **Shifting order.** Roll initiative again every round.
 - **Simple turns.** Each creature gets one move and one action. Defend is free, once per round. No rushed attacks.
 - **Auto-defend.** Heroes roll DEF automatically against every hit, at no cost.
-- **Lucky levels.** Roll hit dice with advantage when leveling up (raise foe damage to match).
+- **Lean rewards.** Rewards come only from elites and bosses, as in the old level-up game; normal battles give gold and Victories only.
 
 ---
 
@@ -755,13 +806,13 @@ A **power** is anything a hero learns during a run. The full rules, every class'
 | **Down** | At 0 HP; gain a Wound (2.4) |
 | **Free strike** | A basic attack against a foe that leaves your side (3.6) |
 | **Group check** | Every hero rolls; half must succeed (1.3) |
-| **HD (⚅)** | Hit die: sets HP and heals; pool = level + 1 (2.1) |
+| **HD (⚅)** | Hit die: sets HP and heals; a pool of 3 (2.1) |
 | **Key stat** | The attribute your class adds to attacks (3.5) |
 | **Ladder** | Move a die one step up or down d4 → d20 (1.1) |
 | **Malice (◆)** | The foes' shared resource (Bestiary) |
 | **MP** | Momentum: pays for active powers (3.7) |
 | **Passive power** | A power that is always on or triggers by itself (7) |
-| **Power** | Anything a hero learns: active (MP and actions) or passive; drafted into slots (7) |
+| **Power** | Anything a hero learns: active (MP and actions) or passive; picked as a reward or drafted, into slots (7) |
 | **Reaction** | An action taken on someone else's turn; costs 1 action (3.6) |
 | **Resonance** | A party bonus for holding 4 or 8 powers of one tag (7) |
 | **Rune** | A weapon upgrade from the smith (Heroes) |
@@ -771,5 +822,9 @@ A **power** is anything a hero learns during a run. The full rules, every class'
 | **Shield** | Temporary HP (2.2); a carried shield gives Defend advantage (6.2) |
 | **SPD** | Tiles per Move (3.1) |
 | **Victory** | A win since the last Camp: starting MP (4.2) |
-| **XP** | Experience from encounters (Easy 30 to Extreme 120) and deeds; 80 a level, taken at a Camp (4.2) |
+| **Boon** | A gift or bargain chosen at the start of a run (4.9) |
+| **Chronicle** | What carries over between runs: totals, score, unlocked relics (4.10) |
+| **Dread** | The difficulty ladder unlocked by winning (4.10) |
+| **Reward** | After each battle won: pick 1 of 3 cards, a power for one hero or growth (4.2) |
+| **Growth** | A reward card: Vigor (+1½ hit dice of max HP) or Training (+1 key stat) (4.2) |
 | **Wound** | −1 to checks, saves and attacks (max −3); the fourth Down kills (2.4) |

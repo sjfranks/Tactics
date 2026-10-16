@@ -67,6 +67,6 @@ const CHRONICLE_SCREEN={enter(){scrollTo('chron',0);},draw(){
     for(const r of L.history){const d=new Date(r.t);
       text(r.won?'Victory':`Fell in ${ACTS[Math.min(2,r.act)].sub}`,x,y,r.won?C.gold:'#ff8a6a');
       text(`${r.score} pts`,x+w,y,C.parch,{al:'r'});y+=8;
-      text(fitText(`${d.getDate()}/${d.getMonth()+1} · Dread ${r.dread} · ${r.battles} battles · level ${r.lv}`,w),x,y,C.mute);y+=11;}
+      text(fitText(`${d.getDate()}/${d.getMonth()+1} · Dread ${r.dread} · ${r.battles} battles${r.pw?` · ${r.pw} powers`:''}`,w),x,y,C.mute);y+=11;}
     CHRON.h=y-yy+6;});
 }};

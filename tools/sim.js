@@ -60,7 +60,7 @@ function takeOffers(P,S){
     if(s==='summary'){takeReward(null);continue;}
     const o=P.offers;const choice=o&&o.length?o[Math.floor(Math.random()*o.length)]:null;
     let drop=null;
-    if(s==='draft'&&choice){const h=heroOf(choice.cls);if(h.powers.length>=slotsOf(h))drop=h.powers[Math.floor(Math.random()*h.powers.length)];
+    if(s==='draft'&&choice&&choice.id){const h=heroOf(choice.cls);if(h.powers.length>=slotsOf(h))drop=h.powers[Math.floor(Math.random()*h.powers.length)];
       S.picks.push(choice.id);(S.offers=S.offers||[]).push({o:o.map(x=>x.id),p:choice.id});}
     takeReward(choice,drop);
   }
@@ -95,7 +95,7 @@ async function simRun(seed){
     if(!n)n=av[Math.floor(Math.random()*av.length)];
     S.floor=n.f;S.act=RUN.act;
     if(n.type==='battle'||n.type==='elite'||n.type==='boss'){
-      if(n.type==='boss'){S.bossHp.push(+hpFrac().toFixed(2));S.bossLvl.push(living().map(h=>h.lvl).join(','));S.bossGold.push(RUN.gold);}
+      if(n.type==='boss'){S.bossHp.push(+hpFrac().toFixed(2));S.bossLvl.push(living().map(h=>h.powers.length).join(','));S.bossGold.push(RUN.gold);}
       const A=arrive(n.id);const enc=A.battle;const type=enc.type;
       (S.preHp=S.preHp||[]).push({act:RUN.act,kind:n.type,hp:+hpFrac().toFixed(2)});
       const r=await simBattle(enc,n.type);S.battles++;
@@ -136,7 +136,7 @@ async function simRun(seed){
     RUN.stage='map';
     if(!living().length)break;
   }
-  S.goldEnd=RUN.gold;const LV=RUN.heroes;S.lvlEnd=LV.reduce((a,h)=>a+h.lvl,0)/LV.length;S.weapons=LV.map(h=>h.weapon);S.relics=RUN.gear.slice();S.lvls=LV.map(h=>h.lvl);
+  S.goldEnd=RUN.gold;const LV=RUN.heroes;S.lvlEnd=LV.reduce((a,h)=>a+h.powers.length,0)/LV.length;S.weapons=LV.map(h=>h.weapon);S.relics=RUN.gear.slice();S.lvls=LV.map(h=>h.lvl);
   S.deaths=RUN.heroes.filter(h=>h.dead).length;S.woundsEnd=RUN.heroes.reduce((a,h)=>a+(h.wounds||0),0);
   return S;
 }
@@ -161,8 +161,8 @@ function report(R){
   for(let a=0;a<3;a++){const hs=R.filter(r=>r.bossHp.length>a);if(!hs.length)continue;
     const avg=k=>hs.reduce((s,r)=>s+r[k][a],0)/hs.length;
     const lv=hs.reduce((s,r)=>s+r.bossLvl[a].split(',').reduce((x,y)=>x+ +y,0)/4,0)/hs.length;
-    console.log(`Act ${a+1} boss: party health on arrival ${pct(avg('bossHp'))}, gold ${avg('bossGold').toFixed(0)}, average hero level ${lv.toFixed(1)}`);}
-  {const W=R.filter(r=>r.result==='win');if(W.length)console.log(`Average hero level at the end of a won journey: ${(W.reduce((s,r)=>s+r.lvlEnd,0)/W.length).toFixed(1)}`);}
+    console.log(`Act ${a+1} boss: party health on arrival ${pct(avg('bossHp'))}, gold ${avg('bossGold').toFixed(0)}, average powers per hero ${lv.toFixed(1)}`);}
+  {const W=R.filter(r=>r.result==='win');if(W.length)console.log(`Average powers per hero at the end of a won journey: ${(W.reduce((s,r)=>s+r.lvlEnd,0)/W.length).toFixed(1)}`);}
   console.log(`Heroes dead per run: ${(R.reduce((s,r)=>s+r.deaths,0)/n).toFixed(2)}   Wounds at the end: ${(R.reduce((s,r)=>s+(r.woundsEnd||0),0)/n).toFixed(1)}`);
   const hpa=R.flatMap(r=>r.hpAfter);console.log(`Party health after a battle (avg): ${pct(hpa.reduce((a,b)=>a+b,0)/hpa.length)}   shop spend/run: ${(R.reduce((s,r)=>s+r.shopSpent,0)/n).toFixed(0)}   gold left at end: ${(R.reduce((s,r)=>s+r.goldEnd,0)/n).toFixed(0)}`);
   const W={};for(const r of R)if(r.why)W[r.why]=(W[r.why]||0)+1;console.log('Loss reasons:',JSON.stringify(W));

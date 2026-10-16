@@ -1,16 +1,30 @@
 ---
 title: Rogue Tactics 1e — Design Notes
-version: 0.22
+version: 0.23
 tags: [game-design, rulebook, notes]
 ---
 
 # Rogue Tactics 1e — Design Notes
 
-> v 0.22. Not for play. This file holds the changelog, the open questions, what was borrowed from Nimble and Emberwatch Tactics, and ideas that were parked. Books: [Core Rules](core-rules.md) · [Heroes](heroes.md) · [Bestiary](bestiary.md).
+> v 0.23. Not for play. This file holds the changelog, the open questions, what was borrowed from Nimble and Emberwatch Tactics, and ideas that were parked. Books: [Core Rules](core-rules.md) · [Heroes](heroes.md) · [Bestiary](bestiary.md).
 
 ---
 
 ## 1. What Changed
+
+### v0.23 (from v0.22): rewards replace levels; boons, the Chronicle and Dread
+
+- **No levels, no XP.** Heroes start with their level 1 and 2 class features and never level up. Growth comes from a **reward after every battle**, as in *Slay the Spire*: pick 1 of 3 cards, each a power for a named hero or a **growth** card (*Vigor*: +1½ hit dice of max HP; *Training*: +1 key stat, up to 5). Elites and bosses give two picks with better rarity. Hit dice are a flat pool of 3; power slots a flat 8. Camps heal, refill hit dice, remove a Wound and reset the Victories, but no longer level anyone up. Paths and level-5 features are parked.
+- **Why.** Levels arrived in lumps at a Camp, far from the fights that earned them, and XP was a second currency beside Victories. A pick after each fight is a small, frequent decision, and it lets the party steer toward a build.
+- **Encounter budgets** use the party's expected strength at each depth (*esLvl* 0.85 instead of 2), with foe health and damage rising more slowly per stop. Ordinary battles, elites and bosses have their own multipliers per region (Bestiary, Budgets).
+- **Boss Reinforcements** stop at four foes on the board. Long boss fights used to snowball (Malice grows with the round number) and ended most runs that reached the dragon.
+- **The dragon's Rending Claws** roll a d10 instead of a d12.
+- **Boons** (Core 4.9): every run opens with two gifts and a bargain.
+- **The Chronicle and Dread** (Core 4.10): totals, score and history carried between runs; nine relics unlocked by milestones; eight Dread levels.
+- **Rescue captives** take their own turn once freed (Bestiary, Missions). In the app this turn used to hang the game.
+- Simulator (the autoplay AI, 150 runs on each of two seeds): 25% and 32% of runs won, with losses spread across the three regions.
+
+**Open questions from v0.23:** Should rewards ever offer weapons, runes or relics (StS offers potions and relics)? Is 30% the right growth-card rate, and should Training be rarer? Should paths come back as Rare rewards? With no levels, does the party feel stronger in region III, or only better equipped?
 
 ### v0.22 (from v0.21): powers live in the Heroes book; weapons drive damage
 

@@ -11,7 +11,7 @@ const RESULT_SHORT=['Miss','Hit','Crit'];
 /* Difficulty, tuned with tools/sim.js (whole journeys played by the autoplay AI). Encounter budgets: see encBudget in
    engine.js (es0/esLvl: a hero's strength by level, esUnit: strength to foe cost, actMul: each region's foes, solo: a
    boss's share of its fight, eliteCost: an elite's cost multiplier, bossAct: each region's boss health). */
-const TUNE={es0:4,esLvl:2,esUnit:.4,solo:1.25,eliteCost:1.3,hpSlope:.03,dmgSlope:.15,rollStep:4,bossHp:.55,foeMomRound:1,foeMomRamp:0,eliteMul:[.7,.4,.5],eliteBudget:[1.05,1.15,.85],summonAt:8,actMul:[1.1,1.05,.65],bossAct:[1.2,1.45,.55],
+const TUNE={es0:4,esLvl:.85,esUnit:.4,solo:1.25,eliteCost:1.3,hpSlope:.015,dmgSlope:.08,rollStep:4,bossHp:.55,foeMomRound:1,foeMomRamp:0,eliteMul:[.7,.4,.5],eliteBudget:[1.4,1.35,.95],summonAt:8,actMul:[1.1,1.05,.65],bossAct:[1.2,1.45,.3],
   pbBonus:3,fallenHp:.25,momTurn:0,momStart:0,momVal:.9,maxLvl:10,xpLvl:80,easyShare:.25,sneak:3,aiCombo:1,saveBase:12,
   actions:3,extraActs:2,guardMin:4,aiMoveCost:1.5,aiHold:1,
   /* maliceMul scales Malice gain (1 = the rule book: the round number + Downs each round),
@@ -20,7 +20,10 @@ const TUNE={es0:4,esLvl:2,esUnit:.4,solo:1.25,eliteCost:1.3,hpSlope:.03,dmgSlope
   /* bossCap: Reinforcements stop once a boss fight has this many foes, so a long boss fight does not snowball */
   bossCap:4,
   /* battleMul: each region's ordinary battles (not elites or bosses) */
-  battleMul:[1.6,1.9,1.1]};
+  battleMul:[2,2.2,1.25],
+  /* Journey heroes do not level up (Core Rules 4.2): they hold TUNE.hdBase hit dice and TUNE.slots powers, and grow by the
+     rewards they pick after each fight. growChance: the chance that a reward card is growth (health or a key stat) */
+  hdBase:3,slots:8,growChance:.3,vigor:1.5};
 /* Experience (after PF2e): encounters give XP by difficulty (Easy 30, Medium 60, Hard 90, Extreme 120; see DIFF in
    engine.js) and accomplishments 10 to 30. XP is banked and turns into levels at a Camp: every TUNE.xpLvl XP is a level,
    which keeps heroes on the book's level bands (1-3, 4-6, 7-9). */
@@ -84,7 +87,7 @@ const CLASSES={
 };
 const ORDER=['fighter','rogue','wizard','cleric'];
 /* Levels (up to 12, about 3 per land) raise the main attribute at 3, 6, 9 and 12 and the second one at 5, 8 and 11. */
-function attrsFor(cls,lvl){const C=CLASSES[cls];const a=Object.assign({},C.attrs);a[C.prime]=Math.min(5,a[C.prime]+(lvl>=4)+(lvl>=8));return a;}
+function attrsFor(cls,lvl,up){const C=CLASSES[cls];const a=Object.assign({},C.attrs);a[C.prime]=Math.min(5,a[C.prime]+(lvl>=4)+(lvl>=8));for(const k in up||{})a[k]=Math.min(5,(a[k]||0)+up[k]);return a;}
 
 /* Powers (Heroes book, Part 2). Every power is active (costs MP and actions) or passive (always on, or triggers by
    itself). Class powers carry their class in c; general powers (c:'gen') can be taken by anyone. rar is the rarity
@@ -246,7 +249,7 @@ const MON={
   golem:{name:'Rock Golem',plural:'rock golems',role:'Soldier',act:2,art:'golem',hp:66,sz:2,speed:2,attrs:{M:4,F:1,W:1,P:1},saves:{M:1,W:-1},steady:3,armor:3,resist:['physical'],immune:['poison'],cost:6,
     acts:[{name:'Crushing Fists',a:'M',range:1,dmg:[5,8,12],dice:[1,12,2],eff:{push:[1,1,2]}},{name:'Hurl Boulder',a:'M',range:4,dmg:[4,6,9],dice:[1,8,2],cost:2,eff:{stag:[0,1,1]}}],note:'Large. Resists physical damage. Slow, but nothing moves it far.'},
   hulk:{name:'Magma Hulk',role:'Controller',act:2,art:'magma',hp:38,speed:3,attrs:{M:3,F:1,W:1,P:1},saves:{M:1,F:-1},steady:1,armor:2,trail:true,cost:5,acts:[{name:'Molten Fist',a:'M',range:1,dmg:[4,6,9],dice:[1,8,2],eff:{slow:[1,1,1],burn:[0,1,1]}}],note:'Fireproof. Leaves a trail of fire where it walks.'},
-  dragon:{name:'Ashen Dragon',role:'Boss',act:2,art:'dragon64',hp:200,sz:2,speed:4,attrs:{M:4,F:3,W:2,P:3},saves:{M:1,F:1,W:-1},steady:3,armor:3,terr:3,boss:true,attacks:2,fireproof:true,weak:['cold'],p2:{breathCost:2},acts:[{name:'Rending Claws',a:'M',range:1,dmg:[5,8,12],dice:[1,12,3]},{name:'Tail Lash',a:'M',range:2,dmg:[4,6,9],dice:[1,8,3],eff:{push:[2,2,2]}},{name:'Fire Breath',a:'M',range:3,area:1,dmg:[5,8,11],dice:[1,10,3],cost:3,hazard:'fire',breath:true}],va:['presence','buffet','inferno'],note:'Large. Attacks twice. Fireproof; weak to cold. Terrifying 3. Bloodied: Fire Breath costs ◆2. Surges on rounds 1, 3 and 5.'},
+  dragon:{name:'Ashen Dragon',role:'Boss',act:2,art:'dragon64',hp:200,sz:2,speed:4,attrs:{M:4,F:3,W:2,P:3},saves:{M:1,F:1,W:-1},steady:3,armor:3,terr:3,boss:true,attacks:2,fireproof:true,weak:['cold'],p2:{breathCost:2},acts:[{name:'Rending Claws',a:'M',range:1,dmg:[5,8,12],dice:[1,10,3]},{name:'Tail Lash',a:'M',range:2,dmg:[4,6,9],dice:[1,8,3],eff:{push:[2,2,2]}},{name:'Fire Breath',a:'M',range:3,area:1,dmg:[5,8,11],dice:[1,10,3],cost:3,hazard:'fire',breath:true}],va:['presence','buffet','inferno'],note:'Large. Attacks twice. Fireproof; weak to cold. Terrifying 3. Bloodied: Fire Breath costs ◆2. Surges on rounds 1, 3 and 5.'},
   horror:{name:'Bound Horror',role:'Brute',act:-1,art:'horror',hp:50,speed:3,attrs:{M:3,F:1,W:2,P:1},saves:{M:1},steady:2,armor:2,cost:0,acts:[{name:'Rending Tendrils',a:'M',range:2,dmg:[5,8,11],dice:[1,10,3],eff:{pull:[1,1,2]}}]},
   pillar:{name:'Ritual Pillar',role:'Object',act:-1,art:'pillar',hp:18,speed:0,attrs:{M:0,F:0,W:0,P:0},object:true,cost:0,acts:[]},
 };
@@ -462,7 +465,7 @@ const GLOSS={
   minion:{name:'Minion',forms:['minions','minion'],text:'A foe with a single hit point: any hit slays it. Minions come in hordes, often raised or rallied by a boss or summoner. Their attacks never roll.'},
   large:{name:'Large',forms:['large'],text:'A huge creature that fills a 2×2 block of squares. It is beside anything touching any of its squares, and needs a 2×2 gap to move through.'},
   undead:{name:'Undead',forms:['undead'],text:'Weak to radiant damage (double) and immune to poison and necrotic damage.'},
-  radiant:{name:'Radiant',forms:['radiant'],text:'Holy damage. Doubled against undead, and stops skeletons reassembling. The cleric deals it from level 2; Radiant weapons always do.'},
+  radiant:{name:'Radiant',forms:['radiant'],text:'Holy damage. Doubled against undead, and stops skeletons reassembling. The cleric always deals it; Radiant weapons do too.'},
   surge:{name:'Boss Surge',forms:['boss surges','boss surge'],text:'A boss unleashes a special action at the start of its turn on rounds 1, 3 and 5.'},
   threat:{name:'Malice',forms:['malice','threats','threat'],text:'Foes gain Malice every round: the round number, plus 1 for each hero who is Down (shown in the top bar). When they have enough, they unleash their next threat. Harder battles and later regions unlock nastier threats.'},
   zone:{name:'Zone',forms:['zone'],text:'A lingering area. It affects foes that start their turn inside it.'},
@@ -470,18 +473,19 @@ const GLOSS={
   boon:{name:'Boon',forms:['boons','boon'],text:'At the start of each journey, fortune offers two gifts and a bargain: choose one. Bargains are stronger, but cost you something, such as a Wound on every hero.'},
   legacy:{name:'Chronicle',forms:['chronicle','legacy'],text:'What carries over between journeys: your totals, your best score, the Dread you have unlocked, and relics unlocked by milestones. Unlocked relics can turn up in treasure, shops and rewards. Open it from the title screen.'},
   victory:{name:'Victories',forms:['victories','victory'],text:'The party\'s wins since its last Camp: a battle is 1, an elite 2, a boss 3, a dramatic task or negotiation 1. Every hero starts a battle with momentum equal to the Victories (up to 3). A Camp resets them.'},
-  xp:{name:'Experience (XP)',forms:['XP','experience'],text:'Encounters give XP by difficulty, as in PF2e: Easy 30, Medium 60, Hard 90, Extreme (a boss) 120. Deeds on the road give 10 (a check), 20 or 30 (a dramatic task or negotiation). The party banks it, and at a Camp every hero gains it: every 80 XP is a level, up to 10.'},
-  difficulty:{name:'Difficulty',forms:['difficulty'],text:'How big an encounter is, as an XP budget for four heroes: Easy 30, Medium 60, Hard 90, Extreme 120. A foe as strong as one hero is worth 30 XP. With fewer heroes the budget shrinks by a quarter each.'},
-  camp:{name:'Camp',forms:['camps','camp'],text:'A safe stop on the map. Every hero heals with their remaining hit dice, refills them, removes a Wound, and turns the XP banked since the last Camp into levels. Each level brings a power draft. Then spend gold on downtime: tend wounds or retrain a power.'},
-  hitdice:{name:'Hit Dice',forms:['hit dice','hit die'],text:'Each hero has a pool of hit dice (their class\'s die, level + 1 of them). Out of battle, spend one to heal one roll of it (exploding) plus Strength. Second Wind spends one in battle. A Camp refills the pool.'},
+  reward:{name:'Reward',forms:['rewards','reward'],text:'After every battle won, pick 1 of 3 cards: a power for one hero (shown on the card), or a growth card. Elites give two rewards with at least one Uncommon power, bosses two with at least one Rare. Skip a reward for 10 gold, or pay 10 to reroll the cards once. Heroes do not level up: rewards are how they grow.'},
+  growth:{name:'Growth',forms:['growth'],text:'A reward card that makes a hero stronger instead of teaching a power. Vigor: max health equal to their hit die (d10: +10). Training: +1 to their key stat, up to 5.'},
+  difficulty:{name:'Difficulty',forms:['difficulty'],text:'How big an encounter is: Easy, Medium, Hard (elites) or Extreme (bosses). The first battle of each land is Easy, and so are about a quarter of the rest.'},
+  camp:{name:'Camp',forms:['camps','camp'],text:'A safe stop on the map. Every hero heals with their remaining hit dice, refills them and removes a Wound, and the Victories reset. Then spend gold on downtime: tend wounds or retrain a power.'},
+  hitdice:{name:'Hit Dice',forms:['hit dice','hit die'],text:'Each hero has a pool of 3 hit dice of their class\'s die. Out of battle, spend one to heal one roll of it (exploding) plus Strength. Second Wind spends one in battle. A Camp refills the pool.'},
   wound:{name:'Wounds',forms:['wounds','wound'],text:'A hero who goes Down gains a Wound: -1 to the total of every attack, save and check (up to -3). A hero who goes Down with 3 Wounds already dies. Each Camp removes one, and gold can buy another.'},
   down:{name:'Down',forms:['is down','are down','goes down','go down','downed'],text:'A hero at 0 health is Down: they can\'t act, foes ignore them, and they gain a Wound. An ally beside them can Help them up, and healing stands them up too. After a won battle Down heroes stand up with 1 health. If every hero is Down, the battle is lost.'},
   bloodied:{name:'Bloodied',forms:['bloodied'],text:'At or below half health. Bloodied does nothing by itself, but bosses change phase, some foes turn savage and some powers hit harder.'},
   check:{name:'Check',forms:['checks','check'],text:'Roll the die for an attribute: 4 or more succeeds, a 1 is a critical failure, the top number explodes. Difficulty only comes from advantage and disadvantage. Another hero can Help (+1 advantage). Class options need the right hero, and often no roll at all.'},
   task:{name:'Dramatic Task',forms:['dramatic tasks','dramatic task'],text:'A race against time. Each round every hero makes one attempt with an approach of their choice: success earns 1 token, an exploding roll 2, a critical failure loses 1. Reach the target before the rounds run out; a little short succeeds at a cost.'},
   negotiation:{name:'Negotiation',forms:['negotiations','negotiation'],text:'Up to three rounds of arguments against someone with something at stake. Their mood sets the dice; strong arguments add advantage, offensive ones disadvantage. Each success earns influence, and gold can buy it. 2 influence: they agree, for a price; 3: fully.'},
-  draft:{name:'Power Draft',forms:['power drafts','power draft','drafts','draft'],text:'Pick 1 of 3 powers (at least one for your class and one general power), or skip for 10 gold. Drafts come with each level, after elites and bosses, from treasure and from some events. With every slot full, learning a power replaces one.'},
-  slots:{name:'Power Slots',forms:['power slots','power slot','slots'],text:'A hero can know level + 3 powers, up to 8. Innate powers (basic attacks, Shove, Guidance, Second Wind, Help Up) take no slot.'},
+  draft:{name:'Power Draft',forms:['power drafts','power draft','drafts','draft'],text:'One hero picks 1 of 3 powers (at least one for their class and one general power), or skips for 10 gold. Drafts come from boons, treasure, training at a Camp and some events. Most new powers come from rewards. With every slot full, learning a power replaces one.'},
+  slots:{name:'Power Slots',forms:['power slots','power slot','slots'],text:'A hero can know 8 powers. Innate powers (basic attacks, Shove, Guidance, Second Wind, Help Up) take no slot.'},
   rarity:{name:'Rarity',forms:['common','uncommon','rare'],text:'Powers are Common, Uncommon or Rare. Drafts roll Common 60%, Uncommon 30%, Rare 10%; elites promise an Uncommon and bosses a Rare.'},
   resonance:{name:'Resonance',forms:['resonance'],text:'Every power has a tag: Set-up, Burst, Guard, Reach, Surge or Mend. With 4 powers of a tag across the party, everyone gets its first resonance; with 8, the second. Burst I, for example, lets each hero reroll a 1 once a battle.'},
   chain:{name:'Chain',forms:[],text:'A power that reacts to the hero just before you in the turn order.'},

@@ -549,7 +549,7 @@ function defDie(t){return t&&t.kind==='mon'&&!t.object&&t.armor?[0,4,6,8,10][cla
 /* Damage types (Core Rules 3.11). */
 function typeOf(a,p){
   if(p.dtype)return p.dtype;if(p.radiant)return 'radiant';
-  if(a&&a.kind==='pc'){const w=!p.wdie&&p.dmg&&(wpnOf(a)||WEAPONS[START_WEAPON[a.cls]]);if(w&&w.dtype)return w.dtype;if(a.cls==='cleric'&&(a.lvl||1)>=2)return 'radiant';}
+  if(a&&a.kind==='pc'){const w=!p.wdie&&p.dmg&&(wpnOf(a)||WEAPONS[START_WEAPON[a.cls]]);if(w&&w.dtype)return w.dtype;if(a.cls==='cleric'&&feat2(a))return 'radiant';}
   return 'physical';
 }
 /* 2 = weak, .5 = resists (half, at least 1), 0 = immune. Undead are weak to radiant and immune to poison and necrotic;
@@ -698,7 +698,7 @@ function areaTargets(u,p,C){
 function healAmt(u,base,p,roll){
   let v=p&&p.healDie?(roll?rollEx(HD[u.cls]||8):Math.round(exAvg(HD[u.cls]||8))):base;
   if(p&&p.healDie&&resLv('Mend',u)>=1)v+=1;
-  if(u.kind==='pc'&&u.cls==='cleric'&&(u.lvl||1)>=2)v+=u.attrs.P||0;
+  if(u.kind==='pc'&&u.cls==='cleric'&&feat2(u))v+=u.attrs.P||0;
   return v;
 }
 /* What the healer's build adds when they heal ally a (roll: spend the once-a-turn bonuses). */
@@ -753,7 +753,9 @@ function forecast(u,p,T,O){
 }
 function evRow(r){if(!r.dmg)return 0;const hp=r.t.hp+r.t.shield;return r.probs.reduce((s,pr,i)=>s+pr*Math.min(hp,r.dmg[i]),0);}
 function killP(r){if(!r.dmg)return 0;const hp=r.t.hp+r.t.shield;return r.probs.reduce((s,pr,i)=>s+(r.dmg[i]>=hp?pr:0),0);}
-function pushExtra(u,p){return (u.kind==='pc'&&u.cls==='wizard'&&(u.lvl||1)>=2?1:0)+(u.side==='hero'&&hasR('gauntlet')?1:0)+(hasP(u,'hardshove')?1:0)+(resLv('Reach',u)>=1?1:0);}
+/* Class features from level 2 (Heroes book): journey heroes, who do not level, have them from the start; rival heroes by level. */
+function feat2(u){return (u.lvl||1)>=2||(u.kind==='pc'&&!u.rival);}
+function pushExtra(u,p){return (u.kind==='pc'&&u.cls==='wizard'&&feat2(u)?1:0)+(u.side==='hero'&&hasR('gauntlet')?1:0)+(hasP(u,'hardshove')?1:0)+(resLv('Reach',u)>=1?1:0);}
 
 async function pcStrike(u,p,t,C,fl){
   const hits=p.hits||1;
@@ -1560,7 +1562,7 @@ function makePc(h,x,y,side){
   const vic=!rival&&typeof CTX!=='undefined'&&CTX&&CTX.vic!=null?Math.min(3,CTX.vic):TUNE.momStart;
   const mom=Math.min(5,vic+(pas.eager?1:0)+(!rival&&pas.afterglow?(h.glow||0):0)+(!rival&&G&&G.resN&&resLv('Surge',{side})>=1?1:0))+(!rival&&hasR('hymn')?2:0)+(!rival&&hasR('crown')?3:0);
   return {id:(rival?'r_':'h_')+h.cls,side,kind:'pc',cls:h.cls,name:rival?C.rival:C.name,x,y,hp:Math.min(h.hp,mhp),maxHp:mhp,speed:C.speed+(pas.quick?1:0),lvl:h.lvl,
-    wpn:h.weapon||(rival?rivalWeapon(h.cls,h.lvl):START_WEAPON[h.cls]),attrs:attrsFor(h.cls,h.lvl),steady:C.steady||0,nimble:!!C.nimble&&(h.lvl||1)>=2,mom,powers:all.filter(id=>!POWERS[id].passive),pas,wounds:rival?0:(h.wounds||0),hd:rival||h.hd==null?null:h.hd,wpd:rival?null:weaponData(h.weapon||START_WEAPON[h.cls]),grow:Object.assign({},h.grow||{}),st:{},shield:0,react:true,mp:0,rival};
+    wpn:h.weapon||(rival?rivalWeapon(h.cls,h.lvl):START_WEAPON[h.cls]),attrs:attrsFor(h.cls,h.lvl,rival?null:h.up),steady:C.steady||0,nimble:!!C.nimble&&((h.lvl||1)>=2||!rival),hdMax:!rival&&typeof hdMax==='function'&&typeof RUN!=='undefined'&&RUN&&CTX&&(CTX.mode==='run'||CTX.mode==='sim')?hdMax(h):undefined,mom,powers:all.filter(id=>!POWERS[id].passive),pas,wounds:rival?0:(h.wounds||0),hd:rival||h.hd==null?null:h.hd,wpd:rival?null:weaponData(h.weapon||START_WEAPON[h.cls]),grow:Object.assign({},h.grow||{}),st:{},shield:0,react:true,mp:0,rival};
 }
 
 /* ---------------- ENCOUNTERS ----------------

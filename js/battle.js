@@ -63,7 +63,7 @@ function powerText(p,u){
   bits.push(p.cost?`${p.cost} momentum`:'No cost');
   let s=bits.join(' · ')+(p.free?' · free action':'')+'.\n';
   if(p.dmg&&!p.noDmg)s+=`Damage {w:${diceText(powDice(p,u))}${ab!=null?'+'+(ab+(u.side==='hero'&&hasR('whetstone')?1:0)+(u.wpn?wBonus(u,p,'dmg')+wBonus(u,p,'acc'):0)):''}}${ab==null&&p.a?' + '+ATTR[ka]:''}${p.hits>1?` x${p.hits}`:''}${p.radiant?' radiant':''}. `;
-  if(p.heal)s+=`Heals {h:${p.healDie?'d'+(HD[(u&&u.cls)||p.c]||8):p.heal}${u&&u.cls==='cleric'&&(u.lvl||1)>=2?'+'+u.attrs.P:''}}. `;
+  if(p.heal)s+=`Heals {h:${p.healDie?'d'+(HD[(u&&u.cls)||p.c]||8):p.heal}${u&&u.cls==='cleric'&&feat2(u)?'+'+u.attrs.P:''}}. `;
   s+=p.desc;
   const et=effText(p.eff);if(et&&!/on a hit|on a crit/i.test(p.desc)&&!Object.keys(p.eff).some(k=>p.desc.toLowerCase().includes(EFF_NAME[k])))s+=' '+et;
   return s;
@@ -112,7 +112,7 @@ function unitBody(u,full){
   }
   return s;
 }
-function unitSub(u){return u.kind==='pc'?`Lv ${u.lvl} ${CLASSES[u.cls].title}${u.rival?' (rival)':''}`:u.kind==='mon'?mon(u).role+(u.leader?' · chief':''):'Ally';}
+function unitSub(u){return u.kind==='pc'?`${u.rival?'Lv '+u.lvl+' ':''}${CLASSES[u.cls].title}${u.rival?' (rival)':''}`:u.kind==='mon'?mon(u).role+(u.leader?' · chief':''):'Ally';}
 
 /* ---------------- effects: particles, shake, flashes ---------------- */
 const PARTS=[];let PLAST=0;
@@ -709,7 +709,7 @@ function powerStat(u,p){
 }
 /* The basic attack sits apart from the powers: a plain steel button on the left of the tray. */
 function basicIndex(u){return (u.powers||[]).findIndex(id=>POWERS[id]&&POWERS[id].basic);}
-function powerSlots(u){const bi=basicIndex(u);return u.powers.map((_,i)=>i).filter(i=>i!==bi);}
+function powerSlots(u){const bi=basicIndex(u);return (u.powers||[]).map((_,i)=>i).filter(i=>i!==bi);}
 function pageOfPower(u,i,per){const k=powerSlots(u).indexOf(i);return k<0?0:Math.floor(k/per);}
 function basicButton(u,i,x,y,w,h){
   const p=powerOf(u,i);const ok=canAct(u,p);const on=i===B.pi;

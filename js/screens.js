@@ -8,7 +8,7 @@ const BATTLE_SCREEN={draw:drawBattle};
 const ROMAN=['I','II','III'];
 function coin(x,y){text('●',x,y,C.gold,{sh:C.edge});}
 function relicIcon(r,x,y){rect(x,y,11,11,C.edge);rect(x+1,y+1,9,9,'#1a1410');frame(x+1,y+1,9,9,RELIC_COL[r]);text(RELIC_ICON[r]||'?',x+6,y+3,RELIC_COL[r],{al:'c',sh:false});}
-function heroSheetUnit(h){return {id:'sheet_'+h.cls,side:'hero',kind:'pc',cls:h.cls,name:CLASSES[h.cls].name,lvl:h.lvl,hp:h.hp,wounds:h.wounds||0,hd:h.hd,maxHp:effMaxHp(h),attrs:attrsFor(h.cls,h.lvl),powers:withBasic(h.cls,h.powers),pas:Object.fromEntries((h.powers||[]).filter(id=>POWERS[id]&&POWERS[id].passive).map(id=>[id,1])),mom:0,st:{},shield:0,speed:CLASSES[h.cls].speed,steady:0,wpn:h.weapon,xp:h.xp};}
+function heroSheetUnit(h){return {id:'sheet_'+h.cls,side:'hero',kind:'pc',cls:h.cls,name:CLASSES[h.cls].name,lvl:h.lvl,hp:h.hp,wounds:h.wounds||0,hd:h.hd,hdMax:hdMax(h),maxHp:effMaxHp(h),attrs:heroAttrs(h),powers:withBasic(h.cls,h.powers),pas:Object.fromEntries((h.powers||[]).filter(id=>POWERS[id]&&POWERS[id].passive).map(id=>[id,1])),mom:0,st:{},shield:0,speed:CLASSES[h.cls].speed,steady:0,wpn:h.weapon};}
 
 /* ---------------- backgrounds ---------------- */
 const BGC={};
@@ -163,7 +163,7 @@ const MAP_SCREEN={enter(){MAPSEL=null;MAPS.anim=null;const M=RUN.map;const cur=R
     text(`ACT ${ROMAN[RUN.act]}`,4,3,C.gold,{sc:2,ol:C.edge});
     text(ACTS[RUN.act].sub.toUpperCase(),4+textW(`ACT ${ROMAN[RUN.act]}`,2)+6,7,C.parch);
     coin(SW-34,7);text(String(RUN.gold),SW-26,7,C.gold);
-    {const xs=`${RUN.xpBank||0} XP  ★${RUN.vic}`;text(xs,SW-40,7,'#ffe070',{al:'r'});hit(SW-42-textW(xs),4,textW(xs)+4,10,{fn:()=>msg('XP AND VICTORIES',`{b:${RUN.xpBank||0} XP} earned since the last Camp. Easy battles give 30, Medium 60, Hard 90 and Extreme 120; deeds on the road give 10 to 30. At a Camp every hero gains it: every ${TUNE.xpLvl} XP is a level.\n\n{g:${RUN.vic} Victories} since the last Camp. Every hero starts a battle with momentum equal to the Victories (up to 3).`),id:'vic'});}
+    {const xs=`★${RUN.vic}`;text(xs,SW-40,7,'#ffe070',{al:'r'});hit(SW-42-textW(xs),4,textW(xs)+4,10,{fn:()=>msg('VICTORIES',`{g:${RUN.vic} Victories} since the last Camp. Every hero starts a battle with momentum equal to the Victories (up to 3).`),id:'vic'});}
     RUN.gear.forEach((r,i)=>{ctx.drawImage(relicArt(r),3+i*17,14);hit(2+i*17,13,17,18,{fn:()=>relicMenu(r),id:'mr'+r});});
     button(SW-94,17,52,12,RUN.stash.length||RUN.relics.length>RUN.gear.length?'EQUIP ✦':'EQUIP',openEquip,{glow:RUN.stash.some(id=>WEAPONS[id].tier>WEAPONS[RUN.heroes.find(h=>h.cls===WEAPONS[id].cls).weapon].tier)});
     button(SW-40,17,37,12,'MENU',()=>openSettings(false,true),{});
@@ -190,8 +190,8 @@ function mapNodeTap(n,av){
   else if(n.type==='battle'||n.type==='elite'){const m=nodeMission(n),M=MISSIONS[m];
     title=(n.type==='elite'?'ELITE · ':'')+M.name.toUpperCase();
     const tw=TWISTS[m+':'+RUN.act];
-    body=`{g:${M.name}.} ${(tw&&tw.desc)||MISSION_BLURB[m]||M.desc}\n\n{m:${(tw&&tw.desc)||M.desc}}\n\n`+(tw?`{r:Twist: ${tw.name}.} ${tw.text}\n\n`:'')+(n.type==='elite'?'{r:A dangerous champion and its guards.} Win for gold, 2 Victories, a power draft for every hero and treasure.':'Win for gold and 1 Victory.');
-    const D=DIFF[n.diff||'medium'];title=D.name.toUpperCase()+' · '+title;body+=`\n\n{b:${D.name}: ${D.xp} XP.}`;}
+    body=`{g:${M.name}.} ${(tw&&tw.desc)||MISSION_BLURB[m]||M.desc}\n\n{m:${(tw&&tw.desc)||M.desc}}\n\n`+(tw?`{r:Twist: ${tw.name}.} ${tw.text}\n\n`:'')+(n.type==='elite'?'{r:A dangerous champion and its guards.} Win for gold, 2 Victories, two rewards (Uncommon or better) and treasure.':'Win for gold, 1 Victory and a reward: pick 1 of 3 cards.');
+    const D=DIFF[n.diff||'medium'];title=D.name.toUpperCase()+' · '+title;}
   else body=I.desc;
   openModal(dialog({title,body:body+(av?'':'\n{m:You cannot reach this yet.}'),w:180,buttons:av?[{l:'TRAVEL',hot:true,fn:()=>startTravel(n.id)},{l:'CANCEL'}]:[{l:'OK'}]}));
 }
@@ -242,10 +242,9 @@ const EQUIP_SCREEN={draw(){
     for(const h of RUN.heroes){const W=weaponData(h.weapon);const u=heroSheetUnit(h);
       if(h.dead){panel(x,y,w,22,{fill:'#141010'});ctx.globalAlpha=.4;portrait(u,x+4,y+2,18);ctx.globalAlpha=1;text(`${CLASSES[h.cls].name} is dead.`,x+30,y+8,C.red);y+=25;continue;}
       panel(x,y,w,58,{});
-      portrait(u,x+4,y+4,22);text(CLASSES[h.cls].name,x+30,y+4,C.gold);text(`Level ${h.lvl} ${CLASSES[h.cls].title}`,x+30,y+12,C.mute);
+      portrait(u,x+4,y+4,22);text(CLASSES[h.cls].name,x+30,y+4,C.gold);text(`${CLASSES[h.cls].title} · ${h.powers.length} of ${slotsOf(h)} powers`,x+30,y+12,C.mute);
       if(y+22>clip[0]&&y<clip[1])hit(x+4,y+4,22,22,{fn:()=>openUnitInfo(u,{plain:true}),id:'eqp'+h.cls});
-      const lo=xpAt(h.lvl),hi=xpAt(h.lvl+1),f=h.lvl>=TUNE.maxLvl?1:clamp(((h.xp||0)-lo)/(hi-lo),0,1);
-      rect(x+30,y+20,w-100,4,C.edge);rect(x+31,y+21,Math.round((w-102)*f),2,'#6ac0ff');text(h.lvl>=TUNE.maxLvl?'MAX':`${h.xp||0}/${hi} XP`,x+w-66,y+19,C.mute);
+      {const A=heroAttrs(h);text(fitText(Object.keys(ATTR_SHORT).map(k=>`${ATTR_SHORT[k]} ${A[k]}`).join('  '),w-40),x+30,y+20,C.parch);}
       const fh=h.hp/effMaxHp(h);bar(x+30,y+44,w-100,4,fh,fh>.5?'#50c050':fh>.25?'#d8b030':'#d04030');text(`${h.hp}/${effMaxHp(h)}${h.wounds?'  ✚'+h.wounds:''}`,x+30,y+50,h.wounds?C.red:C.parch);
       button(x+w-66,y+43,60,12,`HEAL ⚅${h.hd}`,()=>{const g=catchBreath(h);if(g){sfx('heal');toast(`${CLASSES[h.cls].name} catches their breath: +${g}.`);saveGame();}},{disabled:h.hd<=0||h.hp>=effMaxHp(h)});
       inset(x+4,y+28,w-8,13,'#100b08');ctx.drawImage(weaponArt(h.weapon),x+5,y+26,16,16);text(fitText(W.name,w-90),x+24,y+31,C.parch);
@@ -261,7 +260,7 @@ function shopItemInfo(it){
   if(it.kind==='relic')return {name:RELICS[it.id].name,desc:RELICS[it.id].desc,tag:'Relic'};
   if(it.kind==='power')return {name:POWERS[it.id].name,desc:POWERS[it.id].desc,tag:`${RARITY[POWERS[it.id].rar]||''} · ${CLASSES[it.cls].name}`};
   if(it.kind==='weapon'){const W=weaponData(it.id);return {name:W.name,desc:weaponText(W),tag:`${CLASSES[W.cls].name}'s weapon`};}
-  return {name:'Bandages and Rations',desc:'Every hero regains 2 hit dice (up to their level + 1).',tag:'Supplies'};
+  return {name:'Bandages and Rations',desc:`Every hero regains 2 hit dice (up to ${TUNE.hdBase}).`,tag:'Supplies'};
 }
 const SHOP_SCREEN={draw(){
   ctx.drawImage(stoneBG(),0,0);
@@ -406,7 +405,7 @@ const HOWTO=`{g:Turn order.} Everyone rolls {g:initiative} (their Dexterity die)
 
 {g:Down and Wounds.} A hero at 0 health is {g:Down} and gains a {g:Wound} (-1 to attacks, saves and checks). An ally beside them can Help them up. A hero who goes Down with 3 Wounds dies. If every hero is Down, the battle is lost.
 
-{g:The journey.} Pick your path through three lands: battles, elites, merchants, {g:Camps}, treasure, road events and events. Battles give gold, XP by difficulty (Easy 30, Medium 60, Hard 90, a boss 120) and {g:Victories}; elites and bosses give every hero a {g:power draft}. Between battles, spend {g:hit dice} to heal (EQUIP, then HEAL). At a Camp heroes heal, refill their hit dice, lose a Wound and turn their XP into levels (80 XP a level), each with a new power. Events test an attribute ({g:check}: 4+ on its die), and some are {g:dramatic tasks} or {g:negotiations}.
+{g:The journey.} Pick your path through three lands: battles, elites, merchants, {g:Camps}, treasure, road events and events. Every battle won gives gold, a {g:Victory} and a {g:reward}: pick 1 of 3 cards, each a power for one hero or {g:growth} (more health, or +1 to a key stat). Elites and bosses give two rewards with better powers, and treasure. Heroes do not level up: they grow by the rewards you pick. Between battles, spend {g:hit dice} to heal (EQUIP, then HEAL). At a Camp heroes heal, refill their hit dice and lose a Wound. Events test an attribute ({g:check}: 4+ on its die), and some are {g:dramatic tasks} or {g:negotiations}.
 
 {g:Boons, Dread and the Chronicle.} Each journey starts with a {g:boon}: two gifts and a bargain, pick one. Every journey, won or lost, adds to your {g:Chronicle}, which unlocks new relics as you reach milestones. Slay the dragon to unlock {g:Dread} levels: harder journeys that score more.
 

@@ -110,7 +110,7 @@ function sheetLayout(u,x,y,w,clip,o){
   portrait(u,x,cy,38,{dead:u.dead});
   const nm=u.name.toUpperCase();const big=textW(nm,2)<=w-44;
   text(big?nm:fitText(u.name,w-44),x+42,cy+1,foe?'#ffb0a0':C.gold,big?{sc:2,ol:C.edge}:{});
-  const sub=pc?`Level ${u.lvl} ${CLASSES[u.cls].title} · ${CLASSES[u.cls].role}${u.rival?' · rival':''}`:m?m.role+(u.leader?' · chief':'')+(m.undead?' · undead':''):'Ally';
+  const sub=pc?`${u.rival?'Level '+u.lvl+' ':''}${CLASSES[u.cls].title} · ${CLASSES[u.cls].role}${u.rival?' · rival':''}`:m?m.role+(u.leader?' · chief':'')+(m.undead?' · undead':''):'Ally';
   text(fitText(sub,w-44),x+42,cy+(big?13:10),C.mute);
   const f=Math.max(0,u.hp)/u.maxHp;
   bar(x+42,cy+21,w-44-textW(`${u.maxHp}/${u.maxHp}`)-4,6,f,foe?'#d04030':'#50c050');
@@ -146,7 +146,7 @@ function sheetLayout(u,x,y,w,clip,o){
     cy+=rich('Checks and saves roll the die: '+['M','F','W','P'].map(k=>`${ATTR_SHORT[k]} {w:d${attrDie(u.attrs[k]).s}}`).join(' · ')+'. 4+ succeeds.',x,cy,w,C.parch,{clip})+2;
     cy+=rich(`{g:Specialties:} ${Cc.spec}`,x,cy,w,C.parch,{clip})+3;
     if(u.side==='hero'&&!u.rival&&(u.hd!=null||u.wounds)){const H=HD[u.cls]||8;
-      cy+=rich(`{h:Hit dice:} ${u.hd!=null?u.hd:'?'} of ${(u.lvl||1)+1} d${H} left.`+(u.wounds?` {r:Wounds: ${u.wounds}} (−${Math.min(3,u.wounds)} to attacks, saves and checks; the 4th Down kills).`:''),x,cy,w,C.parch,{clip})+5;}
+      cy+=rich(`{h:Hit dice:} ${u.hd!=null?u.hd:'?'} of ${u.hdMax!=null?u.hdMax:(u.lvl||1)+1} d${H} left.`+(u.wounds?` {r:Wounds: ${u.wounds}} (−${Math.min(3,u.wounds)} to attacks, saves and checks; the ${woundCap()===2?'3rd':'4th'} Down kills).`:''),x,cy,w,C.parch,{clip})+5;}
     // role, weapon, experience
     cy+=secHead(`ROLE: ${Cc.role.toUpperCase()}`,x,cy,w);
     cy+=rich(Cc.style,x,cy,w,C.parch,{clip})+2;
