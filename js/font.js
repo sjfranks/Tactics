@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — bitmap font. Caps are 5px tall, lowercase has a 4px
+   ROGUE TACTICS — bitmap font. Caps are 5px tall, lowercase has a 4px
    x-height and a 1px descender. Rows are separated by '/'.
    ===================================================================== */
 /* The chunky 5px font is the game's look. Settings can switch on an experimental hi-res mode (a finer font,

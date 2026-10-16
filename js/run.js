@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — the journey (Core Rules chapter 4): map, Victories, Camps, hit dice and Wounds, power drafts,
+   ROGUE TACTICS — the journey (Core Rules chapter 4): map, Victories, Camps, hit dice and Wounds, power drafts,
    the smith, events, dramatic tasks, negotiations, road events and saves
    ===================================================================== */
 let RUN=null;
@@ -24,7 +24,7 @@ const slotsOf=h=>Math.min(8,h.lvl+3);
 function newHeroes(){return ORDER.map(c=>({cls:c,lvl:1,xp:0,maxHp:CLASSES[c].hp,hp:CLASSES[c].hp,hd:2,wounds:0,powers:CLASSES[c].start.slice(),weapon:START_WEAPON[c]}));}
 function newRun(){
   unseedRng();
-  RUN={v:10,act:0,map:genMap(0),pos:null,gold:40,vic:0,wup:{},heroes:newHeroes(),relics:[],gear:[],stash:[],stats:{wins:0,kills:0,battles:0,gold:0},stage:'map',pending:null,seen:[],shop:null,event:null,enc:null,camp:null,task:null,talk:null};
+  RUN={v:11,act:0,map:genMap(0),pos:null,gold:40,vic:0,xpBank:0,wup:{},heroes:newHeroes(),relics:[],gear:[],stash:[],stats:{wins:0,kills:0,battles:0,gold:0},stage:'map',pending:null,seen:[],shop:null,event:null,enc:null,camp:null,task:null,talk:null};
   CTX={mode:'run',relics:RUN.gear,vic:0};
   saveGame();
 }
@@ -45,7 +45,7 @@ function genMap(act){
     n.type=n.f===0?'battle':n.f===MAP_F-1?'rest':n.f===3&&rnd(2)?'treasure':wpick(n.f);
     if(n.type==='shop'&&++shops>2)n.type='battle';
   }
-  for(const n of Object.values(nodes))n.mission=rollMission(n,act);
+  for(const n of Object.values(nodes)){n.mission=rollMission(n,act);if(n.type==='battle')n.diff=n.f===0||Math.random()<TUNE.easyShare?'easy':'medium';if(n.type==='elite')n.diff='hard';}
   const r=mulberry(act*1000+Object.keys(nodes).length*7+rnd(1000));
   for(const n of Object.values(nodes)){n.x=22+n.f*37+Math.round(r()*6-3);n.y=40+n.l*34+Math.round(r()*8-4);}
   nodes.boss={id:'boss',f:MAP_F,l:1.5,type:'boss',x:292,y:93};
@@ -74,7 +74,7 @@ function arrive(id){
   if(n.type==='battle'||n.type==='elite'||n.type==='boss'){
     const f=nodeF(n,n.type==='elite');
     const type=n.type==='boss'?'boss':nodeMission(n);
-    return {battle:genEncounter(f,type,{act:RUN.act,elite:n.type==='elite'}),kind:n.type};
+    return {battle:genEncounter(f,type,{act:RUN.act,elite:n.type==='elite',diff:n.diff,party:living().length}),kind:n.type};
   }
   if(n.type==='shop'){RUN.stage='shop';RUN.shop=genShop();saveGame();return {screen:'shop'};}
   if(n.type==='rest'){makeCamp();return {screen:'rest'};}
@@ -131,6 +131,7 @@ function resolveVictory(){
   if(RUN.gear.includes('coin'))gold=Math.round(gold*1.5);
   RUN.gold+=gold;RUN.stats.gold+=gold;
   const vic=kind==='boss'?3:kind==='elite'?2:1;RUN.vic+=vic;
+  const xp=enc.xp||DIFF[encDiff(enc.type,enc.elite)].xp;RUN.xpBank=(RUN.xpBank||0)+xp;
   const notes=[];
   const tri=Math.max(1,...G.units.filter(x=>x.side==='hero'&&x.kind==='pc'&&!x.dead&&x.pas&&x.pas.triage).map(x=>HD[x.cls]||8));
   for(const h of living()){
@@ -146,7 +147,7 @@ function resolveVictory(){
   if(kind==='elite'||kind==='boss'){who=living().map(h=>({cls:h.cls,min:kind==='boss'?'R':'U'}));for(const w of who)steps.push('draft');}
   if(kind==='elite')steps.push('loot');
   if(kind==='boss')steps.push('relic');
-  RUN.pending={steps,gold,kind,vic,notes,who,final:kind==='boss'&&RUN.act>=2};
+  RUN.pending={steps,gold,kind,vic,xp,diff:enc.diff,notes,who,final:kind==='boss'&&RUN.act>=2};
   RUN.stage='reward';G=null;
   saveGame();
 }
@@ -169,19 +170,19 @@ function levelGains(cls,l0,l1){
 /* A Camp (Core Rules 4.7): heal with all remaining hit dice, refill them, remove a Wound, turn Victories into XP and
    level up. Each new level brings a power draft. Downtime follows on the Camp screen. */
 function makeCamp(o){
-  o=o||{};const C={lines:[],leveled:[],drafts:[],tended:{},trained:{},xp:RUN.vic,newAct:!!o.newAct};
+  o=o||{};const C={lines:[],leveled:[],drafts:[],tended:{},trained:{},xp:RUN.xpBank||0,newAct:!!o.newAct};
   for(const h of living()){
     let healed=0;while(h.hd>0&&h.hp<effMaxHp(h))healed+=catchBreath(h);
     const w=h.wounds>0;if(w)h.wounds--;
     C.lines.push({cls:h.cls,healed,wound:w});
   }
   for(const h of living()){
-    const l0=h.lvl;h.xp=(h.xp||0)+RUN.vic;const l1=Math.max(l0,xpToLevel(h.xp));
+    const l0=h.lvl;h.xp=(h.xp||0)+C.xp;const l1=Math.max(l0,xpToLevel(h.xp));
     for(let l=l0;l<l1;l++){const g=CLASSES[h.cls].grow;h.maxHp+=g;h.hp=Math.min(effMaxHp(h),h.hp+g);C.drafts.push({cls:h.cls});}
     h.lvl=l1;h.hd=hdMax(h);
     if(l1>l0)C.leveled.push({cls:h.cls,lvl0:l0,lvl1:l1});
   }
-  RUN.vic=0;RUN.camp=C;RUN.stage='rest';saveGame();
+  RUN.vic=0;RUN.xpBank=0;RUN.camp=C;RUN.stage='rest';saveGame();
   return C;
 }
 const TEND_COST=25,TRAIN_COST=25;
@@ -382,6 +383,7 @@ function applyOutcome(out,roller){
   if(out.hurt&&roller){roller.hp=Math.max(1,roller.hp-out.hurt);L.push(`{r:${CLASSES[roller.cls].name} takes ${out.hurt} damage.}`);}
   if(out.wound&&roller){roller.wounds=Math.min(3,(roller.wounds||0)+out.wound);L.push(`{r:${CLASSES[roller.cls].name} gains a Wound.}`);}
   if(out.vic){RUN.vic+=out.vic;L.push(`{g:+${out.vic} Victory.}`);}
+  if(out.xp){RUN.xpBank=(RUN.xpBank||0)+out.xp;L.push(`{b:+${out.xp} XP.}`);}
   if(out.omen){RUN.omen=true;}
   if(out.relic){f.relic=true;L.push('{g:A relic awaits.}');}
   if(out.weapon){f.weapon=true;L.push('{g:A weapon awaits.}');}
@@ -389,19 +391,22 @@ function applyOutcome(out,roller){
   if(out.fight){f.fight=out.fight;L.push('{r:A fight!}');}
   return {text:L.filter(Boolean).join('\n'),f};
 }
+/* Accomplishment XP (after PF2e's minor, moderate and major accomplishments, at three quarters). */
+const ACCOMPLISH={minor:10,moderate:30,major:60};
+const withXp=(out,xp)=>Object.assign({},out||{},{xp:((out&&out.xp)||0)+xp});
 function resolveEvent(o){
   if(!optOk(o))return {text:o.cls&&!hasClass(o.cls)?'Nobody in the party can do that.':'You cannot afford it.',fail:true};
   if(o.cost)RUN.gold-=o.cost;
   let out=o.win,roll=null,roller=null,group=null;
   if(o.group){
     group=living().map(h=>rollCheck(h,o.group,0));const ok=group.filter(r=>r.ok).length;
-    out=ok*2>=group.length?o.win:o.lose;
+    out=ok*2>=group.length?withXp(o.win,ACCOMPLISH.minor):o.lose;
     if(o.failHurt)for(const r of group)if(!r.ok){const h=heroOf(r.cls);h.hp=Math.max(1,h.hp-o.failHurt);}
     if(group.some(r=>r.crit)){RUN.gold=Math.max(0,RUN.gold-10);}
   }else if(o.a&&!o.auto){
     const R=optRoller(o);roller=R.h;roll=rollCheck(R.h,o.a,R.net);roll.help=helpNet()>0;
-    out=roll.ok?o.win:roll.crit?(o.crit||Object.assign({},o.lose,{hurt:((o.lose&&o.lose.hurt)||0)+4})):o.lose;
-  }else if(o.cls)roller=bestFor('M',o.cls);
+    out=roll.ok?withXp(o.win,ACCOMPLISH.minor):roll.crit?(o.crit||Object.assign({},o.lose,{hurt:((o.lose&&o.lose.hurt)||0)+4})):o.lose;
+  }else if(o.cls){roller=bestFor('M',o.cls);out=withXp(o.win,ACCOMPLISH.minor);}
   const A=applyOutcome(out,roller);
   if(group){const fails=group.filter(r=>!r.ok);if(fails.length&&o.failHurt)A.text+=`\n{r:${fails.map(r=>r.who).join(', ')} ${fails.length>1?'take':'takes'} ${o.failHurt} damage.}`;if(group.some(r=>r.crit))A.text+='\n{r:A critical failure: 10 gold is lost in the scramble.}';}
   const res=Object.assign({text:A.text,roll,group,label:o.label},A.f);
@@ -409,7 +414,7 @@ function resolveEvent(o){
 }
 /* What follows an outcome: a fight, a reward step, or back to the map. */
 function afterOutcome(r){
-  if(r.fight){const n=curNode();return {battle:genEncounter(nodeF(n),r.fight==='ambush'?'ambush':'rout',{act:RUN.act}),kind:'battle'};}
+  if(r.fight){const n=curNode();return {battle:genEncounter(nodeF(n),r.fight==='ambush'?'ambush':'rout',{act:RUN.act,diff:'easy',party:living().length}),kind:'battle'};}
   const steps=[];if(r.relic)steps.push('relic2');if(r.weapon)steps.push('weapon');if(r.draft)steps.push('draft');
   if(steps.length){RUN.stage='reward';RUN.pending={steps,kind:'event',who:r.draft?[{cls:pick(living()).cls}]:[]};saveGame();return {reward:true};}
   RUN.stage='map';saveGame();return {map:true};
@@ -431,7 +436,7 @@ function advanceTask(){
   if(T.tokens>=ev.target){T.done='win';return;}
   if(living().every(h=>T.acted.includes(h.cls))){T.round++;T.acted=[];T.help=0;if(T.round>ev.rounds)T.done=ev.target-T.tokens<=2?'cost':'lose';}
 }
-function finishTask(){const T=RUN.task,ev=taskEv();const A=applyOutcome(ev[T.done]);RUN.task=null;return Object.assign({text:A.text},A.f);}
+function finishTask(){const T=RUN.task,ev=taskEv();const out=T.done==='win'?withXp(ev.win,ACCOMPLISH.moderate):T.done==='cost'?withXp(ev.cost,20):ev.lose;const A=applyOutcome(out);RUN.task=null;return Object.assign({text:A.text},A.f);}
 
 /* ---------------- negotiations (Core Rules 4.5) ---------------- */
 function talkEv(){const T=RUN.talk;return T&&(T.road!=null?Object.assign({},TALKS_ROAD[T.road]):EVENTS.find(e=>e.id===T.id));}
@@ -446,7 +451,7 @@ function talkArg(arg){
 }
 function talkPay(){const T=RUN.talk,ev=talkEv();if(!T||T.done||RUN.gold<ev.pay)return false;RUN.gold-=ev.pay;T.tokens++;T.last={paid:ev.pay,g:1};T.round++;if(T.round>3)T.done=true;saveGame();return true;}
 function talkStop(){if(RUN.talk)RUN.talk.done=true;saveGame();}
-function finishTalk(){const T=RUN.talk,ev=talkEv();const k=Math.min(3,T.tokens);const out=Object.assign({},ev.results[k]);if(k>=2)out.vic=(out.vic||0)+1;
+function finishTalk(){const T=RUN.talk,ev=talkEv();const k=Math.min(3,T.tokens);const out=Object.assign({},ev.results[k]);if(k>=2)out.vic=(out.vic||0)+1;if(k>=1)out.xp=(out.xp||0)+(k>=2?ACCOMPLISH.moderate:ACCOMPLISH.minor);
   const A=applyOutcome(out);RUN.talk=null;return Object.assign({text:A.text},A.f);}
 
 /* ---------------- saves ---------------- */
@@ -459,7 +464,7 @@ function saveGame(){
     localStorage.setItem(SAVE_KEY,JSON.stringify(d));
   }catch(e){}
 }
-function loadSave(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');return d&&d.RUN&&d.RUN.v===10?d:null;}catch(e){return null;}}
+function loadSave(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');return d&&d.RUN&&d.RUN.v===11?d:null;}catch(e){return null;}}
 function clearSave(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
 function continueRun(){
   const d=loadSave();if(!d)return;RUN=d.RUN;CTX={mode:'run',relics:RUN.gear,vic:RUN.vic};

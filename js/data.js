@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — rules data
+   ROGUE TACTICS — rules data
    ===================================================================== */
 const COLS=6,ROWS=8;
 const ATTR={M:'Strength',F:'Dexterity',W:'Intelligence',P:'Presence'};
@@ -11,14 +11,15 @@ const RESULT_SHORT=['Miss','Hit','Crit'];
 /* Difficulty, tuned with tools/sim.js (whole journeys played by the autoplay AI). Encounter budgets: see encBudget in
    engine.js (es0/esLvl: a hero's strength by level, esUnit: strength to foe cost, actMul: each region's foes, solo: a
    boss's share of its fight, eliteCost: an elite's cost multiplier, bossAct: each region's boss health). */
-const TUNE={es0:4,esLvl:2,esUnit:.4,solo:1.25,eliteCost:1.3,hpSlope:.03,dmgSlope:.15,rollStep:4,bossHp:.55,foeMomRound:1,foeMomRamp:0,eliteMul:[.7,.4,.5],eliteBudget:[.9,1,1],summonAt:8,actMul:[1.1,1.05,.65],bossAct:[1.2,1.25,.8],
-  pbBonus:3,fallenHp:.25,momTurn:0,momStart:0,momVal:.9,maxLvl:10,xpLvl:2,sneak:3,aiCombo:1,saveBase:12,
+const TUNE={es0:4,esLvl:2,esUnit:.4,solo:1.25,eliteCost:1.3,hpSlope:.03,dmgSlope:.15,rollStep:4,bossHp:.55,foeMomRound:1,foeMomRamp:0,eliteMul:[.7,.4,.5],eliteBudget:[.81,.9,.9],summonAt:8,actMul:[1.1,1.05,.65],bossAct:[1.2,1.25,.8],
+  pbBonus:3,fallenHp:.25,momTurn:0,momStart:0,momVal:.9,maxLvl:10,xpLvl:80,easyShare:.25,sneak:3,aiCombo:1,saveBase:12,
   actions:3,extraActs:2,guardMin:4,aiMoveCost:1.5,aiHold:1,
   /* maliceMul scales Malice gain (1 = the rule book: the round number + Downs each round),
      and foeDef shifts every foe's DEF die up or down the ladder. */
   maliceMul:1,foeDef:0};
-/* Experience (Core Rules 4.2): Victories become XP at a Camp; every TUNE.xpLvl XP is a level. The book says 4 (TBC); the
-   map has about 7 Victories a region, so 2 keeps heroes on the book's level bands (1-3, 4-6, 7-9). */
+/* Experience (after PF2e): encounters give XP by difficulty (Easy 30, Medium 60, Hard 90, Extreme 120; see DIFF in
+   engine.js) and accomplishments 10 to 30. XP is banked and turns into levels at a Camp: every TUNE.xpLvl XP is a level,
+   which keeps heroes on the book's level bands (1-3, 4-6, 7-9). */
 const xpAt=l=>Math.max(0,l-1)*TUNE.xpLvl;
 /* Power rarity (Heroes book 2.1). */
 const RARITY={C:'Common',U:'Uncommon',R:'Rare'};
@@ -41,25 +42,25 @@ const CLASSES={
   fighter:{name:'Brakka',rival:'Grask',title:'Fighter',role:'Tank',hp:40,grow:6,hd:10,speed:3,attrs:{M:3,F:2,W:1,P:3},prime:'M',second:'P',steady:1,
     spec:'Forcing doors and bars, lifting and bracing, intimidating, soldiers and war.',start:['tide','hook','brace'],
     style:'The stagger engine: shoves and drags foes off balance for her friends, and makes them fight her instead.',
-    xpText:'Victories: every battle won is one, an elite two, a boss three. They become XP at a Camp.',
+    xpText:'Battles by difficulty (Easy 30, Medium 60, Hard 90, a boss 120 XP) and deeds on the road (10 to 30). Every 80 XP is a level, gained at a Camp.',
     trait:'Heavy armour and a shield: Defend rolls a d8 with advantage. Steadfast 1. Reaction, Intercept: she takes a blow meant for an ally beside her. Her marks taunt: a marked foe that can reach her must attack her.',
     pro:'she'},
   rogue:{name:'Vex',rival:'Shade',title:'Rogue',role:'Striker',hp:32,grow:5,hd:8,speed:4,attrs:{M:2,F:3,W:3,P:1},prime:'F',second:'W',
     spec:'Locks, traps, pockets, sneaking past guards, spotting an ambush.',start:['pierce','deepcut','finisher'],
     style:'The crit engine: finishes the foes her friends set up, then slips away.',
-    xpText:'Victories: every battle won is one, an elite two, a boss three. They become XP at a Camp.',
+    xpText:'Battles by difficulty (Easy 30, Medium 60, Hard 90, a boss 120 XP) and deeds on the road (10 to 30). Every 80 XP is a level, gained at a Camp.',
     trait:'Sneak Attack: one extra weapon die against a foe that is staggered, exposed, rooted, dazed or flanked, or from hiding. Nimble from level 2: never provokes free strikes. Reaction, Opportunist: when an ally hits a foe beside her, she attacks it too.',
     pro:'she'},
   wizard:{name:'Orin',rival:'Morvane',title:'Wizard',role:'Controller',hp:24,grow:4,hd:6,speed:4,attrs:{M:1,F:3,W:3,P:2},prime:'W',second:'F',
     spec:'Magic items and runes, ancient writing, wards and rituals, strange beasts.',start:['scorch','frost','eager'],
     style:'The lock engine: roots, burns and shoves whole groups of foes, so his friends\' hits land harder.',
-    xpText:'Victories: every battle won is one, an elite two, a boss three. They become XP at a Camp.',
+    xpText:'Battles by difficulty (Easy 30, Medium 60, Hard 90, a boss 120 XP) and deeds on the road (10 to 30). Every 80 XP is a level, gained at a Camp.',
     trait:'His Arcane Staff never misses but never crits. Force Adept from level 2: his pushes and pulls move foes 1 extra square. Reaction, Repelling Ward: when a foe steps up beside him, he pushes it 1 square away.',
     pro:'he'},
   cleric:{name:'Sela',rival:'Ilsa',title:'Cleric',role:'Support',hp:32,grow:5,hd:8,speed:3,attrs:{M:3,F:1,W:2,P:3},prime:'P',second:'M',
     spec:'Healing the sick, spirits and the undead, shrines and holy relics, telling truth from lies.',start:['brand','healWord','medic'],
     style:'The favour engine: blesses her friends, exposes foes for them and mends their wounds.',
-    xpText:'Victories: every battle won is one, an elite two, a boss three. They become XP at a Camp.',
+    xpText:'Battles by difficulty (Easy 30, Medium 60, Hard 90, a boss 120 XP) and deeds on the road (10 to 30). Every 80 XP is a level, gained at a Camp.',
     trait:'Medium armour and a shield: Defend rolls a d6 with advantage. Mace or sling. Channel Divinity from level 2: her heals add her Presence and her attacks deal radiant damage. Reaction, Warding Word: when a foe hits an ally within 3 for 4 or more, she halves it.',
     pro:'she'},
 };
@@ -437,8 +438,10 @@ const GLOSS={
   surge:{name:'Boss Surge',forms:['boss surges','boss surge'],text:'A boss unleashes a special action at the start of its turn on rounds 1, 3 and 5.'},
   threat:{name:'Malice',forms:['malice','threats','threat'],text:'Foes gain Malice every round: the round number, plus 1 for each hero who is Down (shown in the top bar). When they have enough, they unleash their next threat. Harder battles and later regions unlock nastier threats.'},
   zone:{name:'Zone',forms:['zone'],text:'A lingering area. It affects foes that start their turn inside it.'},
-  victory:{name:'Victories',forms:['victories','victory'],text:'The party\'s progress since its last Camp: a battle won is 1, an elite 2, a boss 3, a dramatic task or negotiation 1. Every hero starts a battle with momentum equal to the Victories (up to 3). At a Camp they become experience: every 2 XP is a level.'},
-  camp:{name:'Camp',forms:['camps','camp'],text:'A safe stop on the map. Every hero heals with their remaining hit dice, refills them, removes a Wound, and turns the party\'s Victories into experience and levels. Each level brings a power draft. Then spend gold on downtime: tend wounds or retrain a power.'},
+  victory:{name:'Victories',forms:['victories','victory'],text:'The party\'s wins since its last Camp: a battle is 1, an elite 2, a boss 3, a dramatic task or negotiation 1. Every hero starts a battle with momentum equal to the Victories (up to 3). A Camp resets them.'},
+  xp:{name:'Experience (XP)',forms:['XP','experience'],text:'Encounters give XP by difficulty, as in PF2e: Easy 30, Medium 60, Hard 90, Extreme (a boss) 120. Deeds on the road give 10 (a check), 20 or 30 (a dramatic task or negotiation). The party banks it, and at a Camp every hero gains it: every 80 XP is a level, up to 10.'},
+  difficulty:{name:'Difficulty',forms:['difficulty'],text:'How big an encounter is, as an XP budget for four heroes: Easy 30, Medium 60, Hard 90, Extreme 120. A foe as strong as one hero is worth 30 XP. With fewer heroes the budget shrinks by a quarter each.'},
+  camp:{name:'Camp',forms:['camps','camp'],text:'A safe stop on the map. Every hero heals with their remaining hit dice, refills them, removes a Wound, and turns the XP banked since the last Camp into levels. Each level brings a power draft. Then spend gold on downtime: tend wounds or retrain a power.'},
   hitdice:{name:'Hit Dice',forms:['hit dice','hit die'],text:'Each hero has a pool of hit dice (their class\'s die, level + 1 of them). Out of battle, spend one to heal one roll of it (exploding) plus Strength. Second Wind spends one in battle. A Camp refills the pool.'},
   wound:{name:'Wounds',forms:['wounds','wound'],text:'A hero who goes Down gains a Wound: -1 to the total of every attack, save and check (up to -3). A hero who goes Down with 3 Wounds already dies. Each Camp removes one, and gold can buy another.'},
   down:{name:'Down',forms:['is down','are down','goes down','go down','downed'],text:'A hero at 0 health is Down: they can\'t act, foes ignore them, and they gain a Wound. An ally beside them can Help them up, and healing stands them up too. After a won battle Down heroes stand up with 1 health. If every hero is Down, the battle is lost.'},

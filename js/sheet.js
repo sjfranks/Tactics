@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — character sheets and power cards
+   ROGUE TACTICS — character sheets and power cards
    Laid out in sections instead of one paragraph: header, momentum,
    attributes, specialties, trait, conditions, powers.
    ===================================================================== */

@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — battle terrain
+   ROGUE TACTICS — battle terrain
    Painted straight into device pixels (64 per portrait tile, 32 per landscape tile) so the ground carries the
    same fine detail as the sprites: blades of grass, flowers, worn dirt, pebbles, banks, cliffs and brambles.
    ===================================================================== */

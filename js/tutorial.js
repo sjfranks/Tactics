@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — the tutorial, in the manner of the Fire Emblem tutorials:
+   ROGUE TACTICS — the tutorial, in the manner of the Fire Emblem tutorials:
    a scripted first battle. Characters talk in a text box (tap to continue); when it is time to act,
    a pointer shows exactly what to tap and only that action is allowed. Between steps the battle
    plays out normally.
@@ -202,7 +202,7 @@ function startTutorial(){
   beginBattleScreen(o=>{
     try{localStorage.setItem(TUT_KEY,'1');}catch(e){}
     if(o==='win')openModal(dialog({title:'TUTORIAL COMPLETE',closable:false,w:210,
-      body:'Well fought! Your journey begins with all four heroes, and each has a job in the combo game: {g:Brakka} throws foes off balance and makes them fight her, {g:Orin} does it to whole groups, {g:Sela} blesses friends and exposes foes, and {g:Vex} cashes it all in.\n\nEvery battle won earns {g:gold} and a {g:Victory}: heroes start battles with momentum equal to the Victories, and at a {g:Camp} they become levels and new powers. Elites and bosses give every hero a {g:power draft}. Spend {g:hit dice} to heal between battles, and watch for {g:Wounds}. Tap {g:EQUIP} to change weapons and relics, and to heal.',
+      body:'Well fought! Your journey begins with all four heroes, and each has a job in the combo game: {g:Brakka} throws foes off balance and makes them fight her, {g:Orin} does it to whole groups, {g:Sela} blesses friends and exposes foes, and {g:Vex} cashes it all in.\n\nEvery battle won earns {g:gold}, {g:XP} by its difficulty (Easy 30, Medium 60, Hard 90) and a {g:Victory}, which gives heroes momentum at the start of the next fight. At a {g:Camp}, XP becomes levels and new powers. Elites and bosses give every hero a {g:power draft}. Spend {g:hit dice} to heal between battles, and watch for {g:Wounds}. Tap {g:EQUIP} to change weapons and relics, and to heal.',
       buttons:[{l:'BEGIN JOURNEY',hot:true,fn:()=>{G=null;newRun();go(MAP_SCREEN);}}]}));
     else openModal(dialog({title:'DEFEAT',closable:false,body:'Brakka falls. Try again, or skip ahead to the journey.',buttons:[{l:'RETRY',hot:true,fn:startTutorial},{l:'SKIP',fn:()=>{G=null;newRun();go(MAP_SCREEN);}}]}));
   });

@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   EMBERWATCH — the damage dice, thrown in 3D.
+   ROGUE TACTICS — the damage dice, thrown in 3D.
    Like the Dice Roller plugin for Obsidian: numbered dice (d4, d6, d8, d10, d12) are thrown onto the board with
    real physics (cannon.js) and drawn with three.js. The game has already rolled the numbers, so each throw is
    simulated first, then the die is renumbered so the face that ends up on top shows the rolled number, and

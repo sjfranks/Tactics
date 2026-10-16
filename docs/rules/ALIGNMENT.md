@@ -1,6 +1,6 @@
 # Aligning the Code with the Rule Books
 
-The game in this repo (Emberwatch Tactics) already shares a lot with the rule books: a 6×8 board, three actions, weapon-style damage dice with exploding crits, advantage that stacks to 3, set-ups and combos, momentum, forced movement, hazards, missions, foe roles and a shared foe resource. The differences are in the dice details, defence, saves, health, the run layer and the content.
+The game in this repo (Rogue Tactics, formerly Emberwatch Tactics) already shares a lot with the rule books: a 6×8 board, three actions, weapon-style damage dice with exploding crits, advantage that stacks to 3, set-ups and combos, momentum, forced movement, hazards, missions, foe roles and a shared foe resource. The differences are in the dice details, defence, saves, health, the run layer and the content.
 
 This file lists every difference and the order in which they will be ported. Each phase is one pull request, and the balance simulator (`node tools/sim.js`) is run before and after each one.
 
@@ -22,8 +22,9 @@ This file lists every difference and the order in which they will be ported. Eac
   - Tuning: with the Heroes book's higher hero health, regions 1 and 2 were easy and the dragon a wall, so foe budgets per region are `actMul [1.1, 1.05, .65]` and boss health per region `bossAct [1.2, 1.25, .8]`. Simulator (150 runs, seed 7): 31% of journeys won, against 20% after Phase 1.
 
 - **Phase 3 (run layer): done.** Victories (battle 1, elite 2, boss 3, task or negotiation 1) set each hero's starting momentum (up to 3) and become XP at a Camp. Camps spend and refill hit dice, remove a Wound and level heroes up, with Tend Wounds, Train and Hand Over in downtime. Hit dice heal out of battle (Catch Breath) and pay for Second Wind. Going Down gives a Wound; a hero Downed with 3 Wounds dies. Power slots (level + 3, up to 8) and drafts (level-ups, elites with an Uncommon, bosses with a Rare, treasure, events, shop by rarity), with skip and reroll. The smith tempers, hones (light weapons to a d2) and inscribes runes. Events use attribute checks with Help, class options and a safe option; there are dramatic tasks, negotiations and d6 road events. Malice now comes in at the book's rate.
-  - Deviations: **2 XP a level** (the book's 4 is TBC; the map gives about 7 Victories a region, and 2 keeps heroes on the book's level bands: they reach the bosses at about 3, 7 and 9.5). After a boss, the new region opens with a Camp. Help is automatic on single checks. Level-ups take the average hit-die roll. Not yet: healing potions and Provisions (the shop sells Bandages and Rations, +2 hit dice, instead), Haggle, Prayer and favours, selling items to the shop, the fate-token omen (an Omen gives +1 momentum in the boss fight instead).
+  - Deviations: After a boss, the new region opens with a Camp. Help is automatic on single checks. Level-ups take the average hit-die roll. Not yet: healing potions and Provisions (the shop sells Bandages and Rations, +2 hit dice, instead), Haggle, Prayer and favours, selling items to the shop, the fate-token omen (an Omen gives +1 momentum in the boss fight instead).
   - Simulator (150 runs, seed 7): 27% of journeys won; 0.2 heroes die per run.
+- **XP retune (after Phase 4):** XP now follows PF2e's encounter builder at three quarters: encounters are Easy 30, Medium 60, Hard 90 or Extreme 120 XP (also their foe budgets for four heroes, a quarter less per missing hero), deeds give 10 to 30, and 80 XP is a level at a Camp. Heroes reach the bosses at about level 3, 7 and 9.4. Simulator (150 runs, seed 7): 21% of journeys won.
 - **Phase 4 (words and teaching): done.** The glossary covers the 1e rules (86 entries: Victories, Camps, hit dice, Wounds, drafts, slots, rarity, resonance, runes, the smith, checks, tasks, negotiations, damage types, Terrifying, Malice), How to Play is rewritten, the tutorial teaches Malice and the new journey, the compendium lists general powers, weapons and runes, and the old rulebook is archived.
 
 ## Differences, system by system
@@ -107,7 +108,7 @@ This file lists every difference and the order in which they will be ported. Eac
 | Tags and resonance | — | Six tags; party resonance at 4 and 8 | 2 |
 | Weapons | Tiered weapons with bonuses (`dmg`, `acc`, `keen`, `burn` …) | Weapon die + group; **smith**: temper, hone (to d2), runes in 1–2 sockets | 2–3 |
 | Momentum at the start | 0 | **Victories** since the last Camp, up to 3 (cap 5 with powers) | 3 |
-| XP | Earned per deed by role (`ROLE_XP`) | **Victories become XP at a Camp**; 4 XP a level; cap 10 | 3 |
+| XP | Earned per deed by role (`ROLE_XP`) | **XP by encounter difficulty** (Easy 30, Medium 60, Hard 90, Extreme 120) and deeds, taken at a Camp; 80 XP a level; cap 10 | 3 |
 
 ## Features the code has that the books do not
 
@@ -122,5 +123,5 @@ These stay unless decided otherwise. Each needs a line in the books or a decisio
 ## Open decisions for the designer
 
 1. Keep high ground and difficult terrain? (Proposed: keep, and add them to Core 3.1.)
-2. The game's name: *Emberwatch Tactics* in the code, *Rogue Tactics* in the books.
+2. ~~The game's name.~~ Decided: **Rogue Tactics**.
 3. Foe numbers: Phase 1 keeps today's foe HP and damage so the simulator can measure the rules change by itself; Phase 2 moves foes to the Bestiary's numbers.
