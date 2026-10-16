@@ -38,6 +38,7 @@ function stripH(){return 26;}
 /* ---------------- rewards ---------------- */
 const REW={sel:null,offers:null};
 function rewardCardH(s,o,w){
+  if(o.grow)return 34+richH(GROW[o.grow].desc(heroOf(o.cls)),w-40);
   if(s==='draft'||o.id){const p=POWERS[o.id];const u=heroSheetUnit(heroOf(o.cls));return Math.max(40,powerBlockH(p,u,w-34)+18);}
   if(o.draft)return 40;
   if(o.weapon)return 28+richH(weaponText(weaponData(o.weapon)),w-12)+6;
@@ -50,10 +51,9 @@ function drawSummary(P){
   panel(x,y,w,ph,{});
   scrollArea('sum',x+4,y+4,w-8,ph-8,REW.sumH||100,(yy,clip)=>{let cy=yy+2;const tw=w-16;
     if(P.gold){const g=`+${P.gold} gold`;coin(x+6,cy);text(g,x+16,cy,C.gold);cy+=10;}
-    if(P.xp)cy+=rich(`{b:+${P.xp} XP} for a${P.diff==='easy'||P.diff==='extreme'?'n':''} ${(DIFF[P.diff]||DIFF.medium).name} battle (${RUN.xpBank} XP waiting). XP becomes levels at a Camp: every ${TUNE.xpLvl} XP is a level.`,x+6,cy,tw,C.parch,{clip})+4;
     cy+=rich(`{g:+${P.vic} ${P.vic>1?'Victories':'Victory'}} (${RUN.vic} since the last Camp). Every hero starts a battle with momentum equal to the Victories, up to 3.`,x+6,cy,tw,C.parch,{clip})+4;
     for(const n of P.notes||[])cy+=rich(n,x+6,cy,tw,C.parch,{clip})+3;
-    if(P.who&&P.who.length)cy+=rich(`{g:Power drafts:} every hero picks 1 of 3 powers${P.kind==='boss'?', with at least one Rare':', with at least one Uncommon'}.`,x+6,cy,tw,C.parch,{clip})+3;
+    if(P.who&&P.who.length)cy+=rich(`{g:${P.who.length>1?P.who.length+' rewards':'A reward'}:} pick 1 of 3 cards${P.who.length>1?', twice':''}: a power for one hero, or growth${P.kind==='boss'?', with at least one Rare power':P.kind==='elite'?', with at least one Uncommon power':''}.`,x+6,cy,tw,C.parch,{clip})+3;
     cy+=rich('{m:Out of battle, spend hit dice to heal (EQUIP, then HEAL). A Camp refills them.}',x+6,cy,tw,C.parch,{clip})+3;
     REW.sumH=cy-yy+4;});
   partyStrip(SH-stripH());
@@ -64,12 +64,14 @@ const REWARD_SCREEN={draw(){
   const P=RUN.pending;const s=nextRewardStep();if(!s){finishRewards();return;}
   button(SW-52,4,48,13,'EQUIP',()=>openEquip(),{});
   if(s==='summary'){drawSummary(P);return;}
-  const head=P.kind==='treasure'?'TREASURE':P.kind==='camp'?'CAMP':P.kind==='event'?'FORTUNE':P.kind==='boss'?'TRIUMPH':'VICTORY';
+  const head=P.kind==='boon'?'A GIFT':P.kind==='treasure'?'TREASURE':P.kind==='camp'?'CAMP':P.kind==='event'?'FORTUNE':P.kind==='boss'?'TRIUMPH':'VICTORY';
   text(head,SW/2,6,C.gold,{al:'c',sc:2,ol:C.edge});
   let ty=22;
   const d=s==='draft'?draftHero():null;
-  if(d){const h=d.h;text(`${heroName(h.cls).toUpperCase()}'S POWER DRAFT`,SW/2,ty,C.gold,{al:'c'});ty+=8;
-    text(fitText(`Level ${h.lvl} · slots ${h.powers.length} of ${slotsOf(h)}${h.powers.length>=slotsOf(h)?' (full: learning replaces one)':''}`,SW-8),SW/2,ty,C.mute,{al:'c'});ty+=10;}
+  if(d&&d.w.party){text(P.who.length>1?`CHOOSE A REWARD (${P.who.length} LEFT)`:'CHOOSE A REWARD',SW/2,ty,C.gold,{al:'c'});ty+=8;
+    text(fitText('A power for one hero, or growth.',SW-8),SW/2,ty,C.mute,{al:'c'});ty+=10;}
+  else if(d){const h=d.h;text(`${heroName(h.cls).toUpperCase()}'S POWER DRAFT`,SW/2,ty,C.gold,{al:'c'});ty+=8;
+    text(fitText(`Slots ${h.powers.length} of ${slotsOf(h)}${h.powers.length>=slotsOf(h)?' (full: learning replaces one)':''}`,SW-8),SW/2,ty,C.mute,{al:'c'});ty+=10;}
   else{const title=s==='weapon'?'CHOOSE A WEAPON':s==='loot'?'CHOOSE YOUR SPOILS':'CHOOSE A RELIC';ty+=2;secHead(title,6,ty,SW-12);ty+=12;}
   const offers=P.offers;const w=PORT?SW-12:Math.floor((SW-12-(offers.length-1)*4)/offers.length);
   const bottom=SH-33;
@@ -77,18 +79,21 @@ const REWARD_SCREEN={draw(){
   if(REW.offers!==offers){REW.offers=offers;REW.sel=null;}
   const done=()=>{if(P.note){toast(P.note);P.note=null;}if(!nextRewardStep())finishRewards();};
   const take=o=>{
-    if(s==='draft'){const h=heroOf(o.cls);if(h.powers.length>=slotsOf(h)){askDiscard(h,drop=>{sfx('learn');REW.sel=null;takeReward(o,drop);done();});return;}sfx('learn');}
+    if(s==='draft'&&!o.grow){const h=heroOf(o.cls);if(h.powers.length>=slotsOf(h)){askDiscard(h,drop=>{sfx('learn');REW.sel=null;takeReward(o,drop);done();});return;}sfx('learn');}
     else sfx('chest');
     REW.sel=null;takeReward(o);done();};
   const drawCard=(o,i,x,y,cw,clip)=>{const h=rewardCardH(s,o,cw);const on=REW.sel===i;
     panel(x,y,cw,h,{fill:on?'#2e2410':'#1e1612',rim:on?C.gold:undefined});
     if(on){const a=.3+.25*Math.sin(NOW/180);ctx.globalAlpha=a;frame(x-1,y-1,cw+2,h+2,C.gold);ctx.globalAlpha=1;}
     if(!clip||(y+h>=clip[0]&&y<=clip[1]))hit(x,Math.max(y,clip?clip[0]:y),cw,clip?Math.min(y+h,clip[1])-Math.max(y,clip[0]):h,{fn:()=>{REW.sel=i;sfx('select');},id:'offer'+i});
-    if(o.id){const p=POWERS[o.id];const u=heroSheetUnit(heroOf(o.cls));
+    if(o.grow){const h=heroOf(o.cls),u=heroSheetUnit(h),G0=GROW[o.grow];portrait(u,x+5,y+5,22);
+      inset(x+30,y+5,20,20,'#100b08');ctx.drawImage(icon16(o.grow==='vigor'?'heart':'star'),x+32,y+7);
+      text(`${G0.name} · ${heroName(o.cls)}`,x+54,y+7,'#8ad858');text('Growth',x+54,y+15,C.mute);rich(G0.desc(h),x+30,y+28,cw-36,C.parch,{clip});}
+    else if(o.id){const p=POWERS[o.id];const u=heroSheetUnit(heroOf(o.cls));
       portrait(u,x+5,y+5,22);text(p.c==='gen'?'GENERAL':CLASSES[o.cls].title.toUpperCase(),x+16,y+29,C.mute,{al:'c'});
       const rc=p.rar==='R'?'#ffb040':p.rar==='U'?'#8ad0ff':C.mute;text({C:'Common',U:'Uncom.',R:'Rare'}[p.rar]||'',x+16,y+37,rc,{al:'c'});
       powerBlock(p,u,x+30,y+5,cw-34,{bare:true,clip});}
-    else if(o.draft){inset(x+5,y+5,20,20,'#100b08');ctx.drawImage(icon16('star'),x+7,y+7);text('Power draft',x+30,y+7,C.gold);text(fitText(`${heroName(o.draft)} picks 1 of 3 powers.`,cw-36),x+30,y+15,C.mute);}
+    else if(o.draft){inset(x+5,y+5,20,20,'#100b08');ctx.drawImage(icon16('star'),x+7,y+7);text('Power draft',x+30,y+7,C.gold);text(fitText('Pick 1 of 3 reward cards.',cw-36),x+30,y+15,C.mute);}
     else if(o.weapon){const W=weaponData(o.weapon);inset(x+5,y+5,20,20,'#100b08');ctx.drawImage(weaponArt(o.weapon),x+7,y+7);text(W.name,x+30,y+7,C.gold);text(`${CLASSES[W.cls].name}'s weapon · tier ${W.tier}`,x+30,y+15,C.mute);rich(weaponText(W),x+6,y+28,cw-12,C.parch,{clip});}
     else{inset(x+5,y+5,20,20,'#100b08');ctx.drawImage(relicArt(o),x+7,y+7);text(RELICS[o].name,x+30,y+7,C.gold);text('Relic · '+(RUN.gear.length<2?'equips now':'goes in your pack'),x+30,y+15,C.mute);rich(RELICS[o].desc,x+6,y+28,cw-12,C.parch,{clip});}
     return h;};
@@ -99,7 +104,7 @@ const REWARD_SCREEN={draw(){
   if(s==='draft'){
     button(4,SH-19,58,15,`SKIP +${SKIP_PAY}`,()=>{REW.sel=null;takeReward(null);done();},{});
     button(66,SH-19,62,15,P.rerolled?'REROLLED':`REROLL ${REROLL_COST}`,()=>{if(rerollDraft()){REW.sel=null;sfx('dice');}},{disabled:P.rerolled||RUN.gold<REROLL_COST});
-    button(SW-64,SH-19,60,15,'LEARN',()=>{if(sel!=null)take(sel);},{hot:true,disabled:sel==null,glow:sel!=null});
+    button(SW-64,SH-19,60,15,sel&&sel.grow?'TAKE':'LEARN',()=>{if(sel!=null)take(sel);},{hot:true,disabled:sel==null,glow:sel!=null});
   }else{
     button(SW/2-64,SH-19,56,15,'SKIP',()=>{REW.sel=null;takeReward(null);done();},{});
     button(SW/2+2,SH-19,62,15,'TAKE',()=>{if(sel!=null)take(sel);},{hot:true,disabled:sel==null,glow:sel!=null});
@@ -127,8 +132,7 @@ const REST_SCREEN={enter(){scrollTo('camp',0);},draw(){
   scrollArea('camp',px+4,py+4,pw-8,bottom-py-8,C0.h||300,(yy,clip)=>{let y=yy+2;const tx=px+8,tw=pw-18;
     y+=rich(C0.newAct?'A new land. Before you set out, the company makes camp.':'The company makes camp: every hero heals with their remaining hit dice, refills them and shakes off a Wound.',tx,y,tw,C.parch,{clip})+4;
     for(const l of C0.lines){const b=[];if(l.healed)b.push(`heals ${l.healed}`);b.push(`hit dice ${heroOf(l.cls).hd}`);if(l.wound)b.push('1 Wound healed');y+=rich(`{g:${heroName(l.cls)}:} ${b.join(', ')}.`,tx,y,tw,C.parch,{clip})+1;}
-    y+=4;y+=rich(C0.xp?`{b:+${C0.xp} XP} for every hero from the battles and deeds since the last Camp (every ${TUNE.xpLvl} XP is a level).`:'{m:No XP since the last Camp.}',tx,y,tw,C.parch,{clip})+3;
-    for(const L of C0.leveled){y+=rich(`{g:${heroName(L.cls)} reaches level ${L.lvl1}!} ${levelGains(L.cls,L.lvl0,L.lvl1).join(', ')}.`,tx,y,tw,C.parch,{clip})+2;}
+    y+=4;y+=rich('{m:The Victories since the last Camp reset to 0.}',tx,y,tw,C.parch,{clip})+3;
     if(C0.drafts.length)y+=rich(`{g:${C0.drafts.length} power draft${C0.drafts.length>1?'s':''}} when you break camp.`,tx,y,tw,C.parch,{clip})+3;
     y+=4;secHead('DOWNTIME',tx,y,tw);y+=12;
     const wounded=living().filter(h=>h.wounds>0&&!C0.tended[h.cls]);

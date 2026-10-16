@@ -1,13 +1,13 @@
 ---
 title: Rogue Tactics 1e — Bestiary
-version: 0.22
+version: 0.23
 book: 3 of 4 (Core Rules · Heroes · Bestiary)
 tags: [game-design, rulebook, roguelite, tactics, monsters]
 ---
 
 # Rogue Tactics 1e — Bestiary
 
-> v 0.22. Book 3 of 3. The foes of the three regions, their roles, three bosses, and how to build an encounter. Rules are in [Core Rules](core-rules.md) and classes, powers and weapon upgrades in [Heroes](heroes.md). **Every number in this book is a first guess (TBC)** and needs playtesting.
+> v 0.23. Book 3 of 3. The foes of the three regions, their roles, three bosses, and how to build an encounter. Rules are in [Core Rules](core-rules.md) and classes, powers and weapon upgrades in [Heroes](heroes.md). **Every number in this book is a first guess (TBC)** and needs playtesting.
 
 ---
 
@@ -101,7 +101,7 @@ The foes share one pool of **Malice (◆)**.
 |---|---|---|---|
 | **Bloodlust** | 3 | always | Every foe has **+1 advantage** on its attacks this round. |
 | **Eruption** | 5 | elite and boss battles; every battle from region II | The foes mark **3 tiles** under heroes. At the end of the round, each creature on a marked tile makes a **DEX save** or suffers the region's hazard (fire, acid or lava damage, ignoring DEF). |
-| **Reinforcements** | 7 | region II and III | A horde of four minions pours in from the edges. |
+| **Reinforcements** | 7 | region II and III | A horde of minions (three plus the region number) pours in from the edges. In a **boss** battle they stop coming once **four foes** are on the board, so a long boss fight does not snowball. |
 | **Dark Rite** | 6 | region III | Every foe gains a **shield of 5**. |
 
 > *TBC:* the Malice gain (round number plus Downs) is a rough match for Draw Steel's Malice. It reaches 3 by round 2 and 6 by round 3, so the first threat comes in round 2.
@@ -117,7 +117,7 @@ The foes share one pool of **Malice (◆)**.
 
 ---
 
-## Region I: Greenmarch (levels 1 to 3)
+## Region I: Greenmarch
 
 Bandits, goblins and beasts of the marsh and forest. Hazards: snares, webs. Hazard damage is 3 + region.
 
@@ -165,7 +165,7 @@ Bandits, goblins and beasts of the marsh and forest. Hazards: snares, webs. Haza
 
 ---
 
-## Region II: Barrow Moors (levels 4 to 6)
+## Region II: Barrow Moors
 
 A land of barrows, bones and spiders. Hazards: webs, acid pools. Undead are weak to radiant.
 
@@ -218,7 +218,7 @@ A land of barrows, bones and spiders. Hazards: webs, acid pools. Undead are weak
 
 ---
 
-## Region III: Ashen Waste (levels 7 to 9)
+## Region III: Ashen Waste
 
 A land of fire, ash and stone. Hazards: fire, lava. Fireproof foes are immune to fire.
 
@@ -254,7 +254,7 @@ A land of fire, ash and stone. Hazards: fire, lava. Fireproof foes are immune to
 > **Ashen Dragon** · *Boss* · *Artillery* · Level 9
 > **HP** 200 · **SPD** 4 · **DEF** d8 · **Steadfast** 3 · **Terrifying** 3
 > **Initiative** d10 · **Saves** STR +, DEX +, INT − · **Immune** fire · **Weak** cold
-> **Attacks twice** per turn: *Rending Claws* d12+3, range 1; *Tail Lash* d8+3, range 2, push 2; *Fire Breath* d10+3 fire, range 3, area 3×3; leaves fire (**◆3**).
+> **Attacks twice** per turn: *Rending Claws* d10+3, range 1; *Tail Lash* d8+3, range 2, push 2; *Fire Breath* d10+3 fire, range 3, area 3×3; leaves fire (**◆3**).
 > **Traits** *Large. Fireproof.*
 > **Phase 2 (bloodied):** *Fire Breath* costs **◆2**, and the dragon leaves a fire trail when it flies.
 >
@@ -271,19 +271,19 @@ A land of fire, ash and stone. Hazards: fire, lava. Fireproof foes are immune to
 
 ### Budgets
 
-Encounters are built like PF2e's, at three quarters of its numbers. An encounter's **difficulty** is an **XP budget** for four heroes:
+Encounters are built like PF2e's. An encounter's **difficulty** is a **budget** for four heroes:
 
-| Difficulty | XP budget | Used for |
+| Difficulty | Budget | Used for |
 |---|---|---|
 | **Easy** | 30 | The first battle of a region, a quarter of other battles, event fights and road ambushes |
 | **Medium** | 60 | Most battles |
 | **Hard** | 90 | Elite battles (the elite foe is bought from the budget) |
 | **Extreme** | 120 | Bosses (the boss takes most of it; the rest buys its escort, no foe costing 5 or more) |
 
-- **Foe XP.** A foe as strong as one hero at the party's level is worth **30 XP**, so a Medium fight is two of them, or a crowd of weaker ones. A foe's **cost** turns into XP against the party: a Medium budget buys foes costing *party strength* (4 × (4 + 2 × the expected level)) × 0.4, scaled by region (1.1, 1.05, 0.65). As the party levels up, the same foe is worth less.
-- **Party size.** Each hero more or fewer than four adds or removes a quarter of the budget (PF2e's character adjustment). XP rewards do not change.
+- **Foe value.** A foe as strong as one hero is worth **30**, so a Medium fight is two of them, or a crowd of weaker ones. Heroes no longer level up (Core 4.2), so the party's expected strength at each stop stands in for its level: *party strength* = 4 × (4 + 0.85 × (1 + 0.75 × the stop's depth)). A Medium budget buys foes costing *party strength* × 0.4.
+- **Tuning by region** (from the simulator): ordinary battles × 2, 2.2 and 1.25 in regions I, II and III; elites × 1.4, 1.35 and 0.95; boss health × 1.2, 1.45 and 0.3. Foe health rises 1.5% and damage 0.08 per stop of depth.
+- **Party size.** Each hero more or fewer than four adds or removes a quarter of the budget (PF2e's character adjustment).
 - **Up to 12 creatures** per battle, drawn at random from the region's pool.
-- **Reward.** Winning gives every hero the encounter's XP (Core 4.2), however many foes it ended up with.
 
 *TBC: tune with playtesting. Missions with reinforcements or other goals spend a smaller share of the budget on the foes present at the start (below).*
 
@@ -296,7 +296,7 @@ A battle can have a **mission** other than "defeat every foe". Normal battles dr
 | **Rout** | Defeat every foe. | ×1 |
 | **Ambush** | The heroes are surrounded. Defeat every foe. | ×1.1 |
 | **Hold the Shrine** | End 3 rounds with a hero on the shrine and no foe on it. More foes arrive. | ×0.7 |
-| **Rescue** | Reach the caged captive, then lead them to the bottom edge. If they fall, you fail. | ×0.8 |
+| **Rescue** | Reach the caged captive (a hero beside the cage frees them), then lead them to the bottom edge. The freed captive takes its own turn in the order: move it up to SPD 3, like a hero with only a Move. If they fall, you fail. | ×0.8 |
 | **Plunder** | Grab all 3 chests (or defeat every foe). All 3 earns bonus gold. | ×0.9 |
 | **Survive** | Hold out for 5 rounds against reinforcements. | ×0.6 |
 | **Assassinate** | Slay the chief. Its allies fight harder near it. | ×0.8 |
@@ -337,7 +337,7 @@ Hazard rules and damage are in Core 3.1. Place **one to three hazard tiles** on 
 
 ### Rewards
 
-Rewards follow Core 4.1: **battles** give gold, XP by difficulty and 1 Victory; **elite battles** give gold, 90 XP, 2 Victories, a power draft and a weapon or relic; **bosses** give gold, 3 Victories, a power draft with a Rare, and a relic.
+Rewards follow Core 4.1 and 4.2: **battles** give gold, 1 Victory and a reward pick; **elite battles** give gold, 2 Victories, two reward picks (Uncommon or better) and a weapon or relic; **bosses** give gold, 3 Victories, two reward picks with a Rare, and a relic.
 
 ---
 

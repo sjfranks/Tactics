@@ -63,7 +63,7 @@ function powerText(p,u){
   bits.push(p.cost?`${p.cost} momentum`:'No cost');
   let s=bits.join(' · ')+(p.free?' · free action':'')+'.\n';
   if(p.dmg&&!p.noDmg)s+=`Damage {w:${diceText(powDice(p,u))}${ab!=null?'+'+(ab+(u.side==='hero'&&hasR('whetstone')?1:0)+(u.wpn?wBonus(u,p,'dmg')+wBonus(u,p,'acc'):0)):''}}${ab==null&&p.a?' + '+ATTR[ka]:''}${p.hits>1?` x${p.hits}`:''}${p.radiant?' radiant':''}. `;
-  if(p.heal)s+=`Heals {h:${p.healDie?'d'+(HD[(u&&u.cls)||p.c]||8):p.heal}${u&&u.cls==='cleric'&&(u.lvl||1)>=2?'+'+u.attrs.P:''}}. `;
+  if(p.heal)s+=`Heals {h:${p.healDie?'d'+(HD[(u&&u.cls)||p.c]||8):p.heal}${u&&u.cls==='cleric'&&feat2(u)?'+'+u.attrs.P:''}}. `;
   s+=p.desc;
   const et=effText(p.eff);if(et&&!/on a hit|on a crit/i.test(p.desc)&&!Object.keys(p.eff).some(k=>p.desc.toLowerCase().includes(EFF_NAME[k])))s+=' '+et;
   return s;
@@ -112,7 +112,7 @@ function unitBody(u,full){
   }
   return s;
 }
-function unitSub(u){return u.kind==='pc'?`Lv ${u.lvl} ${CLASSES[u.cls].title}${u.rival?' (rival)':''}`:u.kind==='mon'?mon(u).role+(u.leader?' · chief':''):'Ally';}
+function unitSub(u){return u.kind==='pc'?`${u.rival?'Lv '+u.lvl+' ':''}${CLASSES[u.cls].title}${u.rival?' (rival)':''}`:u.kind==='mon'?mon(u).role+(u.leader?' · chief':''):'Ally';}
 
 /* ---------------- effects: particles, shake, flashes ---------------- */
 const PARTS=[];let PLAST=0;
@@ -550,7 +550,52 @@ function drawBattle(){
   if(PORT&&!B.busy)drawForecastOverlay();
   if(G.tut)drawTutHint();
   if(B.banner)drawBanner();
+  if(B.roll)drawRollCard();
 }
+/* ---------------- shown rolls ----------------
+   Each roll the engine queues (ROLLQ, see showRoll in engine.js) appears as a card over the top of the board: who rolls
+   and why, the dice (the one that counts lit, dice lost to advantage or disadvantage dimmed, explosions gold, DEF dice
+   blue), the sum and what it means. The dice tumble briefly, then the card holds long enough to read. Tap to skip. */
+const ROLL_COL={key:['#f0e8d8','#2a1a14'],drop:['#5a5048','#a89888'],boom:['#ffd070','#3a1a04'],def:['#9cc4f0','#0e2038']};
+function rollCardLayout(o,w){
+  const sub=o.sub?wrap(o.sub,w-10):[],form=o.formula?wrap(o.formula,w-10):[],ver=wrap(o.verdict||'',w-10);
+  const labels=o.dice.some(d=>d.l);
+  return {sub,form,ver,labels,h:6+9+sub.length*7+3+15+(labels?7:0)+form.length*7+ver.length*8+4};
+}
+function drawRollCard(){
+  const o=B.roll,el=NOW-o.t0;if(el>o.dur){B.roll=null;return;}
+  const w=Math.min(SW-8,PORT?COLS*TS*BK-4:210),x=clamp(Math.round(OX+COLS*TS*BK/2-w/2),4,SW-4-w),y=OY+2;
+  const L=o.L||(o.L=rollCardLayout(o,w));
+  ctx.globalAlpha=Math.min(1,el/90,(o.dur-el)/160);
+  const edge=o.side==='hero'?'#6a9ae0':o.side==='enemy'?'#c05a40':C.rim;
+  rect(x,y,w,L.h,'rgba(14,9,6,.93)');frame(x,y,w,L.h,edge);rect(x+1,y+1,w-2,1,'rgba(255,255,255,.08)');
+  let cy=y+4;
+  text(fitText(o.title,w-10),x+5,cy,C.gold);cy+=9;
+  for(const l of L.sub){text(l,x+5,cy,C.mute);cy+=7;}cy+=3;
+  const n=o.dice.length,step=Math.min(L.labels?30:16,Math.floor((w-10)/Math.max(1,n))),tum=el<o.tum;
+  o.dice.forEach((d,i)=>{const dx=x+5+i*step,c=ROLL_COL[d.k]||ROLL_COL.key,v=tum?1+Math.floor(Math.random()*d.s):d.v;
+    const jy=tum?Math.round(Math.sin(NOW/40+i)*2):0;
+    rect(dx,cy+jy,13,13,C.edge);rect(dx+1,cy+1+jy,11,11,tum?'#d8ccb8':c[0]);rect(dx+1,cy+1+jy,11,1,'rgba(255,255,255,.5)');
+    text(String(v),dx+7,cy+4+jy,tum?'#2a1a14':c[1],{al:'c',sh:false});
+    if(!tum&&d.k==='key'&&n>1)frame(dx-1,cy-1,15,15,'#ffe070');
+    if(L.labels&&d.l)text(fitText(d.l,step-1),dx+7,cy+15,C.mute,{al:'c'});
+    else if(!L.labels&&i===0&&step>=16&&n<=8)text(`d${d.s}`,x+5+n*step+3,cy+4,C.mute);});
+  cy+=15+(L.labels?7:0);
+  if(!tum){for(const l of L.form){text(l,x+5,cy,C.parch);cy+=7;}
+    const vc=o.res===1?'#ff8a6a':o.res===3?'#9fe08a':'#ffe070';for(const l of L.ver){text(l,x+5,cy+1,vc);cy+=8;}}
+  ctx.globalAlpha=1;
+  hit(0,0,SW,SH,{fn:()=>{if(B.roll)B.roll.dur=Math.min(B.roll.dur,NOW-B.roll.t0+120);},id:'rollskip'});
+}
+H.rolls=async()=>{
+  while(ROLLQ.length){
+    const o=ROLLQ.shift();
+    if(AUTOPLAY||SET.showRolls===false||SCREEN!==BATTLE_SCREEN||!o.dice||!o.dice.length)continue;
+    const chars=(o.sub||'').length+(o.formula||'').length+(o.verdict||'').length;
+    o.t0=NOW;o.tum=260*spd();o.dur=o.tum+Math.min(3200,900+chars*9)*spd();o.L=null;
+    B.roll=o;sfx('dice');
+    await new Promise(res=>{const tick=()=>{if(B.roll!==o||NOW-o.t0>=o.dur||!G){if(B.roll===o)B.roll=null;res();}else setTimeout(tick,30);};tick();});
+  }
+};
 /* Round, boss-surge and victory plates slide across the middle of the board. */
 function drawBanner(){
   const b=B.banner;const p=(NOW-b.t0)/b.dur;if(p>=1){B.banner=null;return;}
@@ -709,7 +754,7 @@ function powerStat(u,p){
 }
 /* The basic attack sits apart from the powers: a plain steel button on the left of the tray. */
 function basicIndex(u){return (u.powers||[]).findIndex(id=>POWERS[id]&&POWERS[id].basic);}
-function powerSlots(u){const bi=basicIndex(u);return u.powers.map((_,i)=>i).filter(i=>i!==bi);}
+function powerSlots(u){const bi=basicIndex(u);return (u.powers||[]).map((_,i)=>i).filter(i=>i!==bi);}
 function pageOfPower(u,i,per){const k=powerSlots(u).indexOf(i);return k<0?0:Math.floor(k/per);}
 function basicButton(u,i,x,y,w,h){
   const p=powerOf(u,i);const ok=canAct(u,p);const on=i===B.pi;

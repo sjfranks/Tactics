@@ -1,13 +1,13 @@
 ---
 title: Rogue Tactics 1e — Heroes
-version: 0.22
+version: 0.23
 book: 2 of 3 (Core Rules · Heroes · Bestiary)
 tags: [game-design, rulebook, roguelite, tactics, classes, powers]
 ---
 
 # Rogue Tactics 1e — Heroes
 
-> v 0.22. Book 2 of 3. The classes, their **powers**, and how weapons and powers grow during a run. Basic rules are in [Core Rules](core-rules.md). **Powers and numbers are drafts (TBC).**
+> v 0.23. Book 2 of 3. The classes, their **powers**, and how weapons and powers grow during a run. Basic rules are in [Core Rules](core-rules.md). **Powers and numbers are drafts (TBC).**
 >
 > **The idea of this book:** the basic rules stay simple. The depth comes from what you build during a run: the powers you draft, the weapons you upgrade, and how your four heroes' powers feed each other.
 
@@ -33,7 +33,7 @@ A party of four works best with one hero in each **role**. The default party is 
 
 **Complexity** (♦) is how much a class juggles. ♦ is a good first class.
 
-**Each class page has:** a stat table; its **specialties** (event options only it unlocks, Core 1.3); its **class reaction** (1 action, once per round, Core 3.6); a **level table**; its **class powers**; sample **builds**; and the classes it **combos** with best.
+**Each class page has:** a stat table; its **specialties** (event options only it unlocks, Core 1.3); its **class reaction** (1 action, once per round, Core 3.6); a **level table** (heroes have the level 1 and 2 rows from the start; the rest is parked, see The Level Rhythm); its **class powers**; sample **builds**; and the classes it **combos** with best.
 
 ---
 
@@ -48,21 +48,24 @@ A **power** is anything a hero learns during a run. Every power is either:
 
 Powers come from two lists: **class powers** (on each class page; only that class) and **general powers** (Part 6; any class). Each class also has an **innate** power that every hero of that class knows; it takes no slot.
 
-### 2.1 Slots and Drafts
+### 2.1 Slots, Rewards and Drafts
 
-- **Slots.** A hero has **level + 3** power slots, up to **8**. Active and passive powers share them. *(Phone screens show active powers as buttons; at most 6 actives fit, TBC.)*
-- **Start.** Each hero has their innate power, **two Common class powers** of their choice, and **one Common general power** drafted from 3. One slot is free.
-- **Drafts.** A draft shows **3 powers** (at least one class power and one general power). Take one or skip.
+- **Slots.** A hero has **8** power slots. Active and passive powers share them. *(Phone screens show active powers as buttons; at most 6 actives fit, TBC.)*
+- **Start.** Each hero has their innate power, **two Common class powers** of their choice, and **one Common general power** drafted from 3.
+- **No levels.** Heroes do not level up (Core 4.2). Powers come from **rewards** and **drafts**.
+- **Rewards** (the main source). After every battle won, the party picks **1 of 3 cards**: each a power for a named hero (class or general), or a **growth** card (Vigor: +1½ hit dice of max HP; Training: +1 key stat).
+- **Drafts.** A draft shows **one hero 3 powers** (at least one class power and one general power). Take one or skip.
 
-| When | Who drafts |
+| When | What |
 |---|---|
-| **Level up** (at a Camp) | Each hero who levels (with the new slot) |
-| **Elite battle** won | Every hero; at least one Uncommon or better |
-| **Boss** beaten | Every hero; includes a Rare |
-| **Treasure** stop | One hero, instead of a relic |
+| **Battle** won | A reward pick |
+| **Elite battle** won | Two reward picks; each has at least one Uncommon or better |
+| **Boss** beaten | Two reward picks; each has a Rare |
+| **Treasure** stop | A reward pick, instead of a relic or weapon |
+| **Boon** (start of a run) | A Master's Lesson (one hero, a Rare) or A Blood Oath (every hero) |
 | **Shop** | Buy powers on offer: 30 / 60 / 120 gold for C / U / R |
 
-- **Rarity:** Common 60%, Uncommon 30%, Rare 10%. Skipping a draft pays 10 gold; one reroll costs 10 gold.
+- **Rarity:** Common 60%, Uncommon 30%, Rare 10%. Skipping a pick or draft pays 10 gold; one reroll costs 10 gold.
 - **Full slots:** discard a power (it is gone) or skip.
 - **At a Camp** you may discard powers, hand a **general** power to another hero, or **Train** (25 gold: discard one power and draft a replacement of the same rarity).
 
@@ -536,9 +539,11 @@ Hybrids mix two roles. Everything here is a first guess (**TBC**); their powers 
 
 ---
 
-## The Level Rhythm
+## The Level Rhythm (parked)
 
-The level tables stop at 5 for now. Levels 6 to 10 continue the pattern (**TBC**):
+> [!note] Levels are parked (v0.23). Heroes no longer level up: each starts with the features of **levels 1 and 2** on their class table, and grows through rewards (Core 4.2). The level-3 path, the level-4 attribute (now **Training** rewards) and the level-5 features are not in play. The tables are kept for when paths return, perhaps as rare rewards.
+
+The level tables stop at 5 for now. Levels 6 to 10 continued the pattern (**TBC**):
 
 | Level | What a class gains |
 |---|---|
