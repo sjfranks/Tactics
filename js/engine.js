@@ -326,7 +326,8 @@ async function kill(t,src,o){
   if(t.side==='hero'&&t.kind==='pc'&&hasR('phoenix')&&!G.phoenixUsed){G.phoenixUsed=true;t.hp=Math.ceil(t.maxHp/2);H.pop(t,'Phoenix!','gold');H.sfx('heal');note(`${t.name} rises from the ashes!`);return;}
   if(t.kind==='pc'&&hasP(t,'laststand')&&!t.lsUsed){t.lsUsed=true;t.hp=1;t.shield+=6;H.pop(t,'Last Stand!','gold');note(`${t.name} refuses to fall (1 health, 6 shield).`);H.upd(t);return;}
   t.dead=true;t.hp=0;t.shield=0;if(t.kind==='pc')t.grow={};
-  if(t.kind==='pc'&&t.side==='hero'&&!t.rival&&t.wounds!=null){if(t.wounds>=3){t.slain=true;note(`${t.name} has taken one wound too many.`);}else{t.wounds++;note(`${t.name} gains a Wound (${t.wounds}).`);}}
+  if(t.kind==='pc'&&t.side==='hero'&&hasR('chalice'))for(const a of allies(t).filter(a=>a!==t&&a.kind==='pc'&&live(a))){addMom(a,2);H.pop(a,'Chalice +2 ◆','res');}
+  if(t.kind==='pc'&&t.side==='hero'&&!t.rival&&t.wounds!=null){if(t.wounds>=woundCap()){t.slain=true;note(`${t.name} has taken one wound too many.`);}else{t.wounds++;note(`${t.name} gains a Wound (${t.wounds}).`);}}
   H.sfx(t.kind==='pc'?'fall':t.object?'crumble':'death');
   note(t.kind==='pc'?`${t.name} has fallen!`:`${t.name} is slain.`);
   await H.death(t);
@@ -420,6 +421,7 @@ function netBoon(a,t,p,O){
   }
   if(a.side==='enemy'&&G.hordeBoon)pro.push('Bloodlust');
   if(a.side==='enemy'&&t.side==='hero'&&hasR('ward')&&!(t.warded||{})[a.id])con.push('Warding Charm');
+  if(a.side==='hero'&&t.side!=='hero'&&!t.object&&hasR('hood')&&t.hp*2<=t.maxHp)pro.push('Executioner');
   if(a.st.weak)con.push('Weakened');
   if(a.st.mark&&a.marker&&a.marker!==t.id&&live(U(a.marker)))con.push('Marked');
   if(!melee){
@@ -606,7 +608,7 @@ function usable(u,p){
   if(!p||p.passive||powerCost(u,p)>u.mom)return false;
   if(p.swapPrev&&G&&G.order&&(u.repR===G.round||!prevHero(u)))return false;
   if(p.helpUp&&!G.units.some(h=>h.side===u.side&&h.kind==='pc'&&h.dead&&!h.gone&&!h.slain))return false;
-  if(p.selfWind&&(u.swUsed||u.hp>=u.maxHp||(u.hd!=null&&u.hd<=0)))return false;
+  if(p.selfWind&&((u.swUsed&&!(hasR('thread',u)&&u.swUsed<2))||u.hp>=u.maxHp||(u.hd!=null&&u.hd<=0)))return false;
   if(p.revive&&!G.units.some(h=>h.side===u.side&&h.kind==='pc'&&h.dead&&!h.slain))return false;
   return true;
 }
@@ -892,7 +894,7 @@ function blessNear(u,r,fl){
 function comboHit(u,by,fl){
   if(fl.combo)return;fl.combo=true;
   G.combo=(G.combo||0)+1;G.combos=(G.combos||0)+1;
-  addMom(u,2);xp(u,1,'combo');
+  addMom(u,2+(u.side==='hero'&&hasR('drum')?1:0));xp(u,1,'combo');
   if(resLv('Set-up',u)>=1&&G.comboR!==G.round){G.comboR=G.round;addMom(u,1);}
   if(hasP(u,'conductor'))for(const h of allies(u).filter(h=>h!==u&&h.kind==='pc'))addMom(h,1);
   const grow=h=>{if(hasP(h,'rhythm')){h.grow=h.grow||{};h.grow.rhythm=Math.min(4,(h.grow.rhythm||0)+1);}};grow(u);
@@ -1008,7 +1010,7 @@ async function usePower1(u,p,T){
     if(p.webArea)for(let y=C.y-1;y<=C.y+1;y++)for(let x=C.x-1;x<=C.x+1;x++)if(inB(x,y)&&!unitAt(x,y)&&!Tt(x,y).haz)setHaz(x,y,'web',3,u.side);
   }
   if(p.shieldDice){const w=wpnOf(u)||WEAPONS[START_WEAPON[u.cls]];let v=0;for(let i=0;i<p.shieldDice;i++)v+=rollEx(w.dice[1]);u.shield+=v;H.pop(u,'⛨ '+v,'shield');log(`${u.name} gains ${v} shield.`,sideCol(u));}
-  if(p.selfWind){u.swUsed=true;u.swDef=true;if(u.hd!=null)u.hd--;NOTE=[];const r=rollEx(HD[u.cls]||8)+(resLv('Mend',u)>=1?1:0)+(hasP(u,'gift')?2:0);heal(u,r+(u.attrs.M||0));const ex=NOTE||[];NOTE=null;log(`${u.name} catches a second wind (d${HD[u.cls]||8}: ${r} + Strength ${u.attrs.M||0}). ${ex.join(' ')}`,sideCol(u));}
+  if(p.selfWind){u.swUsed=(+u.swUsed||0)+1;u.swDef=true;if(u.hd!=null)u.hd--;NOTE=[];const r=rollEx(HD[u.cls]||8)+(resLv('Mend',u)>=1?1:0)+(hasP(u,'gift')?2:0);heal(u,r+(u.attrs.M||0));const ex=NOTE||[];NOTE=null;log(`${u.name} catches a second wind (d${HD[u.cls]||8}: ${r} + Strength ${u.attrs.M||0}). ${ex.join(' ')}`,sideCol(u));}
   if(p.selfHeal){NOTE=[];heal(u,p.selfHeal);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));}
   if(p.markAround)for(const f of fighters(u).filter(e=>cheb(e,u)<=p.markAround))applyMark(f,u);
   if(p.healNear){const w=allies(u).filter(a=>!a.object&&!a.caged&&man(a,u)<=3&&a.hp<a.maxHp).sort((a,b)=>a.hp/a.maxHp-b.hp/b.maxHp)[0];if(w){NOTE=[];const g=heal(w,p.healNear);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));if(g>0&&w!==u)fl.healedOther=true;}}
@@ -1498,7 +1500,7 @@ function ringFire(n){const c=[];for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)if
 /* ---------------- FOE THREATS ---------------- */
 /* Malice (Bestiary): the foes gain the round number each round, plus 1 for each hero who is Down. */
 function downHeroes(){return G.units.filter(u=>u.side==='hero'&&u.kind==='pc'&&u.dead&&!u.gone).length;}
-function maliceGain(){return Math.round((G.round+downHeroes())*(TUNE.maliceMul!=null?TUNE.maliceMul:1));}
+function maliceGain(){return Math.round((G.round+downHeroes())*(TUNE.maliceMul!=null?TUNE.maliceMul:1))+(hasR('crown')?2:0)+(G.round%2===1&&dreadOn(4)?1:0);}
 function maliceNext(){return Math.round((G.round+1+downHeroes())*(TUNE.maliceMul!=null?TUNE.maliceMul:1));}
 /* Threats unlock by battle type and region (Bestiary). */
 function threatList(E){
@@ -1513,7 +1515,7 @@ async function fireThreat(id){
   const hs=fighters({side:'enemy'});
   if(id==='bloodlust')G.hordeBoon=true;
   else if(id==='hazard'){const t=['fire','acid','fire'][G.act];const n=Math.min(hs.length,1+G.act);for(const h of shuffle(hs.slice()).slice(0,n)){for(const f of foot(h,h.x,h.y))setHaz(f.x,f.y,t,3,'enemy');H.pop(h,threatName(id)+'!','bad');}}
-  else if(id==='reinforce'){for(let i=0;i<3+G.act;i++){if(G.units.filter(u=>live(u)&&u.side==='enemy').length>=12)break;const s=edgeSpot('any','enemy');if(s)spawnMon(SWARM[G.act],s);}}
+  else if(id==='reinforce'){for(let i=0;i<3+G.act;i++){if(G.units.filter(u=>live(u)&&u.side==='enemy').length>=(G.enc.type==='boss'?TUNE.bossCap:12))break;const s=edgeSpot('any','enemy');if(s)spawnMon(SWARM[G.act],s);}}
   else if(id==='rite'){const n=4+2*G.act;for(const f of G.units.filter(u=>live(u)&&u.side==='enemy'&&!u.object)){f.shield+=n;H.pop(f,'⛨ '+n,'shield');H.upd(f);}}
 }
 function edgeSpot(where,side){
@@ -1534,7 +1536,7 @@ function insertOrder(u){
 }
 function makeMon(type,x,y,extra){
   extra=extra||{};const m=MON[type];const f=G.enc.f;
-  const mult=(m.boss?TUNE.bossHp*((TUNE.bossAct||[])[G.act]||1)*(1+(TUNE.bossSlope!=null?TUNE.bossSlope:.03)*f):(m.object?1+.08*f:1+TUNE.hpSlope*f))*(m.object?1:G.foeHp||1);
+  const mult=(m.boss?TUNE.bossHp*((TUNE.bossAct||[])[G.act]||1)*(dreadOn(7)?1.2:1)*(1+(TUNE.bossSlope!=null?TUNE.bossSlope:.03)*f):(m.object?1+.08*f:1+TUNE.hpSlope*f))*(m.object?1:G.foeHp||1);
   const hp=m.minion?1:Math.round(m.hp*(m.tiny||1)*mult*(extra.leader?1.3:1)*(extra.elite?1+.3*((TUNE.eliteMul||[])[G.act]||1):1));
   return {id:'e'+(G.uid++),side:extra.side||'enemy',kind:'mon',type,name:(extra.leader?'Chief ':'')+m.name,x,y,hp,maxHp:hp,speed:m.speed,
     attrs:Object.assign({},m.attrs),steady:m.steady||0,armor:m.armor||0,st:{},shield:0,react:true,mp:0,
@@ -1556,7 +1558,7 @@ function makePc(h,x,y,side){
   const all=withBasic(h.cls,h.powers),pas={};for(const id of all)if(POWERS[id].passive)pas[id]=1;
   const mhp=h.maxHp+(!rival&&hasR('heart')?8:0)+(pas.hardy?6:0);
   const vic=!rival&&typeof CTX!=='undefined'&&CTX&&CTX.vic!=null?Math.min(3,CTX.vic):TUNE.momStart;
-  const mom=Math.min(5,vic+(pas.eager?1:0)+(!rival&&pas.afterglow?(h.glow||0):0)+(!rival&&G&&G.resN&&resLv('Surge',{side})>=1?1:0))+(!rival&&hasR('hymn')?2:0);
+  const mom=Math.min(5,vic+(pas.eager?1:0)+(!rival&&pas.afterglow?(h.glow||0):0)+(!rival&&G&&G.resN&&resLv('Surge',{side})>=1?1:0))+(!rival&&hasR('hymn')?2:0)+(!rival&&hasR('crown')?3:0);
   return {id:(rival?'r_':'h_')+h.cls,side,kind:'pc',cls:h.cls,name:rival?C.rival:C.name,x,y,hp:Math.min(h.hp,mhp),maxHp:mhp,speed:C.speed+(pas.quick?1:0),lvl:h.lvl,
     wpn:h.weapon||(rival?rivalWeapon(h.cls,h.lvl):START_WEAPON[h.cls]),attrs:attrsFor(h.cls,h.lvl),steady:C.steady||0,nimble:!!C.nimble&&(h.lvl||1)>=2,mom,powers:all.filter(id=>!POWERS[id].passive),pas,wounds:rival?0:(h.wounds||0),hd:rival||h.hd==null?null:h.hd,wpd:rival?null:weaponData(h.weapon||START_WEAPON[h.cls]),grow:Object.assign({},h.grow||{}),st:{},shield:0,react:true,mp:0,rival};
 }
@@ -1582,7 +1584,7 @@ function partyStrength(f){return 4*(TUNE.es0+TUNE.esLvl*expLevel(f));}
 /* A foe's cost converts to XP against the party's strength: a Medium (60 XP) budget buys partyStrength x esUnit of foes. */
 function encBudget(f,type,act,elite,diff,n){
   const d=encDiff(type,elite,diff);
-  return partyStrength(f)*TUNE.esUnit*DIFF[d].xp/60*((n||4)/4)*((TUNE.actMul||[1,1,1])[act]||1)*(type==='boss'?1:MISSION_SHARE[type]||1)*(elite?((TUNE.eliteBudget||[])[act]||1):1);
+  return partyStrength(f)*TUNE.esUnit*DIFF[d].xp/60*((n||4)/4)*((TUNE.actMul||[1,1,1])[act]||1)*(type==='boss'?1:MISSION_SHARE[type]||1)*(elite?((TUNE.eliteBudget||[])[act]||1)*(dreadOn(3)?1.25:1):1);
 }
 const THEMES=[
   {obs:['rock','tree','tree'],cov:['crate','lowwall'],haz:['fire'],hazN:[0,2],water:true},
@@ -1643,7 +1645,7 @@ function genEncounter(f,type,opt){
   let list=[];
   if(opt.enemies)list=opt.enemies.slice();
   else{
-    let budget=encBudget(f,type,act,opt.elite,diff,opt.party);
+    let budget=encBudget(f,type,act,opt.elite,diff,opt.party)*(!opt.elite&&type!=='boss'?((TUNE.battleMul||[])[act]||1):1);
     if(type==='boss'){list.push({type:BOSSES[act],boss:true});budget-=encBudget(f,'rout',act,false,'medium',opt.party)*TUNE.solo;}
     if(type==='assassinate')list.push({type:LEADERS[act],leader:true});
     if(opt.elite){const t=pick(ELITES[act]);list.push({type:t,elite:true});budget-=MON[t].cost*TUNE.eliteCost;}
@@ -1689,7 +1691,7 @@ function setupBattle(enc,party){
     tiles:JSON.parse(JSON.stringify(enc.tiles)),act:enc.act,dmgAdd:Math.floor(enc.f*TUNE.dmgSlope),rollAdd:Math.floor(enc.f/TUNE.rollStep)};
   G.threatN=0;G.threat=nextThreat();G.foeMom=maliceGain();
   // skirmish difficulty adjusters
-  const MD=enc.mods||{};G.foeHp=MD.foeHp||1;G.dmgAdd+=MD.foeDmg||0;G.pcDmgAdd=MD.partyDmg||0;G.foeDmgAdd=MD.foeDmg||0;
+  const MD=enc.mods||{};G.foeHp=(MD.foeHp||1)*(dreadOn(1)?1.15:1);G.dmgAdd+=MD.foeDmg||0;G.pcDmgAdd=MD.partyDmg||0;G.foeDmgAdd=MD.foeDmg||0;
   HIST.length=0;
   G.resN={};for(const h of party)for(const id of h.powers||[]){const p=POWERS[id];if(p&&p.tag&&!p.innate&&!p.basic)G.resN[p.tag]=(G.resN[p.tag]||0)+1;}
   const hp=HERO_POS[enc.heroPos];
@@ -1703,6 +1705,7 @@ function setupBattle(enc,party){
     else G.units.push(makeMon(e.type,e.x,e.y,{leader:e.leader,elite:e.elite}));
   }
   if(hasR('bulwark'))G.units.filter(u=>u.side==='hero'&&u.kind==='pc').forEach(h=>h.shield=8);
+  if(hasR('ember'))G.units.filter(u=>u.side==='enemy'&&u.kind==='mon'&&!u.object&&!u.boss).forEach(e=>{if(!immuneFire(e))e.st.burn=1;});
   for(const u of G.units)if(!u.object)u.init=initRoll(u);
   {const sh={};for(const u of G.units)if(!u.object&&(u.minion||u.swarm)){if(sh[u.type]==null)sh[u.type]=u.init;else u.init=sh[u.type];}}
   G.order=G.units.filter(u=>!u.object).sort(ordCmp).map(u=>u.id);

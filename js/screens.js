@@ -87,14 +87,15 @@ const TITLE_SCREEN={enter(){this.save=loadSave();},draw(){
   const items=[];
   if(save)items.push(['CONTINUE',()=>{continueRun();},true]);
   items.push(['NEW JOURNEY',()=>{if(save)openModal(dialog({title:'START OVER?',body:'This replaces your saved journey.',buttons:[{l:'START',hot:true,fn:()=>{closeModal();startJourney();},keep:true},{l:'CANCEL'}]}));else startJourney();},!save]);
+  items.push(['CHRONICLE',()=>go(CHRONICLE_SCREEN)]);
   items.push(['SKIRMISH',()=>go(SKIRMISH_SCREEN)]);
   items.push(['COMPENDIUM',()=>{SCREEN_BACK=null;go(COMP_SCREEN);}]);
   items.push(['HOW TO PLAY',openHowTo]);
   items.push(['SETTINGS',()=>openSettings(false)]);
-  const mh=items.length*16+10,mx=PORT?Math.floor((SW-120)/2):190,my=PORT?SH-mh-14:64;
+  const mh=items.length*16+10,mx=PORT?Math.floor((SW-120)/2):190,my=PORT?SH-mh-14:Math.min(64,SH-mh-12);
   panel(mx,my,120,mh,{fill:'rgba(20,14,12,.9)'});
   items.forEach((it,i)=>button(mx+6,my+6+i*16,108,13,it[0],it[1],{hot:!!it[2]}));
-  const best=+(localStorage.getItem(BEST_KEY)||0);if(best)text(`Most battles won: ${best}`,SW-4,SH-8,C.mute,{al:'r'});
+  {const L=legacy();if(L.runs)text(`Journeys ${L.runs} · Dragons slain ${L.wins}${L.dreadMax?' · Dread '+L.dreadMax:''}`,SW-4,SH-8,C.mute,{al:'r'});}
 }};
 
 /* ---------------- overworld map ---------------- */
@@ -337,14 +338,19 @@ const END_SCREEN={draw(){
   const st=[['BATTLES',RUN.stats.wins],['FOES SLAIN',RUN.stats.kills],['GOLD',RUN.stats.gold]];
   const bw=PORT?Math.floor((SW-16)/3):76,gap=PORT?4:8,sx=Math.floor((SW-3*bw-2*gap)/2);
   st.forEach((s0,i)=>{const x=sx+i*(bw+gap);panel(x,y,bw,32,{fill:'#1e1612'});text(String(s0[1]),x+bw/2,y+7,C.gold,{al:'c',sc:2,ol:C.edge});text(s0[0],x+bw/2,y+22,C.mute,{al:'c'});});
-  y+=44;
-  const gy=PORT?Math.round(SH*.66):y+20;
+  y+=38;
+  if(RUN.end){const E=RUN.end;text(`SCORE ${E.score}${E.best?'  (NEW BEST!)':''}`,SW/2,y,E.best?'#ffe070':C.parch,{al:'c',ol:C.edge});y+=9;
+    if(RUN.dread)text(`Dread ${RUN.dread}`,SW/2,y,C.red,{al:'c'}),y+=9;
+    if(E.dreadUp){text(`Dread ${legacy().dreadMax} unlocked: ${DREAD[legacy().dreadMax-1].name}!`,SW/2,y,'#ff8a6a',{al:'c'});y+=9;}
+    if(E.unlocks.length){const s='Unlocked: '+E.unlocks.map(r=>RELICS[r].name).join(', ');for(const l of wrap(s,SW-16)){text(l,SW/2,y,C.gold,{al:'c'});y+=8;}
+      E.unlocks.slice(0,6).forEach((r,i,a)=>ctx.drawImage(relicArt(r),SW/2-a.length*9+i*18,y));y+=18;}}
+  const gy=PORT?Math.max(y+4,Math.round(SH*.66)):y+20;
   RUN.heroes.forEach((h,i)=>{if(PORT){const x=SW/2-76+i*38;const S=sprH(h.cls);ctx.globalAlpha=.4;rect(x+9,gy+30,16,3,'#000');ctx.globalAlpha=1;
       if(won)ctx.drawImage(S.c,x+3,gy+(Math.floor(NOW/400+i)%2));else{ctx.globalAlpha=.55;ctx.drawImage(S.bk,x+3,gy);ctx.globalAlpha=1;}
       text('Lv '+h.lvl,x+19,gy+36,C.parch,{al:'c'});}
     else{const x=SW/2-60+i*32;ctx.drawImage(spr(h.cls).c,x,y);text('Lv '+h.lvl,x+8,y+18,C.parch,{al:'c'});}});
-  if(PORT){button(20,SH-42,SW-40,16,'NEW JOURNEY',()=>{newRun();go(MAP_SCREEN);},{hot:true});button(20,SH-22,SW-40,16,'TITLE',()=>go(TITLE_SCREEN),{});}
-  else{button(60,156,90,14,'NEW JOURNEY',()=>{newRun();go(MAP_SCREEN);},{hot:true});button(170,156,90,14,'TITLE',()=>go(TITLE_SCREEN),{});}
+  if(PORT){button(20,SH-42,SW-40,16,'NEW JOURNEY',setOut,{hot:true});button(20,SH-22,SW-40,16,'TITLE',()=>go(TITLE_SCREEN),{});}
+  else{button(60,156,90,14,'NEW JOURNEY',setOut,{hot:true});button(170,156,90,14,'TITLE',()=>go(TITLE_SCREEN),{});}
 }};
 
 /* ---------------- settings & help ---------------- */
@@ -402,6 +408,8 @@ const HOWTO=`{g:Turn order.} Everyone rolls {g:initiative} (their Dexterity die)
 
 {g:The journey.} Pick your path through three lands: battles, elites, merchants, {g:Camps}, treasure, road events and events. Battles give gold, XP by difficulty (Easy 30, Medium 60, Hard 90, a boss 120) and {g:Victories}; elites and bosses give every hero a {g:power draft}. Between battles, spend {g:hit dice} to heal (EQUIP, then HEAL). At a Camp heroes heal, refill their hit dice, lose a Wound and turn their XP into levels (80 XP a level), each with a new power. Events test an attribute ({g:check}: 4+ on its die), and some are {g:dramatic tasks} or {g:negotiations}.
 
+{g:Boons, Dread and the Chronicle.} Each journey starts with a {g:boon}: two gifts and a bargain, pick one. Every journey, won or lost, adds to your {g:Chronicle}, which unlocks new relics as you reach milestones. Slay the dragon to unlock {g:Dread} levels: harder journeys that score more.
+
 {g:Equipment.} Each hero carries one weapon; its die and {g:runes} power every attack. Better ones turn up in shops, treasure and events, and the {g:smith} can temper, hone or inscribe them. You can own many relics but wear only two.
 
 {g:Undo.} UNDO rewinds your last move or action. Press it again to go further back, even to a previous hero's turn.
@@ -429,7 +437,7 @@ const COMP_SCREEN={enter(){COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);
       entries=[{k:'class',label:CLASSES[cls].name+' · class',col:C.gold}].concat(own.map(p=>({k:p.id,label:p.name,sub:'innate'})),ps.sort((a,b)=>RK[a.rar]-RK[b.rar]||a.name.localeCompare(b.name)).map(p=>({k:p.id,label:p.name,sub:p.rar+' · '+(p.passive?'passive':'active')})));}
   }else if(COMP.tab===1){entries.push({hdr:'Weapons'});for(const c of ORDER)for(const W of Object.values(WEAPONS).filter(w=>w.cls===c).sort((a,b)=>a.tier-b.tier))entries.push({k:'w:'+W.id,label:W.name,sub:`d${W.dice[1]}`});
     entries.push({hdr:'Runes'});for(const r of RUNE_KEYS)entries.push({k:'r:'+r,label:RUNE_NAME[r]});
-    entries.push({hdr:'Relics'});for(const r of Object.keys(RELICS))entries.push({k:r,label:RELICS[r].name,relic:r,tall:true});}
+    entries.push({hdr:'Relics'});for(const r of Object.keys(RELICS))entries.push({k:r,label:relicUnlocked(r)?RELICS[r].name:'Locked relic',relic:r,tall:true});}
   else if(COMP.tab===2){for(let a=0;a<3;a++){entries.push({hdr:ACTS[a].sub});for(const m of Object.values(MON))if(m.act===a)entries.push({k:m.id,label:m.name,sprite:m.art});}entries.push({hdr:'Special'});for(const m of Object.values(MON))if(m.act<0)entries.push({k:m.id,label:m.name,sprite:m.art});}
   else entries=Object.keys(GLOSS).sort((a,b)=>GLOSS[a].name.localeCompare(GLOSS[b].name)).map(k=>({k,label:GLOSS[k].name}));
   const ly=COMP.tab===0?32:18;
@@ -461,7 +469,7 @@ const COMP_SCREEN={enter(){COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);
     else if(COMP.tab===1&&k&&k.startsWith('r:')){const r=k.slice(2);text(RUNE_NAME[r],dx,y,C.gold,{sc:2,ol:C.edge});y+=14;y+=rich(RUNE_DESC[r],dx,y,dw,C.parch,{clip})+4;
       y+=rich('{m:The smith inscribes a rune for 60 gold, or removes one for 20. Plain weapons have 1 socket, magic ones (tier 3 and up) 2. Keen needs a d6 or larger; Twin only fits a light weapon.}',dx,y,dw,C.parch,{clip});}
     else if(COMP.tab===1&&RELICS[k]){inset(dx,y,20,20,'#100b08');ctx.drawImage(relicArt(k),dx+2,y+2);text(RELICS[k].name,dx+24,y+3,C.gold);text(`About ${RELICS[k].price} gold`,dx+24,y+11,C.mute);y+=24;
-      y+=rich(RELICS[k].desc,dx,y,dw,C.parch,{clip});}
+      y+=rich(relicUnlocked(k)?RELICS[k].desc:'{m:Not yet unlocked. '+(LEGACY_UNLOCKS.find(u=>u.relic===k)||{}).need+'}',dx,y,dw,C.parch,{clip});}
     else if(COMP.tab===2&&MON[k]){y+=sheetLayout(monSheetUnit(k),dx,y,dw,clip,{plain:true,found:true});}
     else if(COMP.tab===3&&GLOSS[k]){text(GLOSS[k].name,dx,y,C.gold,{sc:2,ol:C.edge});y+=14;y+=rich(GLOSS[k].text,dx,y,dw,C.parch,{clip});}
     COMP.ch=y-yy+6;});

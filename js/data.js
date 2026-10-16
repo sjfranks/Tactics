@@ -11,15 +11,33 @@ const RESULT_SHORT=['Miss','Hit','Crit'];
 /* Difficulty, tuned with tools/sim.js (whole journeys played by the autoplay AI). Encounter budgets: see encBudget in
    engine.js (es0/esLvl: a hero's strength by level, esUnit: strength to foe cost, actMul: each region's foes, solo: a
    boss's share of its fight, eliteCost: an elite's cost multiplier, bossAct: each region's boss health). */
-const TUNE={es0:4,esLvl:2,esUnit:.4,solo:1.25,eliteCost:1.3,hpSlope:.03,dmgSlope:.15,rollStep:4,bossHp:.55,foeMomRound:1,foeMomRamp:0,eliteMul:[.7,.4,.5],eliteBudget:[.81,.9,.9],summonAt:8,actMul:[1.1,1.05,.65],bossAct:[1.2,1.25,.8],
+const TUNE={es0:4,esLvl:2,esUnit:.4,solo:1.25,eliteCost:1.3,hpSlope:.03,dmgSlope:.15,rollStep:4,bossHp:.55,foeMomRound:1,foeMomRamp:0,eliteMul:[.7,.4,.5],eliteBudget:[1.05,1.15,.85],summonAt:8,actMul:[1.1,1.05,.65],bossAct:[1.2,1.45,.55],
   pbBonus:3,fallenHp:.25,momTurn:0,momStart:0,momVal:.9,maxLvl:10,xpLvl:80,easyShare:.25,sneak:3,aiCombo:1,saveBase:12,
   actions:3,extraActs:2,guardMin:4,aiMoveCost:1.5,aiHold:1,
   /* maliceMul scales Malice gain (1 = the rule book: the round number + Downs each round),
      and foeDef shifts every foe's DEF die up or down the ladder. */
-  maliceMul:1,foeDef:0};
+  maliceMul:1,foeDef:0,
+  /* bossCap: Reinforcements stop once a boss fight has this many foes, so a long boss fight does not snowball */
+  bossCap:4,
+  /* battleMul: each region's ordinary battles (not elites or bosses) */
+  battleMul:[1.6,1.9,1.1]};
 /* Experience (after PF2e): encounters give XP by difficulty (Easy 30, Medium 60, Hard 90, Extreme 120; see DIFF in
    engine.js) and accomplishments 10 to 30. XP is banked and turns into levels at a Camp: every TUNE.xpLvl XP is a level,
    which keeps heroes on the book's level bands (1-3, 4-6, 7-9). */
+/* Dread (the ascension ladder): winning a journey at a Dread level unlocks the next. Each level keeps the ones below it.
+   CTX.dread is set for run battles; engine hooks call dreadOn(n). */
+const DREAD=[
+  {name:'Bolder Foes',desc:'Foes have 15% more health.'},
+  {name:'Lean Purses',desc:'You start with no gold, and battles pay 20% less.'},
+  {name:'Hardened Elites',desc:'Elite battles field 25% more foes.'},
+  {name:'Gathering Dark',desc:'Foes gain 1 more Malice every other round.'},
+  {name:'Dear Markets',desc:'Merchants and the smith charge 25% more.'},
+  {name:'No Easy Roads',desc:'Only the first battle of each land is Easy.'},
+  {name:'Tyrants',desc:'Bosses have 20% more health.'},
+  {name:'Gritty',desc:'The third Down kills a hero, not the fourth.'},
+];
+function dreadOn(n){return typeof CTX!=='undefined'&&!!CTX&&(CTX.dread||0)>=n;}
+function woundCap(){return dreadOn(8)?2:3;}
 const xpAt=l=>Math.max(0,l-1)*TUNE.xpLvl;
 /* Power rarity (Heroes book 2.1). */
 const RARITY={C:'Common',U:'Uncommon',R:'Rare'};
@@ -285,6 +303,16 @@ const RELICS={
   hourglass:{name:'Hourglass of Haste',price:80,desc:'Heroes add 3 to their initiative rolls.'},
   coin:{name:'Lucky Coin',price:70,desc:'Earn 50% more gold.'},
   waterskin:{name:'Healer\'s Satchel',price:90,desc:'Heroes heal an extra 15% after every battle.'},
+  /* Relics unlocked by the Legacy (run.js, LEGACY_UNLOCKS) */
+  drum:{name:'War Drum',price:120,desc:'The hero who cashes in a combo gains 1 more momentum.',lock:1},
+  tome:{name:"Scholar's Tome",price:110,desc:'Power drafts offer 4 powers instead of 3.',lock:1},
+  kettle:{name:'Camp Kettle',price:90,desc:'Every hero holds 1 more hit die. Camps remove 2 Wounds instead of 1.',lock:1},
+  seal:{name:"Merchant's Seal",price:60,desc:'Merchants and the smith charge 25% less.',lock:1},
+  hood:{name:"Executioner's Hood",price:130,desc:'Heroes attack bloodied foes (at half health or less) with advantage.',lock:1},
+  ember:{name:'Ember Censer',price:110,desc:'Every foe but a boss starts each battle burning (3 fire damage on its first turn). Minions burn away.',lock:1},
+  thread:{name:"Mender's Thread",price:90,desc:'Each hero can use Second Wind twice a battle.',lock:1},
+  crown:{name:'Crown of Thorns',price:100,desc:'Heroes start each battle with 3 more momentum, but foes gain 2 more Malice every round.',lock:1},
+  chalice:{name:'Blood Chalice',price:100,desc:'When a hero goes Down, every other hero gains 2 momentum.',lock:1},
 };
 /* Weapons: each sets the dice of its hero's basic attack (Sword, Blades, Bolt or Mace), may add damage, and some
    carry a trait. tier 1 is what each hero starts with. */
@@ -342,8 +370,8 @@ const THREATS={
   reinforce:{name:'Reinforcements',cost:7,desc:'A horde of minions pours in from the edges.'},
   rite:{name:'Dark Rite',cost:6,desc:'Every foe is wrapped in shield.'},
 };
-const RELIC_ICON={boots:'↑',whetstone:'◆',heart:'♥',hymn:'♦',map:'★',phoenix:'▲',fang:'v',bulwark:'⛨',dice:'#',lens:'o',ward:'*',scale:'~',gauntlet:'→',fenboots:'≈',hourglass:'8',coin:'$',waterskin:'+'};
-const RELIC_COL={boots:'#c89060',whetstone:'#8ac8f0',heart:'#e04848',hymn:'#e0b040',map:'#e0d0a0',phoenix:'#ff8a30',fang:'#e8e8e8',bulwark:'#6a9ae0',dice:'#f0f0f0',lens:'#8ae0c0',ward:'#b08af0',scale:'#ff6a3a',gauntlet:'#a8b0b8',fenboots:'#6ab070',hourglass:'#e0c070',coin:'#ffd040',waterskin:'#80d090'};
+const RELIC_ICON={boots:'↑',whetstone:'◆',heart:'♥',hymn:'♦',map:'★',phoenix:'▲',fang:'v',bulwark:'⛨',dice:'#',lens:'o',ward:'*',scale:'~',gauntlet:'→',fenboots:'≈',hourglass:'8',coin:'$',waterskin:'+',drum:'D',tome:'B',kettle:'K',seal:'S',hood:'H',ember:'E',thread:'T',crown:'C',chalice:'U'};
+const RELIC_COL={boots:'#c89060',whetstone:'#8ac8f0',heart:'#e04848',hymn:'#e0b040',map:'#e0d0a0',phoenix:'#ff8a30',fang:'#e8e8e8',bulwark:'#6a9ae0',dice:'#f0f0f0',lens:'#8ae0c0',ward:'#b08af0',scale:'#ff6a3a',gauntlet:'#a8b0b8',fenboots:'#6ab070',hourglass:'#e0c070',coin:'#ffd040',waterskin:'#80d090',drum:'#e8503c',tome:'#6aa4f0',kettle:'#a09890',seal:'#e8503c',hood:'#7a3ac8',ember:'#ff8a20',thread:'#e8503c',crown:'#9a6a18',chalice:'#f4c848'};
 
 /* ---------------- MISSIONS ---------------- */
 const MISSIONS={
@@ -438,6 +466,9 @@ const GLOSS={
   surge:{name:'Boss Surge',forms:['boss surges','boss surge'],text:'A boss unleashes a special action at the start of its turn on rounds 1, 3 and 5.'},
   threat:{name:'Malice',forms:['malice','threats','threat'],text:'Foes gain Malice every round: the round number, plus 1 for each hero who is Down (shown in the top bar). When they have enough, they unleash their next threat. Harder battles and later regions unlock nastier threats.'},
   zone:{name:'Zone',forms:['zone'],text:'A lingering area. It affects foes that start their turn inside it.'},
+  dread:{name:'Dread',forms:['dread'],text:'The difficulty ladder. Slay the Ashen Dragon to unlock Dread 1; win at your highest Dread to unlock the next, up to 8. Each level adds a hardship and keeps the ones below it, and raises your score by a quarter. Choose it when you set out.'},
+  boon:{name:'Boon',forms:['boons','boon'],text:'At the start of each journey, fortune offers two gifts and a bargain: choose one. Bargains are stronger, but cost you something, such as a Wound on every hero.'},
+  legacy:{name:'Chronicle',forms:['chronicle','legacy'],text:'What carries over between journeys: your totals, your best score, the Dread you have unlocked, and relics unlocked by milestones. Unlocked relics can turn up in treasure, shops and rewards. Open it from the title screen.'},
   victory:{name:'Victories',forms:['victories','victory'],text:'The party\'s wins since its last Camp: a battle is 1, an elite 2, a boss 3, a dramatic task or negotiation 1. Every hero starts a battle with momentum equal to the Victories (up to 3). A Camp resets them.'},
   xp:{name:'Experience (XP)',forms:['XP','experience'],text:'Encounters give XP by difficulty, as in PF2e: Easy 30, Medium 60, Hard 90, Extreme (a boss) 120. Deeds on the road give 10 (a check), 20 or 30 (a dramatic task or negotiation). The party banks it, and at a Camp every hero gains it: every 80 XP is a level, up to 10.'},
   difficulty:{name:'Difficulty',forms:['difficulty'],text:'How big an encounter is, as an XP budget for four heroes: Easy 30, Medium 60, Hard 90, Extreme 120. A foe as strong as one hero is worth 30 XP. With fewer heroes the budget shrinks by a quarter each.'},
@@ -524,6 +555,21 @@ const EVENTS=[
     {label:'Toss in 20 gold',cost:20,win:{hdUp:1,text:'The well sighs. You feel rested.'}},
     {label:'Seal it with stones',win:{text:'The whispers stop.'}}]},
 
+  {id:'gambler',ill:'merchant',title:'A Game of Bones',text:'A grinning stranger rattles three bones in a cup. "Thirty gold says you can\'t beat my throw."',opts:[
+    {label:'Play: stake 30 gold',cost:30,a:'F',win:{gold:75,text:'Your bones come up sixes. The stranger pays, still grinning.'},lose:{text:'Snake eyes. The stranger pockets your gold.'}},
+    {label:'Load the bones when he looks away',cls:'rogue',auto:true,win:{gold:50,text:'Vex palms a loaded bone. The stranger pays up, and stops grinning.'}},
+    {label:'Read his tells',a:'P',win:{gold:35,text:'You see him palm a bone, and he pays you to keep quiet.'},lose:{gold:-15,text:'He spots you watching and charges you for the lesson.'}},
+    {label:'Walk on',win:{text:'The rattle of bones fades behind you.'}}]},
+  {id:'witch',ill:'well',title:'The Crossroads Witch',text:'Where four roads meet, a witch stirs a pot that smells of iron. "Power has a price," she says. "Blood will do."',opts:[
+    {label:'Pay in blood (every hero takes 8 damage)',win:{dmg:8,relic:true,text:'She fills a vial from each of you, and hands over something that hums.'}},
+    {label:'Trade secrets of the art',cls:'wizard',auto:true,win:{draft:true,text:'Orin and the witch talk until dawn. One of you learns a new trick.'}},
+    {label:'Ask her what lies ahead',a:'W',win:{omen:true,text:'She reads the steam. You know what waits at the end of this road: every hero starts the boss battle with 1 more momentum.'},lose:{gold:-10,text:'She charges you 10 gold for a riddle.'}},
+    {label:'Leave her to her pot',win:{text:'Her laughter follows you down the road.'}}]},
+  {id:'deserter',ill:'hunter',title:'The Deserter',text:'A scarred orc sits by the road with his axe across his knees. He has left the warband, and they want him back.',opts:[
+    {label:'Win his trust',a:'P',win:{omen:true,gold:15,text:'He tells you all he knows of the master he fled. Every hero starts the boss battle with 1 more momentum.'},lose:{fight:'ambush',text:'His old warband finds you both. Fight!'}},
+    {label:'Spar with him, warrior to warrior',cls:'fighter',auto:true,win:{vic:1,text:'Brakka and the orc trade blows till both are grinning. He goes on his way, and the party feels sharp.'}},
+    {label:'Turn him in for the bounty',win:{gold:40,text:'Forty gold, and a look you will remember.'}},
+    {label:'Let him be',win:{text:'He nods once and limps away.'}}]},
   /* Dramatic tasks (Core Rules 4.4): every hero makes one attempt a round; success 1 token, an exploding roll 2, a
      critical failure loses 1. win / cost (1-2 short) / lose (more than 2 short). */
   {id:'fire',kind:'task',ill:'mist',title:'The Burning Mill',text:'Smoke pours from a mill by the river. Villagers are trapped on the upper floor, and the roof is going.',rounds:3,target:8,approaches:[

@@ -19,13 +19,19 @@ const NODE_INFO={
 const living=()=>RUN.heroes.filter(h=>!h.dead);
 const heroOf=cls=>RUN.heroes.find(h=>h.cls===cls);
 const hasClass=cls=>living().some(h=>h.cls===cls);
-const hdMax=h=>h.lvl+1;
+const hdMax=h=>h.lvl+1+(RUN&&RUN.gear.includes('kettle')?1:0);
+const priceMul=()=>(wornR('seal')?.75:1)*(RUN&&RUN.dread>=5?1.25:1);
+const wornR=r=>!!RUN&&RUN.gear.includes(r);
 const slotsOf=h=>Math.min(8,h.lvl+3);
 function newHeroes(){return ORDER.map(c=>({cls:c,lvl:1,xp:0,maxHp:CLASSES[c].hp,hp:CLASSES[c].hp,hd:2,wounds:0,powers:CLASSES[c].start.slice(),weapon:START_WEAPON[c]}));}
-function newRun(){
+function newRun(dread){
   unseedRng();
-  RUN={v:11,act:0,map:genMap(0),pos:null,gold:40,vic:0,xpBank:0,wup:{},heroes:newHeroes(),relics:[],gear:[],stash:[],stats:{wins:0,kills:0,battles:0,gold:0},stage:'map',pending:null,seen:[],shop:null,event:null,enc:null,camp:null,task:null,talk:null};
-  CTX={mode:'run',relics:RUN.gear,vic:0};
+  const L=legacy();if(dread==null)dread=Math.min(L.dreadMax,L.lastDread||0);
+  RUN={v:11,dread,act:0,map:genMap(0),pos:null,gold:dread>=2?0:40,vic:0,xpBank:0,wup:{},heroes:newHeroes(),relics:[],gear:[],stash:[],stats:{wins:0,kills:0,battles:0,gold:0},stage:'map',pending:null,seen:[],shop:null,event:null,enc:null,camp:null,task:null,talk:null};
+  for(const h of RUN.heroes)h.hd=hdMax(h);
+  if(dread>=6)for(const n of Object.values(RUN.map.nodes))if(n.diff==='easy'&&n.f>0)n.diff='medium';
+  RUN.boons=boonOffers();
+  CTX={mode:'run',relics:RUN.gear,vic:0,dread};
   saveGame();
 }
 function genMap(act){
@@ -45,7 +51,7 @@ function genMap(act){
     n.type=n.f===0?'battle':n.f===MAP_F-1?'rest':n.f===3&&rnd(2)?'treasure':wpick(n.f);
     if(n.type==='shop'&&++shops>2)n.type='battle';
   }
-  for(const n of Object.values(nodes)){n.mission=rollMission(n,act);if(n.type==='battle')n.diff=n.f===0||Math.random()<TUNE.easyShare?'easy':'medium';if(n.type==='elite')n.diff='hard';}
+  for(const n of Object.values(nodes)){n.mission=rollMission(n,act);if(n.type==='battle')n.diff=n.f===0||(Math.random()<TUNE.easyShare&&!(RUN&&RUN.dread>=6))?'easy':'medium';if(n.type==='elite')n.diff='hard';}
   const r=mulberry(act*1000+Object.keys(nodes).length*7+rnd(1000));
   for(const n of Object.values(nodes)){n.x=22+n.f*37+Math.round(r()*6-3);n.y=40+n.l*34+Math.round(r()*8-4);}
   nodes.boss={id:'boss',f:MAP_F,l:1.5,type:'boss',x:292,y:93};
@@ -96,7 +102,7 @@ function travel(id){
   else go({shop:SHOP_SCREEN,rest:REST_SCREEN,event:EVENT_SCREEN,task:TASK_SCREEN,talk:TALK_SCREEN}[r.screen]||MAP_SCREEN);
 }
 function startRunBattle(enc,kind){
-  CTX={mode:'run',relics:RUN.gear,vic:RUN.vic};
+  CTX={mode:'run',relics:RUN.gear,vic:RUN.vic,dread:RUN.dread||0};
   RUN.stage='battle';RUN.enc=enc;RUN.encKind=kind||'battle';
   for(const h of living())if(h.hp<=0)h.hp=1;
   setupBattle(enc,living());
@@ -117,7 +123,7 @@ function onRunBattleEnd(o){
   }else{
     RUN.stage='lost';const best=+(localStorage.getItem(BEST_KEY)||0);
     try{if(RUN.stats.wins>best)localStorage.setItem(BEST_KEY,RUN.stats.wins);}catch(e){}
-    clearSave();
+    legacyEnd(false);clearSave();
     openModal(dialog({title:'DEFEAT',body:`The company has fallen at ${G.enc.title}.`,closable:false,buttons:[{l:'THE TALE',hot:true,fn:()=>go(END_SCREEN)}]}));
   }
 }
@@ -129,7 +135,10 @@ function resolveVictory(){
   let gold=kind==='boss'?45+rnd(15):kind==='elite'?26+rnd(12):10+rnd(8)+RUN.act*3;
   if(enc.type==='loot'&&G.looted>=3)gold+=30;
   if(RUN.gear.includes('coin'))gold=Math.round(gold*1.5);
-  RUN.gold+=gold;RUN.stats.gold+=gold;
+  if(RUN.dread>=2)gold=Math.round(gold*.8);
+  RUN.gold+=gold;
+  RUN.stats.elites=(RUN.stats.elites||0)+(kind==='elite'?1:0);RUN.stats.bosses=(RUN.stats.bosses||0)+(kind==='boss'?1:0);
+  legacyAdd({battles:1,kills:G.kills,elites:kind==='elite'?1:0,bosses:kind==='boss'?1:0});RUN.stats.gold+=gold;
   const vic=kind==='boss'?3:kind==='elite'?2:1;RUN.vic+=vic;
   const xp=enc.xp||DIFF[encDiff(enc.type,enc.elite)].xp;RUN.xpBank=(RUN.xpBank||0)+xp;
   const notes=[];
@@ -139,6 +148,7 @@ function resolveVictory(){
     const w0=h.wounds||0;h.wounds=u.wounds||0;if(u.hd!=null)h.hd=u.hd;
     if(u.slain){h.dead=true;h.hp=0;notes.push(`{r:${CLASSES[h.cls].name} is dead.} The fourth Down was one too many.`);continue;}
     if(u.dead)h.hp=Math.min(mhp,tri);else h.hp=Math.min(mhp,u.hp);
+    if(wornR('waterskin'))h.hp=Math.min(mhp,h.hp+Math.round(mhp*.15));
     if(h.wounds>w0)notes.push(`${CLASSES[h.cls].name} gains a Wound (${h.wounds} of 3).`);
     // Growth counters (Heroes book 2.3) travel with the hero; going Down wiped them in battle
     h.grow=Object.assign({},u.grow||{});if(!u.dead&&u.pas&&u.pas.pride)h.grow.pride=Math.min(4,(h.grow.pride||0)+1);h.glow=!u.dead&&u.pas&&u.pas.afterglow?Math.min(3,Math.floor(u.mom/2)):0;
@@ -173,7 +183,7 @@ function makeCamp(o){
   o=o||{};const C={lines:[],leveled:[],drafts:[],tended:{},trained:{},xp:RUN.xpBank||0,newAct:!!o.newAct};
   for(const h of living()){
     let healed=0;while(h.hd>0&&h.hp<effMaxHp(h))healed+=catchBreath(h);
-    const w=h.wounds>0;if(w)h.wounds--;
+    const w=h.wounds>0;if(w)h.wounds=Math.max(0,h.wounds-(wornR('kettle')?2:1));
     C.lines.push({cls:h.cls,healed,wound:w});
   }
   for(const h of living()){
@@ -208,7 +218,7 @@ function draftOffers(h,o){
   const pool=Object.keys(POWERS).filter(id=>{const p=POWERS[id];return (p.c===h.cls||p.c==='gen')&&!p.basic&&!p.innate&&p.rar&&!own.has(id)&&(!o.only||p.rar===o.only);});
   const out=[];
   const take=f=>{const r=o.only||rollRarity();let c=pool.filter(id=>f(POWERS[id])&&POWERS[id].rar===r&&!out.includes(id));if(!c.length)c=pool.filter(id=>f(POWERS[id])&&!out.includes(id));if(c.length)out.push(pick(c));};
-  take(p=>p.c===h.cls);take(p=>p.c==='gen');take(()=>true);
+  take(p=>p.c===h.cls);take(p=>p.c==='gen');take(()=>true);if(wornR('tome'))take(()=>true);
   if(o.min&&!out.some(id=>RAR_RANK[POWERS[id].rar]>=RAR_RANK[o.min])){const c=pool.filter(id=>RAR_RANK[POWERS[id].rar]>=RAR_RANK[o.min]&&!out.includes(id));if(c.length)out[out.length-1]=pick(c);}
   return shuffle(out).map(id=>({cls:h.cls,id}));
 }
@@ -219,7 +229,7 @@ function learnPower(cls,id,drop){
   if(h.powers.length>=slotsOf(h)){const i=h.powers.indexOf(drop);if(i<0)return false;h.powers.splice(i,1);}
   h.powers.push(id);return true;
 }
-function relicOffers(n){return shuffle(Object.keys(RELICS).filter(r=>!RUN.relics.includes(r))).slice(0,n);}
+function relicOffers(n){return shuffle(Object.keys(RELICS).filter(r=>!RUN.relics.includes(r)&&relicUnlocked(r))).slice(0,n);}
 function weaponOffers(n){
   const tiers=RUN.act===0?[2,2,3]:RUN.act===1?[2,3,3,4]:[3,4,4];
   const owned=new Set([...RUN.stash,...RUN.heroes.map(h=>h.weapon)]);
@@ -265,7 +275,7 @@ function gainRelic(r){if(RUN.relics.includes(r))return;RUN.relics.push(r);if(RUN
 /* After the rewards: back to the map, or (after a boss) into the next region by way of a Camp. */
 function finishRewards(){
   const P=RUN.pending;RUN.pending=null;
-  if(P&&P.final){RUN.stage='won';try{localStorage.setItem(BEST_KEY,Math.max(+(localStorage.getItem(BEST_KEY)||0),RUN.stats.wins));}catch(e){}clearSave();go(END_SCREEN);return;}
+  if(P&&P.final){RUN.stage='won';try{localStorage.setItem(BEST_KEY,Math.max(+(localStorage.getItem(BEST_KEY)||0),RUN.stats.wins));}catch(e){}legacyEnd(true);clearSave();go(END_SCREEN);return;}
   if(P&&P.kind==='boss'){RUN.act++;RUN.map=genMap(RUN.act);RUN.pos=null;makeCamp({newAct:true});go(REST_SCREEN);return;}
   RUN.stage='map';saveGame();go(MAP_SCREEN);
 }
@@ -282,6 +292,7 @@ function smithMenu(id){
     if(w.runes.includes(r))continue;if(r==='keen'&&s<6)continue;if(r==='twin'&&(!isLight(b)||w.dual))continue;if(dt&&(r==='flame'||r==='frost'||r==='radiant'))continue;
     out.push({k:'inscribe',rune:r,label:`Inscribe ${RUNE_NAME[r]}`,cost:60});}
   for(const r of w.runes)out.push({k:'erase',rune:r,label:`Remove ${RUNE_NAME[r]}`,cost:20});
+  for(const o of out)o.cost=Math.round(o.cost*priceMul());
   return out;
 }
 function smithDo(id,o){
@@ -302,6 +313,7 @@ function genShop(){
   for(const h of hs){const o=draftOffers(h)[0];if(o)items.push({kind:'power',cls:o.cls,id:o.id,price:POWER_PRICE[POWERS[o.id].rar]||60});}
   for(const o of weaponOffers(2))items.push({kind:'weapon',id:o.weapon,price:WEAPON_PRICE[WEAPONS[o.weapon].tier]+rnd(16)-8});
   items.push({kind:'heal',price:30});
+  for(const it of items)it.price=Math.round(it.price*priceMul());
   return {items};
 }
 function buyItem(it,drop){
@@ -395,6 +407,7 @@ function applyOutcome(out,roller){
 const ACCOMPLISH={minor:10,moderate:30,major:60};
 const withXp=(out,xp)=>Object.assign({},out||{},{xp:((out&&out.xp)||0)+xp});
 function resolveEvent(o){
+  legacyAdd({events:1});
   if(!optOk(o))return {text:o.cls&&!hasClass(o.cls)?'Nobody in the party can do that.':'You cannot afford it.',fail:true};
   if(o.cost)RUN.gold-=o.cost;
   let out=o.win,roll=null,roller=null,group=null;
@@ -436,7 +449,7 @@ function advanceTask(){
   if(T.tokens>=ev.target){T.done='win';return;}
   if(living().every(h=>T.acted.includes(h.cls))){T.round++;T.acted=[];T.help=0;if(T.round>ev.rounds)T.done=ev.target-T.tokens<=2?'cost':'lose';}
 }
-function finishTask(){const T=RUN.task,ev=taskEv();const out=T.done==='win'?withXp(ev.win,ACCOMPLISH.moderate):T.done==='cost'?withXp(ev.cost,20):ev.lose;const A=applyOutcome(out);RUN.task=null;return Object.assign({text:A.text},A.f);}
+function finishTask(){legacyAdd({events:1});const T=RUN.task,ev=taskEv();const out=T.done==='win'?withXp(ev.win,ACCOMPLISH.moderate):T.done==='cost'?withXp(ev.cost,20):ev.lose;const A=applyOutcome(out);RUN.task=null;return Object.assign({text:A.text},A.f);}
 
 /* ---------------- negotiations (Core Rules 4.5) ---------------- */
 function talkEv(){const T=RUN.talk;return T&&(T.road!=null?Object.assign({},TALKS_ROAD[T.road]):EVENTS.find(e=>e.id===T.id));}
@@ -451,7 +464,7 @@ function talkArg(arg){
 }
 function talkPay(){const T=RUN.talk,ev=talkEv();if(!T||T.done||RUN.gold<ev.pay)return false;RUN.gold-=ev.pay;T.tokens++;T.last={paid:ev.pay,g:1};T.round++;if(T.round>3)T.done=true;saveGame();return true;}
 function talkStop(){if(RUN.talk)RUN.talk.done=true;saveGame();}
-function finishTalk(){const T=RUN.talk,ev=talkEv();const k=Math.min(3,T.tokens);const out=Object.assign({},ev.results[k]);if(k>=2)out.vic=(out.vic||0)+1;if(k>=1)out.xp=(out.xp||0)+(k>=2?ACCOMPLISH.moderate:ACCOMPLISH.minor);
+function finishTalk(){legacyAdd({events:1});const T=RUN.talk,ev=talkEv();const k=Math.min(3,T.tokens);const out=Object.assign({},ev.results[k]);if(k>=2)out.vic=(out.vic||0)+1;if(k>=1)out.xp=(out.xp||0)+(k>=2?ACCOMPLISH.moderate:ACCOMPLISH.minor);
   const A=applyOutcome(out);RUN.talk=null;return Object.assign({text:A.text},A.f);}
 
 /* ---------------- saves ---------------- */
@@ -469,7 +482,7 @@ function loadSave(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null
 function migrate10(R){R.v=11;R.xpBank=0;for(const h of R.heroes)h.xp=xpAt(h.lvl);for(const n of Object.values(R.map.nodes)){if(n.type==='battle'&&!n.diff)n.diff='medium';if(n.type==='elite')n.diff='hard';}}
 function clearSave(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
 function continueRun(){
-  const d=loadSave();if(!d)return;RUN=d.RUN;CTX={mode:'run',relics:RUN.gear,vic:RUN.vic};
+  const d=loadSave();if(!d)return;RUN=d.RUN;CTX={mode:'run',relics:RUN.gear,vic:RUN.vic,dread:RUN.dread||0};
   if(RUN.stage==='battle'){
     if(d.G&&d.G.v===4){G=d.G;HIST.length=0;G.await=true;pushSnap();B.onEnd=onRunBattleEnd;B.busy=false;B.pend=null;B.inspect=null;B.vkey='';B.gRef=null;for(const k in VIS)delete VIS[k];go(BATTLE_SCREEN);const u=playerUnit();if(u){B.pi=defaultPower(u);selfPend(u);}}
     else startRunBattle(RUN.enc,RUN.encKind);
@@ -481,4 +494,91 @@ function continueRun(){
   else if(RUN.stage==='task'&&RUN.task)go(TASK_SCREEN);
   else if(RUN.stage==='talk'&&RUN.talk)go(TALK_SCREEN);
   else{RUN.stage='map';go(MAP_SCREEN);}
+}
+
+/* ---------------- the Legacy: what carries over between journeys ----------------
+   A profile of every journey played: totals, the Dread levels won, a short history, and relics unlocked by milestones.
+   Unlocked relics join the pool that treasure, elites, bosses, merchants and boons draw from. */
+const LEGACY_KEY='rogue.legacy.v1';
+let UNLOCK_ALL=false;
+const LEGACY_UNLOCKS=[
+  {relic:'drum',need:'Finish a journey, won or lost.',ok:L=>L.runs>=1},
+  {relic:'tome',need:'Win 15 battles.',ok:L=>L.battles>=15},
+  {relic:'kettle',need:'Defeat a boss.',ok:L=>L.bosses>=1},
+  {relic:'seal',need:'Finish 8 events.',ok:L=>L.events>=8},
+  {relic:'hood',need:'Win 5 elite battles.',ok:L=>L.elites>=5},
+  {relic:'thread',need:'Reach the Ashen Waste.',ok:L=>L.bestAct>=2},
+  {relic:'ember',need:'Slay 250 foes.',ok:L=>L.kills>=250},
+  {relic:'chalice',need:'Finish 5 journeys.',ok:L=>L.runs>=5},
+  {relic:'crown',need:'Slay the Ashen Dragon.',ok:L=>L.wins>=1},
+];
+let LEG=null;
+function legacy(){
+  if(LEG)return LEG;
+  let d=null;try{d=JSON.parse(localStorage.getItem(LEGACY_KEY)||'null');}catch(e){}
+  LEG=Object.assign({runs:0,wins:0,battles:0,kills:0,elites:0,bosses:0,events:0,bestAct:0,dreadMax:0,lastDread:0,best:0,unlocked:[],history:[]},d||{});
+  checkUnlocks();
+  return LEG;
+}
+function saveLegacy(){try{localStorage.setItem(LEGACY_KEY,JSON.stringify(legacy()));}catch(e){}}
+function relicUnlocked(r){return UNLOCK_ALL||!RELICS[r].lock||legacy().unlocked.includes(r);}
+/* New unlocks earned by the totals so far. */
+function checkUnlocks(){const L=legacy(),got=[];for(const u of LEGACY_UNLOCKS)if(!L.unlocked.includes(u.relic)&&u.ok(L)){L.unlocked.push(u.relic);got.push(u.relic);}return got;}
+function legacyAdd(o){
+  if(typeof CTX==='undefined'||!CTX||(CTX.mode!=='run'&&CTX.mode!=='sim')||AUTOPLAY)return;
+  const L=legacy();for(const k in o)L[k]=(L[k]||0)+o[k];L.bestAct=Math.max(L.bestAct,RUN?RUN.act:0);
+  const got=checkUnlocks();saveLegacy();
+  if(got.length&&RUN){(RUN.newUnlocks=RUN.newUnlocks||[]).push(...got);for(const r of got)toast(`Unlocked: ${RELICS[r].name}!`);}
+}
+/* A journey's score: deeds, times the Dread. */
+function runScore(won){const S=RUN.stats;return Math.round(((S.wins||0)*10+(S.elites||0)*20+(S.bosses||0)*100+(S.kills||0)+(won?300:0))*(1+.25*(RUN.dread||0)));}
+/* The end of a journey: totals, the Dread ladder, the history and the unlocks. Shown on the end screen. */
+function legacyEnd(won){
+  if(AUTOPLAY||!RUN||RUN.legacyDone)return;RUN.legacyDone=true;
+  const L=legacy(),score=runScore(won),d=RUN.dread||0;
+  L.runs++;if(won)L.wins++;L.bestAct=Math.max(L.bestAct,RUN.act+(won?1:0));
+  let dreadUp=false;if(won&&d>=L.dreadMax&&L.dreadMax<DREAD.length){L.dreadMax=d+1;dreadUp=true;}
+  const best=score>(L.best||0);if(best)L.best=score;
+  L.history.unshift({won,act:RUN.act,dread:d,score,battles:RUN.stats.wins,kills:RUN.stats.kills,lv:Math.round(RUN.heroes.reduce((a,h)=>a+h.lvl,0)/RUN.heroes.length),t:Date.now()});
+  L.history=L.history.slice(0,12);
+  const got=(RUN.newUnlocks||[]).concat(checkUnlocks());
+  saveLegacy();
+  RUN.end={score,best,dreadUp,unlocks:[...new Set(got)]};
+}
+
+/* ---------------- boons: a gift (or a bargain) at the start of a journey ----------------
+   Two gifts and one bargain, pick one. Each turns into reward steps (run through the reward screen) or a direct effect. */
+const BOONS={
+  cache:{name:'An Old Cache',desc:'Choose 1 of 2 relics.'},
+  purse:{name:"A Patron's Purse",desc:'+100 gold.'},
+  tutor:{name:"A Master's Lesson",desc:'{H} drafts a power, with at least one Rare.'},
+  armory:{name:'The Armory',desc:'Choose 1 of 2 weapons.'},
+  veteran:{name:'Veterans',desc:'Bank 80 XP: every hero gains a level at the first Camp.'},
+  smith:{name:"The Smith's Favour",desc:"{H}'s weapon is tempered one step."},
+  pact:{name:'A Dark Pact',bargain:true,desc:'Choose 1 of 3 relics. Every hero starts with a Wound.'},
+  hoard:{name:'A Cursed Hoard',bargain:true,desc:'+250 gold. Every hero starts with a Wound.'},
+  oath:{name:'A Blood Oath',bargain:true,desc:'Every hero drafts a power, with at least one Uncommon. You start with no gold.'},
+};
+function boonOffers(){
+  const good=shuffle(['cache','purse','tutor','armory','veteran','smith']).slice(0,2),bad=pick(['pact','hoard','oath']);
+  return good.concat([bad]).map(id=>({id,cls:pick(ORDER)}));
+}
+function boonText(b){return BOONS[b.id].desc.replace('{H}',CLASSES[b.cls].name);}
+/* Take a boon. Returns 'reward' when it opens the reward screen, otherwise 'map'. */
+function takeBoon(b){
+  RUN.boons=null;const steps=[],who=[];
+  const wound=()=>{for(const h of RUN.heroes)h.wounds=Math.min(2,(h.wounds||0)+1);};
+  switch(b&&b.id){
+    case 'cache':steps.push('relic2');break;
+    case 'purse':RUN.gold+=100;break;
+    case 'tutor':steps.push('draft');who.push({cls:b.cls,min:'R'});break;
+    case 'armory':steps.push('weapon');break;
+    case 'veteran':RUN.xpBank=(RUN.xpBank||0)+80;break;
+    case 'smith':{const h=heroOf(b.cls),o=smithMenu(h.weapon).find(q=>q.k==='temper');if(o){wup(h.weapon).s=LADDER[LADDER.indexOf(wup(h.weapon).s)+1];}break;}
+    case 'pact':steps.push('relic');wound();break;
+    case 'hoard':RUN.gold+=250;wound();break;
+    case 'oath':RUN.gold=0;for(const h of RUN.heroes){steps.push('draft');who.push({cls:h.cls,min:'U'});}break;
+  }
+  if(steps.length){RUN.stage='reward';RUN.pending={steps,who,kind:'boon'};saveGame();return 'reward';}
+  RUN.stage='map';saveGame();return 'map';
 }

@@ -64,7 +64,7 @@ const REWARD_SCREEN={draw(){
   const P=RUN.pending;const s=nextRewardStep();if(!s){finishRewards();return;}
   button(SW-52,4,48,13,'EQUIP',()=>openEquip(),{});
   if(s==='summary'){drawSummary(P);return;}
-  const head=P.kind==='treasure'?'TREASURE':P.kind==='camp'?'CAMP':P.kind==='event'?'FORTUNE':P.kind==='boss'?'TRIUMPH':'VICTORY';
+  const head=P.kind==='boon'?'A GIFT':P.kind==='treasure'?'TREASURE':P.kind==='camp'?'CAMP':P.kind==='event'?'FORTUNE':P.kind==='boss'?'TRIUMPH':'VICTORY';
   text(head,SW/2,6,C.gold,{al:'c',sc:2,ol:C.edge});
   let ty=22;
   const d=s==='draft'?draftHero():null;

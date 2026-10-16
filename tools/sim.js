@@ -36,9 +36,9 @@ const _roundEnd=roundEnd;roundEnd=async function(){if(G.round>=30){G.over=true;G
 
 /* ---- one journey ---- */
 vm.runInContext(`
-AUTOPLAY=true;
+AUTOPLAY=true;UNLOCK_ALL=true;
 async function simBattle(enc,kind){
-  CTX={mode:'sim',relics:RUN.gear,vic:RUN.vic};RUN.encKind=kind;
+  CTX={mode:'sim',relics:RUN.gear,vic:RUN.vic,dread:RUN.dread||0};RUN.encKind=kind;
   for(const h of living())if(h.hp<=0)h.hp=1;
   setupBattle(enc,living());
   if(kind==='boss'&&RUN.omen){RUN.omen=false;for(const u of G.units)if(u.side==='hero'&&u.kind==='pc')u.mom=Math.min(5,u.mom+1);}
@@ -82,7 +82,8 @@ async function simFollow(F,S,n){
 }
 async function simRun(seed){
   globalThis.__seed=seed*7919+13;
-  newRun();
+  newRun(${+(process.env.DREAD||0)});
+  if(takeBoon(pick(RUN.boons))==='reward')takeOffers(RUN.pending,{picks:[]});
   const S={seed,result:'lose',act:0,floor:0,battles:0,picks:[],bossHp:[],bossLvl:[],bossGold:[],hpAfter:[],diedAt:null,shopSpent:0,goldEnd:0,weapons:[],relics:[],deaths:0,wounds:[]};
   while(true){
     simCatch();

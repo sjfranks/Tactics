@@ -211,5 +211,5 @@ function startTutorial(){
 function startJourney(){
   const done=tutDone();
   openModal(dialog({title:'NEW JOURNEY',w:200,body:done?'Play the short tutorial again, or set out at once?':'Would you like a short tutorial first? Brakka the fighter learns the ropes against a few goblins, then Sela joins her. It takes a few minutes.',
-    buttons:[{l:'TUTORIAL',hot:!done,fn:startTutorial},{l:done?'SET OUT':'SKIP',hot:done,fn:()=>{newRun();go(MAP_SCREEN);}}]}));
+    buttons:[{l:'TUTORIAL',hot:!done,fn:startTutorial},{l:done?'SET OUT':'SKIP',hot:done,fn:()=>{closeModal();setOut();},keep:true}]}));
 }
