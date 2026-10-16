@@ -37,7 +37,7 @@ function icon16(key,variant){
 function statusIcon(k){return STATUS7[k]?artCanvas('s'+k,STATUS7[k],ART_PAL):null;}
 function relicArt(k){return artCanvas('r'+k,RELIC16[k]||RELIC16.coin,ART_PAL);}
 function mapIcon(k){return MAPICON24[k]?artCanvas('m'+k,MAPICON24[k],ART_PAL):null;}
-const POWER_ICON={
+const POWER_ICON={secondwind:'heart',helpup:'heart',
   grind:'sword',tide:'bash',sweep:'whirl',cagi:'horn',shieldWall:'shield',hook:'chain',crush:'hammer',hurl:'fist',interpose:'swap',
   unbreak:'shield:steel',whirl:'whirl:red',quake:'quake',bastion:'banner',titan:'hammer:gold',cleave:'axe',spin:'boot',
   pierce:'dagger',knives:'knives',tumble:'boot',deepcut:'cut',shadow:'blink:dark',barrage:'whirl:gleam',vanish:'hood',assassinate:'skull',

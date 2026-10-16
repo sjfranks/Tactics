@@ -32,7 +32,7 @@ const TUT_SCRIPT=[
   {say:'narrator',text:'Before you strike, the {g:forecast} shows what could happen. Every attack rolls damage dice: a 1 on the first die is a {g:Miss}; its top number is a {g:Critical hit}, and you roll one more die (and one more again on another top number). You see the damage and the odds of each.'},
   {do:'confirm',text:'Tap the cutthroat again to strike.'},
   {say:'fighter',text:()=>tutFoe('cut')?'Come on, then! Who\'s next?':'One down!'},
-  {say:'narrator',text:'Brakka has {g:one action} left. She could attack again, but each attack after the first in a turn has {g:disadvantage}. Or she can save it: saved actions become {g:reactions} on the foes\' turn. She will {g:Defend}, halving the next blow, or {g:Intercept} a blow meant for a friend beside her.'},
+  {say:'narrator',text:'Brakka has {g:one action} left. She could attack again, but each attack after the first in a turn has {g:disadvantage}. Or she can stop here. On the foes\' turns she can still use {g:reactions}, each paid for with one of her actions next turn: she will {g:Defend}, rolling her armour\'s die to soak a blow, or {g:Intercept} a blow meant for a friend beside her.'},
   {say:'narrator',text:'Tap {g:INTENT} at any time to see whom each foe means to attack next.'},
   {do:'end',text:'Tap {g:END · SAVE 1} to keep her last action for a reaction. Then the goblins take their turn.'},
   {wait:()=>G.round>=2&&onTurn('fighter')()},
