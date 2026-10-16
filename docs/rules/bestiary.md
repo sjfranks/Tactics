@@ -1,13 +1,13 @@
 ---
 title: Rogue Tactics 1e — Bestiary
-version: 0.23
+version: 0.24
 book: 3 of 4 (Core Rules · Heroes · Bestiary)
 tags: [game-design, rulebook, roguelite, tactics, monsters]
 ---
 
 # Rogue Tactics 1e — Bestiary
 
-> v 0.23. Book 3 of 3. The foes of the three regions, their roles, three bosses, and how to build an encounter. Rules are in [Core Rules](core-rules.md) and classes, powers and weapon upgrades in [Heroes](heroes.md). **Every number in this book is a first guess (TBC)** and needs playtesting.
+> v 0.24. Book 3 of 3. The foes of the three regions, their roles, three bosses, and how to build an encounter. Rules are in [Core Rules](core-rules.md) and classes, powers and weapon upgrades in [Heroes](heroes.md). **Every number in this book is a first guess (TBC)** and needs playtesting.
 
 ---
 
@@ -21,7 +21,7 @@ Foes use the same rules as heroes: attributes, weapon dice, DEF dice, saves, set
 - Foes do not have momentum. Instead the foes share a pool of **Malice** (below).
 - Foes learn: a hero can *Create an opening* on each foe only once per battle (Core 3.4).
 - Every foe has a **role** (below) that says how it moves and whom it targets.
-- A foe may list a **weakness**, **resistance** or **immunity** to a damage type (Core 3.11), and a **Terrifying** rating (Core 3.2).
+- A foe may list a **weakness**, **resistance** or **immunity** to a damage type (Core 3.11), and a **Terrifying** rating (Core 3.2). Terrifying only takes effect from region II.
 
 ### Foe Types
 
@@ -72,8 +72,8 @@ Foes use the same rules as heroes: attributes, weapon dice, DEF dice, saves, set
 |---|---|
 | **Pack** | Its attack has advantage if another foe is adjacent to the target. |
 | **Savage** | Its attacks deal **+2 damage** to **bloodied** heroes. |
-| **Nimble** | Its moves do not provoke free strikes. |
-| **Skulk** | After it attacks, it may move 1 tile for free (no free strikes). |
+| **Nimble** | A Sentinel's strike never catches it. |
+| **Skulk** | After it attacks, it may move 1 tile for free. |
 | **Aura** | Allied foes within 2 tiles have **+1 advantage** on their attacks. |
 | **Fireproof** | **Immune** to fire. |
 | **Undead** | **Weak** to radiant. **Immune** to poison and necrotic. Cannot bleed. |
@@ -91,7 +91,7 @@ Foes use the same rules as heroes: attributes, weapon dice, DEF dice, saves, set
 
 ## Malice and Threats
 
-The foes share one pool of **Malice (◆)**.
+The foes share one pool of **Malice (◆)**. **Malice starts in region II**: the first region's ordinary battles have no threats (its elites and boss do), so new players learn the basics first.
 
 - **Earning Malice.** At the start of each round the foes gain **Malice equal to the round number** (1, 2, 3...), plus **1 for each hero who is Down**. Unspent Malice carries over until the battle ends.
 - **Spending Malice.** At the start of any foe's turn the foes may spend Malice on **one** of the following: a **threat** (below), or a foe's **◆ ability** (the cost is in its entry). Boss surges are free (below).
@@ -99,7 +99,7 @@ The foes share one pool of **Malice (◆)**.
 
 | Threat | Cost | Unlocked | Effect |
 |---|---|---|---|
-| **Bloodlust** | 3 | always | Every foe has **+1 advantage** on its attacks this round. |
+| **Bloodlust** | 3 | region I elites and boss; every battle from region II | Every foe has **+1 advantage** on its attacks this round. |
 | **Eruption** | 5 | elite and boss battles; every battle from region II | The foes mark **3 tiles** under heroes. At the end of the round, each creature on a marked tile makes a **DEX save** or suffers the region's hazard (fire, acid or lava damage, ignoring DEF). |
 | **Reinforcements** | 7 | region II and III | A horde of minions (three plus the region number) pours in from the edges. In a **boss** battle they stop coming once **four foes** are on the board, so a long boss fight does not snowball. |
 | **Dark Rite** | 6 | region III | Every foe gains a **shield of 5**. |

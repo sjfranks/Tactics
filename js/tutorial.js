@@ -32,9 +32,9 @@ const TUT_SCRIPT=[
   {say:'narrator',text:'Before you strike, the {g:forecast} shows what could happen. Every attack rolls damage dice: a 1 on the first die is a {g:Miss}; its top number is a {g:Critical hit}, and you roll one more die (and one more again on another top number). You see the damage and the odds of each.'},
   {do:'confirm',text:'Tap the cutthroat again to strike.'},
   {say:'fighter',text:()=>tutFoe('cut')?'Come on, then! Who\'s next?':'One down!'},
-  {say:'narrator',text:'Brakka has {g:one action} left. She could attack again, but each attack after the first in a turn has {g:disadvantage}. Or she can stop here. On the foes\' turns she can still use {g:reactions}, each paid for with one of her actions next turn: she will {g:Defend}, rolling her armour\'s die to soak a blow, or {g:Intercept} a blow meant for a friend beside her.'},
+  {say:'narrator',text:'Brakka has {g:one action} left. A hero makes one basic attack a turn, so she can move or stop here. Actions she keeps stay {b:ready} (the blue pips): if a goblin hits her on its turn, you will be asked whether to {g:Defend}, rolling her armour die to soak the blow. Her actions refill when her next turn starts.'},
   {say:'narrator',text:'Tap {g:INTENT} at any time to see whom each foe means to attack next.'},
-  {do:'end',text:'Tap {g:END · SAVE 1} to keep her last action for a reaction. Then the goblins take their turn.'},
+  {do:'end',text:'Tap {g:END · KEEP 1} to keep her last action ready. Then the goblins take their turn.'},
   {wait:()=>G.round>=2&&onTurn('fighter')()},
   {run:()=>tutJoin()},
   {say:'cleric',text:'Brakka! I saw the smoke from the road. I\'m with you!'},
@@ -45,7 +45,7 @@ const TUT_SCRIPT=[
   {do:'target',pi:2,text:'Shove the brute into the fire!',tiles:()=>tutInTargets('brute',0,2)},
   {do:'confirm',text:'Tap the brute again to shove it.'},
   {say:'fighter',text:'Off balance, on fire, and {g:marked}: it can only come for me now. Sela, strike!',when:()=>G.tut.lastDone==='confirm'&&tutFoe('brute')&&tutFoe('brute').st.stag},
-  {do:'end',text:'Tap END to save Brakka\'s other actions for reactions. Sela is next, before the brute can recover.'},
+  {do:'end',text:'Tap END: Brakka keeps her other actions ready to Defend. Sela is next, before the brute can recover.'},
   {wait:onTurn('cleric')},
   {say:'narrator',text:'Sela is a cleric. Her {g:Brand of Judgment} strikes a foe and leaves it {g:exposed}: her allies attack it with advantage.'},
   {do:'move',text:'Move Sela next to the brute.',tiles:()=>tutBeside('brute')},
@@ -63,7 +63,6 @@ const TUT_SCRIPT=[
   {do:'confirm',text:'Tap the archer again to pull.'},
   {say:'fighter',text:'Get over here!',when:()=>G.tut.lastDone==='confirm'},
   {say:'narrator',text:'That is the heart of every battle: one hero sets up the next. Shove and drag foes off balance, expose them, bless your friends, then cash it all in. Every combo feeds your momentum.'},
-  {say:'narrator',text:'One more thing: the pink {r:◆} at the top is the foes\' {r:Malice}. It grows every round, and when it is full they unleash a {r:threat}, like {r:Bloodlust}: every foe gets advantage for a round. Keep an eye on it.'},
   {run:()=>{for(const u of tutGob()){u.pinned=false;if(u.tutSpeed!=null)u.speed=u.tutSpeed;}}},
   {say:'narrator',text:()=>tutFoe('archer')&&tutFoe('archer').st.stag?'Only the archer is left, and it is staggered: Sela\'s next hit on it is a sure critical hit.':'Only the archer is left. Let Sela finish it.',when:()=>tutFoe('archer')},
   {do:'end',text:'Tap END TURN. Sela is next.',when:()=>tutFoe('archer')},
@@ -116,7 +115,7 @@ function tutEvent(ev){
 }
 function tutJoin(){
   if(tutHero('cleric'))return;
-  const h={cls:'cleric',lvl:1,hp:CLASSES.cleric.hp,maxHp:CLASSES.cleric.hp,powers:CLASSES.cleric.start.slice(),weapon:START_WEAPON.cleric};
+  const h={cls:'cleric',lvl:1,hp:CLASSES.cleric.hp,maxHp:CLASSES.cleric.hp,powers:['brand','healWord'],weapon:START_WEAPON.cleric};
   let spot=null;for(const [x,y] of [[3,6],[3,7],[2,7],[4,7],[1,7],[4,6],[1,6]])if(!spot&&freeTile(x,y,null))spot={x,y};
   if(!spot)return;
   const c=makePc(h,spot.x,spot.y,'hero');G.units.push(c);
@@ -188,7 +187,7 @@ function startTutorial(){
   at(4,4).haz={t:'fire',dur:-1};
   const pos=[[2,3],[4,1],[3,4]];enc.enemies.forEach((e,i)=>{e.x=pos[i][0];e.y=pos[i][1];});
   enc.heroPos='normal';
-  const f={cls:'fighter',lvl:1,hp:CLASSES.fighter.hp,maxHp:CLASSES.fighter.hp,powers:CLASSES.fighter.start.slice(),weapon:START_WEAPON.fighter};
+  const f={cls:'fighter',lvl:1,hp:CLASSES.fighter.hp,maxHp:CLASSES.fighter.hp,powers:['tide','hook'],weapon:START_WEAPON.fighter};
   setupBattle(enc,[f]);
   const fu=G.units.find(u=>u.cls==='fighter');fu.x=2;fu.y=6;
   G.order=[fu.id,...G.order.filter(id=>id!==fu.id)];

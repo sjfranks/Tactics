@@ -20,7 +20,8 @@ The whole game draws to a pixel canvas scaled up with crisp pixels: 320×180 on 
 - **Initiative:** everyone rolls their Dexterity die; one mixed turn order for heroes and foes, shown in the TURNS window. The INTENT button shows whom each foe means to attack, and how hard
 - **Combos:** heroes set each other up. Slammed foes are staggered (an ally's next hit is a sure critical hit), exposed foes are easier to hit, and blessed heroes attack with advantage. Cashing in another hero's set-up is a combo: +2 momentum for both. Passive powers pay off each other's set-ups, like a rogue's crit doubled on a foe the wizard rooted
 - **Damage dice:** the first die decides miss, hit or critical hit (which ignores DEF and explodes); advantage and disadvantage stack to triple. A forecast shows the odds and damage of each result before you strike
-- **Defence and reactions:** heroes Defend with their armour's DEF die and have a class reaction each, paid for with an action from their next turn
+- **Actions and reactions:** heroes get three actions at the start of each turn and make one basic attack a turn; actions they keep stay ready, and when a foe hits them the game asks whether to **Defend** with their armour's DEF die. Class reactions (Intercept, Opportunist, Repelling Ward, Warding Word) are reward powers. No free strikes
+- **A simple start that grows:** each hero starts with a basic attack, a set-up and one power; the first land's rewards are mostly Common, and Malice threats and Terrifying foes arrive from the second land
 - **Foes:** the Bestiary's roles, DEF dice, weaknesses, resistances and immunities, Terrifying foes, hidden lurkers and bosses with surges and bloodied phases. Foes share **Malice** and spend it on threats
 - **Terrain:** fire pits, acid pools, lava, snares and webs; cover, high ground and difficult terrain. Push and pull foes into hazards
 - **Tappable keywords:** every rules term is highlighted and opens its definition

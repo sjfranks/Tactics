@@ -1,13 +1,13 @@
 ---
 title: Rogue Tactics 1e — Core Rules
-version: 0.23
+version: 0.24
 book: 1 of 3 (Core Rules · Heroes · Bestiary)
 tags: [game-design, rulebook, roguelite, tactics]
 ---
 
 # Rogue Tactics 1e — Core Rules
 
-> v 0.23. Book 1 of 3. The other books are [Heroes](heroes.md) and [Bestiary](bestiary.md). Why the rules are the way they are, and what is still open, is in [Design Notes](design-notes.md). Numbers marked **TBC** are first guesses waiting for playtesting.
+> v 0.24. Book 1 of 3. The other books are [Heroes](heroes.md) and [Bestiary](bestiary.md). Why the rules are the way they are, and what is still open, is in [Design Notes](design-notes.md). Numbers marked **TBC** are first guesses waiting for playtesting.
 
 ---
 
@@ -221,7 +221,7 @@ Battles are fought on a grid of square tiles, **6 wide and 8 tall** (a phone hel
 
 1. **Initiative.** Every creature rolls its **DEX die** (exploding). Turns go from **highest to lowest** and the order **stays the same all battle**. Ties go to the higher DEX, then to heroes. Minions of one type share a roll.
 2. **Surprise.** Heroes who ambush unaware foes roll initiative with **advantage** and start **hidden**. Heroes who are ambushed roll with **disadvantage**.
-3. **Fear.** If a foe is **Terrifying** (Bestiary), every hero makes a **PRE save** at the start of the battle, with disadvantage equal to the foe's Terrifying rating (1 to 3). A hero who fails is **frightened** until the end of their first turn.
+3. **Fear.** From region II on, if a foe is **Terrifying** (Bestiary), every hero makes a **PRE save** at the start of the battle, with disadvantage equal to the foe's Terrifying rating (1 to 3). A hero who fails is **frightened** until the end of their first turn.
 
 **Rounds and turns.** A **turn** is one creature's go. A **round** is one pass through the whole order.
 
@@ -229,12 +229,15 @@ Battles are fought on a grid of square tiles, **6 wide and 8 tall** (a phone hel
 
 ### 3.3 Your Turn
 
-You have **3 actions** on your turn. Spend them on the actions in 3.4, in any order. You do not have to use them all.
+At the **start of your turn** you get **3 actions**. Spend them on the actions in 3.4, in any order. You do not have to use them all.
 
-- **Reactions spend actions too.** Between your turns you can react (3.6), such as **Defend**. Each reaction costs **1 action**, so you start your next turn with fewer.
-- **Your actions come back at the end of your turn**, however many you spent.
+- **Keep actions ready.** Actions you don't spend stay **ready** until your next turn starts. Each ready action can pay for one **reaction** (3.6) on someone else's turn, such as **Defend**.
+- **Your actions refill at the start of your next turn**: back to 3, however many you spent or kept. Ready actions you didn't use are not added on.
+- **At the start of a battle**, before their first turn, every hero has **1 ready action**.
 - **Free powers** and passive powers cost no action. You may use **one free power** per turn.
 - A **dazed** hero has 1 action on their turn. A **staggered** hero has 1 fewer (3.10).
+
+> **Why?** Keeping an action back is the one defensive choice every hero has. Spend all three to press the attack, or keep one or two to Defend when the foes strike back.
 
 ### 3.4 Actions
 
@@ -243,7 +246,7 @@ Each action costs **1 action** unless it says otherwise.
 | Action | What it does |
 |---|---|
 | **Move** | Move up to your **SPD** (3.1). You may split the move around other actions in the same turn. |
-| **Attack** | A **basic attack** with your weapon (3.5). The first each turn gives **+1 MP** (3.7). Each later basic attack in the same turn is **rushed**: the second has 1 disadvantage, the third has 2. |
+| **Attack** | A **basic attack** with your weapon (3.5), **once per turn**. It gives **+1 MP** (3.7). |
 | **Power** | Use a power (chapter 7). It costs **MP**, and the number of actions the power lists. |
 | **Assess** | An **INT** or **PRE** check. On a success choose one: **Create an opening** (the foe is **exposed**, 3.8) or **Anticipate danger** (attacks against you have disadvantage until your next turn). You can create an opening on each foe only once per battle. |
 | **Hide** | A **DEX** check, if you are next to cover or out of every foe's sight. On a success you are **hidden** (3.5). |
@@ -266,7 +269,7 @@ Every foe's stats, saves and next move are always shown when you tap it.
 
 > **Example.** A rogue (DEX 3) with Twinblades (d4) attacks a goblin in light armour (DEF d4). She rolls a 3: 3 + 3 = 6. The goblin rolls DEF and gets a 2, so it takes **4**. Next she rolls a 4, the maximum: a crit. The die explodes and she rolls a 2. Total 4 + 2 + 3 = **9**, and the goblin cannot roll DEF.
 
-**Melee and range.** **Range 1 is melee**: the target must be orthogonally adjacent. Anything more is **ranged**. A ranged attack while a foe is adjacent to you has **disadvantage**. **Long shot:** take 1 more disadvantage to add +2 to your range (up to three times).
+**Melee and range.** **Range 1 is melee**: the target must be orthogonally adjacent. Anything more is **ranged**. **Long shot:** take 1 more disadvantage to add +2 to your range (up to three times).
 
 **Cover.** Draw a line from the centre of your tile to the centre of the target's. If it crosses a **cover** obstacle or another creature, the target has **cover**: ranged attacks against it have **disadvantage**.
 
@@ -276,23 +279,25 @@ Every foe's stats, saves and next move are always shown when you tap it.
 
 | Advantage | Disadvantage |
 |---|---|
-| **Flanking:** an ally stands on the far side of the target, in a straight line with you | You attack at range with a foe adjacent to you |
-| The target is **exposed**, **rooted** or **dazed** (each counts) | The target has **cover** |
-| You are **blessed** | You are **weakened** or **frightened** |
-| You attack from **hiding** (counts twice) | You are **marked** and attack someone else |
-| You **dual wield** (once per round, 6.3) | **Rushed:** each basic attack after your first this turn |
+| **Flanking:** an ally stands on the far side of the target, in a straight line with you | The target has **cover** (ranged attacks) |
+| The target is **exposed**, **rooted** or **dazed** (each counts) | You are **weakened** or **frightened** |
+| You are **blessed** | You are **marked** and attack someone else |
+| You attack from **hiding** (counts twice) | |
 
-> *Example.* A rogue flanks (+1) an exposed foe (+1), but shoots with a foe beside her (−1). Net +1: she rolls her weapon die twice and keeps the better.
+The first battles use only the top row: **flanking**, **exposed** and **cover**. The rest come with powers and with the foes of later regions. The game names every source on the dice (*"FLANKING! Advantage: roll 1 more, keep the best"*).
+
+> *Example.* A rogue flanks (+1) an exposed foe (+1) behind a crate (−1 for cover, if she shoots). Net +1: she rolls her weapon die twice and keeps the better.
 
 ### 3.6 Defending and Reactions
 
-A **reaction** happens on someone else's turn. It costs **1 action**, and you cannot react with no actions left. Staggered and dazed creatures cannot react.
+A **reaction** happens on someone else's turn. It costs **1 ready action** (3.3), and you cannot react with none. **Reactions are always a choice**: when one is possible, the game pauses and asks. Staggered and dazed creatures cannot react.
 
 | Reaction | When | Effect | Limit |
 |---|---|---|---|
-| **Defend** | A hit that is **not a crit** lands on you | Roll your **DEF die** (exploding) and subtract it from the damage. A carried **shield** gives the roll **advantage**. | Any number, while you have actions |
-| **Help** | An ally within 3 attacks or makes a check | They roll with **+1 advantage** | Once per round |
-| **Class reaction** | As your class says (Heroes book) | For example, the fighter's **Intercept** | Once per round |
+| **Defend** (every hero) | A hit that is **not a crit** lands on you | Roll your **DEF die** (exploding) and subtract it from the damage. A carried **shield** gives the roll **advantage**. | Any number, while you have ready actions |
+| **Reaction powers** | As the power says (Heroes book) | **Intercept** (fighter), **Opportunist** (rogue), **Repelling Ward** (wizard), **Warding Word** (cleric), **Sentinel**, **Counterattack** | Once per round each |
+
+New heroes know only **Defend**. Reaction powers are Uncommon: they turn up as rewards from the second region on (and from elites).
 
 | Armour | DEF die |
 |---|---|
@@ -303,14 +308,14 @@ A **reaction** happens on someone else's turn. It costs **1 action**, and you ca
 
 **When a hero is hit,** reactions happen in this order: Intercept, then Defend, then Warding Word.
 
-**Free strikes.** When a creature leaves a tile next to an enemy for a tile that is **not** next to it, that enemy gets a **free strike**: a basic attack against it. A free strike costs nothing and is not a reaction. Moving from one adjacent tile to another does not provoke one. Staggered and dazed creatures cannot make free strikes.
+**No free strikes.** Moving away from an enemy is safe: neither heroes nor foes get a free attack when someone leaves their side. (A fighter with the **Sentinel** reaction power may spend a ready action to strike a foe leaving her side.) Enemies still block movement.
 
 ### 3.7 Momentum (MP)
 
 **Momentum** pays for powers. Each hero has their own.
 
 - **Start of battle:** each hero starts with **MP equal to the party's Victories, up to 3** (4.2). Powers can add more, but no hero starts a battle with more than **5 MP**.
-- **+1 MP** for your first basic attack each turn, hit or miss.
+- **+1 MP** for your basic attack each turn, hit or miss.
 - **+2 MP** for each **combo** (3.8), for the hero who cashes it in and for each hero who set it up.
 - **Maximum 10 MP.** All MP is lost when the battle ends.
 
@@ -343,7 +348,7 @@ A condition lasts **until the end of the affected creature's next turn**, unless
 
 | Condition | Effect |
 |---|---|
-| **Staggered** | SPD is halved and it cannot react or make free strikes. A **foe** also loses its next turn (3.8). A **hero** has **1 fewer action** on their next turn instead. |
+| **Staggered** | SPD is halved and it cannot react. A **foe** also loses its next turn (3.8). A **hero** has **1 fewer action** on their next turn instead. |
 | **Exposed** | The setter's allies attack it with advantage (3.8). |
 | **Blessed** | Its next attack has advantage (3.8). |
 | **Dazed** | A hero has **1 action** on their turn. A foe can **move or act**, not both. No reactions. Bosses are immune. |
@@ -710,8 +715,8 @@ Costs are in gold (**TBC**). A better weapon is usually one ladder step up.
 
 | Property | Meaning |
 |---|---|
-| **Light** | Can be held in the off hand. Two Light weapons let you **dual wield**: once per round, one attack has advantage. |
-| **Pair** | Two weapons sold as one; always counts as dual wielding. |
+| **Light** | Can be held in the off hand. Light weapons can be honed down to a **d2** (Heroes book). |
+| **Pair** | Two weapons sold as one. |
 | **Two-handed** | Needs both hands. No shield. |
 | **Reach N** | Melee attack at range N, in a straight line. |
 | **Thrown N** | Can be thrown at range N; picked up again after the battle. |
@@ -783,7 +788,8 @@ A **power** is anything a hero learns during a run. The full rules, every class'
 
 - **Gritty.** A hero dies on the **third** Down instead of the fourth.
 - **Shifting order.** Roll initiative again every round.
-- **Simple turns.** Each creature gets one move and one action. Defend is free, once per round. No rushed attacks.
+- **Simple turns.** Each creature gets one move and one action. Defend is free, once per round.
+- **Free strikes.** Leaving a tile next to an enemy for one that is not lets it make a basic attack against you (the rule before v0.24).
 - **Auto-defend.** Heroes roll DEF automatically against every hit, at no cost.
 - **Lean rewards.** Rewards come only from elites and bosses, as in the old level-up game; normal battles give gold and Victories only.
 
@@ -804,7 +810,7 @@ A **power** is anything a hero learns during a run. The full rules, every class'
 | **Critical hit** | The weapon die shows its maximum: explodes and ignores DEF (3.5) |
 | **DEF** | Armour's defence die, rolled when you Defend (3.6) |
 | **Down** | At 0 HP; gain a Wound (2.4) |
-| **Free strike** | A basic attack against a foe that leaves your side (3.6) |
+| **Ready action** | An action kept from your turn; pays for one reaction before your next turn (3.3) |
 | **Group check** | Every hero rolls; half must succeed (1.3) |
 | **HD (⚅)** | Hit die: sets HP and heals; a pool of 3 (2.1) |
 | **Key stat** | The attribute your class adds to attacks (3.5) |

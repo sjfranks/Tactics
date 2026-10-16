@@ -362,6 +362,7 @@ function openSettings(inBattle,onMap){
       openModal(dialog({title:"OTHER APPS' AUDIO",w:200,body:SET.takeOver?'The game now takes over the sound: music from Spotify and other apps pauses, and the game plays even when your phone is on silent.':'Spotify and other apps keep playing under the game. Game sounds play too, but on an iPhone only while the ring/silent switch is on ring: iOS mutes any app that mixes with other audio when the phone is on silent.\n\nTip: turn off the game\'s Music and keep Sound effects on.'}));}]);
     tog.push(['Hi-res art (experimental)',!!SET.hires,()=>{SET.hires=!SET.hires;saveSet();location.reload();}]);
     tog.push(['Auto end turn',SET.autoEnd,()=>{SET.autoEnd=!SET.autoEnd;saveSet();}]);
+    tog.push(['Reactions',SET.autoReact?'AUTOMATIC':'ASK ME',()=>{SET.autoReact=!SET.autoReact;saveSet();}]);
     tog.push(['Show every roll',SET.showRolls!==false,()=>{SET.showRolls=SET.showRolls===false;saveSet();}]);
     tog.push(['3D dice',SET.dice3d!==false,()=>{SET.dice3d=SET.dice3d===false;saveSet();}]);
     tog.push(['Show foe intents',SET.showIntents===true,()=>{SET.showIntents=SET.showIntents!==true;saveSet();}]);
@@ -386,25 +387,25 @@ function openSettings(inBattle,onMap){
 }
 const HOWTO=`{g:Turn order.} Everyone rolls {g:initiative} (their Dexterity die) when a battle starts. Turns go from highest to lowest, heroes and foes mixed, every round. TURNS shows who is next. On a hero's turn they have {g:three actions}, then tap END TURN.
 
-{g:Actions.} Moving, a basic attack and each power cost one action, in any order. Tap a blue square to move, or drag the hero: a move takes you up to your speed, and you can split it around your other actions. Your second attack in a turn has disadvantage and the third double disadvantage.
+{g:Actions.} A hero gets {g:three actions} at the start of each turn: moving, the basic attack ({g:once a turn}) and each power cost one, in any order. Tap a blue square to move, or drag the hero: a move takes you up to your speed, and you can split it around your other actions.
 
-{g:Reactions.} On someone else's turn a hero can react, paying with one action from their next turn (the blue pips): {g:Defend} rolls your armour's DEF die against a blow and takes that much less damage, and each hero has their own reaction once a round: Brakka {g:Intercepts} a blow meant for a friend beside her, Vex strikes as an {g:Opportunist} when an ally hits a foe beside her, Orin's {g:Repelling Ward} pushes away a foe that steps up to him, and Sela's {g:Warding Word} halves a blow on an ally within 3. Reactions happen on their own, and always leave you at least one action.
+{g:Reactions.} Actions you don't spend stay {g:ready} (the blue pips) until your next turn starts. When a foe hits a hero who has one, the game asks whether to {g:Defend}: roll your armour's DEF die and take that much less damage. Later, powers add other reactions (Intercept, Opportunist, Repelling Ward, Warding Word). Settings can make reactions automatic.
 
 {g:Damage dice.} Every attack rolls {g:weapon dice} and adds the hero's {g:key stat} once. A basic attack rolls one weapon die; powers say how many. The first die (thrown larger, in ivory) decides the result: a 1 is a miss, the top number is a {g:critical hit} that ignores DEF and rolls one more die (again and again on more top numbers), anything else a hit. Small dice crit more often: a rogue honed down to a {g:d2} crits on every other swing. A better weapon makes every power better.
 
 {g:Every roll is shown.} Attacks, Defend, foe armour, saves, slams, bleeding and healing are thrown as 3D dice across the board with a short caption: the die that counts is ivory (green with advantage, red with disadvantage), dice lost to advantage or disadvantage fade, explosions glow gold, DEF dice are steel. Tap to hurry a roll along; turn them off with Show every roll in Settings (with 3D dice off, a flat card shows instead).
 
-{g:Advantage and disadvantage.} Advantage rolls the first die again and keeps the best; disadvantage keeps the worst. Different sources stack, up to triple, and cancel out one for one. Flanking, high ground, blessings and dazed, rooted or exposed targets give advantage. Cover, being weakened or frightened, shooting with a foe beside you and attacking again in the same turn give disadvantage.
+{g:Advantage and disadvantage.} Advantage rolls the first die again and keeps the best; disadvantage keeps the worst. Different sources stack, up to triple, and cancel out one for one. Early on there are few: {g:flanking} (an ally on the far side of your target) and {g:exposed} targets give advantage, {g:cover} gives disadvantage to ranged attacks. Powers, blessings and conditions add more as the journey goes on. The dice caption always says why.
 
 {g:Combos.} Heroes set each other up, and nobody cashes in their own set-up. A foe slammed into something (or hit by a power that says so) is {g:staggered}: it loses its next turn, and an ally's next hit on it is a sure critical hit. Allies attack an {g:exposed} foe with advantage. A {g:blessed} hero attacks with advantage. Set-ups fade when the foe's own turn ends, so line up a hero who acts before it. Cashing in an ally's set-up is a {g:combo}: +2 momentum for both heroes.
 
 {g:Momentum.} Shown as {p:◆} gems. Heroes start each battle with momentum equal to the party's {g:Victories} (up to 3), gain 1 for their first basic attack each turn and 2 for each combo, and spend it on powers.
 
-{g:Powers.} Every hero has a basic attack and a free set-up: Brakka's {g:Shove}, Orin's {g:Force Push}, Sela's {g:Guidance}. Active powers cost momentum: pick a card at the bottom, then a target. A forecast shows what can happen; tap the target again, or STRIKE, to act. {g:Passive} powers work on their own. Each power has a tag; 4 or 8 powers of one tag across the party give everyone its {g:resonance}.
+{g:Powers.} Every hero starts with a basic attack, a free set-up (Brakka's {g:Shove}, Orin's {g:Force Push}, Sela's {g:Guidance}) and one power; the rewards after each battle teach more, simple ones first. Active powers cost momentum: pick a card at the bottom, then a target. A forecast shows what can happen; tap the target again, or STRIKE, to act. {g:Passive} powers work on their own. Each power has a tag; 4 or 8 powers of one tag across the party give everyone its {g:resonance}.
 
-{g:Foes.} Tap INTENT to see whom each foe means to attack, and how hard. Foes gain {r:Malice} every round and spend it on threats (top of the screen). Some foes are {g:Terrifying}, some resist or are weak to damage types, and bosses change when {g:bloodied}.
+{g:Foes.} Tap INTENT to see whom each foe means to attack, and how hard. From the second land, foes gain {r:Malice} every round and spend it on threats (top of the screen). Some foes are {g:Terrifying}, some resist or are weak to damage types, and bosses change when {g:bloodied}.
 
-{g:Free strikes.} Stepping away from a foe beside you lets it strike you for free. The path turns red when that will happen. Nimble heroes never provoke them.
+{g:Moving.} Moving away from foes is safe: there are no free strikes (unless a fighter learns {g:Sentinel}). Foes block movement, so use allies to {g:flank}.
 
 {g:Down and Wounds.} A hero at 0 health is {g:Down} and gains a {g:Wound} (-1 to attacks, saves and checks). An ally beside them can Help them up. A hero who goes Down with 3 Wounds dies. If every hero is Down, the battle is lost.
 
