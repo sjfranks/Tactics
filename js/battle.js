@@ -591,6 +591,7 @@ H.rolls=async()=>{
     const o=ROLLQ.shift();
     if(AUTOPLAY||SET.showRolls===false||SCREEN!==BATTLE_SCREEN||!o.dice||!o.dice.length)continue;
     const chars=(o.sub||'').length+(o.formula||'').length+(o.verdict||'').length;
+    if(await dice3dRoll(o))continue;
     o.t0=NOW;o.tum=260*spd();o.dur=o.tum+Math.min(3200,900+chars*9)*spd();o.L=null;
     B.roll=o;sfx('dice');
     await new Promise(res=>{const tick=()=>{if(B.roll!==o||NOW-o.t0>=o.dur||!G){if(B.roll===o)B.roll=null;res();}else setTimeout(tick,30);};tick();});
