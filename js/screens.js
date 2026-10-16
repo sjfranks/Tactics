@@ -362,6 +362,7 @@ function openSettings(inBattle,onMap){
       openModal(dialog({title:"OTHER APPS' AUDIO",w:200,body:SET.takeOver?'The game now takes over the sound: music from Spotify and other apps pauses, and the game plays even when your phone is on silent.':'Spotify and other apps keep playing under the game. Game sounds play too, but on an iPhone only while the ring/silent switch is on ring: iOS mutes any app that mixes with other audio when the phone is on silent.\n\nTip: turn off the game\'s Music and keep Sound effects on.'}));}]);
     tog.push(['Hi-res art (experimental)',!!SET.hires,()=>{SET.hires=!SET.hires;saveSet();location.reload();}]);
     tog.push(['Auto end turn',SET.autoEnd,()=>{SET.autoEnd=!SET.autoEnd;saveSet();}]);
+    tog.push(['Show every roll',SET.showRolls!==false,()=>{SET.showRolls=SET.showRolls===false;saveSet();}]);
     tog.push(['3D dice',SET.dice3d!==false,()=>{SET.dice3d=SET.dice3d===false;saveSet();}]);
     tog.push(['Show foe intents',SET.showIntents===true,()=>{SET.showIntents=SET.showIntents!==true;saveSet();}]);
     tog.push(['Animation speed',['Slow','Normal','Fast'][SET.speed],()=>{SET.speed=(SET.speed+1)%3;saveSet();}]);
@@ -390,6 +391,8 @@ const HOWTO=`{g:Turn order.} Everyone rolls {g:initiative} (their Dexterity die)
 {g:Reactions.} On someone else's turn a hero can react, paying with one action from their next turn (the blue pips): {g:Defend} rolls your armour's DEF die against a blow and takes that much less damage, and each hero has their own reaction once a round: Brakka {g:Intercepts} a blow meant for a friend beside her, Vex strikes as an {g:Opportunist} when an ally hits a foe beside her, Orin's {g:Repelling Ward} pushes away a foe that steps up to him, and Sela's {g:Warding Word} halves a blow on an ally within 3. Reactions happen on their own, and always leave you at least one action.
 
 {g:Damage dice.} Every attack rolls {g:weapon dice} and adds the hero's {g:key stat} once. A basic attack rolls one weapon die; powers say how many. The first die (thrown larger, in ivory) decides the result: a 1 is a miss, the top number is a {g:critical hit} that ignores DEF and rolls one more die (again and again on more top numbers), anything else a hit. Small dice crit more often: a rogue honed down to a {g:d2} crits on every other swing. A better weapon makes every power better.
+
+{g:Every roll is shown.} Attacks, Defend, foe armour, saves, slams, bleeding, healing and initiative each pop up as a card over the board: who rolls, what for, the dice (the one that counts is lit, dice lost to advantage or disadvantage are dimmed, explosions are gold, DEF dice blue), the sum and what it means. Tap to skip one; turn them off with Show every roll in Settings.
 
 {g:Advantage and disadvantage.} Advantage rolls the first die again and keeps the best; disadvantage keeps the worst. Different sources stack, up to triple, and cancel out one for one. Flanking, high ground, blessings and dazed, rooted or exposed targets give advantage. Cover, being weakened or frightened, shooting with a foe beside you and attacking again in the same turn give disadvantage.
 

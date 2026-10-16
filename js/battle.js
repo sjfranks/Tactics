@@ -550,7 +550,52 @@ function drawBattle(){
   if(PORT&&!B.busy)drawForecastOverlay();
   if(G.tut)drawTutHint();
   if(B.banner)drawBanner();
+  if(B.roll)drawRollCard();
 }
+/* ---------------- shown rolls ----------------
+   Each roll the engine queues (ROLLQ, see showRoll in engine.js) appears as a card over the top of the board: who rolls
+   and why, the dice (the one that counts lit, dice lost to advantage or disadvantage dimmed, explosions gold, DEF dice
+   blue), the sum and what it means. The dice tumble briefly, then the card holds long enough to read. Tap to skip. */
+const ROLL_COL={key:['#f0e8d8','#2a1a14'],drop:['#5a5048','#a89888'],boom:['#ffd070','#3a1a04'],def:['#9cc4f0','#0e2038']};
+function rollCardLayout(o,w){
+  const sub=o.sub?wrap(o.sub,w-10):[],form=o.formula?wrap(o.formula,w-10):[],ver=wrap(o.verdict||'',w-10);
+  const labels=o.dice.some(d=>d.l);
+  return {sub,form,ver,labels,h:6+9+sub.length*7+3+15+(labels?7:0)+form.length*7+ver.length*8+4};
+}
+function drawRollCard(){
+  const o=B.roll,el=NOW-o.t0;if(el>o.dur){B.roll=null;return;}
+  const w=Math.min(SW-8,PORT?COLS*TS*BK-4:210),x=clamp(Math.round(OX+COLS*TS*BK/2-w/2),4,SW-4-w),y=OY+2;
+  const L=o.L||(o.L=rollCardLayout(o,w));
+  ctx.globalAlpha=Math.min(1,el/90,(o.dur-el)/160);
+  const edge=o.side==='hero'?'#6a9ae0':o.side==='enemy'?'#c05a40':C.rim;
+  rect(x,y,w,L.h,'rgba(14,9,6,.93)');frame(x,y,w,L.h,edge);rect(x+1,y+1,w-2,1,'rgba(255,255,255,.08)');
+  let cy=y+4;
+  text(fitText(o.title,w-10),x+5,cy,C.gold);cy+=9;
+  for(const l of L.sub){text(l,x+5,cy,C.mute);cy+=7;}cy+=3;
+  const n=o.dice.length,step=Math.min(L.labels?30:16,Math.floor((w-10)/Math.max(1,n))),tum=el<o.tum;
+  o.dice.forEach((d,i)=>{const dx=x+5+i*step,c=ROLL_COL[d.k]||ROLL_COL.key,v=tum?1+Math.floor(Math.random()*d.s):d.v;
+    const jy=tum?Math.round(Math.sin(NOW/40+i)*2):0;
+    rect(dx,cy+jy,13,13,C.edge);rect(dx+1,cy+1+jy,11,11,tum?'#d8ccb8':c[0]);rect(dx+1,cy+1+jy,11,1,'rgba(255,255,255,.5)');
+    text(String(v),dx+7,cy+4+jy,tum?'#2a1a14':c[1],{al:'c',sh:false});
+    if(!tum&&d.k==='key'&&n>1)frame(dx-1,cy-1,15,15,'#ffe070');
+    if(L.labels&&d.l)text(fitText(d.l,step-1),dx+7,cy+15,C.mute,{al:'c'});
+    else if(!L.labels&&i===0&&step>=16&&n<=8)text(`d${d.s}`,x+5+n*step+3,cy+4,C.mute);});
+  cy+=15+(L.labels?7:0);
+  if(!tum){for(const l of L.form){text(l,x+5,cy,C.parch);cy+=7;}
+    const vc=o.res===1?'#ff8a6a':o.res===3?'#9fe08a':'#ffe070';for(const l of L.ver){text(l,x+5,cy+1,vc);cy+=8;}}
+  ctx.globalAlpha=1;
+  hit(0,0,SW,SH,{fn:()=>{if(B.roll)B.roll.dur=Math.min(B.roll.dur,NOW-B.roll.t0+120);},id:'rollskip'});
+}
+H.rolls=async()=>{
+  while(ROLLQ.length){
+    const o=ROLLQ.shift();
+    if(AUTOPLAY||SET.showRolls===false||SCREEN!==BATTLE_SCREEN||!o.dice||!o.dice.length)continue;
+    const chars=(o.sub||'').length+(o.formula||'').length+(o.verdict||'').length;
+    o.t0=NOW;o.tum=260*spd();o.dur=o.tum+Math.min(3200,900+chars*9)*spd();o.L=null;
+    B.roll=o;sfx('dice');
+    await new Promise(res=>{const tick=()=>{if(B.roll!==o||NOW-o.t0>=o.dur||!G){if(B.roll===o)B.roll=null;res();}else setTimeout(tick,30);};tick();});
+  }
+};
 /* Round, boss-surge and victory plates slide across the middle of the board. */
 function drawBanner(){
   const b=B.banner;const p=(NOW-b.t0)/b.dur;if(p>=1){B.banner=null;return;}

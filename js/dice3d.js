@@ -219,5 +219,6 @@ async function throwDice(u,t,r){
 }
 H.dice=async(u,t,r)=>{
   if(AUTOPLAY||!r||u.side!=='hero'||!t||!t.id||SET.dice3d===false)return;
-  try{if(dice3dInit())await throwDice(u,t,r);}catch(e){console.error(e);DICE3D.busy=false;if(DICE3D.cv)DICE3D.cv.style.display='none';}
+  try{if(dice3dInit()){await throwDice(u,t,r);return true;}}catch(e){console.error(e);DICE3D.busy=false;if(DICE3D.cv)DICE3D.cv.style.display='none';}
+  return false;
 };
