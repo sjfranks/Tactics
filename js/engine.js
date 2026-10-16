@@ -48,9 +48,28 @@ function dieList(r){
   if(r.rr&&keep>=0)L[keep].k='drop';
   for(const v of r.rest)L.push({s:r.d.s,v});for(const v of r.boom)L.push({s:r.d.s,v,k:'boom'});
   return L;}
-/* Short captions, as on the 3D dice: how advantage worked, and the result. */
-function advCap(net,n,st,t){const k=Math.abs(net);if(st)return t&&t.boss?'STAGGERED: +2 advantage':'STAGGERED: sure critical hit';
-  if(n<2)return null;return net>0?`ADVANTAGE${k>1?' ×'+k:''}: best of ${n}`:`DISADVANTAGE${k>1?' ×'+k:''}: worst of ${n}`;}
+/* Short captions on the 3D dice: why there is advantage or disadvantage, and what it does.
+   e.g. "FLANKING! Advantage: roll 1 more, keep the best", "COVER! Disadvantage: roll 1 more, keep the worst". */
+function capWhy(pro,con,net){
+  if(!pro.length&&!con.length)return null;
+  const k=Math.abs(net),up=L=>L.join(', ').toUpperCase();
+  if(!net)return `${pro.join(', ')} and ${con.join(', ')} cancel out`;
+  const [main,other]=net>0?[pro,con]:[con,pro];
+  return `${up(main)}!${other.length?` (cancels ${other.join(', ')})`:''} ${net>0?'Advantage':'Disadvantage'}: roll ${k} more, keep the ${net>0?'best':'worst'}`;
+}
+function advCap(nb,st,t){
+  if(st)return t&&t.boss?'STAGGERED! Advantage: roll 2 more, keep the best':'STAGGERED! A sure critical hit';
+  return nb?capWhy(nb.pro,nb.con,nb.net):null;
+}
+/* Why a save has advantage or disadvantage. */
+function saveWhy(t,a){
+  const pro=[],con=[];
+  if(t.kind==='pc'&&CLASS_SAVES[t.cls]){const v=CLASS_SAVES[t.cls][a]||0;if(v>0)pro.push(`${CLASSES[t.cls].title}'s strong save`);if(v<0)con.push(`${CLASSES[t.cls].title}'s weak save`);}
+  if(t.kind==='mon'&&mon(t).saves){const v=mon(t).saves[a]||0;if(v>0)pro.push('Strong save');if(v<0)con.push('Weak save');}
+  if(t.side==='enemy'&&G.rollAdd)pro.push('Seasoned foe');
+  if(!(t.attrs&&t.attrs[a]))con.push(`No ${ATTR_SHORT[a]}`);
+  return {pro,con};
+}
 function atkVerdict(r,X){if(r.res===1)return 'MISS: a 1 on the first die';
   const sh=l=>{for(const k in ATTR)if(ATTR[k]===l)return ATTR_SHORT[k];return l;};
   const steps=(X.S||[]).filter(([l,v])=>l&&v).map(([l,v])=>/×/.test(l)?' '+l:` ${v>0?'+':'−'}${Math.abs(v)} ${sh(l)}`).join('');
@@ -804,7 +823,7 @@ async function pcStrike(u,p,t,C,fl){
     if(dz&&r.res===2&&!p.pierceArmor){const a=rollExF(dz);defF=exDice(dz,a.f,'def');defR=a.t;if(wall){const b=rollExF(dz);if(b.t>a.t){defR=b.t;defF.forEach(q=>q.k='drop');defF=defF.concat(exDice(dz,b.f,'def'));}else defF=defF.concat(exDice(dz,b.f,'drop'));}}
     const X=pcDmgX(u,p,t,r.res,{dd,dice:r.total,defRoll:defR});let d=X.d;const miss=r.res===1;
     {const dice=(shown3d?[]:dieList(r)).concat(defF);
-     if(dice.length)showRoll({side:u.side,title:shown3d?'DEF':`${u.name.toUpperCase()}: ${p.name.toUpperCase()}`,sub:shown3d?null:advCap(r.net,r.tries.length,st,t),dice,verdict:shown3d?`${t.name}'s armour blocks ${defR}`:atkVerdict(r,X),res:shown3d?2:r.res});}
+     if(dice.length)showRoll({side:u.side,title:shown3d?'DEF':`${u.name.toUpperCase()}: ${p.name.toUpperCase()}`,sub:shown3d?null:advCap(nb,st,t),dice,verdict:shown3d?`${t.name}'s armour blocks ${defR}`:atkVerdict(r,X),res:shown3d?2:r.res});}
     await H.rolls();
     if(r.res===3&&G.cur===u.id&&hasP(u,'flurry'))u.flurry=true;
     if(sn&&d>0)fl.sneak=true;
@@ -820,7 +839,7 @@ async function pcStrike(u,p,t,C,fl){
     if(live(t)&&!miss){
       if(p.mark){applyMark(t,u);note('Marked.');}
       applyEff(u,t,p.eff,r.res);
-      if(p.feint&&live(t)&&!t.object&&r.res>=2&&t.side!==u.side){const S=rollSave(u,t,p,p.feint.a);
+      if(p.feint&&live(t)&&!t.object&&r.res>=2&&t.side!==u.side){const S=rollSave(u,t,p,p.feint.a,'or be exposed');
         if(S.saved)note(`${S.text}: it sees through the feint.`);else{addSt(t,'expose',1);t.exposeBy=u.id;setupMade(u,t);note(`${S.text}: the feint leaves it exposed for ${u.name}'s allies.`);xp(u,1,'control');}}
       if(fl.stagIds&&t.st.stag&&t.stagBy===u.id)fl.stagIds.add(t.id);
       // runes (Heroes book 3.4) work on every attack the weapon makes; Open Veins and Shieldbreaker on any crit
@@ -874,12 +893,12 @@ async function heroStrike(u,t,label,o){
    TUNE.guardMin or more. Then a cleric within 3 may halve a hit of 4 or more (Warding Word). */
 function defendRoll(t,extra){let [s,adv]=HERO_DEF[t.cls]||[4,0];const w=wpnOf(t);if(w&&w.twoHanded)adv=0;
   const shep=allies(t).some(c=>c!==t&&hasP(c,'shepherd')&&cheb(c,t)===1);
-  const why=[];if(adv>0)why.push('▲ shield');if(adv<0)why.push('▼ no armour');if(t.swDef)why.push('▲ Second Wind');if(shep)why.push('▲ Shepherd');if(extra)why.push('▲ Block');if(hasP(t,'glass'))why.push('▼ Glass Cannon');
+  const pro=[],con=[];if(adv>0)pro.push('Shield');if(adv<0)con.push('No armour');if(t.swDef)pro.push('Second Wind');if(shep)pro.push('Shepherd');if(extra)pro.push('Block');if(hasP(t,'glass'))con.push('Glass Cannon');const why=pro.map(x=>'▲ '+x).concat(con.map(x=>'▼ '+x));
   const net=clamp(adv+(t.swDef?1:0)+(shep?1:0)+(extra||0)-(hasP(t,'glass')?1:0),-NET_CAP,NET_CAP);const rolls=[],faces=[];for(let i=0;i<=Math.abs(net);i++){rolls.push(rollEx(s));faces.push(LASTEX.slice());}
   let v=net>=0?Math.max(...rolls):Math.min(...rolls),plus=0;const ki=rolls.indexOf(v);
   if(resLv('Guard',t)>=1)plus++;if(hasP(t,'brace')&&t.braceR!==G.round){t.braceR=G.round;plus+=2;}
   const dice=faces.flatMap((f,i)=>exDice(s,f,i===ki?'key':'drop').map(q=>i===ki?q:Object.assign(q,{k:'drop'})));
-  return {s,rolls,v:v+plus,plus,why,dice,net};}
+  return {s,rolls,v:v+plus,plus,why,pro,con,dice,net};}
 function guardHit(src,t,d,crit){
   if(!src||!t||src.side===t.side||!live(t)||d<TUNE.guardMin)return d;
   const gFree=t.kind==='pc'&&resLv('Guard',t)>=2&&t.g2R!==G.round&&canReact(t)&&G.cur!==t.id;
@@ -887,9 +906,9 @@ function guardHit(src,t,d,crit){
     if(gFree)t.g2R=G.round;else spendReact(t,'defend');
     const B=G.units.find(F=>F!==t&&F.kind==='pc'&&F.side===t.side&&hasP(F,'block')&&man(F,t)===1&&reactReady(F,'block'));if(B){spendReact(B,'block');H.pop(B,'Block!','call');}
     const R=defendRoll(t,B?1:0);const nd=Math.max(1,d-R.v);
-    showRoll({side:t.side,title:'DEFEND',sub:advCap(R.net,R.rolls.length),dice:R.dice,verdict:`Blocks ${R.v}: ${d} → ${nd} damage`,res:2});
+    showRoll({side:t.side,title:`${t.name.toUpperCase()} DEFENDS`,sub:capWhy(R.pro,R.con,R.net)||`Armour d${R.s} soaks the hit`,dice:R.dice,verdict:`Blocks ${R.v}: ${d} → ${nd} damage`,res:2});
     H.pop(t,'Defend','shield');t.hitSince=true;
-    note(`${t.name} defends${B?' ('+B.name+' blocks)':''} (DEF d${R.s}${R.rolls.length>1?' ['+R.rolls.join('/')+']':''}${R.plus?'+'+R.plus:''}: ${R.v}): ${d} to ${nd}.`);d=nd;
+    note(`${t.name} defends, a reaction that costs 1 action from their next turn${B?' ('+B.name+' blocks)':''} (DEF d${R.s}${R.why.length?' '+R.why.join(' '):''}${R.rolls.length>1?' ['+R.rolls.join('/')+']':''}${R.plus?'+'+R.plus:''}: ${R.v}): ${d} to ${nd}.`);d=nd;
     if(hasP(t,'counterguard')&&t.cgR!==G.round){t.cgR=G.round;addMom(t,1);}
   }
   if(d<4)return d;
@@ -950,10 +969,11 @@ function saveFail(u,t,p){
   if(!t||t.object||(p.save.eff==='stag'&&t.st.steady))return 0;
   return failChance(u,t,p,p.save.a);
 }
-function rollSave(u,t,p,a){
+function rollSave(u,t,p,a,why){
   const d=saveDie(t,a),rolls=[];for(let i=0;i<=Math.abs(d.net);i++)rolls.push(rollEx(d.s));
   const best=d.net>=0?Math.max(...rolls):Math.min(...rolls),w=woundsOf(t),saved=best-w>=4,k=Math.abs(d.net);
-  showRoll({side:t.side,title:`${ATTR_SHORT[a]} SAVE`,sub:advCap(d.net,rolls.length),dice:rolls.map((v,i)=>({s:d.s,v,k:rolls.length>1?(i===rolls.indexOf(best)?'key':'drop'):'key'})),verdict:`${saved?'SAVED':'FAILED'} (4+ saves${w?', −'+w+' Wounds':''})`,res:saved?3:1});
+  const SW=saveWhy(t,a),why2=why||(p&&p.save&&p.save.eff?`to avoid being ${ST_NAME[p.save.eff]||p.save.eff}`:p&&p.name?'against '+p.name:'');
+  showRoll({side:t.side,title:`${t.name.toUpperCase()}: ${ATTR_SHORT[a]} SAVE ${why2}`.trim(),sub:capWhy(SW.pro,SW.con,d.net)||`Roll d${d.s}: 4 or more saves`,dice:rolls.map((v,i)=>({s:d.s,v,k:rolls.length>1?(i===rolls.indexOf(best)?'key':'drop'):'key'})),verdict:`${saved?'SAVED (rolled 4+)':'FAILED (needed 4+)'}${w?` after −${w} for Wounds`:''}`,res:saved?3:1});
   return {die:d,rolls,best,saved,text:`${ATTR[a]} save d${d.s} ${rolls.length>1?'['+rolls.join('/')+'→'+best+']':best}${w?' −'+w+' wounds':''}`};
 }
 async function savePower(u,p,t,fl){
@@ -1277,7 +1297,7 @@ async function monAttack(e,A,t,isTile){
     if(v.side==='hero'&&hasR('ward')){v.warded=v.warded||{};v.warded[e.id]=1;}
     NOTE=[];
     const X=monDmgX(e,A,v,res,r?r.total:null);
-    if(r){showRoll({side:e.side,title:`${e.name.toUpperCase()}: ${A.name.toUpperCase()}`,sub:advCap(r.net,r.tries.length,st,v),dice:dieList(r),verdict:atkVerdict(r,X),res:r.res});await H.rolls();}
+    if(r){showRoll({side:e.side,title:`${e.name.toUpperCase()}: ${A.name.toUpperCase()}`,sub:advCap(nb,st,v),dice:dieList(r),verdict:atkVerdict(r,X),res:r.res});await H.rolls();}
     if(r)H.result(v,r);
     if(X.d>0)await damage(e,v,guardHit(e,v,X.d,res===3),{crit:res===3,area:!!A.area});
     if(live(v)&&res>1){
@@ -1507,15 +1527,15 @@ async function villain(b){
     case 'warcry':for(const h of hs.filter(h=>man(h,b)<=3)){addSt(h,'weak',1);applyMark(h,b);}break;
     case 'laststand':heal(b,15);G.foeMom+=5;break;
     case 'raise':{for(let i=0;i<4;i++){const s=edgeSpot('any',b.side);if(s)spawnMon('bones',s,{side:b.side});}break;}
-    case 'siphon':{let tot=0;for(const h of hs.filter(h=>man(h,b)<=4)){const S=rollSave(b,h,null,'P');if(S.saved){note(`${h.name}: ${S.text}, saved.`);continue;}tot+=await damage(b,h,4,{});}heal(b,tot);break;}
-    case 'nova':for(const h of hs){const S=rollSave(b,h,null,'P');await damage(b,h,S.saved?3:6,{});}break;
+    case 'siphon':{let tot=0;for(const h of hs.filter(h=>man(h,b)<=4)){const S=rollSave(b,h,null,'P','or be drained');if(S.saved){note(`${h.name}: ${S.text}, saved.`);continue;}tot+=await damage(b,h,4,{});}heal(b,tot);break;}
+    case 'nova':for(const h of hs){const S=rollSave(b,h,null,'P','to halve the blast');await damage(b,h,S.saved?3:6,{});}break;
     case 'presence':for(const h of hs)addSt(h,'weak',1);G.foeMom+=3;break;
     case 'buffet':for(const h of hs.filter(h=>cheb(h,b)<=2)){await forceMove(h,b,2,false,b,null);stagger(h,b);}break;
     case 'inferno':{
       const rows={};for(const h of hs)rows[h.y]=(rows[h.y]||0)+1;
       const y=+Object.keys(rows).sort((a,c)=>rows[c]-rows[a])[0];
       await H.area({x:(COLS-1)/2,y},0,'row');
-      for(const h of hs.filter(h=>h.y===y)){const S=rollSave(b,h,null,'F');if(S.saved)note(`${h.name}: ${S.text}, dodged.`);else await damage(b,h,8,{});}
+      for(const h of hs.filter(h=>h.y===y)){const S=rollSave(b,h,null,'F','to dodge the flames');if(S.saved)note(`${h.name}: ${S.text}, dodged.`);else await damage(b,h,8,{});}
       for(let x=0;x<COLS;x++)setHaz(x,y,'fire',2,b.side);
       break;}
   }
@@ -1755,7 +1775,7 @@ function setupBattle(enc,party){
   const terr=Math.max(0,...G.units.filter(u=>u.side==='enemy'&&u.kind==='mon').map(u=>mon(u).terr||0));
   if(terr&&!(typeof CTX!=='undefined'&&CTX&&CTX.mode==='tutorial'))for(const h of G.units.filter(u=>u.side==='hero'&&u.kind==='pc')){
     const d=saveDie(h,'P'),net=clamp(d.net-terr,-NET_CAP,NET_CAP),rolls=[];for(let i=0;i<=Math.abs(net);i++)rolls.push(rollEx(d.s));const b=net>=0?Math.max(...rolls):Math.min(...rolls);
-    showRoll({side:'hero',title:'FEAR: PRE SAVE',sub:advCap(net,rolls.length),dice:rolls.map(v=>({s:d.s,v,k:v===b?'key':'drop'})),verdict:b<4?`${h.name} is frightened`:`${h.name} stands firm`,res:b<4?1:3});
+    showRoll({side:'hero',title:`${h.name.toUpperCase()}: PRE SAVE or be frightened`,sub:net<0?`TERRIFYING FOE! Disadvantage: roll ${-net} more, keep the worst`:'TERRIFYING FOE! A strong will cancels the disadvantage',dice:rolls.map(v=>({s:d.s,v,k:v===b?'key':'drop'})),verdict:b<4?`${h.name} is frightened`:`${h.name} stands firm`,res:b<4?1:3});
     if(b<4){h.st.fear=1;log(`${h.name} is frightened (Presence save ${rolls.join('/')}).`,'e');}}
   if(enc.twist==='ring')ringFire();
   log(`${enc.title}: ${MISSIONS[enc.type].name}.`,'g');

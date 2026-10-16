@@ -180,18 +180,20 @@ async function throwCard(o){
   const cvS=DICE3D.cv.style;cvS.display='block';cvS.opacity='1';DICE3D.busy=true;
   const first=o.dice.filter(d=>d.k!=='boom'),booms=o.dice.filter(d=>d.k==='boom');
   const pool=first.filter(d=>d.k==='key'||d.k==='drop'),multi=pool.length>1&&pool.some(d=>d.k==='drop');
-  const dis=multi&&/^DIS/.test(o.sub||''),glow=multi?(dis?DIS_GLOW:ADV_GLOW):0;
+  const dis=multi&&/Disadvantage/.test(o.sub||''),glow=multi?(dis?DIS_GLOW:ADV_GLOW):0;
   const side=SIDE_DIE[o.side]||SIDE_DIE.enemy;
   const label={text:o.title,res:null,done:0,mark:null,col:o.res===1?'#ff8a70':o.res===3?'#9fe08a':'#ffe070',
-    sub:o.sub,subCol:/^DIS/.test(o.sub||'')?'#ff7a6a':/^STAG/.test(o.sub||'')?'#ffe070':'#7cf08a'};
+    sub:o.sub,subCol:/Disadvantage/.test(o.sub||'')?'#ff7a6a':/Advantage|critical/.test(o.sub||'')?'#7cf08a':'#e8dcc0'};
   DICE3D.lab=label;
   fx({dur:60000,draw(){
     if(DICE3D.lab!==label){this.dur=0;return;}
     if(!DICE3D.busy&&!label.done)label.done=NOW;const a=label.done?Math.max(0,1-(NOW-label.done)/400):1;if(a<=0){this.dur=0;return;}
-    ctx.globalAlpha=a;const box=(txt,y,col,rim)=>{const w=textW(txt)+10,x=BX+COLS*TS/2-w/2;rect(x,y,w,11,'rgba(14,9,6,.85)');frame(x,y,w,11,rim);text(txt,x+w/2,y+3,col,{al:'c'});};
-    box(label.text,BY+3,C.gold,C.rim);
-    if(label.sub){ctx.globalAlpha=a*(.75+.25*Math.sin(NOW/140));box(label.sub,BY+16,label.subCol,label.subCol);ctx.globalAlpha=a;}
-    if(label.res)box(label.res,BY+(label.sub?29:16),label.col,label.col);
+    // each caption is a box of one or more lines, wrapped to the board's width; boxes stack down from the top
+    ctx.globalAlpha=a;const box=(txt,y,col,rim)=>{const L=wrap(txt,COLS*TS-14),w=Math.max(...L.map(l=>textW(l)))+10,h=L.length*7+4,x=BX+COLS*TS/2-w/2;
+      rect(x,y,w,h,'rgba(14,9,6,.85)');frame(x,y,w,h,rim);L.forEach((l,i)=>text(l,x+w/2,y+3+i*7,col,{al:'c'}));return y+h+2;};
+    let by=box(label.text,BY+3,C.gold,C.rim);
+    if(label.sub){ctx.globalAlpha=a*(.8+.2*Math.sin(NOW/140));by=box(label.sub,by,label.subCol,label.subCol);ctx.globalAlpha=a;}
+    if(label.res)box(label.res,by,label.col,label.col);
     if(label.mark){const m=label.mark,c='#fff4c0',bob=Math.round(Math.sin(NOW/160)*1.5),tw=textW('COUNTS')+6,ty=m.y-TS*.62+bob;
       rect(m.x-tw/2,ty-9,tw,9,'rgba(14,9,6,.85)');frame(m.x-tw/2,ty-9,tw,9,c);text('COUNTS',m.x,ty-7,c,{al:'c'});for(let i=0;i<3;i++)rect(m.x-2+i,ty+i,5-2*i,1,c);}
     ctx.globalAlpha=1;
