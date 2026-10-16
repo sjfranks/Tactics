@@ -464,7 +464,9 @@ function saveGame(){
     localStorage.setItem(SAVE_KEY,JSON.stringify(d));
   }catch(e){}
 }
-function loadSave(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');return d&&d.RUN&&d.RUN.v===11?d:null;}catch(e){return null;}}
+function loadSave(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&d.RUN&&d.RUN.v===10)migrate10(d.RUN);return d&&d.RUN&&d.RUN.v===11?d:null;}catch(e){return null;}}
+/* Runs saved before encounter XP: heroes keep their levels and start each at the bottom of it; nothing is banked yet. */
+function migrate10(R){R.v=11;R.xpBank=0;for(const h of R.heroes)h.xp=xpAt(h.lvl);for(const n of Object.values(R.map.nodes)){if(n.type==='battle'&&!n.diff)n.diff='medium';if(n.type==='elite')n.diff='hard';}}
 function clearSave(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
 function continueRun(){
   const d=loadSave();if(!d)return;RUN=d.RUN;CTX={mode:'run',relics:RUN.gear,vic:RUN.vic};
