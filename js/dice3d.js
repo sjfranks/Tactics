@@ -11,6 +11,8 @@ const DICE3D={ok:null,r:null,scene:null,cam:null,cv:null,W:10,D:13,shapes:{},bus
 /* ---------- die shapes: vertices, then faces found as the convex hull (planar polygons, outward winding) ---------- */
 function dieVerts(s){
   const P=(1+Math.sqrt(5))/2;
+  // a d2 is a coin: a thin sixteen-sided disc, 1 on one face and 2 on the other
+  if(s===2){const v=[];for(let i=0;i<16;i++){const a=i*Math.PI/8;for(const y of[-.2,.2])v.push([Math.cos(a),y,Math.sin(a)]);}return v;}
   if(s===4)return [[1,1,1],[-1,-1,1],[-1,1,-1],[1,-1,-1]];
   if(s===6)return [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
   if(s===8)return [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
@@ -39,7 +41,7 @@ function hullFaces(V){
 /* One shape per die size: geometry with a material group and texture coordinates per face, and a physics hull. */
 function dieShape(s,k){
   k=k||1;const key=s+'@'+k;if(DICE3D.shapes[key])return DICE3D.shapes[key];
-  const sc={4:.62,6:.46,8:.62,10:.6,12:.38}[s]*k;
+  const sc={2:.9,4:.62,6:.46,8:.62,10:.6,12:.38}[s]*k;
   const V=dieVerts(s).map(p=>p.map(x=>x*sc));const F=hullFaces(V);
   const pos=[],uv=[],g=new THREE.BufferGeometry();let at=0;
   F.forEach((f,fi)=>{
@@ -63,7 +65,8 @@ function faceTex(S,fi,labels,col,ink){
     g.lineWidth=size/9;g.strokeStyle=ink==='#ffffff'?'rgba(0,0,0,.55)':'rgba(255,255,255,.4)';g.strokeText(txt,0,0);g.fillStyle=ink;g.fillText(txt,0,0);
     if(txt==='6'||txt==='9'){g.fillRect(-size*.22,size*.42,size*.44,size*.08);}g.restore();};
   const f=S.F[fi];
-  if(S.s===4){f.v.forEach((q,k)=>{const [u,v]=f.uv[k];const x=(.5+(u-.5)*.62)*N,y=(1-(.5+(v-.5)*.62))*N;const rot=Math.atan2(x-N/2,-(y-N/2));draw(String(labels[q]),x,y,34,rot);});}
+  if(S.s===2){if(labels[fi]!==''){g.strokeStyle=ink;g.globalAlpha=.55;g.lineWidth=5;g.beginPath();g.arc(N/2,N/2,N*.4,0,Math.PI*2);g.stroke();g.globalAlpha=1;draw(String(labels[fi]),N/2,N/2,64,0);}}
+  else if(S.s===4){f.v.forEach((q,k)=>{const [u,v]=f.uv[k];const x=(.5+(u-.5)*.62)*N,y=(1-(.5+(v-.5)*.62))*N;const rot=Math.atan2(x-N/2,-(y-N/2));draw(String(labels[q]),x,y,34,rot);});}
   else draw(String(labels[fi]),N/2,N/2+(S.s===8?8:0),S.s===6?70:S.s===12?54:60,0);
   const t=new THREE.CanvasTexture(c);t.anisotropy=4;return t;
 }
@@ -170,7 +173,7 @@ function clearDice(){for(const o of DICE3D.objs){DICE3D.scene.remove(o.mesh);o.m
 const PRIME_COL={0:'#efe4c6',1:'#9fe08a',[-1]:'#f2927c'},PRIME_INK='#2a1406',ADV_GLOW=0x1f8030,DIS_GLOW=0x901818,BOOM_GLOW=0xc06008;
 const SIDE_DIE={hero:['#3a6ab8','#ffffff'],enemy:['#a8402c','#ffffff']},DEF_DIE=['#8a9cb0','#0e1a28'];
 const DIE3D_OK=s=>s===2||[4,6,8,10,12].includes(s);
-function makeDieV(s,col,ink,o){return s===2?makeDie(6,col,ink,[1,2,1,2,1,2],o):makeDie(s,col,ink,defaultLabels(s),o);}
+function makeDieV(s,col,ink,o){if(s===2){const S=dieShape(2,o&&o.k);return makeDie(2,col,ink,S.F.map(f=>Math.abs(f.n[1])>.9?(f.n[1]>0?1:2):''),o);}return makeDie(s,col,ink,defaultLabels(s),o);}
 function holdDice(ms){return new Promise(res=>{const t0=performance.now();const tick=()=>{if(DICE3D.skip||performance.now()-t0>=ms)res();else setTimeout(tick,30);};tick();});}
 async function throwCard(o){
   clearDice();dice3dFit();DICE3D.skip=false;
