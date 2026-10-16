@@ -108,7 +108,7 @@ function resolveVictory(){
   const heal=TUNE.healAfter+(RUN.gear.includes('waterskin')?.15:0);
   for(const h of RUN.heroes){
     const u=G.units.find(x=>x.id==='h_'+h.cls);const mhp=effMaxHp(h);
-    if(!u||u.dead)h.hp=Math.ceil(mhp*TUNE.fallenHp);
+    if(!u||u.dead)h.hp=1; // Down heroes stand up with 1 HP after a win (Core Rules 2.4)
     else h.hp=Math.min(mhp,u.hp+Math.ceil(mhp*heal));
   }
   const xpList=awardXp(G.xp,kind);

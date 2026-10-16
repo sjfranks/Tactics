@@ -110,7 +110,7 @@ function sheetLayout(u,x,y,w,clip,o){
   const stats=[`Speed ${G&&!o.plain&&live(u)?effSpeed(u):u.speed}`];
   if(G&&!o.plain&&u.init!=null&&u.side!=='hero')stats.push(`Initiative ${u.init}`);
   if(u.steady)stats.push(`Steadfast ${u.steady}`);
-  if(u.armor)stats.push(`Armored ${u.armor}`);
+  if(u.armor)stats.push(`DEF d${[0,4,6,8,10][u.armor]||4}`);
   if(u.shield>0)stats.push(`{b:Shield ${u.shield}}`);
   rich(stats.join(' · '),x+42,cy+30,w-44,C.parch,{clip});
   cy+=42;

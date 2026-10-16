@@ -55,13 +55,13 @@ function effText(eff){
 }
 function dmgLine(dmg,bonus){return dmg.map(d=>d+bonus).join('/');}
 function powerText(p,u){
-  const ab=u?u.attrs[p.a]:null;
+  const ka=(u&&keyA(u))||p.a,ab=u&&p.a?u.attrs[ka]:null;
   const bits=[];
   bits.push(p.tgt==='self'?(p.area!=null?(p.area>=99?'Every ally':`Area ${p.area*2+1}x${p.area*2+1} around you`):'Self'):p.tgt==='tile'?`Range ${p.range}`+(p.area!=null?`, ${p.area*2+1}x${p.area*2+1} area`:''):p.tgt==='ally'?`Ally within ${p.range}`:p.range===1?'Melee':`Range ${p.range}`);
-  bits.push(ATTR[p.a]);
+  if(p.a)bits.push(ATTR[ka]);
   bits.push(p.cost?`${p.cost} momentum`:'No cost');
   let s=bits.join(' · ')+(p.free?' · free action':'')+'.\n';
-  if(p.dmg&&!p.noDmg)s+=`Damage {w:${diceText(powDice(p,u))}${ab!=null?'+'+(ab+(u.side==='hero'&&hasR('whetstone')?1:0)+(u.wpn?wBonus(u,p,'dmg')+wBonus(u,p,'acc'):0)):''}}${ab==null?' + '+ATTR[p.a]:''}${p.hits>1?` x${p.hits}`:''}${p.radiant?' radiant':''}. `;
+  if(p.dmg&&!p.noDmg)s+=`Damage {w:${diceText(powDice(p,u))}${ab!=null?'+'+(ab+(u.side==='hero'&&hasR('whetstone')?1:0)+(u.wpn?wBonus(u,p,'dmg')+wBonus(u,p,'acc'):0)):''}}${ab==null&&p.a?' + '+ATTR[ka]:''}${p.hits>1?` x${p.hits}`:''}${p.radiant?' radiant':''}. `;
   if(p.heal)s+=`Heals {h:${p.heal}${u&&u.cls==='cleric'?'+'+u.attrs.P:''}}. `;
   s+=p.desc;
   const et=effText(p.eff);if(et&&!/on a hit|on a crit/i.test(p.desc)&&!Object.keys(p.eff).some(k=>p.desc.toLowerCase().includes(EFF_NAME[k])))s+=' '+et;
@@ -77,7 +77,7 @@ function monActText(A){
   return `{g:${A.name}} (${A.a?ATTR[A.a]+', ':''}${rng}${A.area?`, ${A.area*2+1}x${A.area*2+1} area`:''}${A.cost?`, ${A.cost} momentum`:''}): ${dm}. ${effText(A.eff)}${A.hazard?` Leaves ${A.hazard==='web'?'web':A.hazard}.`:''}`;
 }
 function monBlock(m){
-  let s=`{m:${m.role}${m.undead?', undead':''}}\nHealth ${m.hp} · Speed ${m.speed}${m.steady?` · Steadfast ${m.steady}`:''}${m.armor?` · Armored ${m.armor}`:''}${m.nimble?' · Nimble':''}\nMight ${m.attrs.M} · Finesse ${m.attrs.F} · Wits ${m.attrs.W} · Presence ${m.attrs.P}\n`;
+  let s=`{m:${m.role}${m.undead?', undead':''}}\nHealth ${m.hp} · Speed ${m.speed}${m.steady?` · Steadfast ${m.steady}`:''}${m.armor?` · DEF d${[0,4,6,8,10][m.armor]||4}`:''}${m.nimble?' · Nimble':''}\nMight ${m.attrs.M} · Finesse ${m.attrs.F} · Wits ${m.attrs.W} · Presence ${m.attrs.P}\n`;
   for(const A of m.acts)s+=monActText(A)+'\n';
   if(m.note)s+=m.note+'\n';
   if(m.fireproof&&m.id!=='dragon')s+='Immune to fire and burning.\n';
@@ -97,7 +97,7 @@ function unitBody(u,full){
     s+=attrLine(u.attrs)+'\n';
     s+=`Speed ${effSpeed(u)}\n`;
     if(G&&G.cur===u.id)s+=`Actions {${u.acts>0?'h':'m'}:${u.acts||0} of ${TUNE.actions} left}${u.mp>0?` · {h:${u.mp}} squares of movement left`:''}\n`;
-    else if(G&&u.saved>0)s+=`{b:${u.saved} action${u.saved>1?'s':''} saved for reactions}\n`;
+    else if(G&&u.kind==='pc'&&u.debt)s+=`{b:${u.debt} of next turn's actions spent on reactions}\n`;
     s+=condText(u);
     if(u.st.mark&&u.marker&&U(u.marker))s+=`(by ${U(u.marker).name}) `;
     if(full){s+='Skills: '+Object.keys(SKILLS).map(k=>{const t=CLASSES[u.cls].skills.includes(k);const v=u.attrs[SKILLS[k]]+(t?2:0);return (t?'{g:'+k+'}':k)+' '+(v>=0?'+':'')+v;}).join(', ')+'\n\n'+CLASSES[u.cls].trait+'\n';for(const id of u.powers)s+='\n'+'{g:'+POWERS[id].name+'}: '+powerText(POWERS[id],u)+'\n';}
@@ -585,7 +585,7 @@ function drawBoardFrame(){
 }
 function openFoeMomInfo(){
   const T=G.threat&&THREATS[G.threat];const L=threatList(G.enc);
-  const body=`The foes bank {r:◆} momentum every round, with no limit, and spend it on threats. They have {r:◆${Math.max(0,G.foeMom)}} now.\n\n`+
+  const body=`The foes gain {r:◆} Malice every round (the round number, plus 1 for each hero who is Down), with no limit, and spend it on threats. They have {r:◆${Math.max(0,G.foeMom)}} now.\n\n`+
     (T?`{r:Next: ${threatName(G.threat)}} at {r:◆${T.cost}} (they have ${Math.max(0,G.foeMom)}). ${T.desc}\n\n`:'')+
     `{m:This battle they can unleash:}\n`+L.map(id=>`{r:${threatName(id)}} (◆${THREATS[id].cost}): ${THREATS[id].desc}`).join('\n')+
     `\n\n{m:Deeper into the journey, foes learn nastier threats.} Some foes also spend momentum on their own special attacks.`;
@@ -598,7 +598,7 @@ function drawTopBarP(){
   const rd=`ROUND ${G.round}`,rw=textW(rd)+10;let x=SW-mb-4-rw;
   chip(x,1,rw,12,'#241c16',C.rim);text(rd,x+rw/2,4,C.parch,{al:'c'});
   const T=G.threat&&THREATS[G.threat];const fm=String(Math.max(0,G.foeMom)),fw=textW(fm)+16;x-=fw+2;
-  const near=T&&G.foeMom+TUNE.foeMomRound>=T.cost;
+  const near=T&&G.foeMom+maliceNext()>=T.cost;
   chip(x,1,fw,12,'#2e1426',near&&Math.floor(NOW/300)%2?'#ff6a9a':'#8a3a6a');gem(x+3,3,'foe');text(fm,x+12,4,'#ffc8e0');
   hit(x,1,fw,12,{fn:openFoeMomInfo,id:'fm'});
   const ow=x-4;chip(2,1,ow,12,'#241c16',C.rim);
@@ -715,7 +715,7 @@ function basicButton(u,i,x,y,w,h){
   rect(x,y,w,h,C.edge);rect(x+1,y+1,w-2,h-2,on?'#3c4656':ok?'#262c34':'#181b20');
   rect(x+1,y+1,w-2,1,on?'#9aaac0':ok?'#56606e':'#262a30');rect(x+1,y+h-2,w-2,1,'#101216');
   if(on){frame(x,y,w,h,C.gold);const a=.25+.2*Math.sin(NOW/200);ctx.globalAlpha=a;frame(x-1,y-1,w+2,h+2,C.gold);ctx.globalAlpha=1;}
-  const ic=powerIcon(p);const bon=(u.attrs[p.a]||0)+wBonus(u,p,'dmg')+(u.side==='hero'&&hasR('whetstone')?1:0);
+  const ic=powerIcon(p);const bon=(u.attrs[keyA(u)||p.a]||0)+wBonus(u,p,'dmg')+(u.side==='hero'&&hasR('whetstone')?1:0);
   const st=diceText(powDice(p,u))+(bon?'+'+bon:'');
   const cap=on?'#e8ecf2':'#8a94a2',nc=on?C.gold:ok?C.parch:C.dim,sc=ok?'#aeb8c6':'#4a4038';
   if(!ok)ctx.globalAlpha=.4;
@@ -872,7 +872,7 @@ function drawIntents(){
 /* "COMBO ×2 · +2" while a chain is running this round. */
 function drawComboChip(){
   if(!G||!G.combo)return;
-  const lab=`COMBO ×${G.combo}`,sub=`+${comboBonus(G.combo)} dmg`;const w=textW(lab)+textW(sub)+14,h=11;
+  const lab=`COMBO ×${G.combo}`,sub=`+2 ◆`;const w=textW(lab)+textW(sub)+14,h=11;
   const x=BX+COLS*TS-w-2,y=BY+2;const pop=B.comboT&&NOW-B.comboT<300?1:0;
   rect(x-1-pop,y-1-pop,w+2+2*pop,h+2+2*pop,C.edge);rect(x,y,w,h,'#5a3a08');rect(x,y,w,1,'#c89030');
   text(lab,x+4,y+3,'#ffe070');text(sub,x+w-4,y+3,'#fff4c0',{al:'r'});
@@ -916,8 +916,8 @@ function drawUnit(u){
     if(pv){const lw=Math.min(fw,Math.round((bw-2)*pv/u.maxHp));if(Math.floor(NOW/180)%2)rect(bx+1+fw-lw,by+1,lw,Q>1?2:1,'#ffffff');}
   }
   if(u.shield>0){const ic=statusIcon('shield');if(ic)ctx.drawImage(ic,X+W-8,Y+W-10);}
-  // gold pips: actions left this turn; blue pips: actions saved for reactions
-  if(u.kind==='pc'){const cur=G.cur===u.id,n2=cur?(u.acts||0):(u.saved||0);const ps=3+Q;for(let i=0;i<n2;i++){const px=X+1+i*(ps+1),py=Y+1;rect(px,py,ps,ps,C.edge);rect(px+1,py+1,ps-2,ps-2,cur?'#ffd860':'#7fd0ff');rect(px+1,py+1,ps-2,1,cur?'#fff4c0':'#d0f0ff');}}
+  // gold pips: actions left this turn; blue pips: reactions still possible before their next turn
+  if(u.kind==='pc'){const cur=G.cur===u.id,n2=cur?(u.acts||0):Math.max(0,reactLeft(u)-1);const ps=3+Q;for(let i=0;i<n2;i++){const px=X+1+i*(ps+1),py=Y+1;rect(px,py,ps,ps,C.edge);rect(px+1,py+1,ps-2,ps-2,cur?'#ffd860':'#7fd0ff');rect(px+1,py+1,ps-2,1,cur?'#fff4c0':'#d0f0ff');}}
   const sts=unitStatuses(u).filter(k=>k!=='shield');
   sts.slice(0,3).forEach((k,i)=>{const ic=statusIcon(k);if(ic)ctx.drawImage(ic,X+W-7,Y-1+i*7);});
 }
@@ -1011,8 +1011,8 @@ function drawForecast(u,x,y0,w,h){
   else{text(p.tgt==='self'||p.area!=null?'No one in the area.':'',x,y,C.mute);y+=10;}
   let body='';
   if(r&&p.save){
-    const q=r.save||0,nm=ATTR[p.save.a],what=p.save.eff==='stag'?'{g:staggered}'+(tgt.boss?'':' (it loses its next turn)'):'{g:exposed} (attacks against it have advantage and deal +3)';
-    body+=`${p.shove?'Pushed 1 square. ':''}${tgt.name} rolls a ${nm} save: {w:d20 + ${saveMod(tgt,p.save.a)}} against {w:${saveDC(u,p)}}. {g:${Math.round(q*100)}%} it fails and is ${what}.\n`;
+    const q=r.save||0,nm=ATTR[p.save.a],what=p.save.eff==='stag'?'{g:staggered}'+(tgt.boss?'':' (it loses its next turn)'):'{g:exposed} (your allies attack it with advantage)';
+    body+=`${p.shove?'Pushed 1 square. ':''}${tgt.name} rolls a ${nm} save: {w:${saveText(tgt,p.save.a)}}. {g:${Math.round(q*100)}%} it fails and is ${what}.\n`;
     if(p.save.eff==='stag'&&tgt.st.steady)body+='{m:It has only just recovered: it can\'t be staggered again yet.}\n';
     if(rows.by&&rows.by.length)body+=`{g:COMBO!} ${rows.by.map(id=>U(id).name).join(' and ')} set this up: +2 {p:◆} each.\n`;
   }else if(r&&r.dmg){
@@ -1024,18 +1024,18 @@ function drawForecast(u,x,y0,w,h){
       text(Math.round(r.probs[i]*100)+'%',bx+14,by+22,i===2?'#ffe8a0':C.parch,{al:'c'});}
     if(!wide)y+=33;
     const kp=killP(r);
-    const at=u.attrs[p.a]||0,dd=r.dice;
-    body+=r.ctrl?`Roll {w:1d${dd.s}}: 1 misses, ${dd.s} is a critical hit.`:`Roll {w:${diceText(dd)}}{m: + ${ATTR[p.a]} ${at}}. First die: {r:1 misses}, top number is a {g:critical}: roll one more.`;
+    const ka=keyA(u)||p.a,at=u.attrs[ka]||0,dd=r.dice;
+    body+=r.ctrl?`Roll {w:1d${dd.s}}: 1 misses, ${dd.s} is a critical hit.`:`Roll {w:${diceText(dd)}}{m: + ${ATTR[ka]} ${at}}. First die: {r:1 misses}, top number is a {g:critical}: roll one more.`;
     body+=`${r.net?` {${r.net>0?'h':'r'}:${Math.abs(r.net)>1?'Double ':''}${r.net>0?'advantage':'disadvantage'}: roll it ${Math.abs(r.net)+1} times, keep the ${r.net>0?'best':'worst'}.}`:''}${kp>0?`  {r:☠ ${Math.round(kp*100)}% kill}`:''}\n`;
     if(r.pro.length)body+=r.pro.map(s=>`{h:+ ${s}}`).join('  ')+'  ';
     if(r.con.length)body+=r.con.map(s=>`{r:− ${s}}`).join('  ');
     if(r.pro.length||r.con.length)body+='\n';
     if(r.stag)body+=tgt.boss?'{g:Staggered: double advantage.}\n':'{g:Staggered: a sure critical hit!} {m:But it snaps out of it and keeps its turn.}\n';
-    const bits=[];if(r.expose)bits.push('{g:exposed +3}');if(r.sneak)bits.push(`{g:sneak attack +${sneakBonus(u)}}`);if(rows.combo)bits.push(`{g:combo +${comboBonus(rows.combo)}}`);
+    const bits=[];if(r.sneak)bits.push('{g:sneak attack: +1 weapon die}');
     if(bits.length)body+='Damage includes '+bits.join(', ')+'.\n';
     if(rows.by&&rows.by.length)body+=`{g:COMBO!} ${rows.by.map(id=>U(id).name).join(' and ')} set this up: +2 {p:◆} each.\n`;
-    if(tgt.armor)body+=`{m:Armored ${tgt.armor}: blows short of a critical hit lose ${tgt.armor}.}\n`;
-    if(p.eff&&(tv(p.eff.push,2)||tv(p.eff.pull,2)||tv(p.eff.stag,3))&&!tgt.boss&&!tgt.st.steady&&!r.stag)body+='{g:If it is staggered, it loses its next turn.}\n';
+    if(defDie(tgt))body+=`{m:DEF d${defDie(tgt)}: it rolls this against every hit short of a critical hit (the numbers above use the average).}\n`;
+    if(p.eff&&((p.stagPush&&(tv(p.eff.push,2)||tv(p.eff.pull,2)))||tv(p.eff.stag,3))&&!tgt.boss&&!tgt.st.steady&&!r.stag)body+='{g:If it is staggered, it loses its next turn.}\n';
     const fp=forcedPreview(u,p,tgt,P.O);if(fp)body+=fp+'\n';
   }else if(r){
     body+=(r.heal?`Heals {h:${r.heal}}. `:'')+(r.shield?`Shield {b:${r.shield}}. `:'')+(r.empower?'Blessed. ':'')+(r.refresh?'Can move and act again. ':'')+'\n';

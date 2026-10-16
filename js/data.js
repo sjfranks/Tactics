@@ -13,7 +13,10 @@ const RESULT_SHORT=['Miss','Hit','Crit'];
    boss's share of its fight, eliteCost: an elite's cost multiplier). */
 const TUNE={es0:4,esLvl:2,esUnit:.4,solo:1.25,eliteCost:1.3,hpSlope:.03,dmgSlope:.15,rollStep:4,bossHp:.55,foeMomRound:1,foeMomRamp:0,eliteMul:[.7,.4,.5],eliteBudget:[.9,1,1],summonAt:8,actMul:[1,.9,.65],
   healAfter:.05,pbBonus:3,fallenHp:.25,momTurn:0,momStart:0,momVal:.9,actHeal:.6,maxLvl:12,winXp:30,bossXp:50,sneak:3,aiCombo:1,saveBase:12,
-  actions:3,extraActs:2,guardMin:4,aiMoveCost:1.5,aiHold:1};
+  actions:3,extraActs:2,guardMin:4,aiMoveCost:1.5,aiHold:1,
+  /* Interim until foes move to the Bestiary's numbers: Malice gain is scaled (1 = the rule book's round number + Downs),
+     and foeDef shifts every foe's DEF die up or down the ladder. */
+  maliceMul:.5,foeDef:0};
 /* Experience needed to reach each level (index = level). Heroes earn it by doing their job in battle. */
 const XP_AT=[0,0,55,125,210,315,440,580,740,910,1100,1320,1560];
 /* How much each kind of deed is worth to each role: defenders shove foes around and soak blows, strikers
@@ -74,9 +77,9 @@ const POWERS={
   force:{c:'wizard',lv:1,a:'W',name:'Force Push',innate:true,cost:0,tgt:'enemy',range:4,noDmg:true,shove:1,save:{a:'M',eff:'stag'},proj:'#c39bff',desc:'Range 4. Push the foe 1 square away. It makes a Might save or is staggered.'},
   guidance:{c:'cleric',lv:1,a:'P',name:'Guidance',innate:true,cost:0,tgt:'ally',range:3,noSelf:true,empower:1,desc:'Range 3. Bless an ally: advantage on their next attack, and a combo for you both.'},
   /* ---- Fighter: staggers foes and makes them fight her ---- */
-  tide:{c:'fighter',lv:1,a:'M',name:'Tide of Iron',cost:1,tgt:'enemy',range:1,dmg:[2,4,6],mark:1,eff:{push:[1,1,2]},follow:true,desc:'Shove the foe back and step into the gap. It is staggered (it loses its next turn unless an ally hits it first) and marked.'},
+  tide:{c:'fighter',stagPush:1,lv:1,a:'M',name:'Tide of Iron',cost:1,tgt:'enemy',range:1,dmg:[2,4,6],mark:1,eff:{push:[1,1,2]},follow:true,desc:'Shove the foe back and step into the gap. It is staggered (it loses its next turn unless an ally hits it first) and marked.'},
   grind:{c:'fighter',lv:1,a:'M',name:'Grinding Strike',cost:1,tgt:'enemy',range:1,dmg:[4,9,13],mark:1,eff:{push:[0,0,1]},desc:'A two-handed blow that rolls two dice. Mark the foe. On a crit: push 1.'},
-  hook:{c:'fighter',lv:1,a:'M',name:'Hook Chain',cost:1,tgt:'enemy',range:3,reach:true,dmg:[2,4,6],mark:1,eff:{pull:[1,2,3],slow:[0,1,1]},desc:'Range 3. Drag the foe to you: it is staggered and marked. On a hit: slowed.'},
+  hook:{c:'fighter',stagPush:1,lv:1,a:'M',name:'Hook Chain',cost:1,tgt:'enemy',range:3,reach:true,dmg:[2,4,6],mark:1,eff:{pull:[1,2,3],slow:[0,1,1]},desc:'Range 3. Drag the foe to you: it is staggered and marked. On a hit: slowed.'},
   cleave:{c:'fighter',lv:1,a:'M',name:'Cleave',cost:1,tgt:'enemy',range:1,dmg:[2,4,6],mark:1,cleave:true,desc:'Mark the foe. Another foe beside you takes damage equal to your Might.'},
   sweep:{c:'fighter',lv:1,a:'M',name:'Sweeping Blow',cost:2,tgt:'self',area:1,aff:'foe',dmg:[2,4,6],mark:1,eff:{stag:[0,0,1]},desc:'Strike every foe around you, diagonals too, and mark them all. On a crit: staggered.'},
   shieldWall:{c:'fighter',lv:1,a:'M',name:'Shield Wall',cost:1,tgt:'self',area:1,aff:'ally',shield:6,markAround:1,desc:'You and allies around you gain 6 shield. Mark adjacent foes.'},
@@ -141,6 +144,9 @@ const POWERS={
   revive:{c:'cleric',lv:9,a:'P',name:'Revivify',cost:4,tgt:'self',revive:true,desc:'A fallen hero rises beside you with 40% health.'},
   holy:{c:'cleric',lv:9,a:'P',name:'Holy Word',cost:5,tgt:'self',area:3,aff:'foe',dmg:[4,7,10],radiant:true,eff:{daze:[0,1,1]},allyHeal:5,fx:'holy',desc:'Foes within 3 take radiant damage; on a hit they are dazed. Allies within 3 heal 5.'},
 };
+/* Every hero has these two (Core Rules 2.4 and 2.5). They take no slot. */
+POWERS.secondwind={c:'any',innate:true,lv:1,a:'M',name:'Second Wind',cost:0,tgt:'self',selfWind:true,noDmg:true,desc:'Once per battle: heal one roll of your hit die (it explodes) plus your Might. Your next Defend before your next turn has advantage.'};
+POWERS.helpup={c:'any',innate:true,lv:1,a:'P',name:'Help Up',cost:0,tgt:'tile',range:1,helpUp:true,noDmg:true,desc:'An ally beside you who is Down stands up with health equal to one roll of their hit die.'};
 for(const k in POWERS)POWERS[k].id=k;
 
 /* ---------------- MONSTERS ---------------- */
@@ -320,26 +326,26 @@ const GLOSS={
   advantage:{name:'Advantage',forms:['double advantage','advantage'],text:'Roll the first damage die again and keep the best (twice with double advantage), so hits and crits come more often. It comes from flanking, high ground, dazed, rooted or exposed targets, being blessed or hidden, and some powers. Different sources stack, up to triple advantage (roll four, keep the best), and advantage and disadvantage cancel out one for one.'},
   disadvantage:{name:'Disadvantage',forms:['disadvantage'],text:'Roll the first damage die again and keep the worst. It comes from being weakened or marked by someone else, a target in cover, shooting while a foe stands beside you, and attacking more than once in a turn. Different sources stack.'},
   momentum:{name:'Momentum',forms:['momentum'],text:'Every hero starts a battle with none. They gain 1 for their first basic attack each turn and 2 for each combo they land or set up for an ally, and spend it on powers. Foes share a pool that grows each round and spend it on threats (shown in the top bar) and on their own special attacks.'},
-  savingthrow:{name:'Saving Throw',forms:['saving throws','saving throw'],text:'Some powers let the foe resist. It rolls d20 + one of its attributes (plus a little for how deep into the journey you are). If the total reaches 12 + your attribute + a third of your level, it shrugs the effect off. The forecast shows the odds.'},
-  initiative:{name:'Initiative',forms:['initiative'],text:'At the start of a battle everyone rolls d20 + Finesse. Turns go from highest to lowest, heroes and foes mixed together, and the order repeats every round.'},
+  savingthrow:{name:'Saving Throw',forms:['saving throws','saving throw'],text:'Some powers let the target resist. It rolls the die for one of its attributes (Might 3 is a d8, for example) and saves on 4 or more. Each class saves better with one attribute and worse with another, and foes deeper in the journey save with advantage.'},
+  initiative:{name:'Initiative',forms:['initiative'],text:'At the start of a battle everyone rolls their Finesse die (it explodes on its top number). Turns go from highest to lowest, heroes and foes mixed, and the order stays the same all battle. Ties go to the higher Finesse, then to heroes. Minions of one kind share a roll.'},
   actions:{name:'Actions',forms:['three actions','actions'],text:'On their turn a hero has three actions. Moving (up to their speed, split up as they like), a basic attack and each power cost one, in any order. Actions left when the turn ends are saved for reactions until the hero\'s next turn. Foes simply move and act.'},
-  parting:{name:'Opportunity Attack',forms:['parting blows','parting blow','opportunity attacks','opportunity attack'],text:'When a creature moves out of a square beside a foe, that foe may strike it. Foes do it once a round for free; a hero spends a saved action and makes a basic attack. Nimble creatures never provoke. Staggered and dazed creatures can\'t react.'},
-  reaction:{name:'Reaction',forms:['reactions','reaction'],text:'Heroes react with the actions they saved at the end of their turn, each kind once until their next turn: Defend (halve a blow of 4 or more), an opportunity attack, and their own: Brakka\'s Intercept, Vex\'s Opportunist, Orin\'s Repelling Ward and Sela\'s Warding Word. Reactions happen on their own. Foes get one opportunity attack a round.'},
-  defend:{name:'Defend',forms:['defends','defend'],text:'A reaction: when a foe hits a hero for 4 or more, the hero spends a saved action to halve the damage.'},
+  parting:{name:'Opportunity Attack',forms:['parting blows','parting blow','opportunity attacks','opportunity attack'],text:'When a creature steps away from an enemy beside it, that enemy gets a free strike: a basic attack. It costs nothing, and each enemy gets at most one per move. Staggered and dazed creatures can\'t make one.'},
+  reaction:{name:'Reaction',forms:['reactions','reaction'],text:'Something a hero does on someone else\'s turn: Defend, a class reaction, or helping. Each reaction costs 1 action from the hero\'s next turn. Defend has no limit; other reactions work once a round. The game reacts for you, and always leaves you at least 1 action.'},
+  defend:{name:'Defend',forms:['defends','defend'],text:'A reaction: when a foe hits a hero for 4 or more with anything but a critical hit, the hero spends 1 action from their next turn to roll their armour\'s DEF die (it explodes; a shield gives advantage) and takes that much less damage, but at least 1.'},
   mapen:{name:'Multiple Attacks',forms:['2nd attack','3rd attack'],text:'The second attack a hero makes in a turn has disadvantage, and the third double disadvantage. Reactions don\'t count. For powers a foe saves against, the foe rolls its save again and keeps the best instead.'},
   mark:{name:'Marked',forms:['marks','marked','mark'],text:'A marked creature has disadvantage on attacks that don\'t include whoever marked it. A foe the fighter marks can only attack her while it can reach her.'},
-  push:{name:'Push',forms:['pushes','pushed','push','shoves','shove'],text:'Move the target directly away. A creature that is moved is staggered. If it hits an obstacle, a creature or the edge, it slams. Pushing a foe into fire, acid or lava makes it suffer the hazard.'},
-  pull:{name:'Pull',forms:['pulls','pulled','pull','drags','drag'],text:'Move the target directly toward the source, leaving it staggered. It suffers any hazard it is dragged through.'},
-  slam:{name:'Slam',forms:['slams','slam'],text:'A creature pushed into something takes 2 damage plus 1 for each square of push left, and is staggered. A creature it slams into takes 2 damage and is staggered too.'},
+  push:{name:'Push',forms:['pushes','pushed','push','shoves','shove'],text:'Move the target directly away. A creature pushed into something slams. A push on its own staggers only if the power says so.'},
+  pull:{name:'Pull',forms:['pulls','pulled','pull','drags','drag'],text:'Move the target directly toward the source. A pull on its own staggers only if the power says so.'},
+  slam:{name:'Slam',forms:['slams','slam'],text:'A creature pushed into something takes one roll of the pusher\'s weapon die (it explodes), and so does whatever it hits. A slam staggers the creature that was pushed.'},
   steady:{name:'Steadfast',forms:['steadfast'],text:'Reduces how far this creature is pushed or pulled.'},
-  stag:{name:'Staggered',forms:['staggered','staggers','stagger','off balance'],text:'Thrown off balance by a push, a pull, a slam or a knock-down. A staggered foe loses its next turn, and the next attack against it by anyone but whoever staggered it is a sure critical hit, but that attack snaps it out of it and it keeps its turn. A foe that lost a turn can\'t be staggered again until after its next turn. Bosses never lose turns: attacks against a staggered boss get double advantage. Staggered heroes move at half speed and take a sure critical hit from the next attack. Staggered creatures can\'t make parting blows.'},
+  stag:{name:'Staggered',forms:['staggered','staggers','stagger','off balance'],text:'Thrown off balance by a slam or a power that staggers. Half speed and no reactions. A staggered foe loses its next turn, unless someone other than the hero who staggered it hits it first: that hit is a sure critical hit, and the foe keeps its turn. A boss never loses its turn; the next attack against it has double advantage instead. A staggered hero has 1 fewer action on their next turn.'},
   daze:{name:'Dazed',forms:['dazed','daze'],text:'A dazed hero has only one action on its turn; a dazed foe can move or act, not both. Neither can react.'},
   slow:{name:'Slowed',forms:['slowed','slow'],text:'Speed drops to 1.'},
   root:{name:'Rooted',forms:['rooted','roots','root'],text:'Cannot move. Attacks against it have advantage.'},
   weak:{name:'Weakened',forms:['weakened','weakens','weak'],text:'Has disadvantage on its attacks.'},
-  bleed:{name:'Bleeding',forms:['bleeding','bleeds','bleed'],text:'Takes damage at the start of each of its turns.'},
+  bleed:{name:'Bleeding',forms:['bleeding','bleeds','bleed'],text:'At the start of each of its turns it takes one roll of the weapon die of whoever made it bleed.'},
   burn:{name:'Burning',forms:['burning'],text:'Takes 3 fire damage at the start of each of its turns. Stepping into water puts it out.'},
-  expose:{name:'Exposed',forms:['exposed','expose'],text:'Attacks against it have advantage, and every hit deals +3 damage, until the end of its next turn. Only the allies of whoever exposed it get the bonus.'},
+  expose:{name:'Exposed',forms:['exposed','expose'],text:'Attacks against it by the allies of whoever exposed it have advantage, until the end of its next turn.'},
   bless:{name:'Blessed',forms:['blessed','bless','blessing'],text:'Advantage on the next attack. It lasts until then, or the end of the blessed hero\'s next turn.'},
   hidden:{name:'Hidden',forms:['hidden','hide'],text:'Unseen. The next attack has double advantage, then the creature is revealed.'},
   shield:{name:'Shield',forms:['shield'],text:'Absorbs damage before health. Shields fade at the start of the owner\'s next turn.'},
@@ -353,19 +359,19 @@ const GLOSS={
   lava:{name:'Lava',forms:['lava'],text:HAZ.lava.desc},
   snare:{name:'Snare',forms:['snares','snare'],text:HAZ.trap.desc},
   web:{name:'Web',forms:['web'],text:HAZ.web.desc},
-  sneak:{name:'Sneak Attack',forms:['sneak attacks','sneak attack'],text:'The rogue deals 3 extra damage (more at higher levels) against a foe that is set up: staggered, exposed, rooted or dazed, or with one of her allies beside it. Attacks from hiding count too.'},
-  combo:{name:'Combo',forms:['combos','combo'],text:'When a hero cashes in a set-up another hero made (attacks a foe they staggered or exposed, or attacks with their blessing), it is a combo. Both heroes gain 2 momentum, and every hero hit for the rest of the round deals +1 damage per combo so far (up to +3). Set-ups on a foe fade when its own turn ends, so line up heroes who act before it.'},
-  setup:{name:'Set-up',forms:['set-ups','set-up','set up'],text:'A foe is set up when it is staggered, exposed, rooted or dazed, or has a hero beside it. Sneak attacks need a set-up. Staggers, exposes and blessings made by one hero give the others combos: nobody cashes in their own.'},
-  armor:{name:'Armored',forms:['armored','armor'],text:'Takes 2 or 3 less damage from every attack that isn\'t a critical hit (never less than 1). Critical hits go straight through: stagger it first, or attack with advantage.'},
+  sneak:{name:'Sneak Attack',forms:['sneak attacks','sneak attack'],text:'The rogue rolls one extra weapon die against a foe that is staggered, exposed, rooted, dazed or flanked, or when attacking from hiding.'},
+  combo:{name:'Combo',forms:['combos','combo'],text:'When a hero cashes in a set-up another hero made (attacks a foe they staggered or exposed, or uses their blessing), it is a combo: the hero and each hero who set it up gain 2 momentum.'},
+  setup:{name:'Set-up',forms:['set-ups','set-up','set up'],text:'A foe is set up when it is staggered, exposed, rooted or dazed, or flanked by the rogue\'s allies. The rogue\'s sneak attack loves set-up foes.'},
+  armor:{name:'Armored',forms:['armored','armor'],text:'Armour gives a foe a DEF die (d4, d6 or d8). It rolls the die against every hit that is not a critical hit and takes that much less damage, but at least 1.'},
   intent:{name:'Intent',forms:['intents','intent'],text:'Tap INTENT during a hero\'s turn to see what each foe means to do on its next turn: whom it will attack, and roughly how much damage it will deal. They change as you shove foes around, taunt them or get out of reach.'},
   nimble:{name:'Nimble',forms:['nimble'],text:'Never provokes parting blows.'},
   swarm:{name:'Swarm',forms:['swarms','swarm'],text:'Up to four tiny critters sharing one square and one pool of health. You attack the swarm as a single foe. Area attacks deal double damage to it, and it deals less damage as its critters fall. Its attacks never roll.'},
   minion:{name:'Minion',forms:['minions','minion'],text:'A foe with a single hit point: any hit slays it. Minions come in hordes, often raised or rallied by a boss or summoner. Their attacks never roll.'},
   large:{name:'Large',forms:['large'],text:'A huge creature that fills a 2×2 block of squares. It is beside anything touching any of its squares, and needs a 2×2 gap to move through.'},
-  undead:{name:'Undead',forms:['undead'],text:'Radiant damage is doubled against undead.'},
+  undead:{name:'Undead',forms:['undead'],text:'Weak to radiant damage: it deals double.'},
   radiant:{name:'Radiant',forms:['radiant'],text:'Holy damage. Doubled against undead and stops skeletons reassembling.'},
   surge:{name:'Boss Surge',forms:['boss surges','boss surge'],text:'A boss unleashes a special action at the start of its turn on rounds 1, 3 and 5.'},
-  threat:{name:'Foe Threat',forms:['threats','threat'],text:'Foes bank 1 momentum every round, with no limit (shown in the top bar). When they have enough, they unleash their next threat: bloodlust at first, and deeper into the journey eruptions of hazards, reinforcements and dark rites.'},
+  threat:{name:'Foe Threat',forms:['threats','threat'],text:'Foes gain Malice every round: the round number, plus 1 for each hero who is Down (shown in the top bar). When they have enough, they unleash their next threat. Harder battles and later regions unlock nastier threats.'},
   zone:{name:'Zone',forms:['zone'],text:'A lingering area. It affects foes that start their turn inside it.'},
   teleport:{name:'Teleport',forms:['teleport'],text:'Move instantly without provoking parting blows.'},
   free:{name:'Free Action',forms:['free action'],text:'Costs none of your three actions.'},
