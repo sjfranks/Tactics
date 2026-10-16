@@ -192,7 +192,7 @@ function unitSprite(u,hi){const f=hi?sprH:HIRES?sprM:spr;if(u.kind==='pc')return
 
 /* ---------------- rich text with clickable keywords ---------------- */
 const KW_MAP={};const KW_LIST=[];
-for(const k in GLOSS)for(const f of GLOSS[k].forms){KW_MAP[f]=k;KW_LIST.push(f);}
+for(const k in GLOSS)for(const f of GLOSS[k].forms){KW_MAP[f.toLowerCase()]=k;KW_LIST.push(f);}
 KW_LIST.sort((a,b)=>b.length-a.length);
 const KW_RE=new RegExp('\\b('+KW_LIST.map(s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')\\b','gi');
 function atomize(s,col,nokw){

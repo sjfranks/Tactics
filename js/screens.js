@@ -377,41 +377,33 @@ function openSettings(inBattle,onMap){
     button(x+w/2-30,y+h-16,60,12,'CLOSE',closeModal,{hot:true});
   }});
 }
-const HOWTO=`{g:Turn order.} Everyone rolls initiative (d20 + Finesse) when a battle starts. Turns go from highest to lowest, heroes and foes mixed, every round. TURNS shows who is next. On a hero's turn they have {g:three actions}, then tap END TURN.
+const HOWTO=`{g:Turn order.} Everyone rolls {g:initiative} (their Dexterity die) when a battle starts. Turns go from highest to lowest, heroes and foes mixed, every round. TURNS shows who is next. On a hero's turn they have {g:three actions}, then tap END TURN.
 
-{g:Actions.} Moving, a basic attack and each power cost one action, in any order. Tap a blue square to move, or drag the hero: a move takes you up to your speed, and you can split it around your other actions (brighter squares are what is left of your move). Your second attack in a turn has disadvantage and the third double disadvantage.
+{g:Actions.} Moving, a basic attack and each power cost one action, in any order. Tap a blue square to move, or drag the hero: a move takes you up to your speed, and you can split it around your other actions. Your second attack in a turn has disadvantage and the third double disadvantage.
 
-{g:Reactions.} Actions you don't use are saved (blue pips) until your next turn and spent on reactions, each kind once: {g:Defend} halves a blow of 4 or more, an {g:opportunity attack} strikes a foe that steps away, and each hero has their own: Brakka {g:Intercepts} a blow meant for a friend beside her, Vex strikes as an {g:Opportunist} when an ally hits a foe beside her, Orin's {g:Repelling Ward} pushes away a foe that steps up to him, and Sela's {g:Warding Word} halves a blow on an ally within 3. Reactions happen on their own.
+{g:Reactions.} On someone else's turn a hero can react, paying with one action from their next turn (the blue pips): {g:Defend} rolls your armour's DEF die against a blow and takes that much less damage, and each hero has their own reaction once a round: Brakka {g:Intercepts} a blow meant for a friend beside her, Vex strikes as an {g:Opportunist} when an ally hits a foe beside her, Orin's {g:Repelling Ward} pushes away a foe that steps up to him, and Sela's {g:Warding Word} halves a blow on an ally within 3. Reactions happen on their own, and always leave you at least one action.
 
-{g:Basic attack and powers.} Every hero has a basic weapon attack: it costs no momentum, and the first each turn earns 1. Most heroes also have a free set-up power: Brakka's {g:Shove}, Orin's {g:Force Push} and Sela's {g:Guidance}; Vex's Blades are a feint in themselves, leaving a foe she hits exposed for her allies unless it makes a {g:saving throw}. Foes save against Shove and Force Push too. Powers are their special moves, and every power costs momentum. Pick a card at the bottom, then tap a target: red squares are foes in range, green are allies. A forecast shows what can happen. Tap the target again, or press STRIKE, to act. Powers with no target, like Thunderwave, go off when you tap their card twice.
+{g:Damage dice.} Every attack rolls {g:weapon dice} and adds the hero's {g:key stat} once. A basic attack rolls one weapon die; powers say how many. The first die (thrown larger, in ivory) decides the result: a 1 is a miss, the top number is a {g:critical hit} that ignores DEF and rolls one more die (again and again on more top numbers), anything else a hit. Small dice crit more often: a rogue honed down to a {g:d2} crits on every other swing. A better weapon makes every power better.
 
-{g:Foe intents.} Tap INTENT to see whom each foe means to attack, and how hard. Shove foes out of reach, taunt them or finish them first.
+{g:Advantage and disadvantage.} Advantage rolls the first die again and keeps the best; disadvantage keeps the worst. Different sources stack, up to triple, and cancel out one for one. Flanking, high ground, blessings and dazed, rooted or exposed targets give advantage. Cover, being weakened or frightened, shooting with a foe beside you and attacking again in the same turn give disadvantage.
 
-{g:Combos.} Heroes set each other up, and nobody cashes in their own set-up. A foe that is shoved, dragged or knocked down is {g:staggered}: it loses its next turn, unless someone attacks it first, and that attack is a sure critical hit. Attacks against an {g:exposed} foe have advantage and deal +3 damage. A {g:blessed} hero attacks with advantage. Set-ups on a foe fade when its own turn ends, so line up a hero who acts before it. When a hero cashes in a set-up another hero made, it is a {g:combo}: both gain 2 momentum, and every hero hit for the rest of the round deals +1 damage per combo (up to +3).
+{g:Combos.} Heroes set each other up, and nobody cashes in their own set-up. A foe slammed into something (or hit by a power that says so) is {g:staggered}: it loses its next turn, and an ally's next hit on it is a sure critical hit. Allies attack an {g:exposed} foe with advantage. A {g:blessed} hero attacks with advantage. Set-ups fade when the foe's own turn ends, so line up a hero who acts before it. Cashing in an ally's set-up is a {g:combo}: +2 momentum for both heroes.
 
-{g:The roles.} Brakka throws foes off balance and makes them fight her: foes she marks can only attack her. Orin does it to whole groups. Sela blesses her friends and exposes foes. Vex cashes it all in with sneak attacks on set-up foes.
+{g:Momentum.} Shown as {p:◆} gems. Heroes start each battle with momentum equal to the party's {g:Victories} (up to 3), gain 1 for their first basic attack each turn and 2 for each combo, and spend it on powers.
 
-{g:Damage dice.} Every attack rolls damage dice and adds an attribute. Each hero's basic attack (Sword, Blades, Bolt, Mace) rolls their weapon's dice; powers roll the hero's own die: Brakka d8s, Orin and Sela d6s, Vex d4s. The first die (the primary die, thrown larger and in ivory) decides the result: a 1 is a miss, the top number is a critical hit, anything else a hit. Other dice only add damage. A critical hit rolls one more die and adds it, and one more again each time the top number comes up. Small dice crit more often. Vex fights with two knives: dual wielding gives advantage on the first Blades attack each round. {g:Armored} foes shrug off part of every blow except critical hits.
+{g:Powers.} Every hero has a basic attack and a free set-up: Brakka's {g:Shove}, Orin's {g:Force Push}, Sela's {g:Guidance}. Active powers cost momentum: pick a card at the bottom, then a target. A forecast shows what can happen; tap the target again, or STRIKE, to act. {g:Passive} powers work on their own. Each power has a tag; 4 or 8 powers of one tag across the party give everyone its {g:resonance}.
 
-{g:Advantage and disadvantage.} Advantage rolls the first die again and keeps the best; disadvantage keeps the worst. Different sources stack, up to triple, and cancel out one for one. Flanking, high ground, blessings and dazed, rooted or exposed targets give advantage. Cover, being weakened, shooting with a foe beside you and attacking again in the same turn give disadvantage.
+{g:Foes.} Tap INTENT to see whom each foe means to attack, and how hard. Foes gain {r:Malice} every round and spend it on threats (top of the screen). Some foes are {g:Terrifying}, some resist or are weak to damage types, and bosses change when {g:bloodied}.
 
-{g:Momentum.} Shown as {p:◆} gems. Every hero starts a battle with none. A hero gains 1 for their first basic attack each turn, and 2 for each combo: both the hero who lands it and the hero who set it up (a blessed critical hit pays the cleric too). Every power costs momentum.
+{g:Free strikes.} Stepping away from a foe beside you lets it strike you for free. The path turns red when that will happen. Nimble heroes never provoke them.
 
-{g:Foe threats.} The foes share a pool of momentum (top of the screen) that grows every round, with no limit. When it reaches the cost of their next threat they unleash it: bloodlust at first, and deeper into the journey eruptions, reinforcements and dark rites. Tap it to see what is coming.
+{g:Down and Wounds.} A hero at 0 health is {g:Down} and gains a {g:Wound} (-1 to attacks, saves and checks). An ally beside them can Help them up. A hero who goes Down with 3 Wounds dies. If every hero is Down, the battle is lost.
 
-{g:Opportunity attacks.} Stepping away from a foe beside you lets it strike you (foes once a round; heroes only with a saved action). The path turns red when that will happen. Rogues never provoke them, and staggered foes can't make them.
+{g:The journey.} Pick your path through three lands: battles, elites, merchants, {g:Camps}, treasure, road events and events. Battles give gold and {g:Victories}; elites and bosses give every hero a {g:power draft}. Between battles, spend {g:hit dice} to heal (EQUIP, then HEAL). At a Camp heroes heal, refill their hit dice, lose a Wound and turn Victories into levels, each with a new power. Events test an attribute ({g:check}: 4+ on its die), and some are {g:dramatic tasks} or {g:negotiations}.
 
-{g:Hazards.} Fire, acid and lava hurt anyone who enters them or ends a turn in them, even when pushed or pulled in. Shove your enemies into them!
+{g:Equipment.} Each hero carries one weapon; its die and {g:runes} power every attack. Better ones turn up in shops, treasure and events, and the {g:smith} can temper, hone or inscribe them. You can own many relics but wear only two.
 
 {g:Undo.} UNDO rewinds your last move or action. Press it again to go further back, even to a previous hero's turn.
-
-{g:Missions.} Every battle has a goal, shown at the top, and foes fight to stop you: they chase captives, crowd the shrine and guard exits. Each land puts its own twist on the missions.
-
-{g:Experience.} Heroes earn experience for doing their role and for combos: the fighter for shoving foes and soaking blows, the rogue for damage, the wizard for catching and hindering many foes, the cleric for healing and empowering allies. Levels (up to 10) raise health and attributes. New powers come from rewards, campfires and merchants.
-
-{g:Equipment.} Each hero carries one weapon that strengthens their basic (no-cost) powers; better ones turn up in shops, treasure and events. You can own many relics but wear only two. Change both on the Equipment screen (EQUIP on the map).
-
-{g:The journey.} Lead the company along a branching road through three lands: battles, elite fights, merchants, campfires, treasure and strange encounters. Each land ends with a boss.
 
 Tap any {k:blue underlined word} to see what it means. Tap a hero's portrait to open their sheet.`;
 function openHowTo(){openModal(dialog({title:'HOW TO PLAY',body:HOWTO,w:280,buttons:[{l:'CLOSE',hot:true}]}));}
@@ -420,20 +412,27 @@ function openHowTo(){openModal(dialog({title:'HOW TO PLAY',body:HOWTO,w:280,butt
 const COMP={tab:0,cls:0,sel:null};
 const COMP_SCREEN={enter(){COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);},draw(){
   rect(0,0,SW,SH,C.bg);
-  const tabs=['HEROES','RELICS','BESTIARY','GLOSSARY'];
+  const tabs=['HEROES','GEAR','BESTIARY','GLOSSARY'];
   const tw=PORT?40:60,tsx=PORT?41:62;
   tabs.forEach((t,i)=>button(PORT?31+i*tsx:4+i*tsx,3,tw,12,t,()=>{COMP.tab=i;COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);},{on:COMP.tab===i}));
   const back=()=>{const b=SCREEN_BACK||TITLE_SCREEN;SCREEN_BACK=null;go(b);};
   if(PORT)button(2,3,27,12,'◀',back,{hot:true});else button(SW-54,3,50,12,'BACK',back,{hot:true});
   let entries=[];
   if(COMP.tab===0){
-    ORDER.forEach((c,i)=>button(PORT?2+i*tsx:4+i*48,18,PORT?tw:46,11,CLASSES[c].title.toUpperCase(),()=>{COMP.cls=i;COMP.sel=null;scrollTo('clist',0);},{on:COMP.cls===i}));
-    const cls=ORDER[COMP.cls];
-    entries=[{k:'class',label:CLASSES[cls].name+' · class',col:C.gold}].concat(Object.values(POWERS).filter(p=>p.c===cls).sort((a,b)=>a.lv-b.lv||a.cost-b.cost).map(p=>({k:p.id,label:p.name,sub:`L${p.lv}`})));
-  }else if(COMP.tab===1)entries=Object.keys(RELICS).map(r=>({k:r,label:RELICS[r].name,relic:r,tall:true}));
+    const CL=ORDER.concat(['gen']),bw=PORT?Math.floor((SW-4-4*2)/5):46;
+    CL.forEach((c,i)=>button(PORT?2+i*(bw+2):4+i*48,18,bw,11,c==='gen'?'GENERAL':CLASSES[c].title.toUpperCase(),()=>{COMP.cls=i;COMP.sel=null;scrollTo('clist',0);},{on:COMP.cls===i}));
+    const cls=CL[COMP.cls]||'fighter';const RK={C:0,U:1,R:2};
+    const ps=Object.values(POWERS).filter(p=>p.c===cls&&!p.basic&&!p.innate);
+    if(cls==='gen'){entries.push({hdr:'Every hero'});for(const p of Object.values(POWERS).filter(p=>p.c==='any'))entries.push({k:p.id,label:p.name,sub:'innate'});for(const tg of['Set-up','Burst','Guard','Reach','Surge','Mend']){entries.push({hdr:tg});for(const p of ps.filter(p=>p.tag===tg).sort((a,b)=>RK[a.rar]-RK[b.rar]||a.name.localeCompare(b.name)))entries.push({k:p.id,label:p.name,sub:p.rar});}}
+    else{const own=Object.values(POWERS).filter(p=>p.c===cls&&(p.basic||p.innate));
+      entries=[{k:'class',label:CLASSES[cls].name+' · class',col:C.gold}].concat(own.map(p=>({k:p.id,label:p.name,sub:'innate'})),ps.sort((a,b)=>RK[a.rar]-RK[b.rar]||a.name.localeCompare(b.name)).map(p=>({k:p.id,label:p.name,sub:p.rar+' · '+(p.passive?'passive':'active')})));}
+  }else if(COMP.tab===1){entries.push({hdr:'Weapons'});for(const c of ORDER)for(const W of Object.values(WEAPONS).filter(w=>w.cls===c).sort((a,b)=>a.tier-b.tier))entries.push({k:'w:'+W.id,label:W.name,sub:`d${W.dice[1]}`});
+    entries.push({hdr:'Runes'});for(const r of RUNE_KEYS)entries.push({k:'r:'+r,label:RUNE_NAME[r]});
+    entries.push({hdr:'Relics'});for(const r of Object.keys(RELICS))entries.push({k:r,label:RELICS[r].name,relic:r,tall:true});}
   else if(COMP.tab===2){for(let a=0;a<3;a++){entries.push({hdr:ACTS[a].sub});for(const m of Object.values(MON))if(m.act===a)entries.push({k:m.id,label:m.name,sprite:m.art});}entries.push({hdr:'Special'});for(const m of Object.values(MON))if(m.act<0)entries.push({k:m.id,label:m.name,sprite:m.art});}
   else entries=Object.keys(GLOSS).sort((a,b)=>GLOSS[a].name.localeCompare(GLOSS[b].name)).map(k=>({k,label:GLOSS[k].name}));
   const ly=COMP.tab===0?32:18;
+  if(COMP.sel&&!entries.some(e=>e.k===COMP.sel))COMP.sel=null;
   const lx=2,lw=PORT?SW-4:112,lh=PORT?Math.round((SH-ly)*.4):SH-ly;
   const dxp=PORT?2:116,dyp=PORT?ly-2+lh+2:ly-2,dwp=PORT?SW-4:SW-118,dhp=PORT?SH-2-dyp:SH-ly;
   panel(lx,ly-2,lw,lh,{plain:true});
@@ -451,12 +450,16 @@ const COMP_SCREEN={enter(){COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);
   const dx=dxp+6,dw=dwp-14,k=COMP.sel;
   scrollArea('cdet',dx,dyp+5,dw+4,dhp-10,COMP.ch||300,(yy,clip)=>{let y=yy;
     if(COMP.tab===0){
-      const cls=ORDER[COMP.cls];
+      const cls=ORDER.concat(['gen'])[COMP.cls]||'fighter';
       if(k==='class'){const Cc=CLASSES[cls];const u=heroSheetUnit({cls,lvl:1,hp:Cc.hp,maxHp:Cc.hp,powers:Cc.start});
         y+=sheetLayout(u,dx,y,dw,clip,{plain:true,classInfo:true});}
-      else if(POWERS[k]){const p=POWERS[k];text(`Level ${p.lv} ${CLASSES[cls].title} power`,dx,y,C.mute);y+=9;y+=powerBlock(p,null,dx,y,dw,{clip})+4;
-        y+=rich('Damage adds the attribute it uses. {m:A 1 on the first die is a miss; its top number is a critical hit that rolls one more die.}',dx,y,dw,C.mute,{clip});}
-    }else if(COMP.tab===1&&RELICS[k]){inset(dx,y,20,20,'#100b08');ctx.drawImage(relicArt(k),dx+2,y+2);text(RELICS[k].name,dx+24,y+3,C.gold);text(`About ${RELICS[k].price} gold`,dx+24,y+11,C.mute);y+=24;
+      else if(POWERS[k]){const p=POWERS[k];text(fitText(p.basic||p.innate?`${cls==='gen'?'Every':CLASSES[cls].title} hero · innate, no slot`:`${RARITY[p.rar]} ${cls==='gen'?'general':CLASSES[cls].title.toLowerCase()} power`,dw),dx,y,C.mute);y+=9;y+=powerBlock(p,null,dx,y,dw,{clip})+4;
+        if(p.dmg&&!p.noDmg)y+=rich('{m:Damage is weapon dice plus the hero\'s key stat. A 1 on the first die is a miss; its top number is a critical hit that ignores DEF and rolls one more die.}',dx,y,dw,C.mute,{clip});}
+    }else if(COMP.tab===1&&k&&k.startsWith('w:')){const W=WEAPONS[k.slice(2)];inset(dx,y,20,20,'#100b08');ctx.drawImage(weaponArt(W.id),dx+2,y+2);text(W.name,dx+24,y+3,C.gold);text(`${CLASSES[W.cls].name}'s weapon · tier ${W.tier} · ${weaponSockets(W)} socket${weaponSockets(W)>1?'s':''}`,dx+24,y+11,C.mute);y+=24;
+      y+=rich(weaponText(W),dx,y,dw,C.parch,{clip})+4;if(W.tier>1)y+=rich(`{m:About ${WEAPON_PRICE[W.tier]} gold at a merchant.}`,dx,y,dw,C.parch,{clip});}
+    else if(COMP.tab===1&&k&&k.startsWith('r:')){const r=k.slice(2);text(RUNE_NAME[r],dx,y,C.gold,{sc:2,ol:C.edge});y+=14;y+=rich(RUNE_DESC[r],dx,y,dw,C.parch,{clip})+4;
+      y+=rich('{m:The smith inscribes a rune for 60 gold, or removes one for 20. Plain weapons have 1 socket, magic ones (tier 3 and up) 2. Keen needs a d6 or larger; Twin only fits a light weapon.}',dx,y,dw,C.parch,{clip});}
+    else if(COMP.tab===1&&RELICS[k]){inset(dx,y,20,20,'#100b08');ctx.drawImage(relicArt(k),dx+2,y+2);text(RELICS[k].name,dx+24,y+3,C.gold);text(`About ${RELICS[k].price} gold`,dx+24,y+11,C.mute);y+=24;
       y+=rich(RELICS[k].desc,dx,y,dw,C.parch,{clip});}
     else if(COMP.tab===2&&MON[k]){y+=sheetLayout(monSheetUnit(k),dx,y,dw,clip,{plain:true,found:true});}
     else if(COMP.tab===3&&GLOSS[k]){text(GLOSS[k].name,dx,y,C.gold,{sc:2,ol:C.edge});y+=14;y+=rich(GLOSS[k].text,dx,y,dw,C.parch,{clip});}

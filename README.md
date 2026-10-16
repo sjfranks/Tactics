@@ -10,32 +10,31 @@ The whole game draws to a pixel canvas scaled up with crisp pixels: 320×180 on 
 
 ## What is in the game
 
-- **The journey:** a Slay the Spire–style branching map for each act, with battles, elite fights, merchants and their smith, Camps, treasure, road events and events (attribute checks, dramatic tasks and negotiations), ending in a boss. Victories become levels at a Camp; hit dice heal between battles; Wounds pile up until you rest, and a hero's fourth Down is their last
-- **Heroes:** Brakka (Fighter), Vex (Rogue), Orin (Wizard) and Sela (Cleric), each with Might, Finesse, Wits and Presence, and skills such as Athletics, Stealth, Lore and Influence
-- **Initiative:** d20 + Finesse decides a single mixed turn order for heroes and foes, repeated each round and shown in the TURNS window. The INTENT button shows whom each foe means to attack, and how hard
-- **Combos:** heroes set each other up. Shoved, dragged or knocked-down foes are staggered (the next attack is a sure critical hit), exposed foes take extra damage from every hit, and blessed heroes attack with advantage. Cashing in another hero's set-up is a combo: momentum for both, and a damage bonus that grows with each combo in the round. Set-ups fade at the foe's own turn, so turn order matters. The fighter's marks taunt foes into attacking her; armored foes shrug off everything but critical hits
-- **Movement:** split your speed across several moves; taking an action ends movement
-- **Attack rolls:** 3d6 + attribute for a graze, a hit or a critical hit, with advantage and disadvantage from flanking, high ground, cover, conditions and more. A forecast shows the odds and damage of each result, and any combo, before you strike
-- **Terrain:** fire pits, acid pools, lava, snares and webs; cover, high ground and difficult terrain. Push and pull foes into hazards. Some monsters set snares, spit acid or start fires
-- **Momentum:** shown as gems. Heroes build it each turn and through their class, and spend it on stronger powers; foes share a pool of their own
+- **The journey:** a Slay the Spire–style branching map for each region, with battles, elite fights, merchants and their smith, Camps, treasure, road events and events (attribute checks, dramatic tasks and negotiations), ending in a boss. Battles earn **Victories**, which give heroes momentum at the start of a fight and become levels at a Camp. **Hit dice** heal between battles; **Wounds** pile up until you rest, and a hero's fourth Down is their last
+- **Heroes:** Brakka (Fighter), Vex (Rogue), Orin (Wizard) and Sela (Cleric), with Strength, Dexterity, Intelligence and Presence. Each attribute sets a die (d4 to d12): checks and saves succeed on 4+
+- **Powers:** class and general powers, active and passive, drafted 1 of 3 at level-ups, elites, bosses and treasure, with Common, Uncommon and Rare rarities, level + 3 slots and party **resonance** for powers that share a tag. Martial damage always comes from the weapon
+- **Weapons:** every attack rolls weapon dice plus the hero's key stat. The smith tempers, hones (down to a d2 for the rogue) and inscribes **runes** such as Keen, Vicious, Flame and Thunder
+- **Initiative:** everyone rolls their Dexterity die; one mixed turn order for heroes and foes, shown in the TURNS window. The INTENT button shows whom each foe means to attack, and how hard
+- **Combos:** heroes set each other up. Slammed foes are staggered (an ally's next hit is a sure critical hit), exposed foes are easier to hit, and blessed heroes attack with advantage. Cashing in another hero's set-up is a combo: +2 momentum for both. Passive powers pay off each other's set-ups, like a rogue's crit doubled on a foe the wizard rooted
+- **Damage dice:** the first die decides miss, hit or critical hit (which ignores DEF and explodes); advantage and disadvantage stack to triple. A forecast shows the odds and damage of each result before you strike
+- **Defence and reactions:** heroes Defend with their armour's DEF die and have a class reaction each, paid for with an action from their next turn
+- **Foes:** the Bestiary's roles, DEF dice, weaknesses, resistances and immunities, Terrifying foes, hidden lurkers and bosses with surges and bloodied phases. Foes share **Malice** and spend it on threats
+- **Terrain:** fire pits, acid pools, lava, snares and webs; cover, high ground and difficult terrain. Push and pull foes into hazards
 - **Tappable keywords:** every rules term is highlighted and opens its definition
 - **Full undo:** rewind a move or action, or go back to the previous hero's turn and undo whatever the foes did in between
-- **Detailed log:** every roll, result, damage, push and condition
-- **Compendium:** all class powers, relics, monster stat blocks and the glossary
+- **Compendium:** class and general powers, weapons, runes, relics, monster stat blocks and the glossary
 - **Skirmish:** build a test fight against any monsters, or against a rival party of heroes whose powers you choose
-- **Character sheets:** attributes, skills, how each hero builds momentum, trait and every power as a card
-- **Skill challenges:** animated illustrations, the odds of each choice, and a 3d6 roll you watch land
 - **Presentation:** hand-drawn pixel art for heroes, monsters, terrain, power icons, relics and map nodes; particle effects, screen shake and a synthesized soundtrack with music for each place
 
 ## Rules
 
-The game is moving onto the **Rogue Tactics 1e** rule books in [`docs/rules/`](docs/rules/) (Core Rules, Heroes, Bestiary, Design Notes). [`docs/rules/ALIGNMENT.md`](docs/rules/ALIGNMENT.md) lists every difference between the books and the code, and the order they are being ported in. [`docs/RULEBOOK.md`](docs/RULEBOOK.md) still describes the rules the code runs today.
+The game follows the **Rogue Tactics 1e** rule books in [`docs/rules/`](docs/rules/) (Core Rules, Heroes, Bestiary, Design Notes). [`docs/rules/ALIGNMENT.md`](docs/rules/ALIGNMENT.md) lists the few places where the code still differs from them, and the tuning choices made with the simulator. The older Emberwatch rulebook is in [`archive/rulebook-pre-1e/`](archive/rulebook-pre-1e/).
 
 ## Development
 
 No build step. Open `index.html` in a browser (or serve the folder). GitHub Actions publishes `index.html` and `js/` from `main` to GitHub Pages.
 
-- `js/data.js`: classes, powers, monsters, relics, missions, glossary, events
+- `js/data.js`: classes, powers, weapons and runes, monsters, relics, missions, glossary, events, tasks and negotiations
 - `js/engine.js`: rules, rounds, combos, movement, hazards, AI, undo
 - `js/tutorial.js`: the guided first battle
 - `js/font.js`, `js/sprites.js`, `js/art.js`: bitmap font, pixel sprites, icons and terrain art
@@ -51,6 +50,7 @@ No build step. Open `index.html` in a browser (or serve the folder). GitHub Acti
 ## Archive
 
 - [`archive/emberwatch-v1/`](archive/emberwatch-v1/) is the first Emberwatch prototype, a single HTML page.
+- [`archive/rulebook-pre-1e/`](archive/rulebook-pre-1e/) is the rulebook of the game before the Rogue Tactics 1e books.
 - [`archive/tactics48/`](archive/tactics48/) is the earlier Tactics 48 prototype (Vite + TypeScript). See its `ARCHIVED.md` to bring it back.
 
 ## Balance simulator
@@ -58,6 +58,6 @@ No build step. Open `index.html` in a browser (or serve the folder). GitHub Acti
 `node tools/sim.js [runs] [seed]` plays whole journeys headlessly with the heroes' autoplay AI and reports
 the win rate, where runs end, how much health each kind of battle costs, how many combos land per round,
 and, for every power, the win rate of runs that took it versus runs that were offered it and passed.
-Override difficulty knobs with `TUNE='{"actMul":[1,1.1,.65]}' node tools/sim.js 200`. The autoplay plans
+It also reports hero levels at each boss, heroes killed and Wounds carried. Override difficulty knobs with `TUNE='{"actMul":[1,1.1,.65]}' node tools/sim.js 200`; `USES=1` lists how often each power was used. The autoplay plans
 combos (it values set-ups that a later hero can cash in); `TUNE='{"aiCombo":0}'` makes it ignore
 set-ups, to measure how much combos are worth.

@@ -78,14 +78,14 @@ function monActText(A){
   return `{g:${A.name}} (${A.a?ATTR[A.a]+', ':''}${rng}${A.area?`, ${A.area*2+1}x${A.area*2+1} area`:''}${A.cost?`, ${A.cost} momentum`:''}): ${dm}. ${effText(A.eff)}${A.hazard?` Leaves ${A.hazard==='web'?'web':A.hazard}.`:''}`;
 }
 function monBlock(m){
-  let s=`{m:${m.role}${m.undead?', undead':''}}\nHealth ${m.hp} · Speed ${m.speed}${m.steady?` · Steadfast ${m.steady}`:''}${m.armor?` · DEF d${[0,4,6,8,10][m.armor]||4}`:''}${m.nimble?' · Nimble':''}\nMight ${m.attrs.M} · Finesse ${m.attrs.F} · Wits ${m.attrs.W} · Presence ${m.attrs.P}\n`;
+  let s=`{m:${m.role}${m.undead?', undead':''}}\nHealth ${m.hp} · Speed ${m.speed}${m.steady?` · Steadfast ${m.steady}`:''}${m.armor?` · DEF d${[0,4,6,8,10][m.armor]||4}`:''}${m.nimble?' · Nimble':''}\n${attrLine(m.attrs)}\n`;
   for(const A of m.acts)s+=monActText(A)+'\n';
   if(m.note)s+=m.note+'\n';
   if(m.fireproof&&m.id!=='dragon')s+='Immune to fire and burning.\n';
   if(m.va)s+='Boss surges: '+m.va.map(v=>`{r:${VA[v].name}} (${VA[v].desc})`).join(' ');
   return s;
 }
-function attrLine(a){return `Might ${a.M} · Finesse ${a.F} · Wits ${a.W} · Presence ${a.P}`;}
+function attrLine(a){return `STR ${a.M} · DEX ${a.F} · INT ${a.W} · PRE ${a.P}`;}
 function condText(u){
   const k=Object.keys(u.st).map(s=>ST_NAME[s]);if(u.hidden)k.push('hidden');
   let s=k.length?'Conditions: '+k.join(', ')+'. ':'';
@@ -1120,7 +1120,7 @@ function openOrder(){
   scrollTo('order',0);
   openModal({closable:true,draw(){
     dim();const w=Math.min(200,SW-8),h=PORT?SH-24:164,x=Math.floor((SW-w)/2),y=Math.floor((SH-h)/2);panel(x,y,w,h,{title:'TURN ORDER'});
-    text('Initiative: d20 + Finesse, highest first.',x+w/2,y+9,C.mute,{al:'c'});
+    text('Initiative: the Dexterity die, highest first.',x+w/2,y+9,C.mute,{al:'c'});
     const list=upcoming(24);const RH=26;let ch=0;let lr=G.round;for(const e of list){if(e.round!==lr){ch+=11;lr=e.round;}ch+=RH;}
     scrollArea('order',x+5,y+18,w-9,h-38,ch,(yy,clip)=>{let cy=yy,lr2=G.round;
       for(const e of list){
