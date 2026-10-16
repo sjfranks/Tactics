@@ -139,7 +139,7 @@ function sheetLayout(u,x,y,w,clip,o){
     if(!o.plain){gemRow(x,cy,u.mom||0,10);text(`${u.mom||0} / 10`,x+64,cy+1,'#e0c8ff');cy+=10;}
     for(const l of momRules(u)){gem(x+1,cy,'full');cy+=Math.max(9,rich(l,x+10,cy+1,w-10,C.parch,{clip}))+1;}
     cy+=rich('Spend momentum on powers that show a {p:◆} cost.',x,cy+1,w,C.mute,{clip})+5;
-    // attributes & skills
+    // attributes, checks and specialties
     cy+=secHead('ATTRIBUTES',x,cy,w);
     cy+=attrTiles(u.attrs,x,cy,w,clip)+2;
     const Cc=CLASSES[u.cls];
@@ -150,7 +150,7 @@ function sheetLayout(u,x,y,w,clip,o){
     // role, weapon, experience
     cy+=secHead(`ROLE: ${Cc.role.toUpperCase()}`,x,cy,w);
     cy+=rich(Cc.style,x,cy,w,C.parch,{clip})+2;
-    cy+=rich(`{m:Earns experience by:} ${Cc.xpText}`,x,cy,w,C.parch,{clip})+3;
+    cy+=rich(`{m:Experience:} ${Cc.xpText}`,x,cy,w,C.parch,{clip})+3;
     if(u.side==='hero'&&!u.rival&&u.xp!=null){const lo=xpAt(u.lvl),hi=xpAt(Math.min(TUNE.maxLvl,u.lvl+1));const f=u.lvl>=TUNE.maxLvl?1:clamp((u.xp-lo)/(hi-lo),0,1);
       rect(x,cy+1,w-50,4,C.edge);rect(x+1,cy+2,Math.round((w-52)*f),2,'#6ac0ff');text(u.lvl>=TUNE.maxLvl?'MAX LEVEL':`${u.xp}/${hi} XP`,x+w,cy,C.mute,{al:'r'});cy+=9;}
     const W=u.wpn&&WEAPONS[u.wpn];

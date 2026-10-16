@@ -1,6 +1,6 @@
 # Rogue Tactics 1e — Rule Books
 
-These are the design rule books the game is being moved onto. They replace the older Emberwatch rules described in [`docs/RULEBOOK.md`](../RULEBOOK.md), which documents the code as it stands today. `docs/RULEBOOK.md` moves to `archive/` once the code matches these books.
+These are the rule books the game follows. They replace the older Emberwatch rules, now in [`archive/rulebook-pre-1e/`](../../archive/rulebook-pre-1e/). [`ALIGNMENT.md`](ALIGNMENT.md) lists where the code still differs.
 
 | Book | What is in it |
 |---|---|

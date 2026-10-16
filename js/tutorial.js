@@ -40,7 +40,7 @@ const TUT_SCRIPT=[
   {say:'cleric',text:'Brakka! I saw the smoke from the road. I\'m with you!'},
   {say:'fighter',text:'Sela! Good timing. Let\'s show this brute how we fight.'},
   {say:'narrator',text:'Sela acts right after Brakka. Heroes can {g:set up} attacks for each other, but a set-up only lasts until the foe\'s own turn: so the order matters.'},
-  {say:'narrator',text:'See the fire beside the brute? {g:Tide of Iron} shoves a foe back, and anything shoved into a {r:hazard} suffers it. Better still, a foe that is shoved or dragged is {g:staggered}: it will lose its next turn, and the next attack on it is a sure {g:critical hit}.',when:()=>tutInTargets('brute',0,0).length},
+  {say:'narrator',text:'See the fire beside the brute? {g:Tide of Iron} shoves a foe back, and anything shoved into a {r:hazard} suffers it. Better still, it leaves the foe {g:staggered}: it will lose its next turn, and an ally\'s next attack on it is a sure {g:critical hit}.',when:()=>tutInTargets('brute',0,0).length},
   {do:'power',pi:2,text:'Tap {g:Tide of Iron}, one of Brakka\'s powers. It costs 1 {p:◆}, earned by her Sword.',when:()=>B.pi!==2},
   {do:'target',pi:2,text:'Shove the brute into the fire!',tiles:()=>tutInTargets('brute',0,2)},
   {do:'confirm',text:'Tap the brute again to shove it.'},
@@ -63,7 +63,7 @@ const TUT_SCRIPT=[
   {do:'confirm',text:'Tap the archer again to pull.'},
   {say:'fighter',text:'Get over here!',when:()=>G.tut.lastDone==='confirm'},
   {say:'narrator',text:'That is the heart of every battle: one hero sets up the next. Shove and drag foes off balance, expose them, bless your friends, then cash it all in. Every combo feeds your momentum.'},
-  {say:'narrator',text:'One more thing: the pink {r:◆} at the top is the foes\' own momentum. When it fills, they unleash a {r:threat}, like {r:Bloodlust}: every foe gets advantage for a round. Keep an eye on it.'},
+  {say:'narrator',text:'One more thing: the pink {r:◆} at the top is the foes\' {r:Malice}. It grows every round, and when it is full they unleash a {r:threat}, like {r:Bloodlust}: every foe gets advantage for a round. Keep an eye on it.'},
   {run:()=>{for(const u of tutGob()){u.pinned=false;if(u.tutSpeed!=null)u.speed=u.tutSpeed;}}},
   {say:'narrator',text:()=>tutFoe('archer')&&tutFoe('archer').st.stag?'Only the archer is left, and it is staggered: Sela\'s next hit on it is a sure critical hit.':'Only the archer is left. Let Sela finish it.',when:()=>tutFoe('archer')},
   {do:'end',text:'Tap END TURN. Sela is next.',when:()=>tutFoe('archer')},
@@ -202,7 +202,7 @@ function startTutorial(){
   beginBattleScreen(o=>{
     try{localStorage.setItem(TUT_KEY,'1');}catch(e){}
     if(o==='win')openModal(dialog({title:'TUTORIAL COMPLETE',closable:false,w:210,
-      body:'Well fought! Your journey begins with all four heroes, and each has a job in the combo game: {g:Brakka} throws foes off balance and makes them fight her, {g:Orin} does it to whole groups, {g:Sela} blesses friends and exposes foes, and {g:Vex} cashes it all in.\n\nAfter every battle heroes earn {g:gold}, {g:experience} for doing their jobs, and a choice of {g:new power}. On the map, pick your path and watch each battle\'s {g:mission}. Tap {g:EQUIP} to change weapons and relics.',
+      body:'Well fought! Your journey begins with all four heroes, and each has a job in the combo game: {g:Brakka} throws foes off balance and makes them fight her, {g:Orin} does it to whole groups, {g:Sela} blesses friends and exposes foes, and {g:Vex} cashes it all in.\n\nEvery battle won earns {g:gold} and a {g:Victory}: heroes start battles with momentum equal to the Victories, and at a {g:Camp} they become levels and new powers. Elites and bosses give every hero a {g:power draft}. Spend {g:hit dice} to heal between battles, and watch for {g:Wounds}. Tap {g:EQUIP} to change weapons and relics, and to heal.',
       buttons:[{l:'BEGIN JOURNEY',hot:true,fn:()=>{G=null;newRun();go(MAP_SCREEN);}}]}));
     else openModal(dialog({title:'DEFEAT',closable:false,body:'Brakka falls. Try again, or skip ahead to the journey.',buttons:[{l:'RETRY',hot:true,fn:startTutorial},{l:'SKIP',fn:()=>{G=null;newRun();go(MAP_SCREEN);}}]}));
   });

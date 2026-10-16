@@ -26,11 +26,6 @@ let AUTOPLAY=false;
 const HIST=[];
 
 /* ---------------- DICE ---------------- */
-const D3=(()=>{const c=new Array(19).fill(0);for(let a=1;a<=6;a++)for(let b=1;b<=6;b++)for(let d=1;d<=6;d++)c[a+b+d]++;return c;})();
-function resOf(nat,mod){if(nat>=16)return 3;const v=nat+mod;return v<=10?1:v<=14?2:3;}
-const _rp={};
-function resProbs(mod){if(_rp[mod])return _rp[mod];const p=[0,0,0];for(let s=3;s<=18;s++)p[resOf(s,mod)-1]+=D3[s]/216;return _rp[mod]=p;}
-function roll3(mod){const d=[1+rnd(6),1+rnd(6),1+rnd(6)];const nat=d[0]+d[1]+d[2];return {d,nat,mod,total:nat+mod,res:resOf(nat,mod)};}
 /* ---------------- ATTRIBUTE DICE (Core Rules 1.2–1.5) ----------------
    An attribute's number sets its die: 0 = d4 with disadvantage, 1 = d4, 2 = d6, 3 = d8, 4 = d10, 5 = d12, 6 = d20.
    A check or save succeeds on a total of 4 or more; a maximum explodes. */
@@ -58,8 +53,7 @@ function setupMade(src,t){
   if(hasP(src,'gambit')&&!src.gambitUsed){src.gambitUsed=true;addMom(src,1);H.pop(src,'+1 ◆','res');}
   const S=G.setupT||(G.setupT={});if(!S[src.id]||S[src.id].r!==G.round)S[src.id]={r:G.round,ids:[]};if(t&&t.side!==src.side)S[src.id].ids.push(t.id);
 }
-function rollText(r){return `3d6 (${r.d.join('+')})${r.mod>=0?'+':''}${r.mod} = ${r.total}: ${RESULT[r.res-1]}`;}
-/* The roll, spelled out: "1d8 (adv ×2: 3/7 → 7) + 3 Might = 10: Hit + 3 sneak = 13 − 2 armour = 11".
+/* The roll, spelled out: "1d8 (adv ×2: 3/7 → 7) + 3 Strength = 10: Hit + 3 sneak = 13 − 2 armour = 11".
    X comes from pcDmgX/monDmgX: its head steps (the attribute) come before the result, the rest after any extra dice. */
 function dieFaces(r){
   const k=Math.abs(r.net);
@@ -303,7 +297,7 @@ async function teleport(u,to){await H.tele(u,to);u.x=to.x;u.y=to.y;H.upd(u);awai
 function momCap(u){return resLv('Surge',u)>=2?12:10;}
 function addMom(u,n){if(u.kind!=='pc'||!live(u)||n<=0)return;const cap=momCap(u),over=Math.max(0,u.mom+n-cap);u.mom=Math.min(cap,u.mom+n);
   if(over&&hasP(u,'overflow')){const o=allies(u).filter(a=>a!==u&&a.kind==='pc'&&a.mom<momCap(a)).sort((a,b)=>a.mom-b.mom)[0];if(o){o.mom=Math.min(momCap(o),o.mom+over);H.pop(o,`+${over} ◆`,'res');}}}
-/* Experience: each hero earns it for the deeds of their role (ROLE_XP), tallied per battle in G.xp. */
+/* Per-deed tallies for each hero (ROLE_XP), kept in G.xp for statistics; levels come from Victories at a Camp (run.js). */
 let HELPER=null;
 function xp(u,n,why){
   if(!u||u.kind!=='pc'||u.side!=='hero'||u.rival||!(n>0)||!G.xp)return;
@@ -893,8 +887,8 @@ function blessNear(u,r,fl){
   const fo=fighters(u);const score=a=>Math.min(9,...fo.map(f=>man(f,a)));c.sort((a,b)=>score(a)-score(b));const a=c[0];
   blessUnit(a,u);log(`${a.name} is blessed.`,sideCol(u));xp(u,4,'support');fl.healedOther=true;
 }
-/* A combo: +2 momentum for the hero who cashed in the set-up and for each hero who made it, and every hero hit
-   for the rest of the round deals +1 damage per combo so far (up to +3). One per action. */
+/* A combo: +2 momentum for the hero who cashed in the set-up and for each hero who made it, plus Set-up I resonance,
+   Conductor and Rhythm. One per action. */
 function comboHit(u,by,fl){
   if(fl.combo)return;fl.combo=true;
   G.combo=(G.combo||0)+1;G.combos=(G.combos||0)+1;
@@ -1014,7 +1008,7 @@ async function usePower1(u,p,T){
     if(p.webArea)for(let y=C.y-1;y<=C.y+1;y++)for(let x=C.x-1;x<=C.x+1;x++)if(inB(x,y)&&!unitAt(x,y)&&!Tt(x,y).haz)setHaz(x,y,'web',3,u.side);
   }
   if(p.shieldDice){const w=wpnOf(u)||WEAPONS[START_WEAPON[u.cls]];let v=0;for(let i=0;i<p.shieldDice;i++)v+=rollEx(w.dice[1]);u.shield+=v;H.pop(u,'⛨ '+v,'shield');log(`${u.name} gains ${v} shield.`,sideCol(u));}
-  if(p.selfWind){u.swUsed=true;u.swDef=true;if(u.hd!=null)u.hd--;NOTE=[];const r=rollEx(HD[u.cls]||8)+(resLv('Mend',u)>=1?1:0)+(hasP(u,'gift')?2:0);heal(u,r+(u.attrs.M||0));const ex=NOTE||[];NOTE=null;log(`${u.name} catches a second wind (d${HD[u.cls]||8}: ${r} + Might ${u.attrs.M||0}). ${ex.join(' ')}`,sideCol(u));}
+  if(p.selfWind){u.swUsed=true;u.swDef=true;if(u.hd!=null)u.hd--;NOTE=[];const r=rollEx(HD[u.cls]||8)+(resLv('Mend',u)>=1?1:0)+(hasP(u,'gift')?2:0);heal(u,r+(u.attrs.M||0));const ex=NOTE||[];NOTE=null;log(`${u.name} catches a second wind (d${HD[u.cls]||8}: ${r} + Strength ${u.attrs.M||0}). ${ex.join(' ')}`,sideCol(u));}
   if(p.selfHeal){NOTE=[];heal(u,p.selfHeal);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));}
   if(p.markAround)for(const f of fighters(u).filter(e=>cheb(e,u)<=p.markAround))applyMark(f,u);
   if(p.healNear){const w=allies(u).filter(a=>!a.object&&!a.caged&&man(a,u)<=3&&a.hp<a.maxHp).sort((a,b)=>a.hp/a.maxHp-b.hp/b.maxHp)[0];if(w){NOTE=[];const g=heal(w,p.healNear);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));if(g>0&&w!==u)fl.healedOther=true;}}
