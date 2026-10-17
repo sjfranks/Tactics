@@ -35,14 +35,14 @@ const VIS={};
 function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 
 /* ---------------- info text helpers (shared with compendium) ---------------- */
-const EFF_NAME={push:'push',pull:'pull',slow:'slowed',root:'rooted',stag:'staggered',daze:'dazed',weak:'weakened',bleed:'bleeding',burn:'burning',expose:'exposed',mark:'marked'};
+const EFF_NAME={push:'push',pull:'pull',root:'rooted',stag:'stunned',weak:'weakened',burn:'burn',mark:'taunted'};
 function effText(eff){
   if(!eff)return '';
   const T=['hit','hit','crit'],out=[[],[],[]];
   for(const k in eff){
     // a miss does nothing, so an effect listed for every result happens on a hit
     const v=eff[k].slice();v[0]=0;const nz=v.findIndex(x=>x>0);if(nz<0)continue;
-    let t=EFF_NAME[k];
+    let t=EFF_NAME[ST_MAP[k]||k]||k;
     if(k==='push'||k==='pull'){t+=' '+v[nz];const ex=[];for(let i=nz+1;i<3;i++)if(v[i]!==v[i-1])ex.push(`${v[i]} on a ${T[i]}`);if(ex.length)t+=` (${ex.join(', ')})`;}
     else if(v.slice(nz).includes(0))t+=nz===0&&v[1]===0?' (only on a graze)':' (not on a crit)';
     out[nz].push(t);
@@ -78,7 +78,7 @@ function monActText(A){
   return `{g:${A.name}} (${A.a?ATTR[A.a]+', ':''}${rng}${A.area?`, ${A.area*2+1}x${A.area*2+1} area`:''}${A.cost?`, ${A.cost} momentum`:''}): ${dm}. ${effText(A.eff)}${A.hazard?` Leaves ${A.hazard==='web'?'web':A.hazard}.`:''}`;
 }
 function monBlock(m){
-  let s=`{m:${m.role}${m.undead?', undead':''}}\nHealth ${m.hp} · Speed ${m.speed}${m.steady?` · Steadfast ${m.steady}`:''}${m.armor?` · DEF d${[0,4,6,8,10][m.armor]||4}`:''}${m.nimble?' · Nimble':''}\n${attrLine(m.attrs)}\n`;
+  let s=`{m:${m.role}${m.undead?', undead':''}}\nHealth ${m.hp} · Speed ${m.speed}${m.steady?` · Steadfast ${m.steady}`:''}${m.armor+(TUNE.foeDef||0)>0?` · Armour ${m.armor+(TUNE.foeDef||0)}`:''}${m.nimble?' · Nimble':''}\n${attrLine(m.attrs)}\n`;
   for(const A of m.acts)s+=monActText(A)+'\n';
   if(m.note)s+=m.note+'\n';
   if(m.fireproof&&m.id!=='dragon')s+='Immune to fire and burning.\n';
@@ -101,7 +101,7 @@ function unitBody(u,full){
     else if(G&&u.kind==='pc'&&G.cur!==u.id&&(u.acts||0)>0)s+=`{b:${u.acts} ready ${u.acts>1?'actions':'action'} for reactions (Defend) until ${u.name}'s next turn}\n`;
     s+=condText(u);
     if(u.st.mark&&u.marker&&U(u.marker))s+=`(by ${U(u.marker).name}) `;
-    if(full){s+=(u.wounds?`{r:Wounds ${u.wounds}} (−${Math.min(3,u.wounds)} to attacks and saves). `:'')+(u.hd!=null?`Hit dice ${u.hd}.`:'')+'\n\n'+CLASSES[u.cls].trait+'\n';for(const id of u.powers)s+='\n'+'{g:'+POWERS[id].name+'}: '+powerText(POWERS[id],u)+'\n';}
+    if(full){s+=(u.wounds?`{r:Wounds ${u.wounds}} (−${u.wounds} chips on every hit). `:'')+(u.hd!=null?`Hit dice ${u.hd}.`:'')+'\n\n'+CLASSES[u.cls].trait+'\n';for(const id of u.powers)s+='\n'+'{g:'+POWERS[id].name+'}: '+powerText(POWERS[id],u)+'\n';}
     else if(G&&G.cur===u.id&&u.powers.length){const p=powerOf(u,B.pi);if(p)s+='\n{g:'+p.name+'}\n'+powerText(p,u);}
   }else if(u.kind==='mon'){
     const m=mon(u);
@@ -275,10 +275,8 @@ H.pop=(u,txt,cls)=>{popup(u,txt,cls);
   else if(cls==='gold'){burst(c.x,c.y-6,{n:10,speed:22,up:18,cols:ELEM.holy,life:700,size:1,drag:2,glow:true});}
 };
 H.result=(t,r)=>{
-  const lab=(r.res===3?'CRIT!':r.res===2?'HIT':'MISS')+(r.stag||!r.net?'':r.net>0?' ▲'+(r.net>1?r.net:''):' ▼'+(r.net<-1?-r.net:''));
-  popup(t,lab,'res'+r.res);
-  if(r.res===3){sfx('crit');shake(4,300);flashBoard('#fff0c0',110,.3);const c=uc(t);burst(c.x,c.y,{n:18,speed:70,cols:ELEM.holy,life:480,size:2,shrink:true,drag:3,glow:true});}
-  else sfx(r.res===2?'hit':'graze');
+  if(r.crits){popup(t,r.crits>1?`${r.crits} CRITS!`:'CRIT!','res3');sfx('crit');shake(4,300);flashBoard('#ffd0c0',110,.3);const c=uc(t);burst(c.x,c.y,{n:18,speed:70,cols:['#ffffff','#ff9a80','#e8402a'],life:480,size:2,shrink:true,drag:3,glow:true});}
+  else sfx('hit');
 };
 H.sfx=n=>sfx(n);
 H.upd=()=>{};
@@ -316,7 +314,7 @@ function defaultPower(u){if(!u.powers||!u.powers.length)return 0;const i=u.power
 /* Floating combat text. Damage and healing numbers are big; results and calls are small. Stacks upward. */
 function popup(u,txt,cls){
   if(cls==='dmg'||cls==='crit')txt=String(txt).replace(/^-/,'');
-  const col={combo:'#ffe070',dmg:C.white,crit:'#ffd040',heal:'#80ff80',shield:'#8ac8ff',gold:C.gold,call:C.parch,res:'#e0c8ff',bad:'#ff7060',res1:'#b8b0a0',res2:C.white,res3:'#ffd040'}[cls]||C.white;
+  const col={combo:'#ffe070',dmg:C.white,crit:'#ffd040',heal:'#80ff80',shield:'#8ac8ff',gold:C.gold,call:C.parch,res:'#e0c8ff',bad:'#ff7060',res1:'#b8b0a0',res2:C.white,res3:'#ff7a5a'}[cls]||C.white;
   const big=cls==='dmg'||cls==='crit'||cls==='heal';const hh=big?13:8;
   let off=0;for(const f of FX)if(f.pop&&f.uid===u.id&&NOW-f.t0<520)off+=f.hh;
   const p0=uPos(u);const x=BX+p0.x+TS/2,y=BY+p0.y-3-off;
@@ -666,7 +664,7 @@ function openMissionInfo(){const E=G.enc;msg(E.title||MISSIONS[E.type].name,miss
 const COMBO_KEY='emberwatch.v3.combos';
 function comboSeen(){try{return !!localStorage.getItem(COMBO_KEY);}catch(e){return true;}}
 function showComboIntro(){return new Promise(res=>{try{localStorage.setItem(COMBO_KEY,'1');}catch(e){}
-  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Heroes and foes act in {g:initiative} order. A hero gets {g:three actions} at the start of each turn: move, attack (once a turn) or use a power. Actions you don\'t use stay ready: when a foe hits you, you may spend one to {g:Defend}. Heroes {g:set up} attacks for each other, so watch who acts next. A foe slammed into something is {g:staggered}: it loses its next turn, and the next hit on it from an ally is a sure critical hit. Allies attack {g:exposed} foes with advantage, and {g:blessed} heroes attack with advantage.\n\nA set-up lasts until the foe\'s own turn, so cash it in with a hero who acts before it: that is a {g:combo}, +2 momentum for both heroes. Chain them!\n\nTap {g:INTENT} to see whom each foe means to attack.',
+  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Heroes and foes take turns. A hero gets {g:three actions} each turn: move, attack, or use a power. Actions you don\'t use stay ready: when a foe hits you, spend one to {g:Defend}.\n\nEvery hit is {b:CHIPS} × {r:MULT}. {b:Chips}: your dice + your key stat − the foe\'s armour. {r:Mult}: 1, +1 for each die that lands on its top number (it turns red).\n\nHeroes {g:set up} hits for each other: the wizard\'s spells give foes {r:+Mult}, the cleric\'s {b:Bless} adds chips, the fighter {g:Stuns} foes (they skip a turn). Cash a set-up in with another hero for a {g:combo}: +2 momentum each.\n\nTap {g:INTENT} to see whom each foe means to attack.',
     buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 function showObjective(){return new Promise(res=>{const E=G.enc;openModal(dialog({title:(E.title||MISSIONS[E.type].name).toUpperCase(),body:missionBody()+'\n\n{m:Tap the objective bar at the top to see this again.}',w:200,closable:false,buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 /* Name, health and momentum of the active (or inspected) unit. Tap for the full character sheet. */
@@ -748,8 +746,9 @@ function powerStat(u,p){
   const b=(u.attrs[p.a]||0)+(u.side==='hero'&&hasR('whetstone')?1:0)+wBonus(u,p,'dmg');
   let a='';
   if(p.dmg&&!p.noDmg){a=`${diceText(powDice(p,u))}${b?'+'+b:''}${p.hits>1?'×'+p.hits:''}`;}
-  else if(p.save)a=p.save.eff==='stag'?'stagger?':'expose?';
-  else if(p.empower&&p.tgt==='ally')a='bless';
+  else if(p.mult)a=`+${p.mult} Mult`;
+  else if(p.bless)a=`Bless ${p.bless}`;
+  else if(p.eff&&p.eff.stag)a='stun';
   else if(p.heal)a=`heal ${healAmt(u,p.heal,p)}`;
   else if(p.shield)a=`${p.shield}⛨`;
   else if(p.selfHeal)a=`heal ${p.selfHeal}`;
@@ -972,7 +971,9 @@ function drawUnit(u){
   // gold pips: actions left this turn; blue pips: actions kept ready for reactions until their next turn
   if(u.kind==='pc'){const cur=G.cur===u.id,n2=u.acts||0;const ps=3+Q;for(let i=0;i<n2;i++){const px=X+1+i*(ps+1),py=Y+1;rect(px,py,ps,ps,C.edge);rect(px+1,py+1,ps-2,ps-2,cur?'#ffd860':'#7fd0ff');rect(px+1,py+1,ps-2,1,cur?'#fff4c0':'#d0f0ff');}}
   const sts=unitStatuses(u).filter(k=>k!=='shield');
-  sts.slice(0,3).forEach((k,i)=>{const ic=statusIcon(k);if(ic)ctx.drawImage(ic,X+W-7,Y-1+i*7);});
+  // Mult first and loudest: it is what the next hit cashes in
+  sts.sort((a,b)=>(b==='mult')-(a==='mult'));
+  sts.slice(0,3).forEach((k,i)=>{const ic=statusIcon(k);if(ic)ctx.drawImage(ic,X+W-7,Y-1+i*7);const n=stCount(u,k);if(n)text(String(n),X+W-8,Y+i*7,ST_COL[k]||C.white,{al:'r',ol:C.edge});});
 }
 function drawHighlights(){
   const u=playerUnit();
@@ -1053,7 +1054,7 @@ function forcedPreview(u,p,t,O){
 function drawForecast(u,x,y0,w,h){
   const p=powerOf(u,B.pi);const P=B.pend;const rows=forecast(u,p,P.T,P.O);const r=rows[0];
   const wide=w>=150;let y=y0;
-  const bxw=wide&&r&&r.dmg?90:0,lw=w-bxw;
+  const bxw=wide&&r&&(r.dmg||(r.ctrl&&r.mult))?90:0,lw=w-bxw;
   ctx.drawImage(powerIcon(p),x,y);
   text(fitText(p.name,lw-22),x+19,y+1,C.gold);
   if(p.cost){gem(x+19,y+8,'full');text(String(p.cost),x+27,y+9,'#e0c8ff');}else text(p.free?'free action':'no cost',x+19,y+9,C.mute);
@@ -1063,32 +1064,35 @@ function drawForecast(u,x,y0,w,h){
     text(`HP ${tgt.hp}/${tgt.maxHp}`+(rows.length>1?`  +${rows.length-1} more`:''),x+19,y+9,C.mute);y+=19;}
   else{text(p.tgt==='self'||p.area!=null?'No one in the area.':'',x,y,C.mute);y+=10;}
   let body='';
-  if(r&&p.save){
-    const q=r.save||0,nm=ATTR[p.save.a],what=p.save.eff==='stag'?'{g:staggered}'+(tgt.boss?'':' (it loses its next turn)'):'{g:exposed} (your allies attack it with advantage)';
-    body+=`${p.shove?'Pushed 1 square. ':''}${tgt.name} rolls a ${nm} save: {w:${saveText(tgt,p.save.a)}}. {g:${Math.round(q*100)}%} it fails and is ${what}.\n`;
-    if(p.save.eff==='stag'&&tgt.st.steady)body+='{m:It has only just recovered: it can\'t be staggered again yet.}\n';
+  // the hit, Balatro style: blue CHIPS × red MULT = damage
+  const cmBox=(bx,by,w2,lab,val,fill,rim,col)=>{rect(bx,by,w2,22,C.edge);rect(bx+1,by+1,w2-2,20,fill);frame(bx,by,w2,22,rim);text(lab,bx+w2/2,by+2,col,{al:'c'});text(val,bx+w2/2,by+9,C.white,{al:'c',sc:2,ol:C.edge});};
+  const drawCM=(bx,by,chips,mult,xm,dmg)=>{
+    cmBox(bx,by,26,'CHIPS',chips,'#10264a','#3a7ad8','#8fc4ff');text('×',bx+29,by+9,C.white,{sc:1});
+    cmBox(bx+34,by,26,'MULT',mult,'#4a1410','#d84a3a','#ff8a70');
+    rect(bx+63,by,24,22,C.edge);rect(bx+64,by+1,22,20,'#2a2010');frame(bx+63,by,24,22,C.gold2);text(xm!==1?'×'+(xm<1?'½':xm):'=',bx+75,by+2,C.gold,{al:'c'});text(String(dmg),bx+75,by+9,'#ffe070',{al:'c',sc:2,ol:C.edge});};
+  const bx0=wide?x+w-87:x,by0=wide?y0:y;
+  if(r&&r.ctrl){
+    const n=r.mult?r.mult+(hasP(u,'amplify')?1:0):0;
+    if(n){drawCM(bx0,by0,'—','+'+n,1,'—');if(!wide)y+=33;body+=`{r:${tgt.name} gains +${n} Mult}: the next hero to hit it adds ${n} to their MULT.\n`;}
+    const e=p.eff||{};
+    if(tv(e.stag,2))body+=tgt.boss?'{r:A boss shrugs off Stun: it gains +2 Mult instead.}\n':'{g:Stunned:} it skips its next turn.\n';
     if(rows.by&&rows.by.length)body+=`{g:COMBO!} ${rows.by.map(id=>U(id).name).join(' and ')} set this up: +2 {p:◆} each.\n`;
+    const fp=forcedPreview(u,p,tgt,P.O);if(fp)body+=fp+'\n';
   }else if(r&&r.dmg){
-    const labels=['MISS','HIT','CRIT'];const bx0=wide?x+w-87:x,by=wide?y0:y;
-    for(let i=0;i<3;i++){const bx=bx0+i*29;const best=r.probs[i]===Math.max(...r.probs);
-      rect(bx,by,27,30,C.edge);rect(bx+1,by+1,25,28,i===2?'#3e2c0e':'#1e1712');rect(bx+1,by+1,25,1,i===2?'#8a6a2a':'#3a2e24');if(best)frame(bx,by,27,30,i===2?C.gold:C.rim2);
-      text(labels[i],bx+14,by+3,i===2?C.gold:i===1?C.parch:C.mute,{al:'c'});
-      text(r.ctrl?'—':String(Math.round(r.dmg[i]))+(i===2&&!r.ctrl?'+':''),bx+14,by+10,i===2?'#ffd040':C.white,{al:'c',sc:2,sh:C.edge});
-      text(Math.round(r.probs[i]*100)+'%',bx+14,by+22,i===2?'#ffe8a0':C.parch,{al:'c'});}
+    const X=r.X,k=p.hits||1,dd=r.dice;
+    drawCM(bx0,by0,String(X.chips),String(X.mult),X.xm,X.d*k);
+    text(`${r.lo}–${r.hi}`,bx0+75,by0+24,C.mute,{al:'c'});
     if(!wide)y+=33;
     const kp=killP(r);
-    const ka=keyA(u)||p.a,at=u.attrs[ka]||0,dd=r.dice;
-    body+=r.ctrl?`Roll {w:1d${dd.s}}: 1 misses, ${dd.s} is a critical hit.`:`Roll {w:${diceText(dd)}}{m: + ${ATTR[ka]} ${at}}. First die: {r:1 misses}, top number is a {g:critical}: roll one more.`;
-    body+=`${r.net?` {${r.net>0?'h':'r'}:${Math.abs(r.net)>1?'Double ':''}${r.net>0?'advantage':'disadvantage'}: roll it ${Math.abs(r.net)+1} times, keep the ${r.net>0?'best':'worst'}.}`:''}${kp>0?`  {r:☠ ${Math.round(kp*100)}% kill}`:''}\n`;
-    if(r.pro.length)body+=r.pro.map(s=>`{h:+ ${s}}`).join('  ')+'  ';
-    if(r.con.length)body+=r.con.map(s=>`{r:− ${s}}`).join('  ');
-    if(r.pro.length||r.con.length)body+='\n';
-    if(r.stag)body+=tgt.boss?'{g:Staggered: double advantage.}\n':'{g:Staggered: a sure critical hit!} {m:But it snaps out of it and keeps its turn.}\n';
-    const bits=[];if(r.sneak)bits.push('{g:sneak attack: +1 weapon die}');
-    if(bits.length)body+='Damage includes '+bits.join(', ')+'.\n';
+    const cl=[`{w:${diceText(dd)}}`].concat(X.C.map(([l,v])=>`${v<0?'{r:−':'{b:+'}${Math.abs(v)} ${l}}`));
+    body+=`{b:CHIPS} ${cl.join(' ')}${k>1?`, {w:${k} hits}`:''}.\n`;
+    const ml=['1'].concat(X.M.filter(([l])=>!/crit/.test(l)).map(([l,v])=>`{r:+${v} ${l}}`));
+    body+=`{r:MULT} ${ml.join(' ')}${X.Xm.length?' '+X.Xm.map(([l,v])=>`{g:×${v===.5?'½':v} ${l}}`).join(' '):''}. {r:+${hasP(u,'heavy')?2:1} for each die on its top number} ({w:${Math.round(r.probs[2]*100)}%} for at least one).\n`;
+    if(kp>0)body+=`{r:☠ ${Math.round(kp*100)}% to finish it.}\n`;
+    if(r.mult)body+=`{r:Then it gains +${r.mult+(hasP(u,'amplify')?1:0)} Mult} for the next hero.\n`;
     if(rows.by&&rows.by.length)body+=`{g:COMBO!} ${rows.by.map(id=>U(id).name).join(' and ')} set this up: +2 {p:◆} each.\n`;
-    if(defDie(tgt))body+=`{m:DEF d${defDie(tgt)}: it rolls this against every hit short of a critical hit (the numbers above use the average).}\n`;
-    if(p.eff&&((p.stagPush&&(tv(p.eff.push,2)||tv(p.eff.pull,2)))||tv(p.eff.stag,3))&&!tgt.boss&&!tgt.st.steady&&!r.stag)body+='{g:If it is staggered, it loses its next turn.}\n';
+    const e=p.eff||{};
+    if((tv(e.push,2)||tv(e.pull,2))&&!p.eff.pull)body+='{m:If it slams into something it is Stunned.}\n';
     const fp=forcedPreview(u,p,tgt,P.O);if(fp)body+=fp+'\n';
   }else if(r){
     body+=(r.heal?`Heals {h:${r.heal}}. `:'')+(r.shield?`Shield {b:${r.shield}}. `:'')+(r.empower?'Blessed. ':'')+(r.refresh?'Can move and act again. ':'')+'\n';
@@ -1096,7 +1100,7 @@ function drawForecast(u,x,y0,w,h){
   if(P.O&&P.O.prov)body+=`{r:! Moving there provokes ${P.O.prov} parting blow${P.O.prov>1?'s':''}.}\n`;
   if(P.O&&P.O.haz)body+=`{o:! The path crosses a hazard.}\n`;
   body+=p.desc;
-  y=Math.max(y,wide&&r&&r.dmg?y0+33:y);
+  y=Math.max(y,wide&&r&&(r.dmg||(r.ctrl&&r.mult))?y0+33:y);
   const bot=y0+h-15;
   const bh=richH(body,w-2);
   scrollArea('fc',x,y,w,bot-2-y,bh,(yy,clip)=>rich(body,x+1,yy,w-3,C.parch,{clip}));
@@ -1184,7 +1188,7 @@ function openOrder(){
           text(u.name,x+33,cy+3,e.now?C.gold:foe?'#ff9a80':C.parch);
           text(e.now?'NOW':e.extra?'EXTRA TURN':'Init '+u.init,x+w-12,cy+3,e.now?C.gold:C.mute,{al:'r'});
           const f=Math.max(0,u.hp)/u.maxHp;bar(x+33,cy+12,54,6,f,foe?'#d04030':'#50c050');text(`${Math.max(0,u.hp)}/${u.maxHp}`,x+90,cy+12,C.parch);
-          statusRow(u,x+w-12-Math.min(4,unitStatuses(u).length)*8,cy+11,4);
+          statusRow(u,x+w-12-Math.min(4,unitStatuses(u).length)*12,cy+11,4);
           hit(x+6,Math.max(cy,clip[0]),w-15,RH-2,{fn:()=>openUnitInfo(u),id:'ord'+cy});
         }
         cy+=RH;

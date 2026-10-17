@@ -23,9 +23,8 @@ function powerReach(p){
 }
 function critNote(p,u,d){
   const w=u&&!p.wdie&&u.wpn?WEAPONS[u.wpn]:null;
-  if(w&&w.nocrit&&!(u.pas&&u.pas.battlemage))return 'never misses or crits';
   const lo=w&&w.keen&&d.s>=6?d.s-1:d.s;
-  return (w&&w.nomiss?'never misses · ':'')+`crit on ${lo<d.s?lo+'-'+d.s:'a '+d.s}: roll one more`;
+  return `crit on ${lo<d.s?lo+'-'+d.s:'a '+d.s}: +1 Mult`;
 }
 function powerDmgLine(p,u){
   const ka=(u&&keyA(u))||p.a,b=u?(u.attrs[ka]||0)+(u.side==='hero'&&hasR('whetstone')?1:0):0;
@@ -118,7 +117,7 @@ function sheetLayout(u,x,y,w,clip,o){
   const stats=[`Speed ${G&&!o.plain&&live(u)?effSpeed(u):u.speed}`];
   if(G&&!o.plain&&u.init!=null&&u.side!=='hero')stats.push(`Initiative ${u.init}`);
   if(u.steady)stats.push(`Steadfast ${u.steady}`);
-  if(u.armor)stats.push(`DEF d${[0,4,6,8,10][u.armor]||4}`);
+  if(armorOf(u))stats.push(`Armour ${armorOf(u)}`);
   if(u.shield>0)stats.push(`{b:Shield ${u.shield}}`);
   rich(stats.join(' · '),x+42,cy+30,w-44,C.parch,{clip});
   cy+=42;
@@ -127,10 +126,10 @@ function sheetLayout(u,x,y,w,clip,o){
   const sts=unitStatuses(u).filter(k=>k!=='shield');
   if(sts.length&&G&&!o.plain){
     cy+=secHead('CONDITIONS',x,cy,w,C.red);
-    for(const k of sts){const g=GLOSS[{slow:'slow',root:'root',stag:'stag',daze:'daze',weak:'weak',bleed:'bleed',burn:'burn',expose:'expose',mark:'mark',bless:'bless',hidden:'hidden'}[k]];
+    for(const k of sts){const g=GLOSS[k];const n=stCount(u,k);
       const ic=statusIcon(k);if(ic)ctx.drawImage(ic,x,cy);
-      const hh=rich(`{w:${g?g.name:k}.} `+(g?g.text:''),x+10,cy,w-10,C.parch,{clip});cy+=Math.max(9,hh)+2;}
-    if(u.st.mark&&u.marker&&G&&U(u.marker)){cy+=rich(`{m:Marked by ${U(u.marker).name}.}`,x+10,cy,w-10,C.parch,{clip})+2;}
+      const hh=rich(`{w:${g?g.name:k}${n?' '+n:''}.} `+(g?g.text:''),x+10,cy,w-10,C.parch,{clip});cy+=Math.max(9,hh)+2;}
+    if(u.st.mark&&u.marker&&G&&U(u.marker)){cy+=rich(`{m:Taunted by ${U(u.marker).name}.}`,x+10,cy,w-10,C.parch,{clip})+2;}
     cy+=3;
   }
   if(pc){

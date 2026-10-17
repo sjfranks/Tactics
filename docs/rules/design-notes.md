@@ -1,16 +1,46 @@
 ---
 title: Rogue Tactics 1e — Design Notes
-version: 0.24
+version: 0.25
 tags: [game-design, rulebook, notes]
 ---
 
 # Rogue Tactics 1e — Design Notes
 
-> v 0.24. Not for play. This file holds the changelog, the open questions, what was borrowed from Nimble and Emberwatch Tactics, and ideas that were parked. Books: [Core Rules](core-rules.md) · [Heroes](heroes.md) · [Bestiary](bestiary.md).
+> v 0.25. Not for play. This file holds the changelog, the open questions, what was borrowed from Nimble and Emberwatch Tactics, and ideas that were parked. Books: [Core Rules](core-rules.md) · [Heroes](heroes.md) · [Bestiary](bestiary.md).
 
 ---
 
 ## 1. What Changed
+
+### v0.25 (from v0.24): Chips × Mult
+
+Playtest feedback on v0.24 was clear on four points. **Basic attacks shut off after one use**, and players felt it as a loss: with three actions and nothing to spend them on, the turn ended with a shrug. **There were too many modifiers**: a hit could stack flanking, exposed, cover, blessed, weakened and marked, roll several dice, keep one, explode, then lose a DEF die, and nobody could say why a hit dealt 4 or 14. **Advantage, disadvantage and saving throws** made the outcome hard to read before tapping, and saves added a second roll by the target. And **the 3D dice did not mean anything**: colours and sizes changed with advantage and explosions, but a player could not read the result from them. The redesign moves toward *Balatro*'s clarity: **every effect is one visible number**, and powers interact by feeding two shared numbers, **Mult** and **Bless**.
+
+- **Damage = CHIPS × MULT** (Core 3.5). CHIPS are the dice + the key stat + flat bonuses − the foe's armour (at least 1). MULT is 1 + 1 for each die on its top number (a crit) + the foe's Mult status + a few named sources (Sneak Attack, Finisher, hidden, Glass Cannon). Then × multipliers: weakness ×2, resistance ×½, Shatter ×2, Assassinate ×3, Weak ×½, Taunted ×½. The forecast and the dice caption read the sum out: "4 +3 DEX −1 armour = 6 CHIPS × 2 MULT = 12".
+- **No misses, no grazes, no exploding damage dice, no advantage or disadvantage in battle, no saves in battle.** A natural 1 is just a 1. Checks, dramatic tasks and negotiations out of battle keep advantage and the 4+ rule.
+- **Crits are per die.** Every die on its top number turns red and adds +1 Mult, so small dice (d4, d2, pairs) crit often and big dice give more chips. Keen widens the range; Heavy Hitter makes each crit +2; Vicious adds +1 per crit; Loaded Bones +1 if any die crits.
+- **Basic attacks as often as you have actions.** The first each turn still gives +1 MP, so powers stay the better use of momentum.
+- **Foe armour is flat again** (1 to 3, from the Emberwatch numbers), taken off the chips before MULT. Foes no longer roll DEF dice. Heroes still **Defend** with their armour die (fighter d8, cleric d6, rogue and wizard d4), now **+2** for a shield, Block or Brace instead of advantage, and still not against a crit.
+- **Statuses are numbers or single words.** *Mult N* (the next hero hit adds N, then it is spent), *Bless N* (+N chips on the next hit), *Burn N* (N damage, then N − 1), *Stun* (skips its next turn; bosses take +2 Mult instead), *Root*, *Weak*, *Taunt*, *Shield*, *Hidden*. Mult, Bless and Burn stack. Old names map onto them: daze → Stun, slow → Root, expose → Mult, bleed → Burn, fear → Weak. Prone, blinded, poisoned and frightened are gone, and so are Terrifying's fear saves (Terrifying is flavour).
+- **Set-ups are the three numbers.** The wizard gives foes Mult (Staff Bolt +1, Hex +2, Chain Hex), the cleric Blesses friends, the fighter Stuns with slams and Taunts. Cashing in another hero's Mult, Stun or Bless is a combo, +2 MP each. A Stun is not spent by hits, so a Stunned foe is a combo for everyone until its turn; the old "sure crit" and the "an ally hit it first, so it keeps its turn" exception are gone.
+- **Dice colours mean something.** Every die is the same size. Blue dice add chips; a die on its top number turns red and glows (+1 Mult); steel dice Defend or shield; green dice heal.
+- **Powers rewritten** around the three numbers (Heroes Parts 5 and 6): 50 class and general powers, plus the innate ones. New starts: *Tide of Iron*, *Piercing Strike*, **Hex** (instead of Scorching Burst), *Healing Word*. **New:** Hex, Chain Hex, Amplify, Radiance, Cleave, Assassinate (×3 vs Stunned), Heavy Hitter (now general; it replaces the fighter's Heavy Blows). **Reworked:** Backstab (an active: the foe's Mult counts double), Brand (was Brand of Judgment: +1 Mult), Judgment (was Judgment Day: hits every foe with Mult), Glass Cannon (+1 Mult, no Defend), Opening Strike (+5 chips), Finisher (+1 Mult), Anvil (+2 Mult when she Stuns), Block (+2 to Defend), Brace (+2), Shatter (×2 on any ally hit), Flurry (an active: attack twice). **Gone:** the cleric's Sling; Deep Cut, Feint, Vanish, Open Veins, Needle and Thread, Coup de Grâce; Sweep, Bodyguard, Shieldbreaker, Blood in the Water, Come and Get It; Thunderwave, Mage Shield, Kindling, Web, Battlemage, Lightning Rod, Wildfire, Gravity Well; Healer's Gift, Shepherd, Divine Favour, Smite, Martyr's Grace; and the general Opening Gambit, Exploit Weakness, Follow-Through, Domino, Rhythm, Set Your Feet, Veteran's Pride, Counter-Guard, Bulwark Chain, Nerves of Steel, Trip Wire, Pinball, Reposition, Warm-up, Overflow, Echo, Afterglow, Rally, Triage and Echoing Mercy (with them the Chain, Link and Growth keywords). Staffs crit now.
+- **Resonance retired.** Tags only sort powers.
+- **Relics in the new terms.** Whetstone +1 chip; Loaded Bones +1 Mult on a crit; Executioner's Hood +1 Mult vs bloodied; Warding Charm halves each foe's first hit on each hero; Ember Censer gives Burn 3.
+- **Removed from the battle rules:** flanking and cover advantage, long shot, surprise advantage, Assess (Create an opening, Anticipate danger), the Hide action, the once-per-turn basic attack, swapping places in the initiative order, upcasting, and the one-free-power-a-turn limit, none of which the v0.25 engine has. Companions are parked.
+
+**Known gaps between this book and the v0.25 code** (the books describe what the code does; these are where the code and the design disagree, for the next code pass):
+
+- A **Stunned hero** keeps their turn with 1 fewer action and half speed (as since v0.20), while a Stunned foe skips its turn. The glossary says so.
+- **Taunt on heroes** (Hobgoblin Spear Wall, Bone Warden, Skeleton crits, the Warlord's Warcry) halves the hero's hits on anyone but the taunter; it does not force the hero's targets.
+- **Defend +2 for Second Wind and Shepherd** exist in the Defend roll, but nothing sets them: no power is called Shepherd, and Second Wind does not grant the bonus.
+- **Brace** is once a round in the code; its card says "+2 to your Defend rolls". **Field Medic** applies only to allies.
+- **Nimble** does nothing in the engine; **Chief** has only its +30% HP; the elite **+1 attack** never existed in code. (**Bone Wall** gives undead beside it +1 armour.)
+- **Foe attacks carry no damage type** in the engine (the dragon's breath and the imps' firebolts are physical), so the Salamander Scale only stops hazard fire and Burn.
+- **Mult credit** goes to the hero who added to it last (Anvil's +2 takes the credit from the wizard's Hex).
+- The **attribute die no longer explodes** anywhere (the shared roll was changed for battle), so a check's maximum adds just one more die and Catch Breath does not explode.
+
+**Open questions from v0.25:** Is ×Mult too swingy at the top end (a Hexed, Anvilled, Backstabbed foe takes 200)? Is armour 3 too much for d4 heroes? Does the rogue still feel like the finisher now that every hero's crits add Mult? Should a Stunned hero skip their turn like a foe, or keep the softer rule? Should basic attacks after the first cost anything at all?
 
 ### v0.24 (from v0.23): a simple start that grows
 
@@ -288,35 +318,38 @@ Drawn from the Savage Pathfinder review. Only powers that fit the existing rules
 
 These notes used to sit in the Core Rules. They explain choices; players do not need them.
 
-**The shape of the ladder.** Each attribute step adds less than the one before (1→2 is +25 points of success, 2→3 +13, 3→4 +7, 4→5 +5), and advantage helps low dice most. A buffed 6 jumps to a d20: bigger totals and no critical failures.
+**Why CHIPS × MULT.** A hit used to pass through six steps (net advantage, keep a die, miss or crit, explode, add the stat, subtract a rolled DEF), and a player could not say beforehand what it would do. Two numbers, one added up and one multiplied, are as readable as *Balatro*'s hands: chips grow slowly (a better die, a Bless, a key stat), Mult grows in jumps (crits, set-ups), and the product is where the excitement is. Set-ups now **multiply** each other instead of each being "one more advantage" that capped at 3.
 
-**Why stacking advantage, capped at 3.** Each extra source is worth most to a low die, which rewards set-ups and positioning. The cap keeps any roll from becoming automatic.
+**The shape of the ladder** (checks out of battle). Each attribute step adds less than the one before (1→2 is +25 points of success, 2→3 +13, 3→4 +7, 4→5 +5), and advantage helps low dice most. A buffed 6 jumps to a d20: bigger totals and no critical failures.
 
-**Why three actions.** Three actions give a turn real choices (move and strike twice, set up and cash in, retreat and defend) without a separate move and action. Reactions that cost actions make defence a decision: every blow you soak is an action you will not spend later.
+**Why stacking advantage, capped at 3, only out of battle.** Each extra source is worth most to a low die, which rewards Help and good choices in an event. In battle the same job is done by Mult, which shows its size as a number.
 
-**How much Defend saves.** Average damage per attack, defending every non-crit hit (both dice explode), *without / with shield*:
+**Why three actions.** Three actions give a turn real choices (move and strike twice, set up and cash in, retreat and defend) without a separate move and action. Reactions that cost actions make defence a decision: every blow you soak is an action you will not spend later. With basic attacks unlimited since v0.25, a hero always has something to do with an action, so keeping one back for Defend is a real cost.
 
-| Attacker | Undefended | None | Light | Medium | Heavy |
-|---|---|---|---|---|---|
-| Rogue, d4 + 2 | 4.6 | 3.7 / 3.4 | 3.4 / 3.1 | 3.2 / 2.9 | 3.1 / 2.9 |
-| Fighter, d6 + 4 | 7.4 | 6.1 / 5.4 | 5.4 / 4.7 | 5.0 / 4.3 | 4.6 / 3.8 |
+**How much Defend saves.** Defend subtracts the armour die plus bonuses (at least 1 damage is left), and never works on a crit:
 
-Defending trims a hit but costs an action. Small attacks are hard to reduce below 3; crits cannot be defended, so they always matter.
+| Hero | Defend roll | Average | With Block or Brace |
+|---|---|---|---|
+| Fighter | d8 + 2 (shield) | 6.5 | 8.5 |
+| Cleric | d6 + 2 (shield) | 5.5 | 7.5 |
+| Rogue, Wizard | d4 | 2.5 | 4.5 |
 
-**Hero attacks against foe DEF** (v0.20 simulation, average damage per attack, foes' DEF rolled automatically):
+A foe hit of d6+2 with strength 1 averages 6.5 chips × 1 Mult: the fighter shrugs most of it off, the wizard keeps most of it.
 
-| Attack | DEF none | d4 | d6 | d8 |
-|---|---|---|---|---|
-| Rogue d4+3 | 5.4 | 4.0 | 3.7 | 3.5 |
-| Rogue d4+3 with Sneak Attack | 7.2 | 5.7 | 5.4 | 5.0 |
-| Fighter d6+3 | 6.5 | 4.7 | 4.3 | 3.9 |
-| Wizard staff d4+3 (no crits, no misses) | 5.5 | 2.9 | 2.4 | 2.1 |
-| 2-dice power, d6+3 | 9.4 | 7.3 | 6.9 | 6.5 |
-| Rushed 2nd attack, d6+3 | 4.4 | — | 2.2 | — |
+**Hero damage against armour** (exact averages of one basic attack, key stat 3):
 
-Takeaways: foe DEF matters a lot, so crits (which ignore it), *Piercing Strike* and set-ups are the real damage. A rushed second attack is weak, which pushes heroes toward powers and combos. The wizard's staff is reliable against unarmoured foes but poor against armour; her damage comes from powers. A party deals roughly 25 to 40 damage a round; boss HP (110 / 150 / 200) aims at about five rounds.
+| Attack | Armour 0 | Armour 2 | Armour 3 |
+|---|---|---|---|
+| Rogue, pair of d4s | 12.8 | 9.8 | 8.2 |
+| Rogue, pair of d2s | 12.5 | 8.5 | 6.5 |
+| Fighter, d6 | 8.0 | 5.7 | 4.5 |
+| Fighter, d10 | 9.8 | 7.6 | 6.5 |
+| 2-dice power, d6 | 14.2 | 11.5 | 10.2 |
+| Rogue, pair of d4s, foe with Mult 2 | — | 21.8 | — |
 
-**Why a flat Wound modifier.** Wounds make a hero worse at everything without removing options. The −1s bite hardest in the middle of the ladder, and because they come off the total after an explosion, even a badly hurt hero can have a heroic moment. Chance a check succeeds:
+Takeaways: armour hurts small dice most, because it comes off the chips; Mult multiplies what gets through, so set-ups are the real damage. *Piercing Strike* exists for armour 3 foes.
+
+**Why a flat Wound modifier.** Wounds make a hero worse at everything without removing options. In battle they come off the chips (−1 each, so they bite small dice hardest). Out of battle they come off the check total. Chance a check succeeds:
 
 | Die | No Wounds | 1 | 2 | 3 |
 |---|---|---|---|---|
@@ -334,13 +367,12 @@ Takeaways: foe DEF matters a lot, so crits (which ignore it), *Piercing Strike* 
 ## 4. Open Questions (TBC)
 
 **Balance (needs playtesting first)**
-- Foe HP and damage against three-action heroes. Standard battles should last 2 to 3 rounds and cost the party about a quarter of its HP.
-- Boss HP (110 / 150 / 200) and escort budgets.
-- *Guidance* (0 MP bless) lets the cleric enable a combo every turn: is +2 MP a round for two heroes too much?
-- *Create an opening* is a 1-action set-up for anyone; the once-per-foe limit may need to become once per round.
-- *Come and Get It* and *Gravity Well* stagger groups. Are they too strong with the sure-crit rule?
-- Feats to watch: *Conductor*, *Rhythm*, *Glass Cannon*, *Last Stand*, and Surge and Set-up resonance.
-- Swarm damage (equal to remaining HP) and minion flat damage by region.
+- Foe HP and damage against three-action heroes with unlimited basic attacks. Standard battles should last 2 to 3 rounds and cost the party about a quarter of its HP.
+- Boss HP (110 / 150 / 200 listed) and escort budgets; the Mult ceiling against bosses (Stun gives them +2 Mult).
+- *Guidance* (0 MP, Bless 3) lets the cleric enable a combo every turn: is +2 MP a round for two heroes too much?
+- *Hex* + *Amplify* + *Anvil* + *Backstab* can reach ×15 or more. Cap Mult, or let it run?
+- Powers to watch: *Conductor*, *Glass Cannon*, *Heavy Hitter* on a pair of d2s, *Last Stand*, *Judgment* after *Chain Hex*.
+- Swarm damage (per critter) and minion flat damage by region.
 - Malice growth (round number + Downs) and threat costs.
 
 **Economy and progression**
@@ -357,10 +389,11 @@ Takeaways: foe DEF matters a lot, so crits (which ignore it), *Piercing Strike* 
 **Rules**
 - Group checks (half must succeed) may be too lenient.
 - Whether Defend should ever protect an adjacent ally (Block does a little of this).
-- Whether rushed attacks should apply to powers (currently no).
+- Whether a Stunned hero should skip their turn, as a Stunned foe does (the code still takes 1 action).
+- Whether foe attacks should carry damage types again.
 
 **Mobile UI**
-- How to show Chain and Link triggers, Growth counters, resonance, Malice and the next threat without clutter.
+- How to show Mult, Bless and Burn numbers on small badges, Malice and the next threat without clutter.
 - Whether the Lurker and Artillery target rules read clearly.
 
 ---

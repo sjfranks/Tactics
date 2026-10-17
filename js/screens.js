@@ -387,27 +387,25 @@ function openSettings(inBattle,onMap){
 }
 const HOWTO=`{g:Turn order.} Everyone rolls {g:initiative} (their Dexterity die) when a battle starts. Turns go from highest to lowest, heroes and foes mixed, every round. TURNS shows who is next. On a hero's turn they have {g:three actions}, then tap END TURN.
 
-{g:Actions.} A hero gets {g:three actions} at the start of each turn: moving, the basic attack ({g:once a turn}) and each power cost one, in any order. Tap a blue square to move, or drag the hero: a move takes you up to your speed, and you can split it around your other actions.
+{g:Actions.} A hero gets {g:three actions} at the start of each turn: moving, attacking and each power cost one (a few big powers cost two), in any order. Attack as often as you have actions. Tap a blue square to move, or drag the hero: a move takes you up to your speed.
 
-{g:Reactions.} Actions you don't spend stay {g:ready} (the blue pips) until your next turn starts. When a foe hits a hero who has one, the game asks whether to {g:Defend}: roll your armour's DEF die and take that much less damage. Later, powers add other reactions (Intercept, Opportunist, Repelling Ward, Warding Word). Settings can make reactions automatic.
+{g:Reactions.} Actions you don't spend stay {g:ready} (the blue pips) until your next turn starts. When a foe hits a hero who has one, the game asks whether to {g:Defend}: roll your armour die (+2 with a shield) and take that much less damage. Later, powers add other reactions (Intercept, Opportunist, Repelling Ward, Warding Word).
 
-{g:Damage dice.} Every attack rolls {g:weapon dice} and adds the hero's {g:key stat} once. A basic attack rolls one weapon die; powers say how many. The first die (thrown larger, in ivory) decides the result: a 1 is a miss, the top number is a {g:critical hit} that ignores DEF and rolls one more die (again and again on more top numbers), anything else a hit. Small dice crit more often: a rogue honed down to a {g:d2} crits on every other swing. A better weapon makes every power better.
+{g:Damage: CHIPS × MULT.} Every hit is {b:CHIPS} × {r:MULT}. {b:Chips}: the dice you roll + your {g:key stat} + bonuses (Bless) − the foe's armour. {r:Mult} starts at 1: +1 for each die that lands on its top number (a {g:crit}), + the foe's {r:Mult}, + bonuses like the rogue's {g:Sneak Attack}. A weakness doubles the damage; a resistance halves it. There are no misses. The forecast shows the chips, the mult and the damage before you commit.
 
-{g:Every roll is shown.} Attacks, Defend, foe armour, saves, slams, bleeding and healing are thrown as 3D dice across the board with a short caption: the die that counts is ivory (green with advantage, red with disadvantage), dice lost to advantage or disadvantage fade, explosions glow gold, DEF dice are steel. Tap to hurry a roll along; turn them off with Show every roll in Settings (with 3D dice off, a flat card shows instead).
+{g:The dice.} Every roll is thrown as 3D dice with a short caption. The colours mean one thing each: {b:blue} dice add chips; a die on its top number turns {r:red} (+1 Mult); {m:steel} dice Defend; {h:green} dice heal. Tap to hurry a roll along.
 
-{g:Advantage and disadvantage.} Advantage rolls the first die again and keeps the best; disadvantage keeps the worst. Different sources stack, up to triple, and cancel out one for one. Early on there are few: {g:flanking} (an ally on the far side of your target) and {g:exposed} targets give advantage, {g:cover} gives disadvantage to ranged attacks. Powers, blessings and conditions add more as the journey goes on. The dice caption always says why.
-
-{g:Combos.} Heroes set each other up, and nobody cashes in their own set-up. A foe slammed into something (or hit by a power that says so) is {g:staggered}: it loses its next turn, and an ally's next hit on it is a sure critical hit. Allies attack an {g:exposed} foe with advantage. A {g:blessed} hero attacks with advantage. Set-ups fade when the foe's own turn ends, so line up a hero who acts before it. Cashing in an ally's set-up is a {g:combo}: +2 momentum for both heroes.
+{g:Set-ups and combos.} Heroes set each other up. The wizard's spells give foes {r:+Mult}: the next hero to hit adds it to their MULT. The cleric's {b:Bless} adds chips to an ally's next hit. A foe slammed into something is {g:Stunned}: it skips its next turn. Set-ups stack and wait for the next hit. Cashing in another hero's set-up is a {g:combo}: +2 momentum for both.
 
 {g:Momentum.} Shown as {p:◆} gems. Heroes start each battle with momentum equal to the party's {g:Victories} (up to 3), gain 1 for their first basic attack each turn and 2 for each combo, and spend it on powers.
 
 {g:Powers.} Every hero starts with a basic attack, a free set-up (Brakka's {g:Shove}, Orin's {g:Force Push}, Sela's {g:Guidance}) and one power; the rewards after each battle teach more, simple ones first. Active powers cost momentum: pick a card at the bottom, then a target. A forecast shows what can happen; tap the target again, or STRIKE, to act. {g:Passive} powers work on their own. Each power has a tag; 4 or 8 powers of one tag across the party give everyone its {g:resonance}.
 
-{g:Foes.} Tap INTENT to see whom each foe means to attack, and how hard. From the second land, foes gain {r:Malice} every round and spend it on threats (top of the screen). Some foes are {g:Terrifying}, some resist or are weak to damage types, and bosses change when {g:bloodied}.
+{g:Foes.} Tap INTENT to see whom each foe means to attack, and how hard. From the second land, foes gain {r:Malice} every round and spend it on threats (top of the screen). Some foes resist or are weak to damage types, and bosses change when {g:bloodied}.
 
-{g:Moving.} Moving away from foes is safe: there are no free strikes (unless a fighter learns {g:Sentinel}). Foes block movement, so use allies to {g:flank}.
+{g:Moving.} Moving away from foes is safe: there are no free strikes (unless a fighter learns {g:Sentinel}). Foes block movement, so surround them: the rogue's {g:Sneak Attack} needs an ally beside her target.
 
-{g:Down and Wounds.} A hero at 0 health is {g:Down} and gains a {g:Wound} (-1 to attacks, saves and checks). An ally beside them can Help them up. A hero who goes Down with 3 Wounds dies. If every hero is Down, the battle is lost.
+{g:Down and Wounds.} A hero at 0 health is {g:Down} and gains a {g:Wound} (-1 chips on every hit, -1 to checks). An ally beside them can Help them up. A hero who goes Down with 3 Wounds dies. If every hero is Down, the battle is lost.
 
 {g:The journey.} Pick your path through three lands: battles, elites, merchants, {g:Camps}, treasure, road events and events. Every battle won gives gold, a {g:Victory} and a {g:reward}: pick 1 of 3 cards, each a power for one hero or {g:growth} (more health, or +1 to a key stat). Elites and bosses give two rewards with better powers, and treasure. Heroes do not level up: they grow by the rewards you pick. Between battles, spend {g:hit dice} to heal (EQUIP, then HEAL). At a Camp heroes heal, refill their hit dice and lose a Wound. Events test an attribute ({g:check}: 4+ on its die), and some are {g:dramatic tasks} or {g:negotiations}.
 
@@ -466,7 +464,7 @@ const COMP_SCREEN={enter(){COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);
       if(k==='class'){const Cc=CLASSES[cls];const u=heroSheetUnit({cls,lvl:1,hp:Cc.hp,maxHp:Cc.hp,powers:Cc.start});
         y+=sheetLayout(u,dx,y,dw,clip,{plain:true,classInfo:true});}
       else if(POWERS[k]){const p=POWERS[k];text(fitText(p.basic||p.innate?`${cls==='gen'?'Every':CLASSES[cls].title} hero · innate, no slot`:`${RARITY[p.rar]} ${cls==='gen'?'general':CLASSES[cls].title.toLowerCase()} power`,dw),dx,y,C.mute);y+=9;y+=powerBlock(p,null,dx,y,dw,{clip})+4;
-        if(p.dmg&&!p.noDmg)y+=rich('{m:Damage is weapon dice plus the hero\'s key stat. A 1 on the first die is a miss; its top number is a critical hit that ignores DEF and rolls one more die.}',dx,y,dw,C.mute,{clip});}
+        if(p.dmg&&!p.noDmg)y+=rich('{m:Damage is CHIPS × MULT: chips are the dice plus the hero\'s key stat, minus armour; each die on its top number adds +1 Mult.}',dx,y,dw,C.mute,{clip});}
     }else if(COMP.tab===1&&k&&k.startsWith('w:')){const W=WEAPONS[k.slice(2)];inset(dx,y,20,20,'#100b08');ctx.drawImage(weaponArt(W.id),dx+2,y+2);text(W.name,dx+24,y+3,C.gold);text(`${CLASSES[W.cls].name}'s weapon · tier ${W.tier} · ${weaponSockets(W)} socket${weaponSockets(W)>1?'s':''}`,dx+24,y+11,C.mute);y+=24;
       y+=rich(weaponText(W),dx,y,dw,C.parch,{clip})+4;if(W.tier>1)y+=rich(`{m:About ${WEAPON_PRICE[W.tier]} gold at a merchant.}`,dx,y,dw,C.parch,{clip});}
     else if(COMP.tab===1&&k&&k.startsWith('r:')){const r=k.slice(2);text(RUNE_NAME[r],dx,y,C.gold,{sc:2,ol:C.edge});y+=14;y+=rich(RUNE_DESC[r],dx,y,dw,C.parch,{clip})+4;

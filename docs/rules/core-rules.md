@@ -1,13 +1,13 @@
 ---
 title: Rogue Tactics 1e — Core Rules
-version: 0.24
+version: 0.25
 book: 1 of 3 (Core Rules · Heroes · Bestiary)
 tags: [game-design, rulebook, roguelite, tactics]
 ---
 
 # Rogue Tactics 1e — Core Rules
 
-> v 0.24. Book 1 of 3. The other books are [Heroes](heroes.md) and [Bestiary](bestiary.md). Why the rules are the way they are, and what is still open, is in [Design Notes](design-notes.md). Numbers marked **TBC** are first guesses waiting for playtesting.
+> v 0.25 "Chips × Mult". Book 1 of 3. The other books are [Heroes](heroes.md) and [Bestiary](bestiary.md). Why the rules are the way they are, and what is still open, is in [Design Notes](design-notes.md). Numbers marked **TBC** are first guesses waiting for playtesting.
 
 ---
 
@@ -18,11 +18,13 @@ tags: [game-design, rulebook, roguelite, tactics]
 The whole game runs on two dice rules:
 
 > [!important] The two dice rules
-> **To hurt something,** roll your **weapon die** and add your **key stat**. A **1 misses**. The **maximum is a critical hit**: it explodes and ignores armour. (3.5)
+> **To hurt something,** roll your dice and work out **Damage = CHIPS × MULT**. **CHIPS** are the dice plus your **key stat** (and bonuses), minus the foe's **armour**. **MULT** starts at **1** and gains **+1 for every die that lands on its top number** (a **crit**), plus any **Mult** set up on the foe. There are **no misses**. (3.5)
 >
-> **To do anything risky,** roll the **die for the attribute**. **4 or more succeeds.** Advantage and disadvantage are the only way to make it easier or harder. (1.3)
+> **To do anything risky out of battle,** roll the **die for the attribute**. **4 or more succeeds.** Advantage and disadvantage are the only way to make it easier or harder. (1.3)
 >
 > Everything else is built on these, plus **laddering**: moving a die up or down **d4 → d6 → d8 → d10 → d12 → d20**.
+
+In battle every effect is **one visible number**: the dice show blue for chips and red for crits, and each status carries its number on the foe's badge. There is no advantage, no disadvantage and no saving throw in battle.
 
 ### The Books
 
@@ -37,9 +39,10 @@ The whole game runs on two dice rules:
 
 ### How to Win Fights
 
-- **Set up, then strike.** One hero staggers or exposes a foe; another cashes it in (3.8). A staggered foe takes a **sure critical hit**.
+- **Set up, then cash in.** The wizard gives foes **Mult**, the cleric gives friends **Bless**, the fighter **Stuns** foes. Another hero's hit cashes it in for a **combo** (3.8).
+- **Stack the Mult.** Mult adds up: two Hexes on one foe and a crit is ×6. Give the big hit to the hero with the most chips.
 - **Spend momentum.** MP is lost when the battle ends (3.7).
-- **Watch the order.** The turn order is on screen. Deal with the foe that acts next.
+- **Watch the order.** The turn order is on screen. Deal with the foe that acts next, and set up foes for the hero who acts before them.
 - **Count your actions.** Defending and other reactions spend actions you would otherwise use on your turn (3.3).
 - **Mind your wounds.** Every time a hero goes Down they take a Wound, and the fourth Down kills them (2.4).
 
@@ -49,10 +52,10 @@ The whole game runs on two dice rules:
 
 ### 1.1 Dice
 
-The game uses **d4, d6, d8, d10, d12 and d20**.
+The game uses **d2** (a coin, for a few honed weapons), **d4, d6, d8, d10, d12 and d20**.
 
 - **Ladder.** To ladder a die **up**, move it one step along d4 → d6 → d8 → d10 → d12 → d20. To ladder it **down**, move it one step back. Weapons, armour and hit dice improve this way. A few special weapons go one step below d4, to a **d2** (Heroes book).
-- **Explode.** When a die shows its **maximum**, roll it again and add the new result. Keep going while the maximum comes up.
+- **Explode** (checks out of battle only). When a check die shows its **maximum**, roll it again and add the new result. **No die explodes in battle**: damage, Defend, healing and initiative dice are rolled once.
 
 ### 1.2 Attributes
 
@@ -61,7 +64,7 @@ Every creature has four **attributes**:
 | Icon | Attribute | What it means | Used for |
 |---|---|---|---|
 | ♜ | **STR** Strength | Power, toughness | Key stat of the fighter; healing (2.5); carrying (5.3) |
-| ➶ | **DEX** Dexterity | Speed, agility | Key stat of the rogue; speed (3.1) and initiative (3.2) |
+| ➶ | **DEX** Dexterity | Speed, agility | Key stat of the rogue; initiative (3.2) |
 | ✦ | **INT** Intelligence | Learning, reasoning | Key stat of the wizard |
 | ♛ | **PRE** Presence | Awareness, will, charm | Key stat of the cleric |
 
@@ -73,10 +76,11 @@ An attribute is a number. The number sets its die:
 
 - Starting heroes have attributes of **1 to 4**. A **5** is earned with **Training** rewards (4.2) or items.
 - A **6** only happens when a buff raises a 5. It is always temporary.
+- In battle an attribute is used as a **number**: the key stat is added to every hit (3.5). Its die is rolled only for checks and initiative.
 
 ### 1.3 Checks
 
-When a hero tries something risky, the game names an **attribute** and the hero rolls its die.
+When a hero tries something risky **out of battle**, the game names an **attribute** and the hero rolls its die.
 
 - **4 or more succeeds.** There are no target numbers.
 - **A 1 is a critical failure:** the attempt fails with a complication (a lost item, an alarm, some damage). A d20 never critically fails.
@@ -105,7 +109,7 @@ When a hero tries something risky, the game names an **attribute** and the hero 
 
 ### 1.4 Advantage and Disadvantage
 
-Good circumstances give **advantage**. Bad ones give **disadvantage**. They **stack**:
+*Out of battle only* (checks, dramatic tasks, negotiations). Good circumstances give **advantage**. Bad ones give **disadvantage**. They **stack**:
 
 1. Count the sources of each.
 2. Subtract to find the **net**. The net is capped at **3** either way.
@@ -122,17 +126,13 @@ Chance of success (4+) at each net:
 | d12 | 32% | 42% | 56% | 75% | 94% | 98% | 100% |
 | d20 | 52% | 61% | 72% | 85% | 98% | 100% | 100% |
 
-On an attack, the **kept die** decides the miss and the crit (3.5).
+In battle there is no advantage or disadvantage: what used to give it now gives **Mult**, **Bless** or a **×** multiplier (3.5).
 
 ### 1.5 Saves
 
-When something acts on you (a shove, a curse, a gas cloud), you make a **save**: a check with the attribute the effect names. Success avoids the effect, or softens it if the effect says so.
+*Out of battle only.* When something acts on you outside a battle (a trap, a curse in an event), you may make a **save**: a check with the attribute the effect names. Success avoids the effect, or softens it if the effect says so. A critical failure on a save has no extra effect unless the effect says so.
 
-- Each **class** has one save with **advantage** (marked **+**) and one with **disadvantage** (marked **−**).
-- Each **foe** lists its own **+** and **−** saves.
-- A critical failure on a save has no extra effect unless the effect says so.
-
-> **Example.** A fighter (STR 4, saves STR +, INT −) is shoved by a spell that calls for a STR save. She rolls two d10s and keeps the higher. Later a curse calls for an INT save (INT 1): she rolls two d4s and keeps the lower.
+**In battle there are no saves.** Effects simply happen: a slammed foe is Stunned, a Hex gives Mult, a web Roots. Bosses shrug off some effects instead (3.10).
 
 ---
 
@@ -156,19 +156,19 @@ Every class has a **hit die (⚅)**, from d6 to d12. Hit dice do two jobs:
 
 ### 2.2 Shields
 
-A **shield** is temporary HP. Damage takes it off first. Shields do not add up: if you gain a new shield while you have one, keep the larger. A shield **fades at the start of its owner's next turn**.
+A **shield** is temporary HP. Damage takes it off first. **Shields add up**: a new shield is added to the one you have. A shield **fades at the start of its owner's next turn** (a hero's shield from before the battle, such as the Bulwark Sigil's, lasts through their first turn).
 
-*(A shield is not the same as the shield you carry, which helps your Defend roll, 3.6.)*
+*(A shield is not the same as the shield you carry, which adds +2 to your Defend roll, 3.6.)*
 
 ### 2.3 Bloodied
 
-A creature is **bloodied** while its HP is **at or below half** its maximum. Bloodied does nothing by itself. Other rules look for it: a boss changes phase, a power deals extra damage, a foe turns savage. The screen marks it on the HP bar.
+A creature is **bloodied** while its HP is **at or below half** its maximum. Bloodied does nothing by itself. Other rules look for it: a boss changes phase, *Finisher* and the Executioner's Hood give +1 Mult, a foe turns savage. The screen marks it on the HP bar.
 
 ### 2.4 Down, Wounds and Death
 
 - **Down.** A hero at **0 HP** is Down. They cannot act, and foes ignore them. They gain **1 Wound**.
 - **Getting up.** An adjacent ally can spend an action to **Help up** a Down hero, who stands with HP equal to **one roll of their hit die** (not spent from the pool). Any healing also stands them up. When the party **wins** a battle, every Down hero stands up with **1 HP**.
-- **Wounds.** Each Wound gives **−1** to the total of every **check**, **save** and **attack** the hero makes, to a maximum of **−3**. Apply it after any explosion. A natural 1 is still a critical failure or a miss, and a natural maximum still explodes or crits. A hit still deals at least 1 damage. Wounds do not affect DEF rolls, initiative or hit dice.
+- **Wounds.** Each Wound gives **−1 chip** on every hit the hero makes (3.5) and **−1** to the total of every **check** out of battle, to a maximum of **−3**. A hit still deals at least 1 damage. Wounds do not affect Defend rolls, initiative or hit dice.
 - **Death.** A hero who goes Down **with 3 Wounds already** dies for good. In other words, a hero can survive three Downs; the **fourth Down** before their Wounds heal kills them.
 - **Removing Wounds.** Each **Camp** removes 1 Wound from every hero, and gold can buy one more (4.7).
 - **Defeat.** If **every** hero is Down at the same time, the battle is lost and the run ends.
@@ -177,13 +177,13 @@ A creature is **bloodied** while its HP is **at or below half** its maximum. Blo
 
 | Way to heal | When | How much |
 |---|---|---|
-| **Second Wind** | In battle, **once per battle**, 1 action | Spend one hit die: roll it (exploding) and add your **STR**. Your next DEF roll before your next turn has +1 advantage. |
-| **Catch Breath** | Any time **outside** battle | Spend any number of hit dice. For each, roll it (exploding) and add your **STR**. |
+| **Second Wind** | In battle, **once per battle**, 1 action | Spend one hit die: roll it and add your **STR**. |
+| **Catch Breath** | Any time **outside** battle | Spend any number of hit dice. For each, roll it and add your **STR**. |
 | **Healing potion** | 1 action | Roll **2 of your hit dice** (not spent from the pool). |
 | **Healing power** | As the power says | As the power says (Heroes book). |
 | **Camp** | At a Camp stop | Spends your remaining hit dice, then restores the pool (4.7). |
 
-Healing never raises HP above the maximum.
+Healing dice are **green** on screen. Healing never raises HP above the maximum.
 
 ---
 
@@ -195,37 +195,34 @@ Battles are fought on a grid of square tiles, **6 wide and 8 tall** (a phone hel
 
 - **One creature per tile.** Large creatures fill 2×2 tiles.
 - **Movement is orthogonal**: up, down, left, right. Each tile costs 1 SPD. You can move through allies, but not through foes or obstacles, and you cannot stop on an occupied tile.
-- **Distance** is counted in orthogonal steps. A diagonal tile is at distance 2.
-- **Speed (SPD)** is how many tiles one Move action covers: **SPD = 2 + half your DEX, rounded up** (DEX 1–2: 3 · DEX 3–4: 4 · DEX 5–6: 5).
+- **Distance** is counted in orthogonal steps. A diagonal tile is at distance 2. "**Beside**" means orthogonally adjacent.
+- **Speed (SPD)** is how many tiles one Move action covers. Each class has its own (Heroes book).
 
-**Obstacles.**
+**Obstacles and terrain.**
 
 | Obstacle | Examples | Effect |
 |---|---|---|
 | **Tall** | Boulder, tree, pillar, wall | Blocks movement and sight. |
-| **Cover** | Crates, low wall, gravestone | Blocks movement. Gives cover (3.5). |
+| **Low** | Crates, low wall, gravestone | Blocks movement. |
+| **High ground** | Raised ground | Ranged attacks and powers from it reach 1 tile further. |
+| **Difficult terrain** | Water, brambles, rubble, ash | Costs 2 SPD to enter. Water puts out Burn. |
 
-**Hazards.** A creature suffers a hazard when it **enters it or ends its turn in it**. Hazard damage is **flat** and ignores DEF, and it grows by the region number (+0 in region I, +1 in II, +2 in III). A **DEX save** avoids the condition, but not the damage. Foes avoid hazards unless they are pushed. A creature **pushed** into a hazard makes the save with **disadvantage**.
+**Hazards.** A creature suffers a hazard when it **enters it** (even when pushed or pulled in) or **ends its turn in it**. Hazard damage is **flat**, ignores armour and Defend, and grows by the region (+0 in region I, +1 in II, +2 in III). There is no save. Foes avoid hazards unless they are pushed.
 
-| Hazard | Damage | Condition (DEX save avoids) |
+| Hazard | Damage | Status |
 |---|---|---|
-| **Fire** | 3 | burning |
-| **Acid pool** | 3 | weakened |
-| **Lava** | 8 | burning |
-| **Spikes** | 3 | slowed |
-| **Snare** (hidden until entered) | 4 | rooted |
-| **Web** | 0 | rooted (then the web tears) |
-| **Poison gas** | 0 | poisoned (STR save instead of DEX) |
+| **Fire** | 3 | Burn 1 |
+| **Acid pool** | 3 | Weak |
+| **Lava** | 8 | Burn 2 |
+| **Snare** (hidden; only the trapper's enemies trigger it, once) | 4 | Root |
+| **Web** (once, then it tears) | 0 | Root |
 
 ### 3.2 Starting a Battle
 
-1. **Initiative.** Every creature rolls its **DEX die** (exploding). Turns go from **highest to lowest** and the order **stays the same all battle**. Ties go to the higher DEX, then to heroes. Minions of one type share a roll.
-2. **Surprise.** Heroes who ambush unaware foes roll initiative with **advantage** and start **hidden**. Heroes who are ambushed roll with **disadvantage**.
-3. **Fear.** From region II on, if a foe is **Terrifying** (Bestiary), every hero makes a **PRE save** at the start of the battle, with disadvantage equal to the foe's Terrifying rating (1 to 3). A hero who fails is **frightened** until the end of their first turn.
+1. **Initiative.** Every creature rolls its **DEX die** once. Turns go from **highest to lowest** and the order **stays the same all battle**. Ties go to the higher DEX, then to heroes. Minions and swarms of one type share a roll. (The Hourglass of Haste lets heroes roll twice and keep the higher.)
+2. **Hidden foes.** Some foes (lurkers) start **hidden** (3.5).
 
 **Rounds and turns.** A **turn** is one creature's go. A **round** is one pass through the whole order.
-
-**Swapping.** Once per round, **two heroes who have not yet acted** that round may **swap places** in the order. Foes never swap.
 
 ### 3.3 Your Turn
 
@@ -234,8 +231,9 @@ At the **start of your turn** you get **3 actions**. Spend them on the actions i
 - **Keep actions ready.** Actions you don't spend stay **ready** until your next turn starts. Each ready action can pay for one **reaction** (3.6) on someone else's turn, such as **Defend**.
 - **Your actions refill at the start of your next turn**: back to 3, however many you spent or kept. Ready actions you didn't use are not added on.
 - **At the start of a battle**, before their first turn, every hero has **1 ready action**.
-- **Free powers** and passive powers cost no action. You may use **one free power** per turn.
-- A **dazed** hero has 1 action on their turn. A **staggered** hero has 1 fewer (3.10).
+- **Free powers** and passive powers cost no action.
+- A **Stunned** hero has **1 fewer action** on their turn, half SPD, and cannot react (3.10).
+- **Attack as often as you like.** A basic attack costs 1 action and no MP, and you may make it as many times as you have actions.
 
 > **Why?** Keeping an action back is the one defensive choice every hero has. Spend all three to press the attack, or keep one or two to Defend when the foes strike back.
 
@@ -246,67 +244,83 @@ Each action costs **1 action** unless it says otherwise.
 | Action | What it does |
 |---|---|
 | **Move** | Move up to your **SPD** (3.1). You may split the move around other actions in the same turn. |
-| **Attack** | A **basic attack** with your weapon (3.5), **once per turn**. It gives **+1 MP** (3.7). |
+| **Attack** | A **basic attack** with your weapon (3.5). Any number of times. The **first** each turn gives **+1 MP** (3.7). |
 | **Power** | Use a power (chapter 7). It costs **MP**, and the number of actions the power lists. |
-| **Assess** | An **INT** or **PRE** check. On a success choose one: **Create an opening** (the foe is **exposed**, 3.8) or **Anticipate danger** (attacks against you have disadvantage until your next turn). You can create an opening on each foe only once per battle. |
-| **Hide** | A **DEX** check, if you are next to cover or out of every foe's sight. On a success you are **hidden** (3.5). |
 | **Use an item** | Drink or give a potion (to yourself or an adjacent ally), or throw a consumable. |
 | **Help up** | An adjacent Down ally stands up (2.4). |
 | **Second Wind** | Once per battle: heal (2.5). |
 
-Every foe's stats, saves and next move are always shown when you tap it.
+Every foe's stats, statuses and next move (**INTENT**) are always shown when you tap it.
 
-### 3.5 Attacking
+### 3.5 Attacking: CHIPS × MULT
 
-**ATK = weapon die + key stat.** Your weapon sets the die and range (chapter 6). Your class sets the key stat.
+Every hit, by hero or foe, deals **Damage = CHIPS × MULT**, then any **×** multipliers, rounded, **at least 1** (0 if the target is immune). There are **no misses**: every attack hits its target.
 
-1. **Roll the weapon die** (with any advantage or disadvantage, 1.4). The kept die decides the rest.
-2. **A 1 misses.** No damage, no effects.
-3. **The maximum is a critical hit.** The die explodes. A crit **ignores DEF**.
-4. **Add your key stat**, once.
-5. **The target defends.** If it is not a crit, a foe rolls its **DEF die** automatically and subtracts it. A hero may **Defend** (3.6). A hit always deals **at least 1 damage**.
-6. **Apply damage**: shield first, then HP.
+**CHIPS** (blue) for a hero:
 
-> **Example.** A rogue (DEX 3) with Twinblades (d4) attacks a goblin in light armour (DEF d4). She rolls a 3: 3 + 3 = 6. The goblin rolls DEF and gets a 2, so it takes **4**. Next she rolls a 4, the maximum: a crit. The die explodes and she rolls a 2. Total 4 + 2 + 3 = **9**, and the goblin cannot roll DEF.
+1. **Roll the dice.** A basic attack rolls **one weapon die**; a power says how many (Heroes book). A **pair** weapon (twinblades, needles) rolls **one more**. Add them up.
+2. **+ your key stat** (STR, DEX, INT or PRE, by class), once.
+3. **+ bonuses:** **Bless N** (+N, then it is spent), *Opening Strike* (+5 on your first attack each battle), the Dwarven Whetstone (+1).
+4. **− Wounds** (−1 each, up to −3).
+5. **− the foe's armour**, a flat number (Bestiary). *Piercing Strike* ignores it. Armour never takes the chips below **1**.
 
-**Melee and range.** **Range 1 is melee**: the target must be orthogonally adjacent. Anything more is **ranged**. **Long shot:** take 1 more disadvantage to add +2 to your range (up to three times).
+**MULT** (red) for a hero starts at **1**, then:
 
-**Cover.** Draw a line from the centre of your tile to the centre of the target's. If it crosses a **cover** obstacle or another creature, the target has **cover**: ranged attacks against it have **disadvantage**.
-
-**Hiding.** A **hidden** creature cannot be targeted at range. Its next attack has **2 advantage**, and then it is revealed.
-
-**Advantage and disadvantage on attacks:**
-
-| Advantage | Disadvantage |
+| Source | Mult |
 |---|---|
-| **Flanking:** an ally stands on the far side of the target, in a straight line with you | The target has **cover** (ranged attacks) |
-| The target is **exposed**, **rooted** or **dazed** (each counts) | You are **weakened** or **frightened** |
-| You are **blessed** | You are **marked** and attack someone else |
-| You attack from **hiding** (counts twice) | |
+| Each die on its **top number** (a **crit**; *Keen* widens it to one below) | **+1** each (**+2** with *Heavy Hitter*; **+1 more** with a *Vicious* weapon) |
+| *Loaded Bones* relic, if at least one die crits | +1 |
+| The target's **Mult** status (3.10), spent by this hit | +N (*Backstab*: +2N) |
+| **Sneak Attack** (rogue): an ally of hers is beside the target | +1 |
+| *Finisher* or the *Executioner's Hood*, against a **bloodied** foe | +1 each |
+| Attacking while **hidden** | +1 |
+| *Glass Cannon* | +1 |
 
-The first battles use only the top row: **flanking**, **exposed** and **cover**. The rest come with powers and with the foes of later regions. The game names every source on the dice (*"FLANKING! Advantage: roll 1 more, keep the best"*).
+**× multipliers** apply last:
 
-> *Example.* A rogue flanks (+1) an exposed foe (+1) behind a crate (−1 for cover, if she shoots). Net +1: she rolls her weapon die twice and keeps the better.
+| Multiplier | When |
+|---|---|
+| **×2** | The target is **weak** to the damage type (3.11), or *Shatter*: an ally's hit on a foe the wizard Rooted |
+| **×3** | *Assassinate* against a **Stunned** foe |
+| **×½** | The target **resists** the damage type, or the attacker is **Weak** |
+| **×0** | The target is **immune** to the damage type |
+
+**Foes** work the same way (Bestiary): CHIPS are their dice plus their bonus (and its growth with depth), plus +2 for *Savage* against a bloodied hero and +2 near an *Aura* foe. MULT is 1 + crits + *Pack* (+1) + *Bloodlust* or *Rally the Horde* (+1 this round) + hidden (+1). Their ×½s are **Weak**, **Taunted** (hitting anyone but the taunter) and the **Warding Charm** (the first hit from each foe on each hero each battle). A foe's hit on a hero can then be **Defended** (3.6).
+
+> **Example.** Vex (DEX 3) with Twinblades (a pair of d4s) Backstabs a goblin with **Mult 2** from Orin's Hex, while Brakka stands beside it. She rolls 4 and 2: chips = 4 + 2 + 3 = **9**. MULT = 1 + 1 (the 4 is a crit) + 4 (Mult 2, doubled by Backstab) + 1 (Sneak Attack) = **7**. Damage **63**, and it is a combo: Vex and Orin gain 2 MP each.
+
+**The dice on screen.** Every die is the same size, and its colour says what it does: **blue** dice add chips; a die on its top number turns **red** and glows (+1 Mult); **steel** dice Defend or shield; **green** dice heal. The caption reads the sum out: "4 +3 DEX −1 armour = 6 CHIPS × 2 MULT = 12".
+
+**Melee and range.** **Range 1 is melee**: the target must be orthogonally beside you. Anything more is **ranged**, and needs a line of sight past tall obstacles.
+
+**Hiding.** A **hidden** creature cannot be targeted at range (only from beside it). Its next hit gets **+1 Mult**, and then it is revealed. Some foes start hidden.
 
 ### 3.6 Defending and Reactions
 
-A **reaction** happens on someone else's turn. It costs **1 ready action** (3.3), and you cannot react with none. **Reactions are always a choice**: when one is possible, the game pauses and asks. Staggered and dazed creatures cannot react.
+A **reaction** happens on someone else's turn. It costs **1 ready action** (3.3), and you cannot react with none. **Reactions are always a choice**: when one is possible, the game pauses and asks. Stunned heroes cannot react.
 
 | Reaction | When | Effect | Limit |
 |---|---|---|---|
-| **Defend** (every hero) | A hit that is **not a crit** lands on you | Roll your **DEF die** (exploding) and subtract it from the damage. A carried **shield** gives the roll **advantage**. | Any number, while you have ready actions |
-| **Reaction powers** | As the power says (Heroes book) | **Intercept** (fighter), **Opportunist** (rogue), **Repelling Ward** (wizard), **Warding Word** (cleric), **Sentinel**, **Counterattack** | Once per round each |
+| **Defend** (every hero) | A foe's hit that is **not a crit** lands on you (the game asks for hits of 2 or more) | Roll your **armour die** and subtract it, plus bonuses, from the damage (at least **1** damage is left). | Any number, while you have ready actions |
+| **Reaction powers** | As the power says (Heroes book) | **Intercept**, **Sentinel** (fighter), **Opportunist**, **Counterattack** (rogue), **Repelling Ward** (wizard), **Warding Word** (cleric) | Once per round each |
 
-New heroes know only **Defend**. Reaction powers are Uncommon: they turn up as rewards from the second region on (and from elites).
+**The Defend roll** (steel dice):
 
-| Armour | DEF die |
+| Hero | Armour die |
 |---|---|
-| None | d4 with disadvantage |
-| Light | d4 |
-| Medium | d6 |
-| Heavy | d8 |
+| Fighter (heavy armour) | d8 |
+| Cleric (medium armour) | d6 |
+| Rogue (light armour), Wizard (none) | d4 |
 
-**When a hero is hit,** reactions happen in this order: Intercept, then Defend, then Warding Word.
+| Bonus | When |
+|---|---|
+| **+2 shield** | The fighter and the cleric carry a shield (not with a two-handed weapon). |
+| **+2 Block** | An ally with *Block* stands beside you. |
+| **+2 Brace** | You have *Brace* (once a round). |
+
+A hero with *Glass Cannon* cannot Defend. New heroes know only **Defend**; reaction powers are Uncommon and turn up as rewards.
+
+**When a hero is hit,** reactions happen in this order: Intercept, then Defend, then Warding Word (halves a hit of 4 or more).
 
 **No free strikes.** Moving away from an enemy is safe: neither heroes nor foes get a free attack when someone leaves their side. (A fighter with the **Sentinel** reaction power may spend a ready action to strike a foe leaving her side.) Enemies still block movement.
 
@@ -314,97 +328,86 @@ New heroes know only **Defend**. Reaction powers are Uncommon: they turn up as r
 
 **Momentum** pays for powers. Each hero has their own.
 
-- **Start of battle:** each hero starts with **MP equal to the party's Victories, up to 3** (4.2). Powers can add more, but no hero starts a battle with more than **5 MP**.
-- **+1 MP** for your basic attack each turn, hit or miss.
+- **Start of battle:** each hero starts with **MP equal to the party's Victories, up to 3** (4.2). *Eager* adds 1; together they are capped at **5 MP**. The Battle Hymn (+2) and Crown of Thorns (+3) relics add on top.
+- **+1 MP** for your **first** basic attack each turn (the Tactician's Map adds 1 more).
 - **+2 MP** for each **combo** (3.8), for the hero who cashes it in and for each hero who set it up.
 - **Maximum 10 MP.** All MP is lost when the battle ends.
 
 ### 3.8 Set-ups and Combos
 
-A **set-up** is a condition one hero puts on a creature so that **another** hero can cash it in. Cashing in someone else's set-up is a **combo**. You never cash in your own set-up.
+A **set-up** is a status one hero puts on a creature so that **another** hero can cash it in. Cashing in someone else's set-up is a **combo**. You never cash in your own set-up.
 
 | Set-up | Usually made by | How | The payoff |
 |---|---|---|---|
-| **Staggered** foe | Tank | A **slam**, or a power that staggers (3.9) | The foe **loses its next turn**, unless an ally other than the one who staggered it **hits it first**. That hit is a **sure crit** (the die counts as its maximum and explodes), and the foe then keeps its turn. |
-| **Exposed** foe | Controller | A debuffing power, or *Create an opening* (3.4) | The setter's allies attack it with **advantage**. |
-| **Blessed** hero | Support | A blessing power | The hero's next attack has **advantage**. |
+| **Mult N** on a foe | Wizard (*Staff Bolt*, *Hex*, *Chain Hex*), cleric (*Brand*) | A power or a basic attack that gives Mult | The **next hero hit** on it adds **N** to its MULT. Then it is spent. |
+| **Stunned** foe | Fighter (slams, *Earthshaker*), wizard (*Force Push* slams) | A **slam** (3.9) or a power that Stuns | It **skips its next turn**. Hitting it does not end the Stun. *Assassinate* deals ×3 to it. |
+| **Bless N** on a hero | Cleric (*Guidance*, *Bless*) | A blessing power | **+N chips** on that hero's **next hit**. Then it is spent. |
 
-- On a combo, the hero who cashes in and each hero who set it up gain **+2 MP**. One combo per action at most.
-- A foe that just **lost a turn** to a stagger is **steadied**: it cannot be staggered again until after its next turn.
-- A **boss** never loses its turn. A staggering hit gives the next attack against it **+2 advantage** instead.
+- **A combo** is a hit that uses another hero's Mult on the target, hits a foe another hero Stunned, or spends another hero's Bless. The hero who cashes in and each hero who set it up gain **+2 MP**. One combo per action at most.
+- A foe that just **lost a turn** to a Stun is **steady**: it cannot be Stunned again until after its next turn.
+- A **boss** cannot be Stunned. A Stun gives it **+2 Mult** instead.
 
 ### 3.9 Forced Movement
 
 Powers can **push** a creature straight away from the source or **pull** it straight toward the source, a number of tiles.
 
-- **Slam.** A creature pushed or pulled into an obstacle or another creature stops and takes **slam damage: one roll of the weapon die of whoever moved it** (exploding). A creature it hits takes the same. (Effects with no weapon use a d4.) Slam damage ignores DEF. **A slam staggers** the creature that was moved.
-- Forced movement **without** a slam does not stagger unless the power says so.
+- **Slam.** A creature **pushed** into an obstacle, the edge or another creature stops and takes **slam damage: one roll of the weapon die of whoever moved it** (a foe uses its attack die; effects with no weapon use a d4). A creature it hits takes the same. Slam damage ignores armour. **A slam Stuns** the creature that was moved. A pull never slams.
+- Forced movement **without** a slam does not Stun unless the power says so.
 - **Steadfast N.** Pushes and pulls move a Steadfast N creature **N tiles fewer**.
-- **Into a hazard.** The creature suffers it, with disadvantage on the save (3.1).
+- **Into a hazard.** The creature suffers it (3.1).
 
-### 3.10 Conditions
+### 3.10 Statuses
 
-A condition lasts **until the end of the affected creature's next turn**, unless the effect says otherwise. Applied on its owner's own turn, it lasts one turn more.
+Each status is one number or one word, shown on the creature's badge.
 
-| Condition | Effect |
-|---|---|
-| **Staggered** | SPD is halved and it cannot react. A **foe** also loses its next turn (3.8). A **hero** has **1 fewer action** on their next turn instead. |
-| **Exposed** | The setter's allies attack it with advantage (3.8). |
-| **Blessed** | Its next attack has advantage (3.8). |
-| **Dazed** | A hero has **1 action** on their turn. A foe can **move or act**, not both. No reactions. Bosses are immune. |
-| **Rooted** | Cannot move. Attacks against it have advantage. Bosses are immune. |
-| **Slowed** | SPD is 1. |
-| **Prone** | Moving costs double; standing up costs 3 SPD. Melee attacks against it have advantage; its ranged attacks have disadvantage. |
-| **Weakened** | Its attacks have disadvantage. |
-| **Frightened** | Its attacks have disadvantage while the source is in sight, and it cannot move closer to the source. |
-| **Blinded** | Attacks against it have advantage; its attacks have disadvantage. |
-| **Poisoned** | All its rolls have disadvantage. |
-| **Bleeding** | At the start of each of its turns, takes **one roll of the weapon die** of whoever made it bleed (a d4 if there was no weapon). |
-| **Burning** | Takes **3 fire damage** at the start of each of its turns. Entering water ends it. |
-| **Marked** | Its attacks have disadvantage unless they target whoever marked it. A **fighter's** mark also **taunts**: while it can reach the fighter, it can attack only the fighter. |
-| **Hidden** | See 3.5. |
+| Status | Effect | How long |
+|---|---|---|
+| **Mult N** | The next **hero** hit on it adds **N** to that hit's MULT. Stacks (Hex twice is Mult 4). | Until a hero hits it |
+| **Bless N** | **+N chips** on the hero's next hit. Stacks. | Until the hero hits |
+| **Burn N** | Takes **N damage** at the start of each of its turns (ignores armour), then N drops by 1. Stacks. Water puts it out. Fireproof creatures are immune. | Until N reaches 0 |
+| **Stunned** | A **foe** skips its next turn. A **hero** has 1 fewer action on their next turn. Either way: half SPD and no reactions. A boss gains **+2 Mult** instead. | Until the end of its next turn |
+| **Rooted** | Cannot move. It can still attack. Bosses are immune. | Until the end of its next turn |
+| **Weak** | Deals **half damage**. | Until the end of its next turn |
+| **Taunted** | Must attack whoever taunted it if it can reach them, and deals **half damage** to anyone else. | Until the end of its next turn |
+| **Shield** | Temporary HP (2.2). | Until the start of its next turn |
+| **Hidden** | See 3.5. | Until it attacks or is hit |
 
-Damage from bleeding and burning ignores DEF.
+Timed statuses applied on the creature's own turn last one turn more. Older names still met in places map onto these: **dazed → Stunned**, **slowed → Rooted**, **exposed → Mult**, **bleeding → Burn**, **frightened → Weak**.
 
 ### 3.11 Damage Types
 
 Damage is **physical** unless something says otherwise. The other types are **fire**, **cold**, **force**, **radiant**, **necrotic** and **poison**.
 
-A creature can be **weak**, **resistant** or **immune** to a type. Apply it after DEF (and to crits too):
+A creature can be **weak**, **resistant** or **immune** to a type. It is a **×** multiplier on the hit (3.5):
 
-- **Weak:** double the damage.
-- **Resist:** halve the damage (rounded down, but at least 1).
-- **Immune:** no damage, and no burning (fire) or poisoned (poison) from that type.
+- **Weak:** ×2.
+- **Resist:** ×½ (the hit still deals at least 1).
+- **Immune:** no damage, and no Burn (fire).
 
-Flat damage from minions and swarms ignores resistance.
+Undead are weak to radiant and immune to poison and necrotic; incorporeal foes resist physical damage. Flat damage from minions and swarms ignores resistance.
 
 ### 3.12 Foes
 
 Foes use the same rules as heroes, with a few differences (full rules in the Bestiary):
 
 - A foe's turn is a **move and an action** (an attack or a special ability). Its stat block may list more.
-- Foes roll **DEF automatically** against every hit that is not a crit. They do not Defend and do not spend actions on reactions.
-- **Minions** have 1 HP and deal flat damage; they never miss or crit. **Swarms** share one HP pool and take double damage from area attacks.
-- **Bosses** cannot be dazed or rooted and never lose their turn to a stagger.
+- Foes have **flat armour**, taken off the chips of every hero hit. They do not Defend and do not spend actions on reactions.
+- **Minions** have 1 HP and deal flat damage; they never roll. **Swarms** share one HP pool and take double damage from area attacks.
+- **Bosses** cannot be Stunned (they take +2 Mult) or Rooted.
 - Foes share a pool of **Malice (◆)**, which pays for their threats and special abilities.
 - Each foe has a **role** (Brute, Soldier, Skirmisher, Artillery, Controller, Lurker, Leader) that tells you how it moves and whom it attacks.
 
 ### 3.13 Companions
 
-A hero may have **one companion**, such as a wolf, a hawk or a mule, from a class feature, relic or shop.
+> [!note] Companions are parked in v0.25. The rules below (a wolf, a hawk, a mule) are not in the game, and their tricks were written with saves and advantage; they will be rewritten in Chips × Mult terms if companions return.
 
-- A companion has **HP**, **SPD**, **flat damage** (never misses or crits) and one **trick**. It has no DEF, no hit dice and no reactions.
-- It acts **on its owner's turn at no action cost**: it moves up to its SPD and attacks or uses its trick.
-- At 0 HP it is **Down** until the next Camp. It never dies.
-- It counts as an ally for flanking and set-ups.
+A hero may have **one companion** from a class feature, relic or shop. A companion has **HP**, **SPD**, **flat damage** (it never rolls) and one **trick**; no Defend, no hit dice and no reactions. It acts **on its owner's turn at no action cost**. At 0 HP it is **Down** until the next Camp; it never dies. It counts as an ally for Sneak Attack and set-ups.
 
-| Companion | HP | SPD | Damage | Trick |
-|---|---|---|---|---|
-| **Wolf** | 10 | 5 | 2 | **Trip:** a creature it hits makes a STR save or falls **prone**. |
-| **Hawk** | 6 | 6 | 1 | **Spot:** once per battle, reveals a hidden foe or snare, and its owner's next attack has advantage. |
-| **Mule** | 14 | 3 | 1 | **Pack animal:** +2 pack slots. Once per round, a hit on its adjacent owner can hit the mule instead. |
-
-A companion gains **+4 HP** and **+1 damage** after each boss.
+| Companion | HP | SPD | Damage |
+|---|---|---|---|
+| **Wolf** | 10 | 5 | 2 |
+| **Hawk** | 6 | 6 | 1 |
+| **Mule** | 14 | 3 | 1 |
 
 ### 3.14 Winning and Losing
 
@@ -537,7 +540,7 @@ At a **Road event** stop, the game rolls a d6. Later regions make each result ha
 
 | d6 | Event | What happens |
 |---|---|---|
-| 1 | **Ambush** | A short battle: a horde of minions and one foe. The foes have surprise. |
+| 1 | **Ambush** | A short battle: a horde of minions and one foe. |
 | 2 | **Hazard** | A group check (1.3) to get past fire, ice or a gas-filled hollow. Heroes who fail take the hazard's damage (3.1). |
 | 3 | **Stranger** | A negotiation with a trader or a guide. |
 | 4 | **Find** | A potion or some gold. A DEX or INT check finds something better. |
@@ -625,13 +628,12 @@ The Heroes book has a ready-made hero for each class. To make your own:
 
 ### 5.1 Steps
 
-1. **Choose a class** (Heroes book). It sets your key stat, hit die, saves, armour, weapons, innate power and class powers.
+1. **Choose a class** (Heroes book). It sets your key stat, hit die, armour die, weapon, innate powers and class powers.
 2. **Set your attributes** from one spread (5.2). Put the highest in your key stat.
 3. **Take your class's starting gear.** The fighter and the cleric start with a shield.
 4. **Work out your stats** (5.3).
-5. **Choose two Common class powers** (Heroes book).
-6. **Draft one Common general power** from three (Heroes book).
-7. **Name your hero.**
+5. **Take your class's starting power** (Heroes book).
+6. **Name your hero.**
 
 ### 5.2 Attribute Spreads
 
@@ -649,20 +651,19 @@ The Heroes book has a ready-made hero for each class. To make your own:
 |---|---|
 | **HP** | Hit die maximum × 4, plus Vigor rewards (2.1) |
 | **Hit dice** | A pool of 3, of your class's die |
-| **SPD** | 2 + half your DEX, rounded up |
+| **SPD** | Your class's speed (Heroes book) |
 | **Initiative** | Your DEX die |
-| **ATK** | Weapon die + key stat |
-| **DEF** | Your armour's die; a carried shield gives advantage |
-| **Saves** | One + and one − from your class |
+| **Hit** | CHIPS: weapon dice + key stat; MULT: 1 + crits (3.5) |
+| **Defend** | Your armour die; +2 with a carried shield (3.6) |
 | **Pack slots** | 2 + STR |
 
 ### 5.4 Growing Stronger
 
-Heroes do not level up (4.2). A hero starts with their class's **level 1 and level 2 features** (Heroes book) and grows only through **rewards**: new powers, **Vigor** (max HP) and **Training** (+1 key stat, up to 5), and through weapons, relics and the smith.
+Heroes do not level up (4.2). A hero starts with their class features (Heroes book) and grows only through **rewards**: new powers, **Vigor** (max HP) and **Training** (+1 key stat, up to 5), and through weapons, relics and the smith.
 
 ### 5.5 Powers
 
-Everything a hero learns during a run is a **power**, active or passive (chapter 7). A new hero has an innate power, two class powers and one general power.
+Everything a hero learns during a run is a **power**, active or passive (chapter 7). A new hero has a basic attack, their innate powers and one class power.
 
 ---
 
@@ -670,24 +671,26 @@ Everything a hero learns during a run is a **power**, active or passive (chapter
 
 ### 6.1 Proficiency and Hands
 
-- Each class is proficient with some **weapon groups**: **Light**, **Martial**, **Ranged** and **Focus**. Anyone can use any weapon, but a weapon you are **not proficient** with **cannot crit**.
+- Each class is proficient with some **weapon groups**: **Light**, **Martial**, **Ranged** and **Focus**. Anyone can use any weapon, but a weapon you are **not proficient** with **cannot crit** (its dice never add Mult).
 - **Armour** needs **STR**, not proficiency: **medium needs STR 2**, **heavy needs STR 3**.
 - A **two-handed** weapon cannot be used with a shield.
 - Once per round you may swap one weapon or shield at no cost.
 
 ### 6.2 Armour and Shields
 
-| Armour | DEF | Needs | Cost |
+| Armour | Defend die | Needs | Cost |
 |---|---|---|---|
-| None | d4 with disadvantage | — | — |
+| None | d4 | — | — |
 | Leather (light) | d4 | — | 30 gold |
 | Chain (medium) | d6 | STR 2 | 100 gold |
 | Plate (heavy) | d8 | STR 3 | 300 gold |
-| **Shield** | Your DEF rolls have **advantage** | one hand | 20 gold |
+| **Shield** | **+2** to your Defend rolls | one hand | 20 gold |
 
 Magic armour can ladder the die up to **d10** or **d12**.
 
 ### 6.3 Weapons
+
+The weapons in the game, by class and tier, are listed in the Heroes book (Part 3). This is the wider tabletop list.
 
 | Weapon | Group | Die | Range | Properties | Cost |
 |---|---|---|---|---|---|
@@ -707,7 +710,7 @@ Magic armour can ladder the die up to **d10** or **d12**.
 | Shortbow | Ranged | d6 | 4 | Two-handed | 25 |
 | Longbow | Ranged | d6 | 5 | Two-handed | 50 |
 | Crossbow | Ranged | d8 | 4 | Two-handed, load | 60 |
-| Arcane Staff | Focus | d4 | 4 | No crits, no misses | 30 |
+| Arcane Staff | Focus | d4 | 4 | | 30 |
 | Thorn Staff | Focus | d6 | 4 | No crits | 30 |
 | Unarmed | — | d4 | 1 | | — |
 
@@ -716,28 +719,26 @@ Costs are in gold (**TBC**). A better weapon is usually one ladder step up.
 | Property | Meaning |
 |---|---|
 | **Light** | Can be held in the off hand. Light weapons can be honed down to a **d2** (Heroes book). |
-| **Pair** | Two weapons sold as one. |
-| **Two-handed** | Needs both hands. No shield. |
+| **Pair** | Two weapons sold as one: every attack rolls **one more die**. |
+| **Two-handed** | Needs both hands. No shield (no +2 on Defend). |
 | **Reach N** | Melee attack at range N, in a straight line. |
 | **Thrown N** | Can be thrown at range N; picked up again after the battle. |
 | **Load** | Needs 1 action to reload after each shot. |
 | **STR N** | Needs STR N. |
-| **No crits** | A maximum roll does not explode or ignore DEF. |
-| **No misses** | A 1 is just a low roll, not a miss. |
+| **No crits** | A top number is just a number: it adds no Mult. |
 
 **Upgrades.** A smith can ladder a weapon's die up (*temper*) or down (*hone*), and inscribe **runes** such as Keen, Vicious, Flame or Thunder. Magic weapons come with runes. See the Heroes book, Part 3.
 
 ### 6.4 Consumables
 
-Each consumable takes **1 pack slot** (5.3).
+Each consumable takes **1 pack slot** (5.3). *(Not in the v0.25 game: the shop sells Bandages and Rations instead.)*
 
 | Item | Effect (1 action) | Cost |
 |---|---|---|
 | **Healing potion** | Heal 2 of your hit dice (not spent) | 50 |
 | **Greater healing potion** | Heal 4 of your hit dice (not spent) | 150 |
-| **Antidote** | End poisoned, bleeding and burning | 30 |
-| **Smoke bomb** | Range 3: every creature in a 3×3 area is blinded | 40 |
-| **Fire flask** | Range 3: d6 fire damage and burning | 40 |
+| **Antidote** | End Burn | 30 |
+| **Fire flask** | Range 3: d6 fire damage | 40 |
 
 ### 6.5 Relics
 
@@ -745,12 +746,12 @@ Each consumable takes **1 pack slot** (5.3).
 
 > **Pouch of Fate Tokens** · relic
 > At the start of each battle and each event, the party gets **3 fate tokens**. Unused tokens are lost. Any hero may spend one at any time, at no action cost, to:
-> - **Reroll** a die they just rolled (attack, check, save or DEF), keeping the new result; or
-> - **Shake it off:** end one condition on themselves.
+> - **Reroll** a die they just rolled (a hit, a check or a Defend), keeping the new result; or
+> - **Shake it off:** end one status on themselves.
 
-**Other relics.** Boots of Striding (+1 SPD), Dwarven Whetstone (+1 damage), Heart of the Oak (+8 max HP), Battle Hymn (+2 starting MP), Tactician's Map (+1 MP on the first basic attack), Phoenix Feather (the first hero Down each battle rises at half HP), Vampire Fang (heal 4 on a kill), Bulwark Sigil (start with a shield of 8), Loaded Bones (crits roll one more die), Sentinel Lens (+3 on free strikes and other reaction strikes), Warding Charm (each foe's first attack on each hero has disadvantage), Salamander Scale (immune to fire and lava), Gauntlet of Force (+1 to pushes and pulls), Fenwalker Boots (ignore difficult terrain), Hourglass of Haste (initiative with advantage), Lucky Coin (+50% gold), Healer's Satchel (heal 15% of max HP after each battle).
+**Other relics.** Boots of Striding (+1 SPD for every hero), Dwarven Whetstone (**+1 chips** on every hero hit), Heart of the Oak (+8 max HP), Battle Hymn (+2 starting MP), Tactician's Map (the first basic attack each turn gives +1 more MP), Phoenix Feather (the first hero Down each battle rises at half HP), Vampire Fang (heal 4 on a kill), Bulwark Sigil (start each battle with 8 shield), Loaded Bones (**+1 Mult** on a hero hit with at least one crit), Sentinel Lens (+3 damage on hero reaction hits), Warding Charm (each foe's first hit on each hero each battle deals **half damage**), Salamander Scale (heroes ignore fire and lava damage and cannot Burn), Gauntlet of Force (+1 to hero pushes and pulls), Fenwalker Boots (ignore difficult terrain), Hourglass of Haste (better initiative), Lucky Coin (+50% gold), Healer's Satchel (heal 15% after each battle).
 
-**Unlocked relics** (4.10): War Drum (+1 MP to the hero who cashes in a combo), Scholar's Tome (picks and drafts show 4 cards), Camp Kettle (+1 hit die; Camps remove 2 Wounds), Merchant's Seal (merchants and the smith charge 25% less), Executioner's Hood (advantage against bloodied foes), Ember Censer (every foe but a boss starts each battle burning), Mender's Thread (Second Wind twice a battle), Crown of Thorns (+3 starting MP; foes gain 2 more Malice each round), Blood Chalice (when a hero goes Down, every other hero gains 2 MP).
+**Unlocked relics** (4.10): War Drum (+1 MP to the hero who cashes in a combo), Scholar's Tome (picks and drafts show 4 cards), Camp Kettle (+1 hit die; Camps remove 2 Wounds), Merchant's Seal (merchants and the smith charge 25% less), Executioner's Hood (**+1 Mult** on hero hits against bloodied foes), Ember Censer (every foe but a boss starts each battle with **Burn 3**), Mender's Thread (Second Wind twice a battle), Crown of Thorns (+3 starting MP; foes gain 2 more Malice each round), Blood Chalice (when a hero goes Down, every other hero gains 2 MP).
 
 ---
 
@@ -759,28 +760,25 @@ Each consumable takes **1 pack slot** (5.3).
 A **power** is anything a hero learns during a run. The full rules, every class's powers, the general powers, and weapon upgrades are in the **Heroes** book.
 
 - **Two kinds.** An **active** power is used on your turn and costs **MP** and **actions**. A **passive** power is always on, or triggers by itself, and costs nothing.
-- **Two lists.** **Class powers** are on each class page; **general powers** can be taken by any class. Each class also has an **innate** power that takes no slot.
+- **Two lists.** **Class powers** are on each class page; **general powers** can be taken by any class. Every hero also has **innate** powers that take no slot: their **basic attack**, **Second Wind** and **Help Up**, plus the fighter's **Shove**, the wizard's **Force Push** and the cleric's **Guidance**.
 - **Slots, rewards and drafts.** A hero has **8** power slots. Most powers come from **rewards** after each fight (4.2). A **draft** is a pick of 3 powers for one hero, from boons, Treasure, Training at a Camp and some events. Shops sell powers.
-- **Damage is weapon dice.** No power adds flat damage. Powers add **weapon dice**, widen the **crit range**, or **double** a hit (×3 at most). Upgrading your weapon makes every power stronger.
-- **Tags.** Every power has one of six tags (Set-up, Burst, Guard, Reach, Surge, Mend). If the party holds **4** or **8** powers of one tag, it gains a **Resonance** bonus.
+- **Every effect is one number.** A power rolls **weapon dice** (it says how many) for its **chips**, gives a foe **Mult**, gives an ally **Bless**, **Stuns**, **Roots** or **Burns**, or adds a **×** to a hit. Upgrading your weapon makes every attacking power stronger.
+- **Tags.** Every class and general power has one of six tags (Set-up, Burst, Guard, Reach, Surge, Mend). In v0.25 tags only group powers; the old Resonance bonuses are retired.
 
 ### 7.1 Using Active Powers
 
-- **Cost.** An active power costs the **MP** and **actions** it lists. **Innate** powers cost 0 MP.
-- **Free** powers cost no action (one per turn). **Reaction** powers cost 1 action on someone else's turn, once per round.
-- **Attacking powers** roll **weapon dice**. The **first die** decides miss and crit like a basic attack; the others add to the damage. Add your key stat once. DEF applies as usual unless the power says otherwise.
-- **Saves.** A power that forces an effect names a save. If it names none, it just works.
-- **Upcast.** Spend up to **2 extra MP**: +1 weapon die per MP on an attacking power, or +1 per MP to a push, pull or shield.
+- **Cost.** An active power costs the **MP** and **actions** it lists (1 action unless it says 2). **Innate** powers cost 0 MP.
+- **Free** powers cost no action. **Reaction** powers cost 1 ready action on someone else's turn, once per round each.
+- **Attacking powers** roll their **weapon dice** (a pair weapon adds one), add your key stat once, and multiply by MULT, exactly like a basic attack (3.5). Armour applies unless the power says otherwise.
+- **No saves.** A power's effects simply happen on every target it hits.
 - **Combat only.** Powers are used in battle. Outside battle, heroes use class options (1.3).
-
-**Passive powers** trigger at most **once per round** unless they say "each time". If two trigger together, you choose the order.
 
 **Reading a power:**
 
 | Power | R | Tag | MP | Actions | Range | Effect |
 |---|---|---|---|---|---|---|
-| **Tide of Iron** | C | Set-up | 1 | 1 | 1 | Attack. On a hit, push the foe 1 tile (2 on a crit) and step into its tile. It is **staggered** and **marked**. |
-| **Coup de Grâce** | R | Burst | — | passive | — | Your crits against a **staggered** foe deal **double damage**. |
+| **Tide of Iron** | C | Set-up | 1 | 1 | 1 | Attack. Push the foe 1 square and step after it. It is Taunted. If it slams into something, it is Stunned. |
+| **Anvil** | U | Set-up | — | passive | — | When you Stun a foe, it also gains +2 Mult. |
 
 ---
 
@@ -790,7 +788,7 @@ A **power** is anything a hero learns during a run. The full rules, every class'
 - **Shifting order.** Roll initiative again every round.
 - **Simple turns.** Each creature gets one move and one action. Defend is free, once per round.
 - **Free strikes.** Leaving a tile next to an enemy for one that is not lets it make a basic attack against you (the rule before v0.24).
-- **Auto-defend.** Heroes roll DEF automatically against every hit, at no cost.
+- **Auto-defend.** Heroes roll their Defend die automatically against every non-crit hit, at no cost.
 - **Lean rewards.** Rewards come only from elites and bosses, as in the old level-up game; normal battles give gold and Victories only.
 
 ---
@@ -800,37 +798,43 @@ A **power** is anything a hero learns during a run. The full rules, every class'
 | Term | Meaning |
 |---|---|
 | **Action** | One of your 3 per turn; reactions spend them too (3.3) |
-| **Advantage / disadvantage** | Roll extra dice, keep the best or worst; net capped at 3 (1.4) |
-| **ATK** | Weapon die + key stat (3.5) |
+| **Advantage / disadvantage** | Out of battle only: roll extra dice, keep the best or worst; net capped at 3 (1.4) |
+| **Armour** | A foe's flat number taken off the chips of every hero hit, to a minimum of 1 chip (3.5) |
+| **Bless N** | +N chips on a hero's next hit (3.10) |
 | **Bloodied** | At or below half HP (2.3) |
-| **Chain / Link** | Power keywords: the hero before you in the order / allies around you (Heroes) |
+| **Burn N** | N damage at the start of its turn, then N drops by 1 (3.10) |
+| **Chips** | The blue half of a hit: dice + key stat + bonuses − armour (3.5) |
 | **Class option** | An event choice only a party with that class can pick (1.3) |
 | **Combo** | Cashing in another hero's set-up: +2 MP each (3.8) |
-| **Companion** | An animal ally that acts on its owner's turn (3.13) |
-| **Critical hit** | The weapon die shows its maximum: explodes and ignores DEF (3.5) |
-| **DEF** | Armour's defence die, rolled when you Defend (3.6) |
+| **Companion** | An animal ally (parked in v0.25) (3.13) |
+| **Crit** | A die on its top number: it turns red and adds +1 Mult (3.5) |
+| **Defend** | A reaction: roll your armour die and subtract it from a non-crit hit (3.6) |
 | **Down** | At 0 HP; gain a Wound (2.4) |
 | **Ready action** | An action kept from your turn; pays for one reaction before your next turn (3.3) |
 | **Group check** | Every hero rolls; half must succeed (1.3) |
 | **HD (⚅)** | Hit die: sets HP and heals; a pool of 3 (2.1) |
-| **Key stat** | The attribute your class adds to attacks (3.5) |
+| **Key stat** | The attribute your class adds to every hit (3.5) |
 | **Ladder** | Move a die one step up or down d4 → d20 (1.1) |
 | **Malice (◆)** | The foes' shared resource (Bestiary) |
+| **Mult** | The red half of a hit: 1 + crits + Mult status + other sources (3.5); also a status on a foe (3.10) |
 | **MP** | Momentum: pays for active powers (3.7) |
 | **Passive power** | A power that is always on or triggers by itself (7) |
 | **Power** | Anything a hero learns: active (MP and actions) or passive; picked as a reward or drafted, into slots (7) |
 | **Reaction** | An action taken on someone else's turn; costs 1 action (3.6) |
-| **Resonance** | A party bonus for holding 4 or 8 powers of one tag (7) |
+| **Rooted** | Can't move on its next turn (3.10) |
 | **Rune** | A weapon upgrade from the smith (Heroes) |
 | **Role** | How a foe fights: Brute, Soldier, Skirmisher, Artillery, Controller, Lurker, Leader (Bestiary) |
-| **Save** | A check to resist an effect (1.5) |
-| **Set-up** | A condition for another hero to cash in (3.8) |
-| **Shield** | Temporary HP (2.2); a carried shield gives Defend advantage (6.2) |
+| **Save** | Out of battle only: a check to resist an effect (1.5) |
+| **Set-up** | A status for another hero to cash in: Mult, Stun or Bless (3.8) |
+| **Shield** | Temporary HP (2.2); a carried shield gives +2 to Defend (6.2) |
 | **SPD** | Tiles per Move (3.1) |
+| **Stunned** | A foe skips its next turn; a hero loses 1 action (3.10) |
+| **Taunted** | Must attack the taunter; half damage to anyone else (3.10) |
 | **Victory** | A win since the last Camp: starting MP (4.2) |
 | **Boon** | A gift or bargain chosen at the start of a run (4.9) |
 | **Chronicle** | What carries over between runs: totals, score, unlocked relics (4.10) |
 | **Dread** | The difficulty ladder unlocked by winning (4.10) |
 | **Reward** | After each battle won: pick 1 of 3 cards, a power for one hero or growth (4.2) |
 | **Growth** | A reward card: Vigor (+1½ hit dice of max HP) or Training (+1 key stat) (4.2) |
-| **Wound** | −1 to checks, saves and attacks (max −3); the fourth Down kills (2.4) |
+| **Weak** | Deals half damage (3.10) |
+| **Wound** | −1 chip on every hit and −1 to checks (max −3); the fourth Down kills (2.4) |

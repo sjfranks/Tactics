@@ -185,7 +185,11 @@ function unitStatuses(u){
   if(u.shield>0)out.push('shield');
   return out;
 }
-function statusRow(u,x,y,max){const L=unitStatuses(u).slice(0,max||6);L.forEach((k,i)=>{const c=statusIcon(k);if(c)ctx.drawImage(c,x+i*8,y);});return L.length*8;}
+/* Mult, Bless and Burn stack: their badges carry the number. */
+const ST_COL={mult:'#ff7a5a',bless:'#8fc4ff',burn:'#ffb040',shield:'#8ac8ff'};
+function stCount(u,k){return k==='shield'?u.shield:['mult','bless','burn'].includes(k)?(u.st[k]||0):0;}
+function statusRow(u,x,y,max){const L=unitStatuses(u).slice(0,max||6);let cx=x;
+  L.forEach(k=>{const c=statusIcon(k);if(c)ctx.drawImage(c,cx,y);cx+=8;const n=stCount(u,k);if(n){text(String(n),cx,y+1,ST_COL[k]||C.white);cx+=textW(String(n))+2;}});return cx-x;}
 /* Cards and tokens always want a figure about 32 pixels tall, so large creatures use their half-size image there. */
 function cardSprite(u,hi){const S=unitSprite(u,hi);return hi&&S.c.height/(S.c._s||1)>32?unitSprite(u,false):S;}
 function unitSprite(u,hi){const f=hi?sprH:HIRES?sprM:spr;if(u.kind==='pc')return f(u.cls,u.rival?'rival':null);if(u.kind==='npc')return f(u.npc);return f(MON[u.type].art);}

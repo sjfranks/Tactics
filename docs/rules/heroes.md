@@ -1,15 +1,15 @@
 ---
 title: Rogue Tactics 1e — Heroes
-version: 0.24
+version: 0.25
 book: 2 of 3 (Core Rules · Heroes · Bestiary)
 tags: [game-design, rulebook, roguelite, tactics, classes, powers]
 ---
 
 # Rogue Tactics 1e — Heroes
 
-> v 0.24. Book 2 of 3. The classes, their **powers**, and how weapons and powers grow during a run. Basic rules are in [Core Rules](core-rules.md). **Powers and numbers are drafts (TBC).**
+> v 0.25 "Chips × Mult". Book 2 of 3. The classes, their **powers**, and how weapons and powers grow during a run. Basic rules are in [Core Rules](core-rules.md). **Powers and numbers are drafts (TBC).**
 >
-> **The idea of this book:** the basic rules stay simple. The depth comes from what you build during a run: the powers you draft, the weapons you upgrade, and how your four heroes' powers feed each other.
+> **The idea of this book:** the basic rules stay simple. Every hit is **CHIPS × MULT** (Core 3.5), and every power changes **one number**: more dice (chips), **Mult** on a foe, **Bless** on a friend, a **Stun**, or a **×**. The depth comes from how your four heroes' numbers feed each other.
 
 ---
 
@@ -17,23 +17,23 @@ tags: [game-design, rulebook, roguelite, tactics, classes, powers]
 
 A party of four works best with one hero in each **role**. The default party is the **rogue, fighter, wizard and cleric**.
 
-| Role | Icon | What it does | Its set-up (Core 3.8) |
+| Role | Icon | What it does | Its job in the combo game |
 |---|---|---|---|
-| **Striker** | ⚔︎ | Fast, hits hard, fragile. | Cashes in the others' set-ups with crits. |
-| **Tank** | ⬢ | Tough, draws attacks, fights up close. | **Staggers** and **marks** foes. |
-| **Controller** | ❖ | Moves, roots and burns foes; hits groups. | **Roots**, **slows** and **burns** foes; sets up slams. |
-| **Support** | ✚ | Heals, shields and buffs. | **Blesses** allies and **exposes** foes. |
+| **Striker** | ⚔︎ | Fast, hits hard, fragile. | **Cashes in** the Mult and Stuns her friends set up, for the biggest hits in the game. |
+| **Tank** | ⬢ | Tough, draws attacks, fights up close. | **Stuns** foes with slams and **Taunts** them so they fight her. |
+| **Controller** | ❖ | Moves and burns foes; hits groups. | **Multiplies**: every spell leaves foes with **Mult**. |
+| **Support** | ✚ | Heals, shields and buffs. | **Blesses** friends (+chips) and keeps them standing. |
 
-| Class | Role | Key stat | Hit die | Complexity |
-|---|---|---|---|---|
-| **Rogue** | ⚔︎ Striker | ➶ DEX | d8 | ♦ |
-| **Fighter** | ⬢ Tank | ♜ STR | d10 | ♦ |
-| **Wizard** | ❖ Controller | ✦ INT | d6 | ♦♦ |
-| **Cleric** | ✚ Support | ♛ PRE | d8 | ♦♦ |
+| Class | Role | Key stat | Hit die | Defend die | SPD | Complexity |
+|---|---|---|---|---|---|---|
+| **Rogue** (Vex) | ⚔︎ Striker | ➶ DEX | d8 | d4 | 4 | ♦ |
+| **Fighter** (Brakka) | ⬢ Tank | ♜ STR | d10 | d8 +2 shield | 3 | ♦ |
+| **Wizard** (Orin) | ❖ Controller | ✦ INT | d6 | d4 | 4 | ♦♦ |
+| **Cleric** (Sela) | ✚ Support | ♛ PRE | d8 | d6 +2 shield | 3 | ♦♦ |
 
 **Complexity** (♦) is how much a class juggles. ♦ is a good first class.
 
-**Each class page has:** a stat table; its **specialties** (event options only it unlocks, Core 1.3); its **class reaction**, now a reaction power learned as a reward (Core 3.6); a **level table** (heroes have the level 1 and 2 rows from the start; the rest is parked, see The Level Rhythm); its **class powers**; sample **builds**; and the classes it **combos** with best.
+**Each class page has:** a stat table; its **specialties** (event options only it unlocks, Core 1.3); its **class features**; its **class powers**; sample **builds**; and the classes it **combos** with best.
 
 ---
 
@@ -43,15 +43,16 @@ A **power** is anything a hero learns during a run. Every power is either:
 
 | Kind | What it is | Example |
 |---|---|---|
-| **Active** | You **use** it on your turn. It costs **MP** (Core 3.7) and **actions**. | *Tide of Iron:* 1 MP, 1 action. Attack; push; stagger. |
-| **Passive** | It is **always on**, or **triggers by itself**. No MP, no action. | *Coup de Grâce:* your crits against staggered foes deal double damage. |
+| **Active** | You **use** it on your turn. It costs **MP** (Core 3.7) and **actions**. | *Hex:* 1 MP, 1 action. Range 5. The foe gains +2 Mult. |
+| **Passive** | It is **always on**, or **triggers by itself**. No MP, no action. | *Heavy Hitter:* each crit gives +2 Mult instead of +1. |
 
-Powers come from two lists: **class powers** (on each class page; only that class) and **general powers** (Part 6; any class). Each class also has an **innate** power that every hero of that class knows; it takes no slot.
+Powers come from two lists: **class powers** (on each class page; only that class) and **general powers** (Part 6; any class). Every hero also has **innate** powers that take no slot (Part 2.1).
 
 ### 2.1 Slots, Rewards and Drafts
 
+- **Innate powers** (no slot, no MP): every hero's **basic attack** (Sword, Blades, Staff Bolt, Mace), **Second Wind** and **Help Up**; the fighter's **Shove**, the wizard's **Force Push**, the cleric's **Guidance**.
 - **Slots.** A hero has **8** power slots. Active and passive powers share them. *(Phone screens show active powers as buttons; at most 6 actives fit, TBC.)*
-- **Start.** Each hero has their basic attack, their innate power (if any) and **one class power**: Brakka *Tide of Iron*, Vex *Piercing Strike*, Orin *Scorching Burst*, Sela *Healing Word*. Everything else comes from rewards, so the first battles stay simple.
+- **Start.** Each hero has their innate powers and **one class power**: Brakka *Tide of Iron*, Vex *Piercing Strike*, Orin *Hex*, Sela *Healing Word*. Everything else comes from rewards, so the first battles stay simple.
 - **No levels.** Heroes do not level up (Core 4.2). Powers come from **rewards** and **drafts**.
 - **Rewards** (the main source). After every battle won, the party picks **1 of 3 cards**: each a power for a named hero (class or general), or a **growth** card (Vigor: +1½ hit dice of max HP; Training: +1 key stat).
 - **Drafts.** A draft shows **one hero 3 powers** (at least one class power and one general power). Take one or skip.
@@ -71,34 +72,19 @@ Powers come from two lists: **class powers** (on each class page; only that clas
 
 ### 2.2 Using Powers
 
-- **Active powers** cost the MP and actions they list. **Free** powers cost no action (one per turn). **Reaction** powers cost 1 action on someone else's turn, once per round.
-- **Passive powers** trigger at most **once per round** unless they say **each time**. If two trigger together, you choose the order.
-- **Damage is always weapon dice.** No power adds flat damage. A power that hurts says how many **weapon dice** it rolls; the first die decides miss and crit, the rest add (Core 7). **A better weapon makes every power better** (Part 3).
-- **Double damage.** Some powers double the damage of a hit. Multiply the final damage (after DEF) by 2. **Each extra double adds ×1**: two doubles make ×3. **×3 is the maximum.**
-- **Upcast.** Spend up to 2 extra MP: +1 weapon die per MP on an attacking power, or +1 per MP to a push, pull or shield.
+- **Active powers** cost the MP and actions they list (1 action unless it says **2 actions**). **Free** powers cost no action. **Reaction** powers cost **1 ready action** on someone else's turn, **once per round** each, and the game always asks first.
+- **Attacking powers** say how many **dice** they roll ("Attack" is one die; "with 2 dice" is two). They roll **your weapon's die**, one more with a **pair** weapon, then add your key stat and multiply by MULT (Core 3.5). **A better weapon makes every attacking power better** (Part 3).
+- **Every effect is one number:** **+N Mult** on a foe (spent by the next hero hit on it), **Bless N** on an ally (+N chips on their next hit), **Stun**, **Root**, **Burn N**, **Taunt**, **Shield N**, or a **×** on the hit (*Assassinate* ×3, *Shatter* ×2).
+- **No saves.** A power's effects happen on every target it hits. Bosses turn a Stun into +2 Mult and ignore Root.
+- **Basic attacks** cost no MP and can be used as often as you have actions; the first each turn gives +1 MP.
 
-### 2.3 Keywords
+### 2.3 Your Set-up, Their Payoff
 
-| Keyword | Meaning |
-|---|---|
-| **Chain** | Reacts to **the hero before you** in the turn order (skipping Down heroes; wraps around). Swapping places in the order (Core 3.2) sets up Chains. |
-| **Link** | Reacts to **allies in the 8 tiles around you**. |
-| **Growth** | Has **counters** kept for the whole run. Lost when the hero goes Down, unless stated. |
-| **Reckless** | A big upside with a real drawback. |
-| **Your set-up** | "A foe **you** rooted / staggered / exposed" means the condition came from you. Allies get the payoff; you never cash in your own set-up (Core 3.8). |
+"A foe **you** Rooted" (or Stunned, or gave Mult) means the status came from you. **Allies** get the payoff: a hit that cashes in another hero's Mult, Stun or Bless is a **combo**, +2 MP for each hero involved (Core 3.8). You never combo off your own set-up.
 
-### 2.4 Tags and Resonance
+### 2.4 Tags
 
-Every power except innate ones has one **tag**: **Set-up**, **Burst**, **Guard**, **Reach**, **Surge** or **Mend**. Count the powers with each tag **across the whole party**. At **4** the party gets that tag's **Resonance I**; at **8**, **Resonance II** instead.
-
-| Tag | Resonance I (4 powers) | Resonance II (8 powers) |
-|---|---|---|
-| **Set-up** | The first combo each round gives the hero who cashes it in **+1 extra MP**. | Combos roll **+1 weapon die**. |
-| **Burst** | Once per battle, each hero may **reroll a weapon die that came up 1**. | Crits roll **+1 weapon die**. |
-| **Guard** | **+1** to every Defend roll. | The **first Defend each round costs no action**. |
-| **Reach** | Pushes and pulls move **1 tile further**. | Slams roll **one more** weapon die. |
-| **Surge** | Every hero starts each battle with **+1 MP** (the 5 MP cap applies). | The MP maximum is **12**. |
-| **Mend** | Healing from hit dice and powers is **+1** per die. | Whenever a hero heals an ally, that ally also gains a **shield of 3**. |
+Every class and general power has one **tag**: **Set-up**, **Burst**, **Guard**, **Reach**, **Surge** or **Mend**. In v0.25 tags only sort powers on the cards and in the compendium. **Resonance is retired**: the party no longer gains bonuses for holding 4 or 8 powers of one tag.
 
 ---
 
@@ -106,417 +92,404 @@ Every power except innate ones has one **tag**: **Set-up**, **Burst**, **Guard**
 
 ### 3.1 The Weapon Is the Engine
 
-Every hit in the game is weapon dice plus your key stat (Core 3.5). Powers add **weapon dice**, widen your **crit range**, or **double** a hit. So your weapon's die decides what kind of hero you are:
+Every hit in the game is weapon dice plus your key stat, times MULT (Core 3.5). Powers add **dice**, and every die that lands on its **top number** is a **crit**: it turns red and adds **+1 Mult**. So your weapon's die decides what kind of hero you are: small dice crit often, big dice give more chips.
 
-| Die | Miss | Crit | Plays like |
-|---|---|---|---|
-| **d2** | 50% | 50% | All or nothing. Every hit is a crit that **ignores DEF**. Built for crit payoffs and doubles. |
-| **d4** | 25% | 25% | Quick and crit-happy. Daggers, twinblades, slings, staffs. |
-| **d6** | 17% | 17% | The all-rounder. |
-| **d8** | 12% | 12% | Heavy and steady. |
-| **d10** | 10% | 10% | Big, reliable hits; extra dice from powers are huge. |
-| **d12** | 8% | 8% | Rare legendary weapons. |
+| Die | Crit chance per die | Plays like |
+|---|---|---|
+| **d2** | 50% | Every 2 is a crit. A pair of d2s crits three times in four. Built for Mult. |
+| **d4** | 25% | Quick and crit-happy. Daggers, twinblades, staffs. |
+| **d6** | 17% (33% with Keen) | The all-rounder. |
+| **d8** | 12% (25% with Keen) | Heavy and steady. |
+| **d10** | 10% (20% with Keen) | Big, reliable hits; extra dice from powers are huge. |
+| **d12** | 8% (17% with Keen) | Rare legendary weapons. |
 
-Average damage per attack, key stat 3, against a foe with **DEF d6** (simulated):
+Average damage of one basic attack, key stat 3 (exact, from the dice):
 
-| Weapon | Plain | + Sneak Attack (1 extra die) | Crit doubled | Sneak + crit tripled |
+| Weapon | At least one crit | Armour 0 | Armour 2 | Armour 3 | Armour 2, foe with Mult 2 |
+|---|---|---|---|---|---|
+| **Pair of d2s** | 75% | 12.5 | 8.5 | 6.5 | 16.5 |
+| **Pair of d4s** (Twinblades) | 44% | 12.8 | 9.8 | 8.2 | 21.8 |
+| **d6** | 17% | 8.0 | 5.7 | 4.5 | 14.7 |
+| **d8** | 12% | 8.9 | 6.6 | 5.5 | 17.6 |
+| **d10** | 10% | 9.8 | 7.6 | 6.5 | 20.6 |
+| **Pair of d6s** (Kingslayer) | 31% | 14.2 | 11.5 | 10.2 | 27.5 |
+
+Armour comes off the chips, so it hurts small dice most; Mult multiplies chips, so it rewards big ones. Neither is always best, which is the point.
+
+### 3.2 The Weapons
+
+Each hero starts with a tier 1 weapon. Better ones come from shops (70 / 120 / 180 gold for tiers 2 / 3 / 4), treasure, elites and events.
+
+| Weapon | Class | Tier | Die | Runes and notes |
 |---|---|---|---|---|
-| **d2** | 4.0 | 4.7 | 8.0 | **14.3** |
-| **d4** | 3.7 | 5.4 | 6.4 | 11.8 |
-| **d6** | 4.3 | 6.9 | 6.5 | 12.5 |
-| **d8** | 5.0 | 8.6 | 7.0 | 13.8 |
+| **Longsword** | Fighter | 1 | d6 | A plain, trusty blade. |
+| **Battleaxe** | Fighter | 2 | d8 | — |
+| **Thunder Hammer** | Fighter | 2 | d6 | Thunder |
+| **Flameforged Blade** | Fighter | 3 | d8 | Flame, Keen |
+| **Titan's Maul** | Fighter | 4 | d10 | Thunder, Keen. Two-handed (no shield on Defend). |
+| **Twinblades** | Rogue | 1 | d4, pair | 2 dice on every attack. |
+| **Serrated Twinblades** | Rogue | 2 | d4, pair | Venom |
+| **Duelist's Rapier** | Rogue | 2 | d6 | Keen |
+| **Shadow Needles** | Rogue | 3 | d2, pair | Venom |
+| **Kingslayer** | Rogue | 4 | d6, pair | Vicious, Venom |
+| **Arcane Staff** | Wizard | 1 | d4 | A plain staff. |
+| **Staff of Reach** | Wizard | 2 | d4 | Long |
+| **Emberstaff** | Wizard | 2 | d6 | Flame |
+| **Frost Orb** | Wizard | 3 | d6 | Frost, Long |
+| **Staff of the Magi** | Wizard | 4 | d8 | Keen, Long |
+| **Iron Mace** | Cleric | 1 | d6 | Blunt and honest. |
+| **Blessed Mace** | Cleric | 2 | d8 | Radiant |
+| **Warding Censer** | Cleric | 2 | d6 | Warding |
+| **Sunforged Flail** | Cleric | 3 | d8 | Radiant, Keen |
+| **Relic of Dawn** | Cleric | 4 | d10 | Radiant, Warding |
 
-Big dice win when you add dice; small dice win when you **multiply crits**. Neither is always best, which is the point.
+Staffs crit like any other weapon in v0.25 (they used to never miss and never crit).
 
-### 3.2 The Smith
+### 3.3 The Smith
 
 Shops have a **smith**. Weapons found as loot can come with upgrades already.
 
 | Service | Cost (TBC) | Effect |
 |---|---|---|
 | **Temper** | 40 / 80 / 160 gold (to d6 / d8 / d10+) | Ladder the weapon's die **up one step**. |
-| **Hone** | 40 gold | Ladder the die **down one step**. Only **Light** weapons can go down to a **d2** (a *needle*). |
-| **Inscribe** | 60 gold | Put a **rune** into an empty socket. Plain weapons have **1 socket**; magic weapons have **2**. |
-| **Re-inscribe** | 20 gold | Remove a rune (it is lost). |
+| **Hone** | 40 gold | Ladder the die **down one step** (not below d4, except the rogue's light weapons, which go down to a **d2**). |
+| **Inscribe** | 60 gold | Put a **rune** into an empty socket. Plain weapons have **1 socket**; magic weapons (tier 3+) have **2**. Keen needs a d6 or larger; only one of Flame, Frost and Radiant; Twin only on a light weapon that is not already a pair. |
+| **Remove** | 20 gold | Remove a rune (it is lost). |
 
-- A **natural 1 is never a crit**: it misses (or, with *no misses*, is just a low roll).
-- A weapon cannot be both a **d2** and have **no misses**.
+### 3.4 Runes
 
-### 3.3 Runes
+Runes work on every attack and attacking power the weapon makes.
 
 | Rune | Effect |
 |---|---|
-| **Keen** | Crits on the maximum **or one below it**. Only on a **d6 or larger**. |
-| **Vicious** | A crit rolls **+1 weapon die**. |
-| **Steady** | Once per turn, reroll a weapon die that came up 1. |
-| **Flame** | Deals **fire** damage. A crit sets the target **burning**. |
-| **Frost** | Deals **cold** damage. A crit **slows** the target. |
-| **Radiant** | Deals **radiant** damage. |
-| **Venom** | A crit makes the target **bleed**. |
-| **Thunder** | A crit **pushes** the target 1 tile (it can slam). |
-| **Warding** | A hit gives you and adjacent allies a **shield of 2**. |
-| **Long** | +1 reach or +1 range. |
-| **Twin** | A **Light** weapon becomes a **pair**. |
+| **Keen** | Crits on the top number **or one below it** (d6 or larger). |
+| **Vicious** | Each crit gives **+1 more Mult**. |
+| **Steady** | Once a turn, reroll a weapon die that came up 1. |
+| **Flame** | **Fire** damage. A crit makes the foe **Burn 2**. |
+| **Frost** | **Cold** damage. A crit **Roots** the foe. |
+| **Radiant** | **Radiant** damage: ×2 against the undead. |
+| **Venom** | A crit makes the foe **Burn 2**. |
+| **Thunder** | A crit **pushes** the foe 1 square (it can slam and be Stunned). |
+| **Warding** | A hit shields you and allies beside you for **2**. |
+| **Long** | 1 more square of reach or range (on basic attacks). |
+| **Twin** | A light weapon becomes a **pair**: one more die on every attack. |
 
-### 3.4 How Builds Come Together
+### 3.5 How Builds Come Together
 
-A build is a weapon, two or three runes over a run, and the powers that make them sing. Each class page shows a few. The best ones lean on **another class's set-ups**:
+A build is a weapon, a rune or two over a run, and the powers that make them sing. The best ones lean on **another class's set-ups**:
 
-- A **needle rogue** (d2) loves foes that the **fighter staggers** (sure crits), that the **wizard roots** (*Shatter*: crits doubled) and **blessings** from the cleric (*Divine Favour*: crits doubled). Stacked, that is ×3 on a hit that already ignores armour.
-- A **breaker fighter** with a **Thunder** greatmaul pushes foes on every crit. Each push can slam, and every slam staggers, which sets up the rogue and the cleric.
-- A **frost wizard** roots foes so the whole party crits harder; a **battlemage** tempers her staff and makes it crit.
+- A **needle rogue** (a pair of d2s) crits three times in four, so every swing already has Mult 2 or 3. Give her a foe with the wizard's **Hex** and *Backstab* doubles it.
+- A **thunder fighter** pushes foes on every crit. Each push can slam, and every slam **Stuns**, which sets up the rogue's *Assassinate* (×3).
+- A **frost wizard** Roots foes, and with *Shatter* every ally's hit on them is ×2.
+- A **blessing cleric** with *Radiance* gives Bless 5 at a time: on a twin-blade rogue with three crits, those 5 chips are worth 20 damage.
 
 ---
 
 ## Part 4 · Combos Between Classes
 
-Who makes each condition, and who cashes it in. *Bold* entries are the class powers that pay it off (Parts 5 and 6).
+Who makes each set-up, and who cashes it in. *Bold* entries are the powers that pay it off (Parts 5 and 6).
 
-| Condition | Made by | Paid off by |
+| Set-up | Made by | Paid off by |
 |---|---|---|
-| **Staggered** | Fighter (*Shove*, *Tide of Iron*, slams); Wizard (*Force Push*, slams) | Everyone: a **sure crit** (Core 3.8). Rogue **Coup de Grâce** (crit doubled). |
-| **Exposed** | Cleric (*Brand of Judgment*); Rogue (*Feint*); Fighter (**Shieldbreaker**); anyone (*Assess*) | Everyone: advantage. Rogue **Sneak Attack**. Cleric **Smite**, **Judgment Day**. |
-| **Blessed** | Cleric (*Guidance*, *Bless*) | Everyone: advantage. Cleric **Divine Favour** (blessed allies' crits doubled). |
-| **Rooted / slowed** | Wizard (*Ray of Frost*, *Web*) | Rogue **Sneak Attack** (rooted). Wizard **Shatter** (allies' crits on foes she rooted doubled). |
-| **Burning** | Wizard (*Scorching Burst*, *Fireball*); Flame rune | Wizard **Kindling**, **Wildfire**. |
-| **Bleeding** | Rogue (*Deep Cut*, **Open Veins**); Venom rune | Fighter **Blood in the Water** (+1 weapon die). |
-| **Marked** | Fighter (*Tide of Iron*, *Hook Chain*, *Shield Wall*) | Wizard **Lightning Rod** (+1 weapon die on area powers). |
-| **Hidden** | Rogue (*Vanish*, *Hide*) | Rogue **Backstab**. |
-| **Bloodied** | Damage | Cleric *Brand of Judgment*; general **Finisher**. |
-| **Next to an ally** | Fighter **Anvil** (pushes a foe next to an ally) | Rogue *Opportunist*; the ally's free attack. |
+| **Mult** | Wizard (*Staff Bolt* +1, *Hex* +2, *Chain Hex* +1 to an area, **Amplify** +1 to each); Cleric (*Brand* +1); Fighter (**Anvil**: +2 when she Stuns) | Everyone: +N MULT on the next hit. Rogue **Backstab** (counts double). Cleric **Judgment** (hits every foe with Mult). |
+| **Stunned** | Fighter (*Shove*, *Tide of Iron* slams, *Earthshaker*); Wizard (*Force Push* slams); Thunder rune | Everyone: it skips its turn, and hitting it is a combo. Rogue **Assassinate** (×3). |
+| **Bless** | Cleric (*Guidance* 3, *Bless* 3; **Radiance** +2) | Everyone: +N chips. |
+| **Rooted** | Wizard (*Ray of Frost*); Frost rune | Wizard **Shatter** (allies' hits ×2). |
+| **Burn** | Wizard (*Scorching Burst* 2, *Fireball* 3); Flame and Venom runes; Ember Censer | Damage every turn, ignoring armour. |
+| **Taunted** | Fighter (*Tide of Iron*, *Hook Chain*, *Shield Wall*, *Sentinel*) | Everyone: the foe deals half damage to anyone but the fighter. |
+| **Bloodied** | Damage | General **Finisher**; the Executioner's Hood (+1 Mult each). |
+| **Ally beside the foe** | Positioning | Rogue **Sneak Attack** (+1 Mult), **Opportunist**. |
 
 ---
 
 ## Part 5 · The Classes
 
-The four core classes. Each page ends with sample builds and the classes it combos with best.
+The four core classes. Each page ends with sample builds and the classes it combos with best. Attributes are the defaults of the ready-made hero.
 
 ---
 
 # ROGUE ⚔︎
 
-*Cloak and dagger… and dagger.* The rogue is a streetwise survivor who strikes when no one is looking. She is the party's **crit engine**: she cashes in what the others set up, and her weapon choice decides whether she adds dice or multiplies crits.
+*Cloak and dagger… and dagger.* The rogue is a streetwise survivor who strikes when no one is looking. She is the party's **finisher**: she cashes in the Mult and Stuns her friends set up, for the biggest hits in the game.
 
 | | |
 |---|---|
 | **Role** | ⚔︎ Striker · ♦ |
 | **Key stat** | ➶ DEX |
+| **Attributes** | STR 2 · DEX 3 · INT 3 · PRE 1 |
 | **Hit die / HP** | d8 / 32 |
-| **Saves** | DEX +, PRE − |
-| **Armour** | Light (d4). No shield. |
+| **SPD** | 4 |
+| **Defend** | d4 (light armour). No shield. |
 | **Weapons** | Light, Ranged |
-| **Starting gear** | Twinblades (d4, pair), leather armour, 1 healing potion |
+| **Starting gear** | Twinblades (d4, pair) |
 
 **Specialties:** locks, traps, pockets, sneaking past guards, spotting an ambush.
 
-**Class reaction: Opportunist** (reaction power, Uncommon). An ally hits a foe next to you. Spend a ready action to make a basic attack against that foe (not if it is staggered).
+**Class features.**
+- **Sneak Attack:** **+1 Mult** against a foe that has one of her allies beside it.
+- **Light armour:** Defend rolls a d4.
 
-| Level | Gain |
-|---|---|
-| **1** | **Sneak Attack:** your attacks roll **one extra weapon die** against a foe that is **staggered, exposed, rooted, dazed or flanked**. One class powers. |
-| **2** | **Nimble:** a Sentinel's strike never catches you. |
-| **3** | Choose a **path**. |
-| **4** | **+1 attribute.** |
-| **5** | **Vanishing Act:** once per battle, Hide as a free power, with no check. Path feature. |
-
-**Class powers.** Start with *Piercing Strike*; the rest come as rewards.
+**Class powers.** *Blades* is her basic attack. Start with *Piercing Strike*; the rest come as rewards.
 
 | Power | R | Tag | MP | Actions | Range | Effect |
 |---|---|---|---|---|---|---|
-| **Piercing Strike** | C | Burst | 1 | 1 | 1 | Attack with **2 weapon dice**. It **ignores DEF**. |
-| **Deep Cut** | C | Set-up | 1 | 1 | 1 | Attack with **2 weapon dice**. On a hit, the foe is **bleeding**. |
-| **Hit and Run** | C | Reach | 1 | 1 | 1 | Attack with **2 weapon dice**, then move up to 2 tiles (no free strikes). |
-| **Feint** | C | Set-up | 1 | 1 | 1 | No damage. The foe makes an **INT save** or is **exposed**. |
-| **Vanish** | C | Burst | 1 | free | self | You become **hidden** and gain +2 SPD this turn. |
-| **Backstab** | C | Burst | — | passive | — | Attacking from **hiding**, Sneak Attack rolls **2** extra weapon dice instead of 1. |
-| **Open Veins** | C | Set-up | — | passive | — | Your crits make the foe **bleed**. |
-| **Shadowstep** | U | Reach | 2 | 1 | 5 | Teleport next to a foe within 5 and attack it with **advantage** and **2 weapon dice**. |
-| **Counterattack** | U | Guard | 0 | reaction | 1 | A foe misses you with a melee attack: make a basic attack against it. |
-| **Opportunist** | U | Burst | 0 | reaction | 1 | An ally hits a foe next to you: make a basic attack against it. |
-| **Needle and Thread** | U | Burst | — | passive | — | If your weapon is a **d2**, your extra weapon dice (Sneak Attack and powers) roll **d6** instead. |
-| **Flurry** | R | Burst | — | passive | — | When your basic attack **crits** on your turn, you may make **one more basic attack** this turn. |
-| **Coup de Grâce** | R | Burst | — | passive | — | Your crits against a **staggered** foe deal **double damage**. |
+| **Blades** (basic) | — | — | 0 | 1 | 1 | Attack: your weapon die + DEX. |
+| **Piercing Strike** | C | Burst | 1 | 1 | 1 | Attack with 2 dice. Ignores armour. |
+| **Backstab** | C | Burst | 1 | 1 | 1 | Attack. The foe's Mult counts double. |
+| **Hit and Run** | C | Reach | 1 | 1 | 1 | Attack, then move up to 2 squares. |
+| **Flurry** | U | Burst | 2 | 1 | 1 | Attack twice. |
+| **Shadowstep** | U | Reach | 2 | 1 | 5 | Teleport beside a foe within 5 and attack it. |
+| **Opportunist** | U | Burst | — | reaction | 1 | Reaction (1 ready action, once a round): an ally hits a foe beside you. Attack it too. |
+| **Counterattack** | U | Guard | — | reaction | 1 | Reaction (1 ready action, once a round): a foe hits you in melee. Attack it back. |
+| **Assassinate** | R | Burst | 3 | 1 | 1 | Attack with 2 dice. Against a Stunned foe, ×3 damage. |
+
+*Engine notes:* Opportunist does not strike a Stunned foe; Counterattack does not answer area attacks. With *Flurry*, the foe's Mult and your Bless are spent by the first of the two hits.
 
 **Builds.**
 
 | Build | Weapon and runes | Key powers | Plan |
 |---|---|---|---|
-| **The Needle** | Twinblades honed to **d2** (a pair of needles) + Venom | *Needle and Thread*, *Flurry*, *Coup de Grâce* | Half your swings crit, ignore DEF, and keep you swinging. Wait for the fighter's stagger, the wizard's root and the cleric's blessing: ×3. |
-| **The Bleeder** | Twinblades + Venom, later Twin on a Shortsword | *Deep Cut*, *Open Veins*, *Hit and Run* | Spread bleeding for the fighter's *Blood in the Water*, then dance away. |
-| **The Shadow** | Shortsword tempered to d8 + Keen | *Vanish*, *Backstab*, *Shadowstep* | Hide, then hit with 3 dice of d8. Bigger die, fewer crits, huge alpha strikes. |
+| **The Needle** | Twinblades honed to a pair of **d2s** + Venom | *Backstab*, *Flurry*, *Heavy Hitter* | Three crits in four swings, each worth +2 Mult with Heavy Hitter. Every crit also Burns. |
+| **The Assassin** | Duelist's Rapier (d6) + Keen | *Assassinate*, *Shadowstep*, *Finisher* | Wait for the fighter's Stun, teleport in, and hit for ×3. |
+| **The Cashier** | Kingslayer (pair of d6s, Vicious) | *Backstab*, *Piercing Strike*, *Opening Strike* | Let the wizard stack Mult on the boss, then Backstab: the stack counts twice. |
 
-**Combos best with:** the **fighter** (staggers for sure crits and *Coup de Grâce*), the **wizard** (roots for *Shatter* and Sneak Attack), the **cleric** (*Divine Favour* blessings).
+**Combos best with:** the **wizard** (Hex for Backstab), the **fighter** (Stuns for Assassinate; standing beside the foe for Sneak Attack), the **cleric** (Bless on a many-crit hit).
 
-**Paths** (level 3, to be written): *Shadow* (stealth and ambush), *Duelist* (single foes and crits).
+**Paths** (to be written): *Shadow* (stealth and ambush), *Duelist* (single foes and crits).
 
 ---
 
 # FIGHTER ⬢
 
-*A wall and a weapon.* The fighter holds the line, hurls foes into each other and takes the blow meant for a friend. She is the party's **stagger engine**: every slam she makes is someone else's sure crit. Sword and shield makes her a wall; a big two-handed weapon makes her a breaker.
+*A wall and a weapon.* The fighter holds the line, hurls foes into each other and takes the blow meant for a friend. She is the party's **wall**: she slams foes into things to Stun them, and Taunts them so they fight her instead of her friends.
 
 | | |
 |---|---|
 | **Role** | ⬢ Tank · ♦ |
 | **Key stat** | ♜ STR |
+| **Attributes** | STR 3 · DEX 2 · INT 1 · PRE 3 |
 | **Hit die / HP** | d10 / 40 |
-| **Saves** | STR +, INT − |
-| **Armour** | Heavy (d8) and a **shield** |
+| **SPD** | 3 |
+| **Defend** | d8 (heavy armour) **+2** (shield) |
 | **Weapons** | Light, Martial |
-| **Starting gear** | Longsword (d6), shield, plate armour, 1 healing potion |
+| **Starting gear** | Longsword (d6), shield, plate armour |
 
 **Specialties:** forcing doors and bars, lifting and bracing, intimidating, soldiers and war.
 
-**Class reaction: Intercept** (reaction power, Uncommon). A foe attacks an ally next to you. Spend a ready action to take the attack instead.
+**Class features.**
+- **Heavy armour and a shield:** Defend rolls a d8 +2 (no +2 with a two-handed weapon).
+- **Steadfast 1:** pushes move her 1 square less.
+- **Taunt:** a foe she Taunts must attack her if it can reach her, and deals half damage to anyone else.
 
-| Level | Gain |
-|---|---|
-| **1** | **Shove** (innate). One class powers. |
-| **2** | **Steadfast 1** (Core 3.9). |
-| **3** | Choose a **path**. |
-| **4** | **+1 attribute.** |
-| **5** | **Rampart:** when you Intercept, you also gain a shield of 3. Path feature. |
-
-**Class powers.** *Shove* is innate (always known, no slot). Start with *Tide of Iron*; the rest come as rewards.
+**Class powers.** *Sword* is her basic attack and *Shove* is innate. Start with *Tide of Iron*; the rest come as rewards.
 
 | Power | R | Tag | MP | Actions | Range | Effect |
 |---|---|---|---|---|---|---|
-| **Shove** (innate) | — | — | 0 | 1 | 1 | No damage. Push the foe 1 tile. It makes a **STR save** or is **staggered**. |
-| **Tide of Iron** | C | Set-up | 1 | 1 | 1 | Attack. On a hit, push the foe 1 tile (2 on a crit) and step into its tile. It is **staggered** and **marked**. |
-| **Hook Chain** | C | Reach | 1 | 1 | 3 | Attack. On a hit, **pull** the foe 2 tiles. It is **slowed**, **staggered** and **marked**. |
-| **Shield Wall** | C | Guard | 1 | 1 | self | You and adjacent allies gain a **shield of 6**. Adjacent foes are **marked**. |
-| **Sweep** | C | Burst | 1 | 1 | adjacent | Attack **every adjacent foe**, each with **1 disadvantage**. |
-| **Intercept** | U | Guard | 0 | reaction | 1 | A foe attacks an ally next to you: take the attack instead. |
-| **Sentinel** | U | Guard | 0 | reaction | 1 | A foe leaves a tile next to you: make a basic attack against it; on a hit it **stops** and is **marked**. |
-| **Block** | U | Guard | — | passive | — | Allies next to you Defend with **+1 advantage**. |
-| **Bodyguard** | R | Guard | — | passive | — | When you **Intercept**, the attack against you has **disadvantage**. |
-| **Anvil** | U | Set-up | — | passive | — | When a foe you push or pull ends **next to an ally**, that ally may make a **basic attack** against it at no action cost (once per round). |
-| **Shieldbreaker** | U | Set-up | — | passive | — | Your crits make the foe **exposed**. |
-| **Heavy Blows** | U | Burst | — | passive | — | With a **two-handed** weapon, your crits roll **+1 weapon die**. |
-| **Blood in the Water** | U | Burst | — | passive | — | Your attacks against a **bleeding** foe roll **+1 weapon die**. |
-| **Come and Get It** | R | Set-up | 3 | 2 | 2 | No damage. **Pull** every foe within 2 tiles up to 2 tiles toward you. They are **staggered** and **marked**. |
-| **Earthshaker** | R | Reach | 3 | 2 | self | Every foe next to you is **pushed 1 tile** and knocked **prone**. Foes that slam are staggered. |
+| **Sword** (basic) | — | — | 0 | 1 | 1 | Attack: your weapon die + STR. |
+| **Shove** (innate) | — | — | 0 | 1 | 1 | Push a foe 1 square. If it slams into something, it is Stunned. |
+| **Tide of Iron** | C | Set-up | 1 | 1 | 1 | Attack. Push the foe 1 square and step after it. It is Taunted. If it slams into something, it is Stunned. |
+| **Hook Chain** | C | Reach | 1 | 1 | 3 | Range 3. Attack and pull the foe 2 squares toward you. It is Taunted. |
+| **Shield Wall** | C | Guard | 1 | 1 | self | You and allies beside you gain 6 Shield. Foes beside you are Taunted. |
+| **Cleave** | C | Burst | 1 | 1 | self | Attack every foe beside you. |
+| **Anvil** | U | Set-up | — | passive | — | When you Stun a foe, it also gains +2 Mult. |
+| **Block** | U | Guard | — | passive | — | Allies beside you add +2 when they Defend. |
+| **Intercept** | U | Guard | — | reaction | 1 | Reaction (1 ready action, once a round): a foe attacks an ally beside you. You take the attack instead. |
+| **Sentinel** | U | Guard | — | reaction | 1 | Reaction (1 ready action, once a round): a foe moves away from beside you. Attack it; on a hit it stops and is Taunted. |
+| **Earthshaker** | R | Set-up | 3 | 2 | self | 2 actions. Stun every foe beside you. |
+
+*Engine notes:* Shield Wall reaches all 8 squares around her. Intercept does not cover area attacks. In the code, *Anvil* also still gives an ally a free basic attack (once a round) when a foe she pushes or pulls ends beside that ally.
 
 **Builds.**
 
 | Build | Weapon and runes | Key powers | Plan |
 |---|---|---|---|
-| **The Bastion** | Longsword and shield + Warding | *Shield Wall*, *Block*, *Sentinel*, *Bodyguard* | Nothing gets past. Every hit shields your friends; marked foes must fight you. |
-| **The Breaker** | Greatmaul (d10) + Thunder, later Keen | *Tide of Iron*, *Heavy Blows*, *Anvil*, *Earthshaker* | Crits push, pushes slam, slams stagger. Throw foes next to the rogue for free attacks. |
-| **The Butcher** | Battleaxe tempered to d10 + Vicious | *Sweep*, *Blood in the Water*, *Shieldbreaker* | Cleave through the rogue's bleeding foes and expose the rest for the cleric. |
+| **The Bastion** | Longsword and shield + Warding | *Shield Wall*, *Block*, *Sentinel*, *Intercept* | Nothing gets past. Every hit shields your friends; Taunted foes hit everyone else for half. |
+| **The Breaker** | Titan's Maul (d10, Thunder, Keen) | *Tide of Iron*, *Anvil*, *Earthshaker*, *Hard Shove* | Crits push, pushes slam, slams Stun, and every Stun brings +2 Mult with it. |
+| **The Butcher** | Battleaxe tempered to d10 + Vicious | *Cleave*, *Heavy Hitter*, *Finisher* | Big dice, big crits, against everything around her. |
 
-**Combos best with:** the **rogue** (staggers for *Coup de Grâce*; *Anvil* feeds *Opportunist*), the **wizard** (marked foes for *Lightning Rod*; slams for *Wildfire*), the **cleric** (*Shieldbreaker* exposes for *Smite*).
+**Combos best with:** the **rogue** (Stuns for *Assassinate*; standing beside her targets for Sneak Attack), the **wizard** (Anvil Mult on top of Hex; Force Push into her slams), the **cleric** (*Block* and *Shield Wall* keep the cleric standing).
 
-**Paths** (level 3, to be written): *Bastion* (defence and shields), *Breaker* (forced movement and slams).
+**Paths** (to be written): *Bastion* (defence and shields), *Breaker* (forced movement and slams).
 
 ---
 
 # WIZARD ❖
 
-*A student of the arcane.* The wizard roots, burns and blasts groups of foes, and moves the battlefield itself. She is the party's **lock engine**: her roots and slows make everyone else's crits count double, and her pushes feed the fighter's slams. Her staff is a weapon too: temper it and her powers grow.
+*A student of the arcane.* The wizard burns and blasts groups of foes, and moves the battlefield itself. He is the party's **multiplier**: every spell leaves foes with Mult, so his friends' next hits on them count many times over.
 
 | | |
 |---|---|
 | **Role** | ❖ Controller · ♦♦ |
 | **Key stat** | ✦ INT |
+| **Attributes** | STR 1 · DEX 3 · INT 3 · PRE 2 |
 | **Hit die / HP** | d6 / 24 |
-| **Saves** | INT +, STR − |
-| **Armour** | None (d4 with disadvantage). No shield. |
+| **SPD** | 4 |
+| **Defend** | d4 (no armour). No shield. |
 | **Weapons** | Focus |
-| **Starting gear** | Arcane Staff (d4, range 4, no crits, no misses), 1 healing potion |
+| **Starting gear** | Arcane Staff (d4) |
 
 **Specialties:** magic items and runes, ancient writing, wards and rituals, strange beasts.
 
-**Class reaction: Repelling Ward** (reaction power, Uncommon). A foe ends its move next to you. Spend a ready action to push it 1 tile away.
+**Class features.**
+- **Staff Bolt** gives **+1 Mult** (to the foe, after the hit).
+- **Force Adept:** his pushes and pulls move foes 1 extra square.
+- **No armour:** Defend rolls a d4, so he likes to stay back.
 
-| Level | Gain |
-|---|---|
-| **1** | **Force Push** (innate). One class powers. |
-| **2** | **Force Adept:** your pushes and pulls move **1 more tile**. |
-| **3** | Choose a **path**. |
-| **4** | **+1 attribute.** |
-| **5** | **Overchannel:** once per battle, upcast a power by 1 for free. Path feature. |
-
-**Class powers.** *Force Push* is innate (always known, no slot). Start with *Scorching Burst*; the rest come as rewards. Her damage powers roll her **staff's** die.
+**Class powers.** *Staff Bolt* is his basic attack and *Force Push* is innate. Start with *Hex*; the rest come as rewards. His damage powers roll his **staff's** die.
 
 | Power | R | Tag | MP | Actions | Range | Effect |
 |---|---|---|---|---|---|---|
-| **Force Push** (innate) | — | — | 0 | 1 | 4 | No damage. Push the foe 1 tile. It makes a **STR save** or is **staggered**. |
-| **Thunderwave** | C | Reach | 1 | 1 | self, 3×3 | 1 weapon die of **force** damage to every adjacent foe, and **push them 2**. (Foes that slam are staggered.) |
-| **Scorching Burst** | C | Set-up | 1 | 1 | 5, 3×3 | 1 weapon die of **fire** damage to foes in the area. The centre foe is **burning**. |
-| **Ray of Frost** | C | Set-up | 1 | 1 | 4 | 1 weapon die of **cold** damage. On a hit the foe is **slowed** (**rooted** on a crit). |
-| **Blink** | C | Reach | 1 | free | self | Teleport up to 3 tiles. |
-| **Mage Shield** | C | Guard | 1 | free | self | Gain a shield of **2 rolls of your weapon die**. |
-| **Repelling Ward** | U | Guard | 0 | reaction | 1 | A foe ends its move next to you: push it 1 tile away. |
-| **Kindling** | C | Burst | — | passive | — | Your fire powers roll **+1 weapon die** against **burning** foes. |
-| **Web** | U | Set-up | 2 | 1 | 4, 3×3 | Foes in the area are **slowed**, and **rooted** on a failed **DEX save**. |
-| **Battlemage** | U | Burst | — | passive | — | Your **Arcane Staff** can crit (it still never misses). Temper it to a d6 to add Keen. |
-| **Shatter** | U | Set-up | — | passive | — | Allies' crits against a foe **you rooted** deal **double damage**. |
-| **Lightning Rod** | U | Burst | — | passive | — | Your area powers roll **+1 weapon die** against foes **marked** by an ally. |
-| **Wildfire** | U | Set-up | — | passive | — | When a **burning** foe slams, every creature next to it starts **burning**. |
-| **Fireball** | R | Burst | 3 | 2 | 4, 3×3 | **2 weapon dice** of **fire** damage to every foe in the area. The centre foe is **burning**. |
-| **Gravity Well** | R | Reach | 3 | 1 | 4 | Pick a tile. **Pull every foe within 3 of it** 1 tile toward it. Foes that slam are staggered. |
+| **Staff Bolt** (basic) | — | — | 0 | 1 | 4 | Range 4. Attack: your weapon die + INT. The foe gains +1 Mult. |
+| **Force Push** (innate) | — | — | 0 | 1 | 4 | Range 4. Push a foe 1 square away. If it slams into something, it is Stunned. |
+| **Hex** | C | Set-up | 1 | 1 | 5 | Range 5. The foe gains +2 Mult. |
+| **Scorching Burst** | C | Burst | 1 | 1 | 5, 3×3 | Range 5, 3×3. Attack every foe in the area with fire. They Burn 2. |
+| **Ray of Frost** | C | Set-up | 1 | 1 | 4 | Range 4. Attack with cold. The foe is Rooted: it can't move on its next turn. |
+| **Blink** | C | Reach | 1 | free | 3 | Free action. Teleport up to 3 squares. |
+| **Chain Hex** | U | Set-up | 2 | 1 | 5, 3×3 | Range 5, 3×3. Every foe in the area gains +1 Mult. |
+| **Amplify** | U | Set-up | — | passive | — | Every Mult you give is 1 higher. |
+| **Repelling Ward** | U | Guard | — | reaction | 1 | Reaction (1 ready action, once a round): a foe ends its move beside you. Push it 1 square away. |
+| **Shatter** | R | Set-up | — | passive | — | Allies' hits against a foe you Rooted deal ×2 damage. |
+| **Fireball** | R | Burst | 3 | 2 | 4, 3×3 | 2 actions. Range 4, 3×3. Attack every foe in the area with 2 dice of fire. They Burn 3. |
 
-*Without Battlemage the staff never crits, so it is weak against armour. Most wizards take Battlemage or lean on powers.*
+*Engine notes:* Staff Bolt's Mult lands after its own hit, so it pays off on the next hero's hit. With Force Adept, Force Push moves a foe 2 squares.
 
 **Builds.**
 
 | Build | Weapon and runes | Key powers | Plan |
 |---|---|---|---|
-| **The Frost Lock** | Arcane Staff + Frost | *Ray of Frost*, *Web*, *Shatter* | Root the biggest threat. The rogue's and fighter's crits on it are doubled. |
-| **The Pyromancer** | Staff tempered to d6 + Flame | *Scorching Burst*, *Kindling*, *Wildfire*, *Fireball* | Burn a crowd, let the fighter slam them together, watch it spread. |
-| **The Battlemage** | Staff tempered to d6 + Keen | *Battlemage*, *Blink*, *Mage Shield* | A staff that never misses and crits a third of the time. |
+| **The Hexer** | Arcane Staff + Long | *Hex*, *Chain Hex*, *Amplify* | Hex is +3 Mult with Amplify. Hex the boss twice and hand it to the rogue. |
+| **The Frost Lock** | Frost Orb (Frost, Long) | *Ray of Frost*, *Shatter* | Root the biggest threat; every ally's hit on it is doubled. |
+| **The Pyromancer** | Emberstaff (Flame) | *Scorching Burst*, *Fireball* | Burn a crowd: Burn stacks and ignores armour. |
 
-**Combos best with:** the **rogue** (*Shatter* and roots power her crits), the **fighter** (slams and marks for *Wildfire* and *Lightning Rod*), the **cleric** (*Bless* on the rogue plus *Shatter* reaches ×3).
+**Combos best with:** the **rogue** (Hex for *Backstab*; Shatter doubles her), the **fighter** (Force Push into her slams; Anvil adds Mult), the **cleric** (*Judgment* hits every foe the wizard gave Mult).
 
-**Paths** (level 3, to be written): *Elementalist* (fire, ice, lightning), *Warper* (space, pushing and pulling).
+**Paths** (to be written): *Elementalist* (fire, ice, lightning), *Warper* (space, pushing and pulling).
 
 ---
 
 # CLERIC ✚
 
-*A servant of the divine.* The cleric heals, shields, and blesses allies so their next blow lands true. She is the party's **favour engine**: her blessings and brands turn allies' crits into doubles. A mace and sling are her weapons, and both power her strikes.
+*A servant of the divine.* The cleric heals, shields, and blesses allies so their next blow lands harder. She is the party's **blessing**: Bless adds chips to her friends' next hits, and her heals and shields keep them standing.
 
 | | |
 |---|---|
 | **Role** | ✚ Support · ♦♦ |
 | **Key stat** | ♛ PRE |
+| **Attributes** | STR 3 · DEX 1 · INT 2 · PRE 3 |
 | **Hit die / HP** | d8 / 32 |
-| **Saves** | PRE +, DEX − |
-| **Armour** | Medium (d6) and a **shield** |
+| **SPD** | 3 |
+| **Defend** | d6 (medium armour) **+2** (shield) |
 | **Weapons** | Light, Ranged |
-| **Starting gear** | Mace (d6) and Sling (d4, range 3), shield, chain armour, 1 healing potion |
+| **Starting gear** | Iron Mace (d6), shield, chain armour |
 
 **Specialties:** healing the sick, spirits and the undead, shrines and holy relics, telling truth from lies.
 
-**Class reaction: Warding Word** (reaction power, Uncommon). A foe hits an ally within 3 for **4 or more** damage. Spend a ready action to **halve** that damage.
+**Class features.**
+- **Medium armour and a shield:** Defend rolls a d6 +2.
+- **Channel Divinity:** her heals add her **PRE**, and her attacks deal **radiant** damage (×2 against the undead).
 
-| Level | Gain |
-|---|---|
-| **1** | **Guidance** (innate). One class powers. |
-| **2** | **Channel Divinity:** your healing adds your PRE, and your attacks and powers deal **radiant** damage. |
-| **3** | Choose a **path**. |
-| **4** | **+1 attribute.** |
-| **5** | **Beacon:** *Guidance* and *Bless* affect one extra ally. Path feature. |
-
-**Class powers.** *Guidance* is innate (always known, no slot). Start with *Healing Word*; the rest come as rewards.
+**Class powers.** *Mace* is her basic attack and *Guidance* is innate. Start with *Healing Word*; the rest come as rewards.
 
 | Power | R | Tag | MP | Actions | Range | Effect |
 |---|---|---|---|---|---|---|
-| **Guidance** (innate) | — | — | 0 | 1 | 3 | An ally is **blessed**. |
-| **Healing Word** | C | Mend | 1 | 1 | 4 | An ally heals one roll of **your hit die** (exploding; not spent) and ends one condition. |
-| **Divine Shift** | C | Guard | 1 | 1 | 4 | **Swap places** with an ally. You both gain a **shield of 4**. |
-| **Bless** | C | Set-up | 1 | 1 | 2 | You and every ally within 2 tiles are **blessed**. |
-| **Sanctuary** | C | Guard | 1 | 1 | 4 | An ally gains a **shield of 8**. |
-| **Brand of Judgment** | C | Set-up | 1 | 1 | weapon | Attack. On a hit the foe is **exposed**. Against a **bloodied** foe, the attack has **advantage**. |
-| **Warding Word** | U | Guard | 0 | reaction | 1 | An ally within 3 is about to take **4 or more** damage: **halve** it. |
-| **Healer's Gift** | C | Mend | — | passive | — | Your healing powers heal **+2**, and *Second Wind* heals you **+2**. |
-| **Shepherd** | C | Guard | — | passive | — | **Link:** allies around you roll their Defend with **+1 advantage**. |
-| **Divine Favour** | U | Set-up | — | passive | — | An ally **you blessed** who crits deals **double damage**. |
-| **Smite** | U | Burst | — | passive | — | Your hits against an **exposed** foe roll **+1 weapon die**. |
-| **Revivify** | U | Mend | 2 | 1 | 3 | A Down ally within 3 stands up with **2 rolls of their hit die**. |
-| **Martyr's Grace** | U | Mend | — | passive | — | *Reckless.* When you go Down, every other hero heals one roll of their hit die and ends one condition. |
-| **Judgment Day** | R | Burst | 3 | 2 | 4 | Attack **every exposed foe** within 4 with **2 weapon dice** each. |
+| **Mace** (basic) | — | — | 0 | 1 | 1 | Attack: your weapon die + PRE. |
+| **Guidance** (innate) | — | — | 0 | 1 | 3 | Range 3. An ally gains Bless 3: +3 chips on their next hit. |
+| **Healing Word** | C | Mend | 1 | 1 | 4 | Range 4. An ally heals d8 + PRE. |
+| **Brand** | C | Set-up | 1 | 1 | 1 | Attack. The foe gains +1 Mult. |
+| **Bless** | C | Set-up | 1 | 1 | self, 2 | You and allies within 2 gain Bless 3: +3 chips on your next hit. |
+| **Sanctuary** | C | Guard | 1 | 1 | 4 | Range 4. An ally gains 8 Shield. |
+| **Divine Shift** | C | Guard | 1 | 1 | 4 | Swap places with an ally within 4. You both gain 4 Shield. |
+| **Radiance** | U | Set-up | — | passive | — | Every Bless you give is 2 higher. |
+| **Warding Word** | U | Guard | — | reaction | 3 | Reaction (1 ready action, once a round): an ally within 3 is about to take 4 or more damage. Halve it. |
+| **Revivify** | U | Mend | 2 | 1 | self | A Down ally stands up beside you with 2 rolls of their hit die. |
+| **Judgment** | R | Burst | 3 | 2 | self, 4 | 2 actions. Attack every foe within 4 that has Mult, with 2 dice. |
+
+*Engine notes:* the Bless she gives herself is not a combo (only another hero's Bless is). Brand's Mult lands after its own hit.
 
 **Builds.**
 
 | Build | Weapon and runes | Key powers | Plan |
 |---|---|---|---|
-| **The Kingmaker** | Mace + Warding | *Guidance*, *Bless*, *Divine Favour*, *Shepherd* | Bless the rogue every turn; her crits double. With *Shatter* on the wizard, ×3. |
-| **The Judge** | Mace tempered to d8 + Keen | *Brand of Judgment*, *Smite*, *Judgment Day* | Expose foes all battle, then strike every one at once. |
-| **The Mender** | Sling + Radiant | *Healing Word*, *Sanctuary*, *Healer's Gift*, *Revivify* | Keep everyone up from the back row. |
+| **The Kingmaker** | Iron Mace + Warding | *Guidance*, *Bless*, *Radiance* | Bless 5 on the rogue every turn, and a combo for both of you. |
+| **The Judge** | Sunforged Flail (Radiant, Keen) | *Brand*, *Judgment*, *Finisher* | Let the wizard spread Mult, then strike every marked foe at once. |
+| **The Mender** | Relic of Dawn (Radiant, Warding) | *Healing Word*, *Sanctuary*, *Revivify*, *Field Medic* | Keep everyone up; every hit shields the front line. |
 
-**Combos best with:** the **rogue** (*Divine Favour* on a needle rogue), the **fighter** (*Shieldbreaker* exposes for *Smite* and *Judgment Day*), the **wizard** (bless plus *Shatter* stacks to ×3).
+**Combos best with:** the **rogue** (Bless on a many-crit hit), the **wizard** (*Judgment* cashes in his Chain Hex), the **fighter** (Shields keep the wall up while she Taunts).
 
-**Paths** (level 3, to be written): *Mender* (healing and shields), *Zealot* (radiant and judgment).
+**Paths** (to be written): *Mender* (healing and shields), *Zealot* (radiant and judgment).
+
+---
+
+## Every Hero's Innate Powers
+
+| Power | MP | Actions | Range | Effect |
+|---|---|---|---|---|
+| **Second Wind** | 0 | 1 | self | Once per battle: spend a hit die to heal one roll of it + STR. (Mender's Thread: twice.) |
+| **Help Up** | 0 | 1 | 1 | An ally beside you who is Down stands up with health equal to one roll of their hit die. (*Quick Revive*: no action.) |
 
 ---
 
 ## Part 6 · General Powers
 
-Any class can take these. Powers that add damage add **weapon dice**, so they grow with your weapon.
-
-### Set-up
-
-| Power | R | Keywords | Effect |
-|---|---|---|---|
-| **Opening Gambit** | C | | The first time each battle you set up a foe (stagger, expose, root or bless), gain **+1 MP**. |
-| **Exploit Weakness** | C | | Your attacks against an **exposed** foe crit on the maximum **or one below** (d6 or larger). |
-| **Follow-Through** | C | | When an ally's hit **staggers** a foe within 3 of you, you may move up to 2 tiles toward it (no free strikes). |
-| **Domino** | U | Chain | If the hero before you set up a foe this round, gain **+1 MP**, and your first attack against that foe has **+1 advantage**. |
-| **Rhythm** | U | Growth | Each combo you take part in adds 1 counter (max 4). At **2** counters your first attack each round rolls **+1 weapon die**; at **4**, **+2**. |
-| **Conductor** | R | | When you cash in a combo, **every other hero gains +1 MP**. |
+Any class can take these.
 
 ### Burst
 
-| Power | R | Keywords | Effect |
-|---|---|---|---|
-| **Opening Strike** | C | | Your first attack in each battle rolls **+2 weapon dice**. |
-| **Finisher** | C | | Your attacks against a **bloodied** foe roll **+1 weapon die**. |
-| **Set Your Feet** | C | | If you have not moved this turn, your first attack rolls **+1 weapon die**. |
-| **Overkill** | U | | When your attack drops a foe, the **leftover damage** hits another foe next to it (ignores DEF). |
-| **Veteran's Pride** | U | Growth | After each battle in which you did not go Down, add 1 counter (max 4). At **2** your first attack each round rolls **+1 weapon die**; at **4**, **+2**. |
-| **Glass Cannon** | R | Reckless | All your hits roll **+1 weapon die**. You roll DEF with **disadvantage**. |
+| Power | R | Effect |
+|---|---|---|
+| **Opening Strike** | C | Your first attack in each battle gets +5 chips. |
+| **Finisher** | C | Your hits against a bloodied foe (half health or less) get +1 Mult. |
+| **Heavy Hitter** | U | Each crit gives +2 Mult instead of +1. |
+| **Overkill** | U | When your hit drops a foe, the extra damage hits another foe beside it. |
+| **Glass Cannon** | R | All your hits get +1 Mult. You can't Defend. |
 
 ### Guard
 
-| Power | R | Keywords | Effect |
-|---|---|---|---|
-| **Brace** | C | | Your first Defend each round adds **+2** to the roll. |
-| **Hardy** | C | | **+6 maximum HP**. |
-| **Counter-Guard** | U | | After you Defend and the hit **still deals damage**, gain **+1 MP**. |
-| **Bulwark Chain** | U | Chain | If the hero before you Defended or was hit since your last turn, you start your turn with a **shield of 4**. |
-| **Nerves of Steel** | U | | Ignore **1 point** of your Wound penalty (Core 2.4). |
-| **Last Stand** | R | | **Once per battle**, when you would go Down, stay at **1 HP** and gain a **shield of 6**. |
+| Power | R | Effect |
+|---|---|---|
+| **Hardy** | C | +6 maximum health. |
+| **Brace** | C | +2 to your Defend rolls. *(Engine: once a round.)* |
+| **Last Stand** | R | Once a battle, when you would go Down, stay at 1 health with 6 Shield. |
 
 ### Reach
 
-| Power | R | Keywords | Effect |
-|---|---|---|---|
-| **Quick Feet** | C | | **+1 SPD**. |
-| **Hard Shove** | C | | Your pushes and pulls move **1 tile further** (after Steadfast). |
-| **Trip Wire** | C | | A foe you slam, or push into a hazard, is also **prone**. |
-| **Pinball** | U | | When you slam a foe into another foe, **both** are staggered. |
-| **Reposition** | U | Chain | Once per round, you may **swap places** (free) with the hero before you in the order, if within 3. |
+| Power | R | Effect |
+|---|---|---|
+| **Quick Feet** | C | +1 speed. |
+| **Hard Shove** | C | Your pushes and pulls move 1 square further. |
 
 ### Surge
 
-| Power | R | Keywords | Effect |
-|---|---|---|---|
-| **Eager** | C | | Start each battle with **+1 MP** (the 5 MP cap applies). |
-| **Adrenaline** | C | | The first time each battle a hit damages you, gain **+1 MP**. |
-| **Warm-up** | C | | Your first active power each battle costs **1 less MP** (minimum 0). |
-| **Overflow** | U | | When you gain MP at the maximum, an ally of your choice gains **1 MP** instead. |
-| **Echo** | U | Chain | When the hero before you spends **3 or more MP** on a power, gain **+1 MP**. |
-| **Afterglow** | R | Growth | At the end of each battle, keep **half your MP** (rounded down, max 3) as extra starting MP for the next (the 5 MP cap applies). |
+| Power | R | Effect |
+|---|---|---|
+| **Eager** | C | Start each battle with +1 momentum. |
+| **Adrenaline** | C | The first time you are hit each battle, gain 1 momentum. |
+| **Conductor** | R | When you land a combo, every other hero gains 1 momentum. |
 
 ### Mend
 
-| Power | R | Keywords | Effect |
-|---|---|---|---|
-| **Field Medic** | C | | When you heal an ally, they heal **+2**. |
-| **Rally** | C | Link | At the start of your turn, allies around you gain a **shield of 2**. |
-| **Quick Revive** | C | | **Help up** costs **no action**. |
-| **Triage** | U | | Heroes Down when a battle is won stand up with HP equal to **your hit die's maximum** instead of 1. |
-| **Echoing Mercy** | U | Chain | If the hero before you healed an ally this round, your first heal this turn heals **+4**. |
+| Power | R | Effect |
+|---|---|---|
+| **Field Medic** | C | Your heals heal 2 more. *(Engine: on allies, not yourself.)* |
+| **Quick Revive** | C | Help Up costs no action. |
 
 ---
 
 ## Part 7 · A Round That Clicks
 
-The party, mid-region I. Order this round: **Fighter → Wizard → Rogue → Cleric** (the cleric swapped back to act last).
+The party, mid-region I. Order this round: **Wizard → Fighter → Rogue → Cleric**.
 
-- **Fighter** (Breaker): Greatmaul d10 + Thunder; *Tide of Iron*, *Anvil*.
-- **Wizard** (Frost Lock): *Ray of Frost*, *Shatter*.
-- **Rogue** (Needle): needles (d2); *Needle and Thread*, *Coup de Grâce*, *Flurry*.
-- **Cleric** (Kingmaker): *Divine Favour*; she blessed the rogue last round with *Guidance*.
+- **Wizard:** Arcane Staff; *Hex*, *Amplify*.
+- **Fighter:** Longsword; *Shove*, *Anvil*.
+- **Rogue:** Twinblades (pair of d4s); *Backstab*.
+- **Cleric:** *Guidance*; she blessed the rogue last round (Bless 3).
 
-1. **Fighter:** *Tide of Iron* on an ogre. Hit: it is pushed 1 tile, **staggered** and marked, and it lands next to the rogue. *Anvil* gives the rogue a free basic attack. It is the first hit on the staggered ogre by someone other than the fighter, so it is a **sure crit** (the d2 counts as a 2 and explodes), and the ogre keeps its turn. Sneak Attack adds a d6 (*Needle and Thread*). *Coup de Grâce* doubles the crit (staggered), and *Divine Favour* doubles again (the rogue was blessed; the blessing is used up): **×3**, and the ogre's armour does not count.
-2. **Wizard:** *Ray of Frost* on the ogre: it is **rooted**. Now *Shatter* is live on it too.
-3. **Rogue:** the ogre is still staggered (its sure crit is used up) and now rooted. She swings: a 2, a crit, plus her Sneak Attack d6. *Coup de Grâce* (staggered) and *Shatter* (rooted by the wizard): **×3** again. *Flurry* means her next swing is not rushed. She swings again: a 1, a miss. That is the needle life.
+1. **Wizard:** a *Staff Bolt* at an Orc Brute (armour 1, no Steadfast) first: 2 + 3 INT − 1 armour = 4 chips × 1 = 4 damage, and the orc gains +1 Mult (+1 for Amplify). Then *Hex*: +2, +1 for Amplify. The orc has **Mult 5**. He keeps his last action to Defend. (Hexing first would have let his own bolt spend the Mult.)
+2. **Fighter:** *Shove* (no damage, so it does not spend the Mult) pushes the orc into a tree: it **slams** for one roll of her d6 and is **Stunned**. *Anvil* adds **+2 Mult**: **Mult 7**. She keeps her other two actions ready to Defend.
+3. **Rogue:** *Backstab* on the Stunned orc, with Brakka beside it. She rolls 4 and 3: 7 + 3 DEX + 3 Bless − 1 armour = **12 chips**. MULT = 1 + 1 (the 4 crits) + 14 (Mult 7, doubled) + 1 (Sneak Attack) = **17**. **204 damage**. One combo pays Vex, Brakka (her Stun, and the Mult, which is credited to whoever added to it last) and Sela (her Bless) +2 MP each.
 4. **Cleric:** *Guidance* on the rogue for next round, and the plan resets.
 
-One round: two set-ups from two classes turned a d2 into two tripled crits through armour. No hero did anything complicated: each power is one sentence.
+One round: four set-ups from three classes, each one number on the orc's badge, turned a pair of d4s into 204 damage.
 
 ---
 
@@ -534,24 +507,22 @@ Hybrids mix two roles. Everything here is a first guess (**TBC**); their powers 
 | **Monk** | ⬢ ❖ | ➶ DEX | d8 | None | Light, unarmed | Iron Wraps (d6) |
 
 - **Paladin.** A holy knight. Lays on hands, smites evil, takes blows meant for the faithful. *Specialties:* oaths, the undead, nobles and courts.
-- **Bard.** A performer and keeper of lore. *First power:* **Inspire** (C, Set-up, 1 MP, free, range 5): an ally has advantage on their next check or save, or ends one condition. *Specialties:* lore, music, persuasion, bluffing.
+- **Bard.** A performer and keeper of lore. *First power:* **Inspire** (C, Set-up, 1 MP, free, range 5): an ally gains Bless (amount TBC), or ends one status. *Specialties:* lore, music, persuasion, bluffing.
 - **Barbarian.** A wild fighter who rages through pain and grows fiercer when **bloodied**. *Specialties:* smashing, climbing, the wild.
-- **Ranger.** A hunter and scout. Starts with a **wolf or hawk** companion (Core 3.13). *Specialties:* tracking, scouting, beasts.
+- **Ranger.** A hunter and scout. Starts with a **wolf or hawk** companion (Core 3.13, parked). *Specialties:* tracking, scouting, beasts.
 - **Druid.** A keeper of the wild. Starts with a **wolf or mule** companion. *Specialties:* herbs, beasts and spirits, weather.
-- **Monk.** A martial artist who strikes pressure points to stagger and daze. *Specialties:* balance, meditation, endurance.
+- **Monk.** A martial artist who strikes pressure points to Stun. *Specialties:* balance, meditation, endurance.
 - **Sword saint** (concept) · ⚔︎ · ➶ DEX · d8. A duelist who reads a foe and ends it with one perfect cut.
 
 ---
 
 ## The Level Rhythm (parked)
 
-> [!note] Levels are parked (v0.23). Heroes no longer level up: each starts with the features of **levels 1 and 2** on their class table, and grows through rewards (Core 4.2). The level-3 path, the level-4 attribute (now **Training** rewards) and the level-5 features are not in play. The tables are kept for when paths return, perhaps as rare rewards.
-
-The level tables stop at 5 for now. Levels 6 to 10 continued the pattern (**TBC**):
+> [!note] Levels are parked (v0.23). Heroes no longer level up: each starts with their class features and grows through rewards (Core 4.2). Paths, attribute steps (now **Training** rewards) and later features are not in play. The table is kept for when paths return, perhaps as rare rewards.
 
 | Level | What a class gains |
 |---|---|
-| **1** | Signature feature, innate power, one class power (the class reaction is a reward since v0.24) |
+| **1** | Class features, innate powers, one class power (reaction powers are rewards since v0.24) |
 | **2** | A class feature |
 | **3** | A path |
 | **4** | +1 attribute |

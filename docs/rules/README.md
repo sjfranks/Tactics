@@ -11,4 +11,4 @@ These are the rule books the game follows. They replace the older Emberwatch rul
 
 The plan for bringing the code in line with these books is in [ALIGNMENT.md](ALIGNMENT.md).
 
-The books are kept in Obsidian; the copies here are version **0.24**. Obsidian callouts (`> [!note]`) show as quotes on GitHub.
+The books are kept in Obsidian; the copies here are version **0.25** ("Chips × Mult"). Obsidian callouts (`> [!note]`) show as quotes on GitHub.
