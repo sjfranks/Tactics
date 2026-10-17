@@ -86,7 +86,7 @@ const CLASSES={
     spec:'Healing the sick, spirits and the undead, shrines and holy relics, telling truth from lies.',start:['healWord'],
     style:'The blessing: Bless adds damage to her friends\' next hits, and her heals and shields keep them standing.',
     xpText:'Battles by difficulty (Easy 30, Medium 60, Hard 90, a boss 120 XP) and deeds on the road (10 to 30). Every 80 XP is a level, gained at a Camp.',
-    trait:'Medium armour and a shield: Defend rolls a d6 +2. Channel Divinity: her heals add her Presence and her attacks deal radiant damage (×2 against the undead).',
+    trait:'Medium armour and a shield: Defend rolls a d6 +2. Channel Divinity: her heals add +3 and her attacks deal radiant damage (×2 against the undead).',
     pro:'she'},
 };
 const ORDER=['fighter','rogue','wizard','cleric'];
@@ -134,7 +134,7 @@ const POWERS={
 
   /* ---- Wizard: stacks Mult on foes ---- */
   hex:{c:'wizard',rar:'C',tag:'Set-up',lv:1,name:'Hex',cost:1,tgt:'enemy',range:5,noDmg:true,mult:2,proj:'#c39bff',desc:'Range 5. The foe gains +2 Mult.'},
-  darts:{c:'wizard',rar:'C',tag:'Burst',lv:1,name:'Magic Missile',cost:1,tgt:'enemy',range:6,dmg:[1,1,1],wd:1,step:-2,hits:3,proj:'#c39bff',desc:'Range 6. Three tiny hits: each one can crit.'},
+  darts:{c:'wizard',rar:'C',tag:'Burst',lv:1,name:'Magic Missile',cost:1,tgt:'enemy',range:6,dmg:[1,1,1],wd:1,step:-1,hits:3,proj:'#c39bff',desc:'Range 6. Three tiny hits: each one can crit.'},
   scorch:{c:'wizard',rar:'C',tag:'Burst',lv:1,name:'Scorching Burst',cost:1,tgt:'tile',range:5,area:1,aff:'foe',dmg:[1,1,1],wd:1,step:-1,dtype:'fire',fx:'fire',eff:{burn:[2,2,2]},crit:{burn:2},desc:'Range 5, 3×3. Every foe in the area Burns 2.'},
   frost:{c:'wizard',rar:'C',tag:'Set-up',lv:1,name:'Ray of Frost',cost:1,tgt:'enemy',range:4,dmg:[1,1,1],wd:1,dtype:'cold',eff:{root:[1,1,1]},crit:{give:2},proj:'#8fe3ff',desc:'Range 4. The foe is Rooted: it can\'t move on its next turn.'},
   blink:{c:'wizard',rar:'C',tag:'Reach',lv:1,name:'Blink',cost:1,tgt:'tile',range:3,teleport:true,free:true,desc:'Free action. Teleport up to 3 squares.'},
@@ -146,7 +146,7 @@ const POWERS={
 
   /* ---- Rogue: crit-fishing and cashing in ---- */
   pierce:{c:'rogue',rar:'C',tag:'Burst',lv:1,name:'Piercing Strike',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:2,pierceArmor:true,desc:'Ignores armour.'},
-  stab:{c:'rogue',rar:'C',tag:'Burst',lv:1,name:'Quick Stab',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:2,step:-2,crit:{mult:2},desc:'Tiny dice that crit often.'},
+  stab:{c:'rogue',rar:'C',tag:'Burst',lv:1,name:'Quick Stab',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:2,step:-1,crit:{mult:2},desc:'Tiny dice that crit often.'},
   backstab:{c:'rogue',rar:'C',tag:'Burst',lv:1,name:'Backstab',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,multDouble:true,desc:'The foe\'s Mult counts double.'},
   tumble:{c:'rogue',rar:'C',tag:'Reach',lv:1,name:'Hit and Run',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,plus:2,canto:2,desc:'Then move up to 2 squares.'},
   flurry:{c:'rogue',rar:'U',tag:'Burst',lv:3,name:'Flurry',cost:2,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,hits:3,step:-1,crit:{act:1},desc:'Three hits.'},
@@ -188,7 +188,7 @@ const POWERS={
   laststand:{c:'gen',rar:'R',tag:'Guard',lv:5,passive:true,name:'Last Stand',desc:'Once a battle, when you would go Down, stay at 1 health with 6 Shield.'},
 };
 /* Every hero has these two (Core Rules 2.4 and 2.5). They take no slot. */
-POWERS.secondwind={c:'any',innate:true,lv:1,a:'M',name:'Second Wind',cost:0,tgt:'self',selfWind:true,noDmg:true,desc:'Once per battle: spend a hit die to heal one roll of it + 3.'};
+POWERS.secondwind={c:'any',innate:true,lv:1,name:'Second Wind',cost:0,tgt:'self',selfWind:true,noDmg:true,desc:'Once per battle: spend a hit die to heal one roll of it + 3.'};
 POWERS.helpup={c:'any',innate:true,lv:1,a:'P',name:'Help Up',cost:0,tgt:'tile',range:1,helpUp:true,noDmg:true,desc:'An ally beside you who is Down stands up with health equal to one roll of their hit die.'};
 for(const k in POWERS)POWERS[k].id=k;
 

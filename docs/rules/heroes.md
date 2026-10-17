@@ -265,7 +265,7 @@ The four core classes. Each page ends with sample builds and the classes it comb
 |---|---|---|---|---|---|---|---|
 | **Blades** (basic) | — | — | 0 | 1 | 1 | 2d4 | Attack with your weapon die. |
 | **Piercing Strike** | C | Burst | 1 | 1 | 1 | 3d4 · ignores armour | Ignores armour. |
-| **Quick Stab** | C | Burst | 1 | 1 | 1 | 3d2 ▼2 from d4 · Crit: +2 Mult | Tiny dice that crit often. |
+| **Quick Stab** | C | Burst | 1 | 1 | 1 | 3d2 ▼ from d4 · Crit: +2 Mult | Tiny dice that crit often. |
 | **Backstab** | C | Burst | 1 | 1 | 1 | 2d4 · foe's Mult ×2 | The foe's Mult counts double. |
 | **Hit and Run** | C | Reach | 1 | 1 | 1 | 2d4 · +2 dmg | Then move up to 2 squares. |
 | **Flurry** | U | Burst | 2 | 1 | 1 | 2d2 ▼ from d4 · ×3 hits · Crit: +1 action | Three hits. |
@@ -274,7 +274,7 @@ The four core classes. Each page ends with sample builds and the classes it comb
 | **Counterattack** | U | Guard | — | reaction | 1 | — | Reaction (1 ready action, once a round): a foe hits you in melee. Attack it back. |
 | **Assassinate** | R | Burst | 3 | 1 | 1 | 3d6 ▲ from d4 · ×3 vs Stunned | Against a Stunned foe, ×3. |
 
-*Engine notes:* Opportunist does not strike a Stunned foe; Counterattack does not answer area attacks. With *Flurry*, the foe's Mult and your Bless are spent by the first of the three hits, and its **+1 action** comes back once a round however many hits crit. Twinblades are already d4s, so *Quick Stab*'s ▼2 stops at d2 (the ladder ends there); with a d6 Rapier it rolls 2d2.
+*Engine notes:* Opportunist does not strike a Stunned foe; Counterattack does not answer area attacks. With *Flurry*, the foe's Mult and your Bless are spent by the first of the three hits, and its **+1 action** comes back once a round however many hits crit. Twinblades are already d4s, so *Quick Stab*'s ▼ steps the d4 down to d2; with a d6 Rapier it rolls 2d4.
 
 **Builds.**
 
@@ -374,7 +374,7 @@ The four core classes. Each page ends with sample builds and the classes it comb
 | **Staff Bolt** (basic) | — | — | 0 | 1 | 4 | d4 | Range 4. The foe gains +1 Mult. |
 | **Force Push** (innate) | — | — | 0 | 1 | 4 | — | Range 4. Push a foe 1 square. If it slams into something, it is Stunned. |
 | **Hex** | C | Set-up | 1 | 1 | 5 | — | Range 5. The foe gains +2 Mult. |
-| **Magic Missile** | C | Burst | 1 | 1 | 6 | d2 ▼2 from d4 · ×3 hits | Range 6. Three tiny hits: each one can crit. |
+| **Magic Missile** | C | Burst | 1 | 1 | 6 | d2 ▼ from d4 · ×3 hits | Range 6. Three tiny hits: each one can crit. |
 | **Scorching Burst** | C | Burst | 1 | 1 | 5, 3×3 | d2 ▼ from d4 · Crit: Burn 2 | Range 5, 3×3. Every foe in the area Burns 2. Fire. |
 | **Ray of Frost** | C | Set-up | 1 | 1 | 4 | d4 · Crit: foe +2 Mult | Range 4. The foe is Rooted: it can't move on its next turn. Cold. |
 | **Blink** | C | Reach | 1 | free | 3 | — | Free action. Teleport up to 3 squares. |
@@ -384,7 +384,7 @@ The four core classes. Each page ends with sample builds and the classes it comb
 | **Shatter** | R | Set-up | — | passive | — | — | Allies' hits against a foe you Rooted deal ×2. |
 | **Fireball** | R | Burst | 3 | 2 | 4, 3×3 | 2d6 ▲ from d4 | 2 actions. Range 4, 3×3. Every foe in the area Burns 3. Fire. |
 
-*Engine notes:* Staff Bolt's Mult, and Ray of Frost's crit Mult, land after their own hit, so they pay off on the next hero's hit. The Arcane Staff is a d4, so *Magic Missile*'s ▼2 stops at d2 (from a d6 staff it is a d2 as well). With Force Adept, Force Push moves a foe 2 squares.
+*Engine notes:* Staff Bolt's Mult, and Ray of Frost's crit Mult, land after their own hit, so they pay off on the next hero's hit. The Arcane Staff is a d4, so *Magic Missile*'s ▼ steps the d4 staff down to d2 (a d6 staff rolls d4s). With Force Adept, Force Push moves a foe 2 squares.
 
 **Builds.**
 

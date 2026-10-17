@@ -479,7 +479,7 @@ function powerMods(p,u){
   const pc=u&&u.kind==='pc'?u:{kind:'pc',cls:p.c==='gen'||p.c==='any'?'fighter':p.c,powers:[],st:{}};
   const d=atkDice(pc,p),w=!p.wdie&&(wpnOf(pc)||WEAPONS[START_WEAPON[pc.cls]]);if(w&&w.dual)d.n++;
   const st=u?heroStep(u,p):(p.step||0),to=ladder(d.s,st);
-  const L=[`{b:${d.n>1?d.n:''}d${to}}`+(st?`{m:${st>0?' ▲':' ▼'}${Math.abs(st)>1?Math.abs(st):''} from d${d.s}}`:'')];
+  const k=LADDER.indexOf(to)-LADDER.indexOf(ladder(d.s,0));const L=[`{b:${d.n>1?d.n:''}d${to}}`+(k?`{m:${k>0?' ▲':' ▼'}${Math.abs(k)>1?Math.abs(k):''} from d${d.s}}`:'')];
   if(p.hits>1)L.push(`{w:×${p.hits} hits}`);
   const flat=(p.plus||0)+(u?(u.dmgPlus||0)+(u.side==='hero'&&hasR('whetstone')?1:0)+wBonus(u,p,'dmg'):0);
   if(flat)L.push(`{b:+${flat} dmg}`);
@@ -1001,7 +1001,7 @@ async function usePower1(u,p,T){
   }
   if(p.shieldDice){const w=wpnOf(u)||WEAPONS[START_WEAPON[u.cls]];let v=0,sf=[];for(let i=0;i<p.shieldDice;i++){v+=rollEx(w.dice[1]);sf=sf.concat(exDice(w.dice[1],LASTEX,'def'));}showRoll({side:u.side,title:p.name.toUpperCase(),dice:sf,verdict:`+${v} shield`,res:3});await H.rolls();u.shield+=v;H.pop(u,'⛨ '+v,'shield');log(`${u.name} gains ${v} shield.`,sideCol(u));}
   if(p.selfWind){u.swUsed=(+u.swUsed||0)+1;if(u.hd!=null)u.hd--;NOTE=[];const r0=rollEx(HD[u.cls]||8),swf=LASTEX.slice(),r=r0+(resLv('Mend',u)>=1?1:0)+(hasP(u,'gift')?2:0);
-    showRoll({side:u.side,title:'SECOND WIND',dice:exDice(HD[u.cls]||8,swf,'heal'),verdict:`d${HD[u.cls]||8}+${r-r0+3} = heals ${r+3}`,res:3});await H.rolls();heal(u,r+3);const ex=NOTE||[];NOTE=null;log(`${u.name} catches a second wind (d${HD[u.cls]||8}: ${r} + Strength ${u.attrs.M||0}). ${ex.join(' ')}`,sideCol(u));}
+    showRoll({side:u.side,title:'SECOND WIND',dice:exDice(HD[u.cls]||8,swf,'heal'),verdict:`d${HD[u.cls]||8}+${r-r0+3} = heals ${r+3}`,res:3});await H.rolls();heal(u,r+3);const ex=NOTE||[];NOTE=null;log(`${u.name} catches a second wind (d${HD[u.cls]||8}: ${r} + 3 = ${r+3}). ${ex.join(' ')}`,sideCol(u));}
   if(p.selfHeal){NOTE=[];heal(u,p.selfHeal);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));}
   if(p.markAround)for(const f of fighters(u).filter(e=>cheb(e,u)<=p.markAround))applyMark(f,u);
   if(p.healNear){const w=allies(u).filter(a=>!a.object&&!a.caged&&man(a,u)<=3&&a.hp<a.maxHp).sort((a,b)=>a.hp/a.maxHp-b.hp/b.maxHp)[0];if(w){NOTE=[];const g=heal(w,p.healNear);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));if(g>0&&w!==u)fl.healedOther=true;}}
