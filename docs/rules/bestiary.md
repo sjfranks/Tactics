@@ -1,23 +1,23 @@
 ---
 title: Rogue Tactics 1e — Bestiary
-version: 0.25
+version: 0.26
 book: 3 of 3 (Core Rules · Heroes · Bestiary)
 tags: [game-design, rulebook, roguelite, tactics, monsters]
 ---
 
 # Rogue Tactics 1e — Bestiary
 
-> v 0.25 "Chips × Mult". Book 3 of 3. The foes of the three regions, their roles, three bosses, and how to build an encounter. Rules are in [Core Rules](core-rules.md) and classes, powers and weapon upgrades in [Heroes](heroes.md). **Every number in this book is a first guess (TBC)** and needs playtesting.
+> v 0.26 "Damage × Mult". Book 3 of 3. The foes of the three regions, their roles, three bosses, and how to build an encounter. Rules are in [Core Rules](core-rules.md) and classes, powers and weapon upgrades in [Heroes](heroes.md). **Every number in this book is a first guess (TBC)** and needs playtesting.
 
 ---
 
 ## Foes at a Glance
 
-Foes use the same rules as heroes: attributes, dice, **CHIPS × MULT**, statuses. They differ in a few ways:
+Foes use the same rules as heroes: attributes, dice, **DAMAGE × MULT**, statuses. They differ in a few ways:
 
 - Foes have **no hit dice and no wounds**. They have an HP total, and they fall at 0 HP.
 - A foe lists only the **attributes that matter**. Anything unlisted is 1.
-- Foes have **flat armour** instead of a Defend roll: it comes off the chips of every hero hit (below).
+- Foes have **flat armour** instead of a Defend roll: it comes off the damage of every hero hit (below).
 - Foes do not have momentum. Instead the foes share a pool of **Malice** (below).
 - Every foe has a **role** (below) that says how it moves and whom it targets.
 - A foe may list a **weakness**, **resistance** or **immunity** to a damage type (Core 3.11), and a **Terrifying** rating, which is flavour only: it changes nothing in battle.
@@ -59,9 +59,9 @@ Foes use the same rules as heroes: attributes, dice, **CHIPS × MULT**, statuses
 > **Traits** and special actions
 
 - **Cost** is the foe's value in an encounter budget (below). A horde of four minions costs 2.
-- **HP** is as listed before tuning. In the game every foe (not minions or objects) has **55%** of it (`foeHpMul`), rising 1.5% per stop of depth; bosses have their own health per region (Encounter Building).
-- **Armour** is a flat number (**None**, **1**, **2** or **3**) **taken off the chips of every hero hit**, to a minimum of 1 chip. *Piercing Strike* ignores it; Burn, slams and hazards ignore it too. A tuning knob (`foeDef`, 0 now) shifts every foe's armour up or down.
-- **Attack** is the foe's dice and bonus, such as **d6+1**. Its **CHIPS** are the roll + the bonus + its **strength** (+1 for every 12½ stops of depth) + **2** if *Savage* against a bloodied hero + **2** within 2 of an *Aura* ally. Its **MULT** is 1 + **1 per crit** + **1** for *Pack* + **1** during *Bloodlust* or *Rally the Horde* + **1** if it attacks from hiding. Then **×½** if it is **Weak**, **×½** if it is **Taunted** and hits anyone but the taunter, and **×½** for the Warding Charm. A hero may **Defend** a hit that has no crit (Core 3.6).
+- **HP** is as listed before tuning. In the game every foe (not minions or objects) has **34%** of it (`foeHpMul`, v0.26: heroes no longer add attributes to their hits), rising 3% per stop of depth; bosses have their own health per region (Encounter Building).
+- **Armour** is a flat number (**None**, **1**, **2** or **3**) **taken off the damage of every hero hit**, to a minimum of 1. *Piercing Strike* ignores it; Burn, slams and hazards ignore it too. A tuning knob (`foeDef`, 0 now) shifts every foe's armour up or down.
+- **Attack** is the foe's dice and bonus, such as **d6+1**. Its **DAMAGE** is the roll + the bonus + its **strength** (+1 for about every 8 stops of depth) + **2** if *Savage* against a bloodied hero + **2** within 2 of an *Aura* ally. Its **MULT** is 1 + **1 per crit** + **1** for *Pack* + **1** during *Bloodlust* or *Rally the Horde* + **1** if it attacks from hiding. Then **×½** if it is **Weak**, **×½** if it is **Taunted** and hits anyone but the taunter, and **×½** for the Warding Charm. A hero may **Defend** a hit that has no crit (Core 3.6).
 - **Flat** attacks (minions and swarms) never roll: their damage is the number (per critter for swarms), + half the strength bonus.
 - **Initiative** is listed as a die (the foe's DEX die). Minions and swarms of one type share one roll.
 - **Special actions** marked **◆** cost **Malice** (below).
@@ -72,10 +72,10 @@ Foes use the same rules as heroes: attributes, dice, **CHIPS × MULT**, statuses
 | Trait | Effect |
 |---|---|
 | **Pack** | **+1 Mult** if another foe is beside the target. |
-| **Savage** | **+2 chips** against **bloodied** heroes. |
+| **Savage** | **+2 damage** against **bloodied** heroes. |
 | **Nimble** | A Sentinel's strike never catches it. *(Not yet in the engine.)* |
 | **Skulk** | After its turn, it slips 1 tile away from the heroes if it can. |
-| **Aura** | Allied foes within 2 tiles get **+2 chips** on their hits. |
+| **Aura** | Allied foes within 2 tiles get **+2 damage** on their hits. |
 | **Fireproof** | **Immune** to fire and to Burn. |
 | **Undead** | **Weak** to radiant (×2). **Immune** to poison and necrotic. |
 | **Incorporeal** | **Resists** physical damage (×½). |
@@ -139,7 +139,7 @@ Bandits, goblins and beasts of the marsh and forest. Hazards: snares, webs. Haza
 > **Bandit Captain** · *Elite* · *Leader, Skirmisher* · Cost 5
 > **HP** 32 · **SPD** 4 · **Armour** None · **Attack** *Sabre* d8+2, range 1
 > **Initiative** d8
-> **Traits** *Aura* (allies within 2: +2 chips). **Rally ◆2:** each ally within 3 that stands beside a hero strikes that hero (a flat blow of 3 + its STR or DEX + the strength bonus; 2 for minions and swarms), which the hero may Defend.
+> **Traits** *Aura* (allies within 2: +2 damage). **Rally ◆2:** each ally within 3 that stands beside a hero strikes that hero (a flat blow of 3 + its STR or DEX + the strength bonus; 2 for minions and swarms), which the hero may Defend.
 
 > **Marsh Ogre** · *Elite* · *Brute* · Cost 6
 > **HP** 34 · **SPD** 3 · **Armour** 2 · **Steadfast** 1 · **Attack** *Club* d8+3, range 1
@@ -283,7 +283,7 @@ Encounters are built like PF2e's. An encounter's **difficulty** is a **budget** 
 | **Extreme** | 120 | Bosses (the boss takes most of it; the rest buys its escort, no foe costing 5 or more) |
 
 - **Foe value.** A foe as strong as one hero is worth **30**, so a Medium fight is two of them, or a crowd of weaker ones. Heroes do not level up (Core 4.2), so the party's expected strength at each stop stands in for its level: *party strength* = 4 × (4 + 0.85 × (1 + 0.75 × the stop's depth)). A Medium budget buys foes costing *party strength* × 0.4.
-- **Tuning by region** (`tools/sim.js`): every foe budget × 1.1, 1.05 and 0.65 in regions I, II and III; on top of that, ordinary battles × 1.6, 1.7 and 1.1, elites × 1.4, 1.35 and 0.8; boss health is the listed HP × 0.55 × 1.2, 1.45 or 0.22 by region, rising 3% per stop. Every foe, bosses included, then has 55% of that (`foeHpMul`). Foe health rises 1.5% and their strength bonus 0.08 per stop of depth.
+- **Tuning by region** (`tools/sim.js`): every foe budget × 1.1, 1.05 and 0.65 in regions I, II and III; on top of that, ordinary battles × 1.5, 2 and 1.4 (`battleMul`), elites × 1.5, 1.6 and 1 (`eliteBudget`); boss health is the listed HP × 0.55 × 1.2, 1.45 or 0.22 by region, rising 3% per stop. Every foe, bosses included, then has 34% of that (`foeHpMul`). Foe health rises 3% and their strength bonus 0.12 per stop of depth. With these numbers the simulator wins about 31–34% of runs (v0.26).
 - **Party size.** Each hero more or fewer than four adds or removes a quarter of the budget (PF2e's character adjustment).
 - **Up to 12 creatures** per battle, drawn at random from the region's pool.
 
@@ -346,6 +346,6 @@ Rewards follow Core 4.1 and 4.2: **battles** give gold, 1 Victory and a reward p
 ## Design Notes for the Bestiary
 
 - **Source.** The foe pools, costs, mission list, twists and surges come from the Emberwatch Tactics prototype and are converted to these rules. Roles follow D&D 4e's Monster Vault and Draw Steel (the Leader role and Malice come from Draw Steel; Lurker, Soldier and Artillery from 4e). The extra foes (Mire Lurker, Wailing Shade, Bone Warden, Ember Hound, Ash Wraith) are new.
-- **Conversion (v0.25).** Emberwatch armour 0 / 1 / 2 / 3 is back as **flat armour** 0 / 1 / 2 / 3, now taken off the **chips** before MULT, so a set-up multiplies what gets through. (From v0.19 to v0.24 it was a DEF die of None / d4 / d6 / d8.) Attack dice and bonuses were kept. Old status names on foe attacks map onto the v0.25 ones: bleeding → Burn (the old number of turns becomes the Burn), slowed → Root, dazed and staggered → Stun, marked → Taunt.
+- **Conversion (v0.25).** Emberwatch armour 0 / 1 / 2 / 3 is back as **flat armour** 0 / 1 / 2 / 3, now taken off the **damage** before MULT, so a set-up multiplies what gets through. (From v0.19 to v0.24 it was a DEF die of None / d4 / d6 / d8.) Attack dice and bonuses were kept. Old status names on foe attacks map onto the v0.25 ones: bleeding → Burn (the old number of turns becomes the Burn), slowed → Root, dazed and staggered → Stun, marked → Taunt.
 - **Malice** replaces the old rule that a boss may unleash a surge every round; surges are free and scheduled (rounds 1, 3 and 5), and Malice pays for threats and ◆ abilities.
 - **To test.** Whether swarms are too deadly. Whether three bosses with escorts of cost 6 to 8 are the right size. Whether armour 3 (Bone Warden, Rock Golem, the dragon) makes d4 heroes feel useless without set-ups.

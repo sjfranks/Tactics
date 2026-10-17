@@ -1,13 +1,13 @@
 ---
 title: Rogue Tactics 1e — Core Rules
-version: 0.25
+version: 0.26
 book: 1 of 3 (Core Rules · Heroes · Bestiary)
 tags: [game-design, rulebook, roguelite, tactics]
 ---
 
 # Rogue Tactics 1e — Core Rules
 
-> v 0.25 "Chips × Mult". Book 1 of 3. The other books are [Heroes](heroes.md) and [Bestiary](bestiary.md). Why the rules are the way they are, and what is still open, is in [Design Notes](design-notes.md). Numbers marked **TBC** are first guesses waiting for playtesting.
+> v 0.26 "Damage × Mult". Book 1 of 3. The other books are [Heroes](heroes.md) and [Bestiary](bestiary.md). Why the rules are the way they are, and what is still open, is in [Design Notes](design-notes.md). Numbers marked **TBC** are first guesses waiting for playtesting.
 
 ---
 
@@ -18,13 +18,13 @@ tags: [game-design, rulebook, roguelite, tactics]
 The whole game runs on two dice rules:
 
 > [!important] The two dice rules
-> **To hurt something,** roll your dice and work out **Damage = CHIPS × MULT**. **CHIPS** are the dice plus your **key stat** (and bonuses), minus the foe's **armour**. **MULT** starts at **1** and gains **+1 for every die that lands on its top number** (a **crit**), plus any **Mult** set up on the foe. There are **no misses**. (3.5)
+> **To hurt something,** roll your dice: every hit is **DAMAGE × MULT**. **DAMAGE** is the dice plus flat bonuses, minus the foe's **armour**; attributes add nothing. **MULT** starts at **1** and gains **+1 for every die that lands on its top number** (a **crit**), plus any **Mult** set up on the foe. There are **no misses**. (3.5)
 >
 > **To do anything risky out of battle,** roll the **die for the attribute**. **4 or more succeeds.** Advantage and disadvantage are the only way to make it easier or harder. (1.3)
 >
-> Everything else is built on these, plus **laddering**: moving a die up or down **d4 → d6 → d8 → d10 → d12 → d20**.
+> Everything else is built on these, plus **laddering**: moving a die up or down **d4 → d6 → d8 → d10 → d12 → d20** (in battle, powers ladder the weapon die along **d2 → d4 → d6 → d8 → d10 → d12**).
 
-In battle every effect is **one visible number**: the dice show blue for chips and red for crits, and each status carries its number on the foe's badge. There is no advantage, no disadvantage and no saving throw in battle.
+In battle every effect is **one visible number**: the dice show blue for damage and red for crits, and each status carries its number on the foe's badge. There is no advantage, no disadvantage and no saving throw in battle.
 
 ### The Books
 
@@ -40,7 +40,7 @@ In battle every effect is **one visible number**: the dice show blue for chips a
 ### How to Win Fights
 
 - **Set up, then cash in.** The wizard gives foes **Mult**, the cleric gives friends **Bless**, the fighter **Stuns** foes. Another hero's hit cashes it in for a **combo** (3.8).
-- **Stack the Mult.** Mult adds up: two Hexes on one foe and a crit is ×6. Give the big hit to the hero with the most chips.
+- **Stack the Mult.** Mult adds up: two Hexes on one foe and a crit is ×6. Give the big hit to the hero with the most damage.
 - **Spend momentum.** MP is lost when the battle ends (3.7).
 - **Watch the order.** The turn order is on screen. Deal with the foe that acts next, and set up foes for the hero who acts before them.
 - **Count your actions.** Defending and other reactions spend actions you would otherwise use on your turn (3.3).
@@ -54,7 +54,7 @@ In battle every effect is **one visible number**: the dice show blue for chips a
 
 The game uses **d2** (a coin, for a few honed weapons), **d4, d6, d8, d10, d12 and d20**.
 
-- **Ladder.** To ladder a die **up**, move it one step along d4 → d6 → d8 → d10 → d12 → d20. To ladder it **down**, move it one step back. Weapons, armour and hit dice improve this way. A few special weapons go one step below d4, to a **d2** (Heroes book).
+- **Ladder.** To ladder a die **up**, move it one step along d4 → d6 → d8 → d10 → d12 → d20. To ladder it **down**, move it one step back. Weapons, armour and hit dice improve this way. A few special weapons go one step below d4, to a **d2** (Heroes book). In battle, **powers** ladder the weapon die along **d2 · d4 · d6 · d8 · d10 · d12** (▲ up, ▼ down, stopping at the ends): bigger dice hit harder, smaller dice crit more often (3.5).
 - **Explode** (checks out of battle only). When a check die shows its **maximum**, roll it again and add the new result. **No die explodes in battle**: damage, Defend, healing and initiative dice are rolled once.
 
 ### 1.2 Attributes
@@ -63,7 +63,7 @@ Every creature has four **attributes**:
 
 | Icon | Attribute | What it means | Used for |
 |---|---|---|---|
-| ♜ | **STR** Strength | Power, toughness | Key stat of the fighter; healing (2.5); carrying (5.3) |
+| ♜ | **STR** Strength | Power, toughness | Key stat of the fighter; Catch Breath healing (2.5); carrying (5.3) |
 | ➶ | **DEX** Dexterity | Speed, agility | Key stat of the rogue; initiative (3.2) |
 | ✦ | **INT** Intelligence | Learning, reasoning | Key stat of the wizard |
 | ♛ | **PRE** Presence | Awareness, will, charm | Key stat of the cleric |
@@ -74,9 +74,9 @@ An attribute is a number. The number sets its die:
 |---|---|---|---|---|---|---|---|
 | **Die** | d4 with disadvantage | d4 | d6 | d8 | d10 | d12 | d20, never critically fails |
 
-- Starting heroes have attributes of **1 to 4**. A **5** is earned with **Training** rewards (4.2) or items.
+- Starting heroes have attributes of **1 to 4**. A **5** comes from items. (Training rewards add damage, not attributes, since v0.26.)
 - A **6** only happens when a buff raises a 5. It is always temporary.
-- In battle an attribute is used as a **number**: the key stat is added to every hit (3.5). Its die is rolled only for checks and initiative.
+- **Attributes add nothing in battle** (since v0.26). They are rolled for checks out of battle and for initiative (DEX), and STR adds to Catch Breath. A hero's damage comes from the weapon, the power and flat bonuses (3.5).
 
 ### 1.3 Checks
 
@@ -168,7 +168,7 @@ A creature is **bloodied** while its HP is **at or below half** its maximum. Blo
 
 - **Down.** A hero at **0 HP** is Down. They cannot act, and foes ignore them. They gain **1 Wound**.
 - **Getting up.** An adjacent ally can spend an action to **Help up** a Down hero, who stands with HP equal to **one roll of their hit die** (not spent from the pool). Any healing also stands them up. When the party **wins** a battle, every Down hero stands up with **1 HP**.
-- **Wounds.** Each Wound gives **−1 chip** on every hit the hero makes (3.5) and **−1** to the total of every **check** out of battle, to a maximum of **−3**. A hit still deals at least 1 damage. Wounds do not affect Defend rolls, initiative or hit dice.
+- **Wounds.** Each Wound gives **−1 damage** on every hit the hero makes (3.5) and **−1** to the total of every **check** out of battle, to a maximum of **−3**. A hit still deals at least 1 damage. Wounds do not affect Defend rolls, initiative or hit dice.
 - **Death.** A hero who goes Down **with 3 Wounds already** dies for good. In other words, a hero can survive three Downs; the **fourth Down** before their Wounds heal kills them.
 - **Removing Wounds.** Each **Camp** removes 1 Wound from every hero, and gold can buy one more (4.7).
 - **Defeat.** If **every** hero is Down at the same time, the battle is lost and the run ends.
@@ -177,8 +177,8 @@ A creature is **bloodied** while its HP is **at or below half** its maximum. Blo
 
 | Way to heal | When | How much |
 |---|---|---|
-| **Second Wind** | In battle, **once per battle**, 1 action | Spend one hit die: roll it and add your **STR**. |
-| **Catch Breath** | Any time **outside** battle | Spend any number of hit dice. For each, roll it and add your **STR**. |
+| **Second Wind** | In battle, **once per battle**, 1 action | Spend one hit die: roll it and add **3**. |
+| **Catch Breath** | Any time **outside** battle | Spend any number of hit dice. For each, roll it and add your **STR** (out of battle, attributes still count). |
 | **Healing potion** | 1 action | Roll **2 of your hit dice** (not spent from the pool). |
 | **Healing power** | As the power says | As the power says (Heroes book). |
 | **Camp** | At a Camp stop | Spends your remaining hit dice, then restores the pool (4.7). |
@@ -252,23 +252,26 @@ Each action costs **1 action** unless it says otherwise.
 
 Every foe's stats, statuses and next move (**INTENT**) are always shown when you tap it.
 
-### 3.5 Attacking: CHIPS × MULT
+### 3.5 Attacking: DAMAGE × MULT
 
-Every hit, by hero or foe, deals **Damage = CHIPS × MULT**, then any **×** multipliers, rounded, **at least 1** (0 if the target is immune). There are **no misses**: every attack hits its target.
+Every hit, by hero or foe, is **DAMAGE × MULT** (the total), then any **×** multipliers, rounded, **at least 1** (0 if the target is immune). There are **no misses**: every attack hits its target.
 
-**CHIPS** (blue) for a hero:
+**DAMAGE** (blue) for a hero:
 
-1. **Roll the dice.** A basic attack rolls **one weapon die**; a power says how many (Heroes book). A **pair** weapon (twinblades, needles) rolls **one more**. Add them up.
-2. **+ your key stat** (STR, DEX, INT or PRE, by class), once.
-3. **+ bonuses:** **Bless N** (+N, then it is spent), *Opening Strike* (+5 on your first attack each battle), the Dwarven Whetstone (+1).
-4. **− Wounds** (−1 each, up to −3).
-5. **− the foe's armour**, a flat number (Bestiary). *Piercing Strike* ignores it. Armour never takes the chips below **1**.
+1. **Roll the dice.** A basic attack rolls **one weapon die**. A power rolls the weapon die with its **modifiers**: a ladder step (▲ up, ▼ down along d2 · d4 · d6 · d8 · d10 · d12), how many dice, how many hits (Heroes book, 2.2.1). A **pair** weapon (twinblades, needles) rolls **one more**. Add them up.
+2. **+ flat bonuses:** the power's **+N damage**, **Bless N** (+N, then it is spent), **Training** (+1 per reward, up to +4), *Opening Strike* (+3 on your first attack each battle), *Brutal* (+3 on a crit), weapon bonuses, the Dwarven Whetstone (+1).
+3. **− Wounds** (−1 each, up to −3).
+4. **− the foe's armour**, a flat number (Bestiary). *Piercing Strike* ignores it. Armour never takes the damage below **1**.
+
+**Attributes add nothing in battle.** Your STR, DEX, INT and PRE are for checks out of battle and initiative only (1.2).
 
 **MULT** (red) for a hero starts at **1**, then:
 
 | Source | Mult |
 |---|---|
-| Each die on its **top number** (a **crit**; *Keen* widens it to one below) | **+1** each (**+2** with *Heavy Hitter*; **+1 more** with a *Vicious* weapon) |
+| Each die on its **top number** (a **crit**; *Keen* widens it to one below) | **+1** each (**+1 more** each with *Heavy Hitter*, *Precision* or a *Vicious* weapon) |
+| The power's **+N Mult** (*Shadowstep* +1), or its **Crit: +N Mult** if a die crits (*Quick Stab* +2) | +N |
+| *Opening Strike*, on your first attack each battle | +1 |
 | *Loaded Bones* relic, if at least one die crits | +1 |
 | The target's **Mult** status (3.10), spent by this hit | +N (*Backstab*: +2N) |
 | **Sneak Attack** (rogue): an ally of hers is beside the target | +1 |
@@ -285,11 +288,11 @@ Every hit, by hero or foe, deals **Damage = CHIPS × MULT**, then any **×** mul
 | **×½** | The target **resists** the damage type, or the attacker is **Weak** |
 | **×0** | The target is **immune** to the damage type |
 
-**Foes** work the same way (Bestiary): CHIPS are their dice plus their bonus (and its growth with depth), plus +2 for *Savage* against a bloodied hero and +2 near an *Aura* foe. MULT is 1 + crits + *Pack* (+1) + *Bloodlust* or *Rally the Horde* (+1 this round) + hidden (+1). Their ×½s are **Weak**, **Taunted** (hitting anyone but the taunter) and the **Warding Charm** (the first hit from each foe on each hero each battle). A foe's hit on a hero can then be **Defended** (3.6).
+**Foes** work the same way (Bestiary): their DAMAGE is their dice plus their bonus (and its growth with depth), plus +2 for *Savage* against a bloodied hero and +2 near an *Aura* foe. MULT is 1 + crits + *Pack* (+1) + *Bloodlust* or *Rally the Horde* (+1 this round) + hidden (+1). Their ×½s are **Weak**, **Taunted** (hitting anyone but the taunter) and the **Warding Charm** (the first hit from each foe on each hero each battle). A foe's hit on a hero can then be **Defended** (3.6).
 
-> **Example.** Vex (DEX 3) with Twinblades (a pair of d4s) Backstabs a goblin with **Mult 2** from Orin's Hex, while Brakka stands beside it. She rolls 4 and 2: chips = 4 + 2 + 3 = **9**. MULT = 1 + 1 (the 4 is a crit) + 4 (Mult 2, doubled by Backstab) + 1 (Sneak Attack) = **7**. Damage **63**, and it is a combo: Vex and Orin gain 2 MP each.
+> **Example.** Vex with Twinblades (a pair of d4s) Backstabs a goblin (no armour) with **Mult 2** from Orin's Hex, while Brakka stands beside it. She rolls 4 and 2: DAMAGE = 4 + 2 = **6** (her DEX adds nothing). MULT = 1 + 1 (the 4 is a crit) + 4 (Mult 2, doubled by Backstab) + 1 (Sneak Attack) = **7**. The hit deals **42**, and it is a combo: Vex and Orin gain 2 MP each.
 
-**The dice on screen.** Every die is the same size, and its colour says what it does: **blue** dice add chips; a die on its top number turns **red** and glows (+1 Mult); **steel** dice Defend or shield; **green** dice heal. The caption reads the sum out: "4 +3 DEX −1 armour = 6 CHIPS × 2 MULT = 12".
+**The dice on screen.** Every die is the same size, and its colour says what it does: **blue** dice add damage; a die on its top number turns **red** and glows (+1 Mult); **steel** dice Defend or shield; **green** dice heal. The caption reads the sum out: "6 +2 Hook Chain −1 armour = 7 DAMAGE × 2 MULT = 14".
 
 **Melee and range.** **Range 1 is melee**: the target must be orthogonally beside you. Anything more is **ranged**, and needs a line of sight past tall obstacles.
 
@@ -339,9 +342,9 @@ A **set-up** is a status one hero puts on a creature so that **another** hero ca
 
 | Set-up | Usually made by | How | The payoff |
 |---|---|---|---|
-| **Mult N** on a foe | Wizard (*Staff Bolt*, *Hex*, *Chain Hex*), cleric (*Brand*) | A power or a basic attack that gives Mult | The **next hero hit** on it adds **N** to its MULT. Then it is spent. |
-| **Stunned** foe | Fighter (slams, *Earthshaker*), wizard (*Force Push* slams) | A **slam** (3.9) or a power that Stuns | It **skips its next turn**. Hitting it does not end the Stun. *Assassinate* deals ×3 to it. |
-| **Bless N** on a hero | Cleric (*Guidance*, *Bless*) | A blessing power | **+N chips** on that hero's **next hit**. Then it is spent. |
+| **Mult N** on a foe | Wizard (*Staff Bolt*, *Hex*, *Chain Hex*, *Ray of Frost* crits), cleric (*Brand*) | A power or a basic attack that gives Mult | The **next hero hit** on it adds **N** to its MULT. Then it is spent. |
+| **Stunned** foe | Fighter (slams, *Earthshaker*, *Tide of Iron* and *Crushing Blow* crits), wizard (*Force Push* slams) | A **slam** (3.9) or a power that Stuns | It **skips its next turn**. Hitting it does not end the Stun. *Assassinate* deals ×3 to it. |
+| **Bless N** on a hero | Cleric (*Guidance*, *Bless*, *Smite* crits) | A blessing power | **+N damage** on that hero's **next hit**. Then it is spent. |
 
 - **A combo** is a hit that uses another hero's Mult on the target, hits a foe another hero Stunned, or spends another hero's Bless. The hero who cashes in and each hero who set it up gain **+2 MP**. One combo per action at most.
 - A foe that just **lost a turn** to a Stun is **steady**: it cannot be Stunned again until after its next turn.
@@ -363,7 +366,7 @@ Each status is one number or one word, shown on the creature's badge.
 | Status | Effect | How long |
 |---|---|---|
 | **Mult N** | The next **hero** hit on it adds **N** to that hit's MULT. Stacks (Hex twice is Mult 4). | Until a hero hits it |
-| **Bless N** | **+N chips** on the hero's next hit. Stacks. | Until the hero hits |
+| **Bless N** | **+N damage** on the hero's next hit. Stacks. | Until the hero hits |
 | **Burn N** | Takes **N damage** at the start of each of its turns (ignores armour), then N drops by 1. Stacks. Water puts it out. Fireproof creatures are immune. | Until N reaches 0 |
 | **Stunned** | A **foe** skips its next turn. A **hero** has 1 fewer action on their next turn. Either way: half SPD and no reactions. A boss gains **+2 Mult** instead. | Until the end of its next turn |
 | **Rooted** | Cannot move. It can still attack. Bosses are immune. | Until the end of its next turn |
@@ -391,7 +394,7 @@ Undead are weak to radiant and immune to poison and necrotic; incorporeal foes r
 Foes use the same rules as heroes, with a few differences (full rules in the Bestiary):
 
 - A foe's turn is a **move and an action** (an attack or a special ability). Its stat block may list more.
-- Foes have **flat armour**, taken off the chips of every hero hit. They do not Defend and do not spend actions on reactions.
+- Foes have **flat armour**, taken off the damage of every hero hit. They do not Defend and do not spend actions on reactions.
 - **Minions** have 1 HP and deal flat damage; they never roll. **Swarms** share one HP pool and take double damage from area attacks.
 - **Bosses** cannot be Stunned (they take +2 Mult) or Rooted.
 - Foes share a pool of **Malice (◆)**, which pays for their threats and special abilities.
@@ -399,7 +402,7 @@ Foes use the same rules as heroes, with a few differences (full rules in the Bes
 
 ### 3.13 Companions
 
-> [!note] Companions are parked in v0.25. The rules below (a wolf, a hawk, a mule) are not in the game, and their tricks were written with saves and advantage; they will be rewritten in Chips × Mult terms if companions return.
+> [!note] Companions are parked (since v0.25). The rules below (a wolf, a hawk, a mule) are not in the game, and their tricks were written with saves and advantage; they will be rewritten in Damage × Mult terms if companions return.
 
 A hero may have **one companion** from a class feature, relic or shop. A companion has **HP**, **SPD**, **flat damage** (it never rolls) and one **trick**; no Defend, no hit dice and no reactions. It acts **on its owner's turn at no action cost**. At 0 HP it is **Down** until the next Camp; it never dies. It counts as an ally for Sneak Attack and set-ups.
 
@@ -449,12 +452,12 @@ Heroes **do not level up**. They grow the way a deck grows in *Slay the Spire*: 
 
 **Rewards.** After every battle won, the party picks **1 of 3 reward cards**:
 
-- Each card is either a **power for one hero** (the card names the hero; the three cards go to different heroes where possible), or a **growth card** (each card has a 30% chance, at most one per pick, so about two picks in three hold one; never in elite or boss picks). A growth card is Training about a third of the time, while the hero's key stat is below 5:
+- Each card is either a **power for one hero** (the card names the hero; the three cards go to different heroes where possible), or a **growth card** (each card has a 30% chance, at most one per pick, so about two picks in three hold one; never in elite or boss picks). A growth card is Training about a third of the time, while the hero's Training is below +4:
 
 | Growth | Effect |
 |---|---|
 | **Vigor** | The hero gains max HP equal to **1½ × their hit die's maximum** (d10: +15), and heals that much now. |
-| **Training** | **+1 to the hero's key stat**, up to 5. |
+| **Training** | **+1 damage on every hit** the hero makes, up to **+4**. (Before v0.26 it was +1 key stat.) |
 
 - **Elite battles** give **two** picks, each with at least one **Uncommon** power or better. **Bosses** give **two** picks with at least one **Rare**.
 - Powers roll their rarity as in a draft (7): Common 60%, Uncommon 30%, Rare 10%.
@@ -653,13 +656,13 @@ The Heroes book has a ready-made hero for each class. To make your own:
 | **Hit dice** | A pool of 3, of your class's die |
 | **SPD** | Your class's speed (Heroes book) |
 | **Initiative** | Your DEX die |
-| **Hit** | CHIPS: weapon dice + key stat; MULT: 1 + crits (3.5) |
+| **Hit** | DAMAGE: weapon dice + flat bonuses (Training); MULT: 1 + crits (3.5) |
 | **Defend** | Your armour die; +2 with a carried shield (3.6) |
 | **Pack slots** | 2 + STR |
 
 ### 5.4 Growing Stronger
 
-Heroes do not level up (4.2). A hero starts with their class features (Heroes book) and grows only through **rewards**: new powers, **Vigor** (max HP) and **Training** (+1 key stat, up to 5), and through weapons, relics and the smith.
+Heroes do not level up (4.2). A hero starts with their class features (Heroes book) and grows only through **rewards**: new powers, **Vigor** (max HP) and **Training** (+1 damage on every hit, up to +4), and through weapons, relics and the smith.
 
 ### 5.5 Powers
 
@@ -731,7 +734,7 @@ Costs are in gold (**TBC**). A better weapon is usually one ladder step up.
 
 ### 6.4 Consumables
 
-Each consumable takes **1 pack slot** (5.3). *(Not in the v0.25 game: the shop sells Bandages and Rations instead.)*
+Each consumable takes **1 pack slot** (5.3). *(Not in the v0.26 game: the shop sells Bandages and Rations instead.)*
 
 | Item | Effect (1 action) | Cost |
 |---|---|---|
@@ -749,7 +752,7 @@ Each consumable takes **1 pack slot** (5.3). *(Not in the v0.25 game: the shop s
 > - **Reroll** a die they just rolled (a hit, a check or a Defend), keeping the new result; or
 > - **Shake it off:** end one status on themselves.
 
-**Other relics.** Boots of Striding (+1 SPD for every hero), Dwarven Whetstone (**+1 chips** on every hero hit), Heart of the Oak (+8 max HP), Battle Hymn (+2 starting MP), Tactician's Map (the first basic attack each turn gives +1 more MP), Phoenix Feather (the first hero Down each battle rises at half HP), Vampire Fang (heal 4 on a kill), Bulwark Sigil (start each battle with 8 shield), Loaded Bones (**+1 Mult** on a hero hit with at least one crit), Sentinel Lens (+3 damage on hero reaction hits), Warding Charm (each foe's first hit on each hero each battle deals **half damage**), Salamander Scale (heroes ignore fire and lava damage and cannot Burn), Gauntlet of Force (+1 to hero pushes and pulls), Fenwalker Boots (ignore difficult terrain), Hourglass of Haste (better initiative), Lucky Coin (+50% gold), Healer's Satchel (heal 15% after each battle).
+**Other relics.** Boots of Striding (+1 SPD for every hero), Dwarven Whetstone (**+1 damage** on every hero hit), Heart of the Oak (+8 max HP), Battle Hymn (+2 starting MP), Tactician's Map (the first basic attack each turn gives +1 more MP), Phoenix Feather (the first hero Down each battle rises at half HP), Vampire Fang (heal 4 on a kill), Bulwark Sigil (start each battle with 8 shield), Loaded Bones (**+1 Mult** on a hero hit with at least one crit), Sentinel Lens (+3 damage on hero reaction hits), Warding Charm (each foe's first hit on each hero each battle deals **half damage**), Salamander Scale (heroes ignore fire and lava damage and cannot Burn), Gauntlet of Force (+1 to hero pushes and pulls), Fenwalker Boots (ignore difficult terrain), Hourglass of Haste (better initiative), Lucky Coin (+50% gold), Healer's Satchel (heal 15% after each battle).
 
 **Unlocked relics** (4.10): War Drum (+1 MP to the hero who cashes in a combo), Scholar's Tome (picks and drafts show 4 cards), Camp Kettle (+1 hit die; Camps remove 2 Wounds), Merchant's Seal (merchants and the smith charge 25% less), Executioner's Hood (**+1 Mult** on hero hits against bloodied foes), Ember Censer (every foe but a boss starts each battle with **Burn 3**), Mender's Thread (Second Wind twice a battle), Crown of Thorns (+3 starting MP; foes gain 2 more Malice each round), Blood Chalice (when a hero goes Down, every other hero gains 2 MP).
 
@@ -762,23 +765,25 @@ A **power** is anything a hero learns during a run. The full rules, every class'
 - **Two kinds.** An **active** power is used on your turn and costs **MP** and **actions**. A **passive** power is always on, or triggers by itself, and costs nothing.
 - **Two lists.** **Class powers** are on each class page; **general powers** can be taken by any class. Every hero also has **innate** powers that take no slot: their **basic attack**, **Second Wind** and **Help Up**, plus the fighter's **Shove**, the wizard's **Force Push** and the cleric's **Guidance**.
 - **Slots, rewards and drafts.** A hero has **8** power slots. Most powers come from **rewards** after each fight (4.2). A **draft** is a pick of 3 powers for one hero, from boons, Treasure, Training at a Camp and some events. Shops sell powers.
-- **Every effect is one number.** A power rolls **weapon dice** (it says how many) for its **chips**, gives a foe **Mult**, gives an ally **Bless**, **Stuns**, **Roots** or **Burns**, or adds a **×** to a hit. Upgrading your weapon makes every attacking power stronger.
-- **Tags.** Every class and general power has one of six tags (Set-up, Burst, Guard, Reach, Surge, Mend). In v0.25 tags only group powers; the old Resonance bonuses are retired.
+- **Every effect is one number.** An attacking power is the **weapon die** with standard **modifiers** shown as one line on its card: a ladder step ▲/▼, how many dice and hits, **+N damage**, **+N Mult**, and **Crit:** triggers (Stun, Root, Burn, Mult, Bless, an action back…). Other powers give a foe **Mult**, give an ally **Bless**, **Stun**, **Root** or **Burn**, or add a **×** to a hit. Upgrading your weapon makes every attacking power stronger.
+- **Tags.** Every class and general power has one of six tags (Set-up, Burst, Guard, Reach, Surge, Mend). Since v0.25 tags only group powers; the old Resonance bonuses are retired.
 
 ### 7.1 Using Active Powers
 
 - **Cost.** An active power costs the **MP** and **actions** it lists (1 action unless it says 2). **Innate** powers cost 0 MP.
 - **Free** powers cost no action. **Reaction** powers cost 1 ready action on someone else's turn, once per round each.
-- **Attacking powers** roll their **weapon dice** (a pair weapon adds one), add your key stat once, and multiply by MULT, exactly like a basic attack (3.5). Armour applies unless the power says otherwise.
+- **Attacking powers** roll their **weapon dice** (a pair weapon adds one), laddered and changed by their modifiers, then DAMAGE × MULT exactly like a basic attack (3.5). Attributes add nothing. Armour applies unless the power says otherwise.
 - **No saves.** A power's effects simply happen on every target it hits.
 - **Combat only.** Powers are used in battle. Outside battle, heroes use class options (1.3).
 
 **Reading a power:**
 
-| Power | R | Tag | MP | Actions | Range | Effect |
-|---|---|---|---|---|---|---|
-| **Tide of Iron** | C | Set-up | 1 | 1 | 1 | Attack. Push the foe 1 square and step after it. It is Taunted. If it slams into something, it is Stunned. |
-| **Anvil** | U | Set-up | — | passive | — | When you Stun a foe, it also gains +2 Mult. |
+| Power | R | Tag | MP | Actions | Range | Modifiers | Effect |
+|---|---|---|---|---|---|---|---|
+| **Tide of Iron** | C | Set-up | 1 | 1 | 1 | d8 ▲ from d6 · Crit: Stun | Push the foe 1 and step after it. It is Taunted. A slam Stuns it. |
+| **Anvil** | U | Set-up | — | passive | — | — | When you Stun a foe, it also gains +2 Mult. Once a round, a foe you push next to an ally takes a free hit from them. |
+
+The **Modifiers** line is worked out for the hero's weapon (here Brakka's d6 Longsword, laddered up one step). "Crit:" effects happen when at least one die of the hit crits.
 
 ---
 
@@ -799,22 +804,22 @@ A **power** is anything a hero learns during a run. The full rules, every class'
 |---|---|
 | **Action** | One of your 3 per turn; reactions spend them too (3.3) |
 | **Advantage / disadvantage** | Out of battle only: roll extra dice, keep the best or worst; net capped at 3 (1.4) |
-| **Armour** | A foe's flat number taken off the chips of every hero hit, to a minimum of 1 chip (3.5) |
-| **Bless N** | +N chips on a hero's next hit (3.10) |
+| **Armour** | A foe's flat number taken off the damage of every hero hit, to a minimum of 1 (3.5) |
+| **Bless N** | +N damage on a hero's next hit (3.10) |
 | **Bloodied** | At or below half HP (2.3) |
 | **Burn N** | N damage at the start of its turn, then N drops by 1 (3.10) |
-| **Chips** | The blue half of a hit: dice + key stat + bonuses − armour (3.5) |
 | **Class option** | An event choice only a party with that class can pick (1.3) |
 | **Combo** | Cashing in another hero's set-up: +2 MP each (3.8) |
-| **Companion** | An animal ally (parked in v0.25) (3.13) |
-| **Crit** | A die on its top number: it turns red and adds +1 Mult (3.5) |
+| **Companion** | An animal ally (parked since v0.25) (3.13) |
+| **Crit** | A die on its top number: it turns red and adds +1 Mult; some powers add a "Crit:" effect (3.5) |
+| **Damage** | The blue half of a hit: dice + flat bonuses − Wounds − armour, at least 1; then × MULT (3.5) |
 | **Defend** | A reaction: roll your armour die and subtract it from a non-crit hit (3.6) |
 | **Down** | At 0 HP; gain a Wound (2.4) |
 | **Ready action** | An action kept from your turn; pays for one reaction before your next turn (3.3) |
 | **Group check** | Every hero rolls; half must succeed (1.3) |
 | **HD (⚅)** | Hit die: sets HP and heals; a pool of 3 (2.1) |
-| **Key stat** | The attribute your class adds to every hit (3.5) |
-| **Ladder** | Move a die one step up or down d4 → d20 (1.1) |
+| **Key stat** | Your class's best attribute; it adds nothing in battle since v0.26 (1.2) |
+| **Ladder** | Move a die one step up or down d4 → d20; powers ladder the weapon die d2 → d12 (▲/▼) (1.1) |
 | **Malice (◆)** | The foes' shared resource (Bestiary) |
 | **Mult** | The red half of a hit: 1 + crits + Mult status + other sources (3.5); also a status on a foe (3.10) |
 | **MP** | Momentum: pays for active powers (3.7) |
@@ -835,6 +840,6 @@ A **power** is anything a hero learns during a run. The full rules, every class'
 | **Chronicle** | What carries over between runs: totals, score, unlocked relics (4.10) |
 | **Dread** | The difficulty ladder unlocked by winning (4.10) |
 | **Reward** | After each battle won: pick 1 of 3 cards, a power for one hero or growth (4.2) |
-| **Growth** | A reward card: Vigor (+1½ hit dice of max HP) or Training (+1 key stat) (4.2) |
+| **Growth** | A reward card: Vigor (+1½ hit dice of max HP) or Training (+1 damage on every hit, up to +4) (4.2) |
 | **Weak** | Deals half damage (3.10) |
-| **Wound** | −1 chip on every hit and −1 to checks (max −3); the fourth Down kills (2.4) |
+| **Wound** | −1 damage on every hit and −1 to checks (max −3); the fourth Down kills (2.4) |

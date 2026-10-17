@@ -1,32 +1,55 @@
 ---
 title: Rogue Tactics 1e — Design Notes
-version: 0.25
+version: 0.26
 tags: [game-design, rulebook, notes]
 ---
 
 # Rogue Tactics 1e — Design Notes
 
-> v 0.25. Not for play. This file holds the changelog, the open questions, what was borrowed from Nimble and Emberwatch Tactics, and ideas that were parked. Books: [Core Rules](core-rules.md) · [Heroes](heroes.md) · [Bestiary](bestiary.md).
+> v 0.26. Not for play. This file holds the changelog, the open questions, what was borrowed from Nimble and Emberwatch Tactics, and ideas that were parked. Books: [Core Rules](core-rules.md) · [Heroes](heroes.md) · [Bestiary](bestiary.md).
 
 ---
 
 ## 1. What Changed
 
+### v0.26 (from v0.25): Damage × Mult, and powers as modifiers
+
+Feedback on v0.25, in the player's words: *"Chips is just called damage. Powers have modifiers that can be: ladder up/down dice, add flat damage (no more attributes with modifiers), add mult, or trigger special effects based on a critical roll."* Two complaints sit behind it. "Chips" was a borrowed *Balatro* word that needed explaining every time, when the game already had a plain one. And the key stat was a hidden, constant +3 on every hit: it did not change between turns, it was not a choice, and it blurred the dice (a d4 and a d10 hero dealt much the same), so the weapon die did not feel like the engine the Heroes book says it is. The answer is to call the first number what it is, take attributes out of battle, and build every attacking power from a small, fixed set of **modifiers** that the card can show on one line.
+
+- **CHIPS is now DAMAGE.** A hit is **DAMAGE × MULT** (= the total). The dice caption reads "6 +2 Hook Chain −1 armour = 7 DAMAGE × 2 MULT = 14". Blue dice add damage.
+- **Attributes add nothing in battle.** DAMAGE = the dice + flat bonuses (the power's +N, Bless, Training, the Whetstone, *Opening Strike*, *Brutal*, weapon bonuses) − Wounds − the foe's armour (at least 1). Attributes stay for checks out of battle, initiative and Catch Breath. Flat heals that used an attribute are now a flat **+3**: *Healing Word* heals d8 + 3 (Channel Divinity), *Second Wind* one hit-die roll + 3. A hero's parting blow is a flat 4.
+- **Every attacking power = the weapon die + standard modifiers** (Heroes 2.2.1), shown as one line on its card: a **ladder step** ▲/▼ along d2 · d4 · d6 · d8 · d10 · d12 (bigger hits against more crits), **how many dice**, **how many hits**, **+N damage**, **+N Mult** on the hit, and **Crit:** triggers (Stun, Root, Burn N, foe +N Mult, push, +N Mult, +N damage, allies Bless N, +1 action once a round). A few powers keep one named rule (ignores armour, the foe's Mult ×2, ×3 against a Stunned foe).
+- **New powers:** *Magic Missile* (wizard C: ▼2, ×3 hits, range 6), *Crushing Blow* (fighter U: ▲2, +3 damage, Crit: Stun), *Quick Stab* (rogue C: 2 dice ▼2, Crit: +2 Mult), *Smite* (cleric C: ▲1, +1 damage, Crit: allies Bless 2), and the general *Heavy Weapon* (C: every attack ▲1), *Precision* (U: every attack ▼1, +1 Mult per crit) and *Brutal* (C: +3 damage on a crit).
+- **Changed:** *Tide of Iron* ▲1 and Crit: Stun; *Hook Chain* +2 damage; *Hit and Run* +2 damage; *Cleave* ▼1; *Scorching Burst* ▼1 and Crit: Burn 2; *Ray of Frost* Crit: foe +2 Mult; *Flurry* three hits ▼1 and Crit: +1 action; *Shadowstep* +1 Mult; *Assassinate* ▲1; *Fireball* ▲1; *Judgment* ▲1; *Opening Strike* +3 damage and +1 Mult (was +5 damage). Card texts now match the engine for *Brace* (once a round), *Field Medic* (allies only), *Sentinel* and *Anvil*.
+- **Training** is now **+1 damage on every hit** (up to +4), not +1 key stat.
+- **Retune.** Without the key stat heroes deal much less per hit (a d6 basic attack averages 4.5 instead of 8.0), so every foe has **34%** of its listed health (`foeHpMul`, was 64%) and ordinary battles are × 1.5 / 2 / 1.4 by region (`battleMul`, was 1.7 / 2 / 1.4). The simulator wins about **31–34%** of runs.
+
+**Known gaps between the books and the v0.26 code:**
+
+- The battle log for *Second Wind* still says "+ Strength" though it heals + 3; the in-battle code no longer reads STR.
+- A hero's flat parting blow (4) is never used: heroes only strike a leaving foe through *Sentinel*, which is a normal attack. Foes' *Rally* blows still add their STR or DEX.
+- The class trait text for the cleric in the code still says her heals add her Presence.
+- *Magic Missile* and *Quick Stab* ladder ▼2 from a d4, which stops at d2, so on their starting weapons the second step does nothing.
+
+**Open questions from v0.26:** Is the d4 wizard too weak now that INT added a third of his damage? Are 34% foe health and the ladder enough to keep big-die heroes from dominating, now that small dice no longer get a constant +3? Should more powers carry Crit: triggers, or does that crowd the card line? Is +4 the right cap for Training?
+
 ### v0.25 (from v0.24): Chips × Mult
+
+*(v0.25 called the first number of a hit "chips" and added the key stat to it; v0.26 renamed it **damage** and took the key stat out. This entry uses the v0.26 words.)*
 
 Playtest feedback on v0.24 was clear on four points. **Basic attacks shut off after one use**, and players felt it as a loss: with three actions and nothing to spend them on, the turn ended with a shrug. **There were too many modifiers**: a hit could stack flanking, exposed, cover, blessed, weakened and marked, roll several dice, keep one, explode, then lose a DEF die, and nobody could say why a hit dealt 4 or 14. **Advantage, disadvantage and saving throws** made the outcome hard to read before tapping, and saves added a second roll by the target. And **the 3D dice did not mean anything**: colours and sizes changed with advantage and explosions, but a player could not read the result from them. The redesign moves toward *Balatro*'s clarity: **every effect is one visible number**, and powers interact by feeding two shared numbers, **Mult** and **Bless**.
 
-- **Damage = CHIPS × MULT** (Core 3.5). CHIPS are the dice + the key stat + flat bonuses − the foe's armour (at least 1). MULT is 1 + 1 for each die on its top number (a crit) + the foe's Mult status + a few named sources (Sneak Attack, Finisher, hidden, Glass Cannon). Then × multipliers: weakness ×2, resistance ×½, Shatter ×2, Assassinate ×3, Weak ×½, Taunted ×½. The forecast and the dice caption read the sum out: "4 +3 DEX −1 armour = 6 CHIPS × 2 MULT = 12".
+- **Damage × Mult** (Core 3.5). DAMAGE was the dice + the key stat + flat bonuses − the foe's armour (at least 1). MULT is 1 + 1 for each die on its top number (a crit) + the foe's Mult status + a few named sources (Sneak Attack, Finisher, hidden, Glass Cannon). Then × multipliers: weakness ×2, resistance ×½, Shatter ×2, Assassinate ×3, Weak ×½, Taunted ×½. The forecast and the dice caption read the sum out.
 - **No misses, no grazes, no exploding damage dice, no advantage or disadvantage in battle, no saves in battle.** A natural 1 is just a 1. Checks, dramatic tasks and negotiations out of battle keep advantage and the 4+ rule.
-- **Crits are per die.** Every die on its top number turns red and adds +1 Mult, so small dice (d4, d2, pairs) crit often and big dice give more chips. Keen widens the range; Heavy Hitter makes each crit +2; Vicious adds +1 per crit; Loaded Bones +1 if any die crits.
+- **Crits are per die.** Every die on its top number turns red and adds +1 Mult, so small dice (d4, d2, pairs) crit often and big dice give more damage. Keen widens the range; Heavy Hitter makes each crit +2; Vicious adds +1 per crit; Loaded Bones +1 if any die crits.
 - **Basic attacks as often as you have actions.** The first each turn still gives +1 MP, so powers stay the better use of momentum.
-- **Foe armour is flat again** (1 to 3, from the Emberwatch numbers), taken off the chips before MULT. Foes no longer roll DEF dice. Heroes still **Defend** with their armour die (fighter d8, cleric d6, rogue and wizard d4), now **+2** for a shield, Block or Brace instead of advantage, and still not against a crit.
-- **Statuses are numbers or single words.** *Mult N* (the next hero hit adds N, then it is spent), *Bless N* (+N chips on the next hit), *Burn N* (N damage, then N − 1), *Stun* (skips its next turn; bosses take +2 Mult instead), *Root*, *Weak*, *Taunt*, *Shield*, *Hidden*. Mult, Bless and Burn stack. Old names map onto them: daze → Stun, slow → Root, expose → Mult, bleed → Burn, fear → Weak. Prone, blinded, poisoned and frightened are gone, and so are Terrifying's fear saves (Terrifying is flavour).
+- **Foe armour is flat again** (1 to 3, from the Emberwatch numbers), taken off the damage before MULT. Foes no longer roll DEF dice. Heroes still **Defend** with their armour die (fighter d8, cleric d6, rogue and wizard d4), now **+2** for a shield, Block or Brace instead of advantage, and still not against a crit.
+- **Statuses are numbers or single words.** *Mult N* (the next hero hit adds N, then it is spent), *Bless N* (+N damage on the next hit), *Burn N* (N damage, then N − 1), *Stun* (skips its next turn; bosses take +2 Mult instead), *Root*, *Weak*, *Taunt*, *Shield*, *Hidden*. Mult, Bless and Burn stack. Old names map onto them: daze → Stun, slow → Root, expose → Mult, bleed → Burn, fear → Weak. Prone, blinded, poisoned and frightened are gone, and so are Terrifying's fear saves (Terrifying is flavour).
 - **Set-ups are the three numbers.** The wizard gives foes Mult (Staff Bolt +1, Hex +2, Chain Hex), the cleric Blesses friends, the fighter Stuns with slams and Taunts. Cashing in another hero's Mult, Stun or Bless is a combo, +2 MP each. A Stun is not spent by hits, so a Stunned foe is a combo for everyone until its turn; the old "sure crit" and the "an ally hit it first, so it keeps its turn" exception are gone.
-- **Dice colours mean something.** Every die is the same size. Blue dice add chips; a die on its top number turns red and glows (+1 Mult); steel dice Defend or shield; green dice heal.
-- **Powers rewritten** around the three numbers (Heroes Parts 5 and 6): 50 class and general powers, plus the innate ones. New starts: *Tide of Iron*, *Piercing Strike*, **Hex** (instead of Scorching Burst), *Healing Word*. **New:** Hex, Chain Hex, Amplify, Radiance, Cleave, Assassinate (×3 vs Stunned), Heavy Hitter (now general; it replaces the fighter's Heavy Blows). **Reworked:** Backstab (an active: the foe's Mult counts double), Brand (was Brand of Judgment: +1 Mult), Judgment (was Judgment Day: hits every foe with Mult), Glass Cannon (+1 Mult, no Defend), Opening Strike (+5 chips), Finisher (+1 Mult), Anvil (+2 Mult when she Stuns), Block (+2 to Defend), Brace (+2), Shatter (×2 on any ally hit), Flurry (an active: attack twice). **Gone:** the cleric's Sling; Deep Cut, Feint, Vanish, Open Veins, Needle and Thread, Coup de Grâce; Sweep, Bodyguard, Shieldbreaker, Blood in the Water, Come and Get It; Thunderwave, Mage Shield, Kindling, Web, Battlemage, Lightning Rod, Wildfire, Gravity Well; Healer's Gift, Shepherd, Divine Favour, Smite, Martyr's Grace; and the general Opening Gambit, Exploit Weakness, Follow-Through, Domino, Rhythm, Set Your Feet, Veteran's Pride, Counter-Guard, Bulwark Chain, Nerves of Steel, Trip Wire, Pinball, Reposition, Warm-up, Overflow, Echo, Afterglow, Rally, Triage and Echoing Mercy (with them the Chain, Link and Growth keywords). Staffs crit now.
+- **Dice colours mean something.** Every die is the same size. Blue dice add damage; a die on its top number turns red and glows (+1 Mult); steel dice Defend or shield; green dice heal.
+- **Powers rewritten** around the three numbers (Heroes Parts 5 and 6): 50 class and general powers, plus the innate ones. New starts: *Tide of Iron*, *Piercing Strike*, **Hex** (instead of Scorching Burst), *Healing Word*. **New:** Hex, Chain Hex, Amplify, Radiance, Cleave, Assassinate (×3 vs Stunned), Heavy Hitter (now general; it replaces the fighter's Heavy Blows). **Reworked:** Backstab (an active: the foe's Mult counts double), Brand (was Brand of Judgment: +1 Mult), Judgment (was Judgment Day: hits every foe with Mult), Glass Cannon (+1 Mult, no Defend), Opening Strike (+5 damage), Finisher (+1 Mult), Anvil (+2 Mult when she Stuns), Block (+2 to Defend), Brace (+2), Shatter (×2 on any ally hit), Flurry (an active: attack twice). **Gone:** the cleric's Sling; Deep Cut, Feint, Vanish, Open Veins, Needle and Thread, Coup de Grâce; Sweep, Bodyguard, Shieldbreaker, Blood in the Water, Come and Get It; Thunderwave, Mage Shield, Kindling, Web, Battlemage, Lightning Rod, Wildfire, Gravity Well; Healer's Gift, Shepherd, Divine Favour, Smite, Martyr's Grace; and the general Opening Gambit, Exploit Weakness, Follow-Through, Domino, Rhythm, Set Your Feet, Veteran's Pride, Counter-Guard, Bulwark Chain, Nerves of Steel, Trip Wire, Pinball, Reposition, Warm-up, Overflow, Echo, Afterglow, Rally, Triage and Echoing Mercy (with them the Chain, Link and Growth keywords). Staffs crit now.
 - **Resonance retired.** Tags only sort powers.
-- **Relics in the new terms.** Whetstone +1 chip; Loaded Bones +1 Mult on a crit; Executioner's Hood +1 Mult vs bloodied; Warding Charm halves each foe's first hit on each hero; Ember Censer gives Burn 3.
+- **Relics in the new terms.** Whetstone +1 damage; Loaded Bones +1 Mult on a crit; Executioner's Hood +1 Mult vs bloodied; Warding Charm halves each foe's first hit on each hero; Ember Censer gives Burn 3.
 - **Removed from the battle rules:** flanking and cover advantage, long shot, surprise advantage, Assess (Create an opening, Anticipate danger), the Hide action, the once-per-turn basic attack, swapping places in the initiative order, upcasting, and the one-free-power-a-turn limit, none of which the v0.25 engine has. Companions are parked.
 
 **Known gaps between this book and the v0.25 code** (the books describe what the code does; these are where the code and the design disagree, for the next code pass):
@@ -318,7 +341,9 @@ Drawn from the Savage Pathfinder review. Only powers that fit the existing rules
 
 These notes used to sit in the Core Rules. They explain choices; players do not need them.
 
-**Why CHIPS × MULT.** A hit used to pass through six steps (net advantage, keep a die, miss or crit, explode, add the stat, subtract a rolled DEF), and a player could not say beforehand what it would do. Two numbers, one added up and one multiplied, are as readable as *Balatro*'s hands: chips grow slowly (a better die, a Bless, a key stat), Mult grows in jumps (crits, set-ups), and the product is where the excitement is. Set-ups now **multiply** each other instead of each being "one more advantage" that capped at 3.
+**Why DAMAGE × MULT.** A hit used to pass through six steps (net advantage, keep a die, miss or crit, explode, add the stat, subtract a rolled DEF), and a player could not say beforehand what it would do. Two numbers, one added up and one multiplied, are as readable as *Balatro*'s hands: damage grows slowly (a better die, a Bless, +N from a power or Training), Mult grows in jumps (crits, set-ups), and the product is where the excitement is. (v0.25 called the first number *chips*; v0.26 calls it damage, and drops the key stat from it so the weapon die and the power's modifiers decide the hit.) Set-ups now **multiply** each other instead of each being "one more advantage" that capped at 3.
+
+**Why a fixed set of power modifiers** (v0.26). A power that can only ladder the die, add dice or hits, add flat damage, add Mult or trigger on a crit fits on one card line, and every power reads the same way. The ladder gives each power a real trade instead of a bigger number: ▲ is steadier damage, ▼ is more crits (a d2 crits half the time), so *Precision* and *Quick Stab* feed Mult builds while *Heavy Weapon* and *Crushing Blow* feed big-die builds. Crit triggers make the red die do something beyond +1 Mult.
 
 **The shape of the ladder** (checks out of battle). Each attribute step adds less than the one before (1→2 is +25 points of success, 2→3 +13, 3→4 +7, 4→5 +5), and advantage helps low dice most. A buffed 6 jumps to a d20: bigger totals and no critical failures.
 
@@ -334,22 +359,22 @@ These notes used to sit in the Core Rules. They explain choices; players do not 
 | Cleric | d6 + 2 (shield) | 5.5 | 7.5 |
 | Rogue, Wizard | d4 | 2.5 | 4.5 |
 
-A foe hit of d6+2 with strength 1 averages 6.5 chips × 1 Mult: the fighter shrugs most of it off, the wizard keeps most of it.
+A foe hit of d6+2 with strength 1 averages 6.5 damage × 1 Mult: the fighter shrugs most of it off, the wizard keeps most of it.
 
-**Hero damage against armour** (exact averages of one basic attack, key stat 3):
+**Hero damage against armour** (exact averages of one basic attack with no flat bonuses; attributes add nothing since v0.26):
 
 | Attack | Armour 0 | Armour 2 | Armour 3 |
 |---|---|---|---|
-| Rogue, pair of d4s | 12.8 | 9.8 | 8.2 |
-| Rogue, pair of d2s | 12.5 | 8.5 | 6.5 |
-| Fighter, d6 | 8.0 | 5.7 | 4.5 |
-| Fighter, d10 | 9.8 | 7.6 | 6.5 |
-| 2-dice power, d6 | 14.2 | 11.5 | 10.2 |
-| Rogue, pair of d4s, foe with Mult 2 | — | 21.8 | — |
+| Rogue, pair of d4s | 8.3 | 5.3 | 4.0 |
+| Rogue, pair of d2s | 6.5 | 2.8 | 2.0 |
+| Fighter, d6 | 4.5 | 2.7 | 2.0 |
+| Fighter, d10 | 6.5 | 4.6 | 3.8 |
+| 2-dice power, d6 | 10.2 | 7.5 | 6.3 |
+| Rogue, pair of d4s, foe with Mult 2 | — | 11.4 | — |
 
-Takeaways: armour hurts small dice most, because it comes off the chips; Mult multiplies what gets through, so set-ups are the real damage. *Piercing Strike* exists for armour 3 foes.
+Takeaways: armour hurts small dice most, because it comes off the damage; Mult multiplies what gets through, so set-ups are the real damage. Without the key stat, armour 2 or 3 nearly cancels a small-die basic attack, so flat bonuses (+N damage, Bless, Training) and *Piercing Strike* are what small dice need against armour.
 
-**Why a flat Wound modifier.** Wounds make a hero worse at everything without removing options. In battle they come off the chips (−1 each, so they bite small dice hardest). Out of battle they come off the check total. Chance a check succeeds:
+**Why a flat Wound modifier.** Wounds make a hero worse at everything without removing options. In battle they come off the damage (−1 each, so they bite small dice hardest). Out of battle they come off the check total. Chance a check succeeds:
 
 | Die | No Wounds | 1 | 2 | 3 |
 |---|---|---|---|---|
