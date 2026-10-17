@@ -391,11 +391,13 @@ const HOWTO=`{g:Turn order.} Everyone rolls {g:initiative} (their Dexterity die)
 
 {g:Reactions.} Actions you don't spend stay {g:ready} (the blue pips) until your next turn starts. When a foe hits a hero who has one, the game asks whether to {g:Defend}: roll your armour die (+2 with a shield) and take that much less damage. Later, powers add other reactions (Intercept, Opportunist, Repelling Ward, Warding Word).
 
-{g:Damage: CHIPS × MULT.} Every hit is {b:CHIPS} × {r:MULT}. {b:Chips}: the dice you roll + your {g:key stat} + bonuses (Bless) − the foe's armour. {r:Mult} starts at 1: +1 for each die that lands on its top number (a {g:crit}), + the foe's {r:Mult}, + bonuses like the rogue's {g:Sneak Attack}. A weakness doubles the damage; a resistance halves it. There are no misses. The forecast shows the chips, the mult and the damage before you commit.
+{g:Damage × Mult.} Every hit is {b:DAMAGE} × {r:MULT}. {b:Damage}: the dice you roll + flat bonuses (the power, Bless, Training) − the foe's armour. Attributes add nothing in battle. {r:Mult} starts at 1: +1 for each die that lands on its top number (a {g:crit}), + the foe's {r:Mult}, + bonuses like the rogue's {g:Sneak Attack}. A weakness doubles the damage; a resistance halves it. There are no misses. The forecast shows the damage, the mult and the total before you commit.
 
-{g:The dice.} Every roll is thrown as 3D dice with a short caption. The colours mean one thing each: {b:blue} dice add chips; a die on its top number turns {r:red} (+1 Mult); {m:steel} dice Defend; {h:green} dice heal. Tap to hurry a roll along.
+{g:Power modifiers.} Every attacking power is your weapon die with a few modifiers, shown on its card: {b:▲ or ▼} steps the die up (bigger hits) or down (more crits: a d2 crits half the time), {b:+N dmg} adds flat damage, {r:+N Mult} multiplies, and {o:Crit:} effects (Stun, Burn, Bless, an extra action...) happen when any die crits.
 
-{g:Set-ups and combos.} Heroes set each other up. The wizard's spells give foes {r:+Mult}: the next hero to hit adds it to their MULT. The cleric's {b:Bless} adds chips to an ally's next hit. A foe slammed into something is {g:Stunned}: it skips its next turn. Set-ups stack and wait for the next hit. Cashing in another hero's set-up is a {g:combo}: +2 momentum for both.
+{g:The dice.} Every roll is thrown as 3D dice with a short caption. The colours mean one thing each: {b:blue} dice add damage; a die on its top number turns {r:red} (+1 Mult); {m:steel} dice Defend; {h:green} dice heal. Tap to hurry a roll along.
+
+{g:Set-ups and combos.} Heroes set each other up. The wizard's spells give foes {r:+Mult}: the next hero to hit adds it to their MULT. The cleric's {b:Bless} adds damage to an ally's next hit. A foe slammed into something is {g:Stunned}: it skips its next turn. Set-ups stack and wait for the next hit. Cashing in another hero's set-up is a {g:combo}: +2 momentum for both.
 
 {g:Momentum.} Shown as {p:◆} gems. Heroes start each battle with momentum equal to the party's {g:Victories} (up to 3), gain 1 for their first basic attack each turn and 2 for each combo, and spend it on powers.
 
@@ -405,7 +407,7 @@ const HOWTO=`{g:Turn order.} Everyone rolls {g:initiative} (their Dexterity die)
 
 {g:Moving.} Moving away from foes is safe: there are no free strikes (unless a fighter learns {g:Sentinel}). Foes block movement, so surround them: the rogue's {g:Sneak Attack} needs an ally beside her target.
 
-{g:Down and Wounds.} A hero at 0 health is {g:Down} and gains a {g:Wound} (-1 chips on every hit, -1 to checks). An ally beside them can Help them up. A hero who goes Down with 3 Wounds dies. If every hero is Down, the battle is lost.
+{g:Down and Wounds.} A hero at 0 health is {g:Down} and gains a {g:Wound} (-1 damage on every hit, -1 to checks). An ally beside them can Help them up. A hero who goes Down with 3 Wounds dies. If every hero is Down, the battle is lost.
 
 {g:The journey.} Pick your path through three lands: battles, elites, merchants, {g:Camps}, treasure, road events and events. Every battle won gives gold, a {g:Victory} and a {g:reward}: pick 1 of 3 cards, each a power for one hero or {g:growth} (more health, or +1 to a key stat). Elites and bosses give two rewards with better powers, and treasure. Heroes do not level up: they grow by the rewards you pick. Between battles, spend {g:hit dice} to heal (EQUIP, then HEAL). At a Camp heroes heal, refill their hit dice and lose a Wound. Events test an attribute ({g:check}: 4+ on its die), and some are {g:dramatic tasks} or {g:negotiations}.
 
@@ -464,7 +466,7 @@ const COMP_SCREEN={enter(){COMP.sel=null;scrollTo('clist',0);scrollTo('cdet',0);
       if(k==='class'){const Cc=CLASSES[cls];const u=heroSheetUnit({cls,lvl:1,hp:Cc.hp,maxHp:Cc.hp,powers:Cc.start});
         y+=sheetLayout(u,dx,y,dw,clip,{plain:true,classInfo:true});}
       else if(POWERS[k]){const p=POWERS[k];text(fitText(p.basic||p.innate?`${cls==='gen'?'Every':CLASSES[cls].title} hero · innate, no slot`:`${RARITY[p.rar]} ${cls==='gen'?'general':CLASSES[cls].title.toLowerCase()} power`,dw),dx,y,C.mute);y+=9;y+=powerBlock(p,null,dx,y,dw,{clip})+4;
-        if(p.dmg&&!p.noDmg)y+=rich('{m:Damage is CHIPS × MULT: chips are the dice plus the hero\'s key stat, minus armour; each die on its top number adds +1 Mult.}',dx,y,dw,C.mute,{clip});}
+        if(p.dmg&&!p.noDmg)y+=rich('{m:A hit is DAMAGE × MULT: damage is the dice plus flat bonuses, minus armour; each die on its top number adds +1 Mult.}',dx,y,dw,C.mute,{clip});}
     }else if(COMP.tab===1&&k&&k.startsWith('w:')){const W=WEAPONS[k.slice(2)];inset(dx,y,20,20,'#100b08');ctx.drawImage(weaponArt(W.id),dx+2,y+2);text(W.name,dx+24,y+3,C.gold);text(`${CLASSES[W.cls].name}'s weapon · tier ${W.tier} · ${weaponSockets(W)} socket${weaponSockets(W)>1?'s':''}`,dx+24,y+11,C.mute);y+=24;
       y+=rich(weaponText(W),dx,y,dw,C.parch,{clip})+4;if(W.tier>1)y+=rich(`{m:About ${WEAPON_PRICE[W.tier]} gold at a merchant.}`,dx,y,dw,C.parch,{clip});}
     else if(COMP.tab===1&&k&&k.startsWith('r:')){const r=k.slice(2);text(RUNE_NAME[r],dx,y,C.gold,{sc:2,ol:C.edge});y+=14;y+=rich(RUNE_DESC[r],dx,y,dw,C.parch,{clip})+4;

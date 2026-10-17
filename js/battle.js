@@ -56,16 +56,14 @@ function effText(eff){
 function dmgLine(dmg,bonus){return dmg.map(d=>d+bonus).join('/');}
 function powerText(p,u){
   if(p.passive)return `Passive${p.tag?' · '+p.tag:''}.\n`+p.desc;
-  const ka=(u&&keyA(u))||p.a,ab=u&&p.a?u.attrs[ka]:null;
   const bits=[];
   bits.push(p.tgt==='self'?(p.area!=null?(p.area>=99?'Every ally':`Area ${p.area*2+1}x${p.area*2+1} around you`):'Self'):p.tgt==='tile'?`Range ${p.range}`+(p.area!=null?`, ${p.area*2+1}x${p.area*2+1} area`:''):p.tgt==='ally'?`Ally within ${p.range}`:p.range===1?'Melee':`Range ${p.range}`);
-  if(p.a)bits.push(ATTR[ka]);
   bits.push(p.cost?`${p.cost} momentum`:'No cost');
   let s=bits.join(' · ')+(p.free?' · free action':'')+'.\n';
-  if(p.dmg&&!p.noDmg)s+=`Damage {w:${diceText(powDice(p,u))}${ab!=null?'+'+(ab+(u.side==='hero'&&hasR('whetstone')?1:0)+(u.wpn?wBonus(u,p,'dmg')+wBonus(u,p,'acc'):0)):''}}${ab==null&&p.a?' + '+ATTR[ka]:''}${p.hits>1?` x${p.hits}`:''}${p.radiant?' radiant':''}. `;
-  if(p.heal)s+=`Heals {h:${p.healDie?'d'+(HD[(u&&u.cls)||p.c]||8):p.heal}${u&&u.cls==='cleric'&&feat2(u)?'+'+u.attrs.P:''}}. `;
+  if(p.dmg&&!p.noDmg)s+=powerMods(p,u)+'\n';
+  if(p.heal)s+=`Heals {h:${p.healDie?'d'+(HD[(u&&u.cls)||p.c]||8):p.heal}${u&&u.cls==='cleric'&&feat2(u)?'+3':''}}. `;
   s+=p.desc;
-  const et=effText(p.eff);if(et&&!/on a hit|on a crit/i.test(p.desc)&&!Object.keys(p.eff).some(k=>p.desc.toLowerCase().includes(EFF_NAME[k])))s+=' '+et;
+  const et=effText(p.eff);if(et&&!/on a hit|on a crit/i.test(p.desc)&&!Object.keys(p.eff).some(k=>p.desc.toLowerCase().includes(EFF_NAME[ST_MAP[k]||k]||k)))s+=' '+et;
   return s;
 }
 function monActText(A){
@@ -101,7 +99,7 @@ function unitBody(u,full){
     else if(G&&u.kind==='pc'&&G.cur!==u.id&&(u.acts||0)>0)s+=`{b:${u.acts} ready ${u.acts>1?'actions':'action'} for reactions (Defend) until ${u.name}'s next turn}\n`;
     s+=condText(u);
     if(u.st.mark&&u.marker&&U(u.marker))s+=`(by ${U(u.marker).name}) `;
-    if(full){s+=(u.wounds?`{r:Wounds ${u.wounds}} (−${u.wounds} chips on every hit). `:'')+(u.hd!=null?`Hit dice ${u.hd}.`:'')+'\n\n'+CLASSES[u.cls].trait+'\n';for(const id of u.powers)s+='\n'+'{g:'+POWERS[id].name+'}: '+powerText(POWERS[id],u)+'\n';}
+    if(full){s+=(u.wounds?`{r:Wounds ${u.wounds}} (−${u.wounds} damage on every hit). `:'')+(u.hd!=null?`Hit dice ${u.hd}.`:'')+'\n\n'+CLASSES[u.cls].trait+'\n';for(const id of u.powers)s+='\n'+'{g:'+POWERS[id].name+'}: '+powerText(POWERS[id],u)+'\n';}
     else if(G&&G.cur===u.id&&u.powers.length){const p=powerOf(u,B.pi);if(p)s+='\n{g:'+p.name+'}\n'+powerText(p,u);}
   }else if(u.kind==='mon'){
     const m=mon(u);
@@ -664,7 +662,7 @@ function openMissionInfo(){const E=G.enc;msg(E.title||MISSIONS[E.type].name,miss
 const COMBO_KEY='emberwatch.v3.combos';
 function comboSeen(){try{return !!localStorage.getItem(COMBO_KEY);}catch(e){return true;}}
 function showComboIntro(){return new Promise(res=>{try{localStorage.setItem(COMBO_KEY,'1');}catch(e){}
-  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Heroes and foes take turns. A hero gets {g:three actions} each turn: move, attack, or use a power. Actions you don\'t use stay ready: when a foe hits you, spend one to {g:Defend}.\n\nEvery hit is {b:CHIPS} × {r:MULT}. {b:Chips}: your dice + your key stat − the foe\'s armour. {r:Mult}: 1, +1 for each die that lands on its top number (it turns red).\n\nHeroes {g:set up} hits for each other: the wizard\'s spells give foes {r:+Mult}, the cleric\'s {b:Bless} adds chips, the fighter {g:Stuns} foes (they skip a turn). Cash a set-up in with another hero for a {g:combo}: +2 momentum each.\n\nTap {g:INTENT} to see whom each foe means to attack.',
+  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Heroes and foes take turns. A hero gets {g:three actions} each turn: move, attack, or use a power. Actions you don\'t use stay ready: when a foe hits you, spend one to {g:Defend}.\n\nEvery hit is {b:DAMAGE} × {r:MULT}. {b:Damage}: your dice + flat bonuses − the foe\'s armour. {r:Mult}: 1, +1 for each die that lands on its top number (it turns red). Powers change the dice, add damage or Mult, or do something special on a crit.\n\nHeroes {g:set up} hits for each other: the wizard\'s spells give foes {r:+Mult}, the cleric\'s {b:Bless} adds damage, the fighter {g:Stuns} foes (they skip a turn). Cash a set-up in with another hero for a {g:combo}: +2 momentum each.\n\nTap {g:INTENT} to see whom each foe means to attack.',
     buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 function showObjective(){return new Promise(res=>{const E=G.enc;openModal(dialog({title:(E.title||MISSIONS[E.type].name).toUpperCase(),body:missionBody()+'\n\n{m:Tap the objective bar at the top to see this again.}',w:200,closable:false,buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 /* Name, health and momentum of the active (or inspected) unit. Tap for the full character sheet. */
@@ -743,9 +741,9 @@ function drawHintP(){
 function fitRich(s,w){let t=s;while(t.length>4&&layoutRich(t+'…',w,C.parch).length>1)t=t.slice(0,-1);
   const open=(t.match(/\{[a-z]:/g)||[]).length,close=(t.match(/\}/g)||[]).length;return t+(open>close?'}':'')+'…';}
 function powerStat(u,p){
-  const b=(u.attrs[p.a]||0)+(u.side==='hero'&&hasR('whetstone')?1:0)+wBonus(u,p,'dmg');
+  const b=(p.plus||0)+(u.dmgPlus||0)+(u.side==='hero'&&hasR('whetstone')?1:0)+wBonus(u,p,'dmg');
   let a='';
-  if(p.dmg&&!p.noDmg){a=`${diceText(powDice(p,u))}${b?'+'+b:''}${p.hits>1?'×'+p.hits:''}`;}
+  if(p.dmg&&!p.noDmg){const d=u.kind==='pc'?heroDice(u,p):powDice(p,u);a=`${diceText(d)}${b?'+'+b:''}${p.hits>1?'×'+p.hits:''}`;}
   else if(p.mult)a=`+${p.mult} Mult`;
   else if(p.bless)a=`Bless ${p.bless}`;
   else if(p.eff&&p.eff.stag)a='stun';
@@ -767,8 +765,8 @@ function basicButton(u,i,x,y,w,h){
   rect(x,y,w,h,C.edge);rect(x+1,y+1,w-2,h-2,on?'#3c4656':ok?'#262c34':'#181b20');
   rect(x+1,y+1,w-2,1,on?'#9aaac0':ok?'#56606e':'#262a30');rect(x+1,y+h-2,w-2,1,'#101216');
   if(on){frame(x,y,w,h,C.gold);const a=.25+.2*Math.sin(NOW/200);ctx.globalAlpha=a;frame(x-1,y-1,w+2,h+2,C.gold);ctx.globalAlpha=1;}
-  const ic=powerIcon(p);const bon=(u.attrs[keyA(u)||p.a]||0)+wBonus(u,p,'dmg')+(u.side==='hero'&&hasR('whetstone')?1:0);
-  const st=diceText(powDice(p,u))+(bon?'+'+bon:'');
+  const ic=powerIcon(p);const bon=(u.dmgPlus||0)+wBonus(u,p,'dmg')+(u.side==='hero'&&hasR('whetstone')?1:0);
+  const st=diceText(heroDice(u,p))+(bon?'+'+bon:'');
   const cap=on?'#e8ecf2':'#8a94a2',nc=on?C.gold:ok?C.parch:C.dim,sc=ok?'#aeb8c6':'#4a4038';
   if(!ok)ctx.globalAlpha=.4;
   if(h>=36){ctx.drawImage(ic,x+Math.floor(w/2)-8,y+Math.floor(h/2)-9);ctx.globalAlpha=1;
@@ -1064,10 +1062,10 @@ function drawForecast(u,x,y0,w,h){
     text(`HP ${tgt.hp}/${tgt.maxHp}`+(rows.length>1?`  +${rows.length-1} more`:''),x+19,y+9,C.mute);y+=19;}
   else{text(p.tgt==='self'||p.area!=null?'No one in the area.':'',x,y,C.mute);y+=10;}
   let body='';
-  // the hit, Balatro style: blue CHIPS × red MULT = damage
+  // the hit, Balatro style: blue DAMAGE × red MULT = the total
   const cmBox=(bx,by,w2,lab,val,fill,rim,col)=>{rect(bx,by,w2,22,C.edge);rect(bx+1,by+1,w2-2,20,fill);frame(bx,by,w2,22,rim);text(lab,bx+w2/2,by+2,col,{al:'c'});text(val,bx+w2/2,by+9,C.white,{al:'c',sc:2,ol:C.edge});};
   const drawCM=(bx,by,chips,mult,xm,dmg)=>{
-    cmBox(bx,by,26,'CHIPS',chips,'#10264a','#3a7ad8','#8fc4ff');text('×',bx+29,by+9,C.white,{sc:1});
+    cmBox(bx,by,26,'DMG',chips,'#10264a','#3a7ad8','#8fc4ff');text('×',bx+29,by+9,C.white,{sc:1});
     cmBox(bx+34,by,26,'MULT',mult,'#4a1410','#d84a3a','#ff8a70');
     rect(bx+63,by,24,22,C.edge);rect(bx+64,by+1,22,20,'#2a2010');frame(bx+63,by,24,22,C.gold2);text(xm!==1?'×'+(xm<1?'½':xm):'=',bx+75,by+2,C.gold,{al:'c'});text(String(dmg),bx+75,by+9,'#ffe070',{al:'c',sc:2,ol:C.edge});};
   const bx0=wide?x+w-87:x,by0=wide?y0:y;
@@ -1085,7 +1083,8 @@ function drawForecast(u,x,y0,w,h){
     if(!wide)y+=33;
     const kp=killP(r);
     const cl=[`{w:${diceText(dd)}}`].concat(X.C.map(([l,v])=>`${v<0?'{r:−':'{b:+'}${Math.abs(v)} ${l}}`));
-    body+=`{b:CHIPS} ${cl.join(' ')}${k>1?`, {w:${k} hits}`:''}.\n`;
+    body+=powerMods(p,u)+'\n';
+    body+=`{b:DAMAGE} ${cl.join(' ')}${k>1?`, {w:${k} hits}`:''}.\n`;
     const ml=['1'].concat(X.M.filter(([l])=>!/crit/.test(l)).map(([l,v])=>`{r:+${v} ${l}}`));
     body+=`{r:MULT} ${ml.join(' ')}${X.Xm.length?' '+X.Xm.map(([l,v])=>`{g:×${v===.5?'½':v} ${l}}`).join(' '):''}. {r:+${hasP(u,'heavy')?2:1} for each die on its top number} ({w:${Math.round(r.probs[2]*100)}%} for at least one).\n`;
     if(kp>0)body+=`{r:☠ ${Math.round(kp*100)}% to finish it.}\n`;

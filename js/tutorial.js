@@ -29,7 +29,7 @@ const TUT_SCRIPT=[
   {do:'move',text:'Move Brakka next to the cutthroat.',tiles:()=>tutBeside('cut')},
   {say:'narrator',text:'Every hero has a {g:basic attack}, as often as they have actions. Brakka\'s is her {g:Sword}: its die comes from the weapon in her hand. Her {g:Shove} is free: it pushes a foe, and a foe shoved into something is {g:Stunned}. The other cards are her powers. Her first basic attack each turn earns {p:◆ momentum}, and powers spend it.'},
   {do:'target',pi:0,text:'Attack the cutthroat with your Sword!',tiles:()=>tutInTargets('cut',0,0)},
-  {say:'narrator',text:'Before you strike, the {g:forecast} shows the hit. Damage is {b:CHIPS} × {r:MULT}. {b:Chips} are the dice plus Brakka\'s Strength, minus the foe\'s armour. {r:Mult} starts at 1, and every die that lands on its top number turns {r:red}: +1 Mult. There are no misses.'},
+  {say:'narrator',text:'Before you strike, the {g:forecast} shows the hit. Every hit is {b:DAMAGE} × {r:MULT}. {b:Damage} is the dice, minus the foe\'s armour. {r:Mult} starts at 1, and every die that lands on its top number turns {r:red}: +1 Mult. There are no misses.'},
   {do:'confirm',text:'Tap the cutthroat again to strike.'},
   {say:'fighter',text:()=>tutFoe('cut')?'Come on, then! Who\'s next?':'One down!'},
   {say:'narrator',text:'Brakka has {g:one action} left. She could swing again, but actions she keeps stay {b:ready} (the blue pips): if a goblin hits her on its turn, you will be asked whether to {g:Defend}, rolling her armour die to soak the blow. Her actions refill when her next turn starts.'},
@@ -39,8 +39,8 @@ const TUT_SCRIPT=[
   {run:()=>tutJoin()},
   {say:'cleric',text:'Brakka! I saw the smoke from the road. I\'m with you!'},
   {say:'fighter',text:'Sela! Good timing. Let\'s show this brute how we fight.'},
-  {say:'narrator',text:'Sela acts right after Brakka. Heroes {g:set up} hits for each other: a {g:Stunned} foe skips its turn, a foe with {r:Mult} takes a bigger next hit, and {b:Bless} adds chips. Cash in a friend\'s set-up for a {g:combo}.'},
-  {say:'narrator',text:'{g:Tide of Iron} hits a foe and shoves it back: into a {r:hazard} it suffers it, into anything solid it {g:slams} and is {g:Stunned}, skipping its next turn. Either way it is {g:Taunted}: it must come for Brakka.',when:()=>tutInTargets('brute',0,0).length},
+  {say:'narrator',text:'Sela acts right after Brakka. Heroes {g:set up} hits for each other: a {g:Stunned} foe skips its turn, a foe with {r:Mult} takes a bigger next hit, and {b:Bless} adds damage. Cash in a friend\'s set-up for a {g:combo}.'},
+  {say:'narrator',text:'{g:Tide of Iron} hits with a bigger die ({b:▲}) and shoves the foe back: into a {r:hazard} it suffers it, into anything solid it {g:slams} and is {g:Stunned}, skipping its next turn. Either way it is {g:Taunted}: it must come for Brakka.',when:()=>tutInTargets('brute',0,0).length},
   {do:'power',pi:2,text:'Tap {g:Tide of Iron}, one of Brakka\'s powers. It costs 1 {p:◆}, earned by her Sword.',when:()=>B.pi!==2},
   {do:'target',pi:2,text:'Shove the brute into the fire!',tiles:()=>tutInTargets('brute',0,2)},
   {do:'confirm',text:'Tap the brute again to shove it.'},
@@ -51,7 +51,7 @@ const TUT_SCRIPT=[
   {do:'move',text:'Move Sela next to the brute.',tiles:()=>tutBeside('brute')},
   {do:'power',pi:2,text:'Tap {g:Brand}.',when:()=>B.pi!==2},
   {do:'target',pi:2,text:'Now strike the brute!',tiles:()=>tutInTargets('brute',0,2)},
-  {say:'narrator',text:()=>tutFoe('brute')&&tutFoe('brute').st.stag?'Brakka stunned it, so this is a {g:COMBO}: both heroes gain {p:◆ momentum}. The brute\'s {g:armour} comes off Sela\'s chips.':'The brute\'s {g:armour} comes off Sela\'s chips. After the hit, it carries {r:+1 Mult} for Brakka.'},
+  {say:'narrator',text:()=>tutFoe('brute')&&tutFoe('brute').st.stag?'Brakka stunned it, so this is a {g:COMBO}: both heroes gain {p:◆ momentum}. The brute\'s {g:armour} comes off Sela\'s damage.':'The brute\'s {g:armour} comes off Sela\'s damage. After the hit, it carries {r:+1 Mult} for Brakka.'},
   {do:'confirm',text:'Tap the brute again to strike.'},
   {say:'cleric',text:'By the light, you are judged!',when:()=>G.tut.lastDone==='confirm'},
   {do:'end',text:'Tap END TURN.'},
@@ -195,7 +195,7 @@ function startTutorial(){
   for(const u of G.units.filter(u=>u.side==='enemy')){
     ids[u.type==='cutter'?'cut':u.type==='sniper'?'archer':'brute']=u.id;
     u.pinned=true;u.tutSpeed=u.speed;u.speed=0;
-    if(u.type==='hobgob'){u.name='Hobgoblin Brute';u.steady=0;u.hp=u.maxHp=26;}
+    if(u.type==='hobgob'){u.name='Hobgoblin Brute';u.steady=0;u.hp=u.maxHp=16;}
   }
   G.tut={i:0,t0:NOW,ids};G.dmgAdd=-1;
   beginBattleScreen(o=>{

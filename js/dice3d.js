@@ -173,7 +173,7 @@ function clearDice(){for(const o of DICE3D.objs){DICE3D.scene.remove(o.mesh);o.m
    fade. Other dice are the roller's colour (blue for heroes, red for foes), DEF dice steel. Explosions and the extra dice
    of a critical hit follow one by one, glowing gold. A short caption sits at the top of the board: what the roll is,
    how advantage worked, then the result. Tap to hurry it along. */
-/* Every die is the same size, and its colour says what it does: BLUE dice add CHIPS, a die that lands on its top
+/* Every die is the same size, and its colour says what it does: BLUE dice add DAMAGE, a die that lands on its top
    number turns RED and glows (a crit: +1 MULT), STEEL dice Defend or shield, GREEN dice heal. */
 const DIE_COL={chip:['#2f6fd0','#ffffff'],crit:['#d03a2a','#ffffff'],def:['#8a9cb0','#0e1a28'],heal:['#3a9a48','#ffffff']},CRIT_GLOW=0xff3010;
 const DIE3D_OK=s=>s===2||[4,6,8,10,12].includes(s);

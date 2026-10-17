@@ -15,17 +15,17 @@ const TUNE={es0:4,esLvl:.85,esUnit:.4,solo:1.25,eliteCost:1.3,hpSlope:.03,dmgSlo
   pbBonus:3,fallenHp:.25,momTurn:0,momStart:0,momVal:.9,maxLvl:10,xpLvl:80,easyShare:.25,sneak:3,aiCombo:1,saveBase:12,
   actions:3,extraActs:2,guardMin:4,aiMoveCost:1.5,aiHold:1,
   /* maliceMul scales Malice gain (1 = the rule book: the round number + Downs each round),
-     and foeDef adds flat armour to every foe (taken off the chips of every hit). */
+     and foeDef adds flat armour to every foe (taken off the damage of every hit). */
   maliceMul:1,foeDef:0,
   /* bossCap: Reinforcements stop once a boss fight has this many foes, so a long boss fight does not snowball */
   bossCap:4,
   /* battleMul: each region's ordinary battles (not elites or bosses) */
-  battleMul:[1.7,2,1.4],
+  battleMul:[1.5,2,1.4],
   /* Journey heroes do not level up (Core Rules 4.2): they hold TUNE.hdBase hit dice and TUNE.slots powers, and grow by the
      rewards they pick after each fight. growChance: the chance that a reward card is growth (health or a key stat) */
   hdBase:3,slots:8,growChance:.3,vigor:1.5,
-  /* foeHpMul: every foe's health (v0.25: tuned for Chips × Mult) */
-  foeHpMul:.64};
+  /* foeHpMul: every foe's health (v0.26: tuned for Damage × Mult, no attributes in battle) */
+  foeHpMul:.34};
 /* Experience (after PF2e): encounters give XP by difficulty (Easy 30, Medium 60, Hard 90, Extreme 120; see DIFF in
    engine.js) and accomplishments 10 to 30. XP is banked and turns into levels at a Camp: every TUNE.xpLvl XP is a level,
    which keeps heroes on the book's level bands (1-3, 4-6, 7-9). */
@@ -61,8 +61,8 @@ const ROLE_XP={
 const XP_WHY={dealt:'Damage dealt',taken:'Blows absorbed',control:'Foes moved and hindered',mark:'Foes marked',heal:'Healing',support:'Allies empowered',kill:'Foes slain',setup:'Combos set up for allies',combo:'Combos landed'};
 
 /* ---------------- HEROES ---------------- */
-/* Every hero has a job in the combo game (Damage = CHIPS × MULT). The fighter Stuns foes and makes them fight her; the
-   wizard stacks Mult on foes; the cleric Blesses friends (+chips) and keeps them up; the rogue cashes it all in. */
+/* Every hero has a job in the combo game (every hit is DAMAGE × MULT). The fighter Stuns foes and makes them fight her; the
+   wizard stacks Mult on foes; the cleric Blesses friends (+damage) and keeps them up; the rogue cashes it all in. */
 const CLASSES={
   fighter:{name:'Brakka',rival:'Grask',title:'Fighter',role:'Tank',hp:40,grow:6,hd:10,speed:3,attrs:{M:3,F:2,W:1,P:3},prime:'M',second:'P',steady:1,
     spec:'Forcing doors and bars, lifting and bracing, intimidating, soldiers and war.',start:['tide'],
@@ -84,7 +84,7 @@ const CLASSES={
     pro:'he'},
   cleric:{name:'Sela',rival:'Ilsa',title:'Cleric',role:'Support',hp:32,grow:5,hd:8,speed:3,attrs:{M:3,F:1,W:2,P:3},prime:'P',second:'M',
     spec:'Healing the sick, spirits and the undead, shrines and holy relics, telling truth from lies.',start:['healWord'],
-    style:'The blessing: Bless adds chips to her friends\' next hits, and her heals and shields keep them standing.',
+    style:'The blessing: Bless adds damage to her friends\' next hits, and her heals and shields keep them standing.',
     xpText:'Battles by difficulty (Easy 30, Medium 60, Hard 90, a boss 120 XP) and deeds on the road (10 to 30). Every 80 XP is a level, gained at a Camp.',
     trait:'Medium armour and a shield: Defend rolls a d6 +2. Channel Divinity: her heals add her Presence and her attacks deal radiant damage (×2 against the undead).',
     pro:'she'},
@@ -98,78 +98,88 @@ function attrsFor(cls,lvl,up){const C=CLASSES[cls];const a=Object.assign({},C.at
    (C, U, R: offered from levels 1, 3 and 5), tag the resonance tag. wd: how many weapon dice an attacking power rolls,
    before the weapon's own extra dice. eff values are by result: [miss, hit, crit]. */
 const POWERS={
-  /* Powers (v0.25, after Balatro): every effect is one clear number. Damage = CHIPS × MULT.
-     CHIPS: the dice + your key stat + bonuses (Bless) − the foe's armour. MULT: 1, +1 for each die on its top number
-     (a crit), + the foe's Mult status, + other sources. Statuses: MULT (a foe's next hit taken gets +N Mult), STUN
-     (skips its next turn), BURN (N damage at the start of its turn, then N falls by 1), ROOT (can't move), WEAK (deals
-     half damage), TAUNT (must attack whoever taunted it), SHIELD (absorbs damage), BLESS (+N chips on your next hit).
-     Flags: dmg (an attack), wd (weapon dice), mult (Mult given on a hit), bless (Bless given), eff (statuses and
-     push/pull, by result [miss, hit, crit]), xIfStun (×damage against a stunned foe), multDouble (the foe's Mult counts
-     twice), onlyMult (an area power that only hits foes with Mult). */
+  /* Powers (v0.26). Every hit is DAMAGE × MULT. DAMAGE: the dice + flat bonuses − the foe's armour (attributes add
+     nothing in battle). MULT: 1, +1 for each die on its top number (a crit), + the foe's Mult status, + bonuses.
+     Every attacking power is the hero's weapon die with a few standard MODIFIERS, shown on its card:
+       step     ladder the die up or down (d2 d4 d6 d8 d10 d12): bigger dice hit harder, smaller dice crit more often
+       wd       how many dice;  hits: how many separate hits
+       plus     flat damage;    addMult: Mult on this hit
+       crit     special effects when at least one die crits: {stun, root, burn, push, mult (+Mult on this hit),
+                dmg (+damage), bless (allies within 2), act (an action back), give (foe gains Mult)}
+     Set-ups and other effects: mult (the foe gains Mult after the hit), bless, eff (push/pull/stag/root/burn/weak),
+     mark (Taunt), xIfStun (×damage against a stunned foe), multDouble (the foe's Mult counts twice), onlyMult (an area
+     power that only hits foes with Mult), pierceArmor, canto, teleportAdj, shield, swap, heal, revive. */
 
-  /* ---- Basic attacks: one weapon die plus the key stat, as often as you have actions ---- */
-  sword:{c:'fighter',lv:1,a:'M',name:'Sword',basic:true,cost:0,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,desc:'Attack: your weapon die + STR.'},
-  blades:{c:'rogue',lv:1,a:'F',name:'Blades',basic:true,cost:0,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,desc:'Attack: your weapon die + DEX.'},
-  missile:{c:'wizard',lv:1,a:'W',name:'Staff Bolt',basic:true,cost:0,tgt:'enemy',range:4,dmg:[1,1,1],wd:1,mult:1,proj:'#c39bff',desc:'Range 4. Attack: your weapon die + INT. The foe gains +1 Mult.'},
-  mace:{c:'cleric',lv:1,a:'P',name:'Mace',basic:true,cost:0,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,desc:'Attack: your weapon die + PRE.'},
+  /* ---- Basic attacks: the weapon die, as often as you have actions ---- */
+  sword:{c:'fighter',lv:1,name:'Sword',basic:true,cost:0,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,desc:'Attack with your weapon die.'},
+  blades:{c:'rogue',lv:1,name:'Blades',basic:true,cost:0,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,desc:'Attack with your weapon die.'},
+  missile:{c:'wizard',lv:1,name:'Staff Bolt',basic:true,cost:0,tgt:'enemy',range:4,dmg:[1,1,1],wd:1,mult:1,proj:'#c39bff',desc:'Range 4. The foe gains +1 Mult.'},
+  mace:{c:'cleric',lv:1,name:'Mace',basic:true,cost:0,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,desc:'Attack with your weapon die.'},
   /* ---- Innate set-ups: free (no momentum), always known ---- */
-  shove:{c:'fighter',lv:1,a:'M',name:'Shove',innate:true,cost:0,tgt:'enemy',range:1,noDmg:true,eff:{push:[1,1,1]},desc:'Push a foe 1 square. If it slams into something, it is Stunned.'},
-  force:{c:'wizard',lv:1,a:'W',name:'Force Push',innate:true,cost:0,tgt:'enemy',range:4,noDmg:true,eff:{push:[1,1,1]},proj:'#c39bff',desc:'Range 4. Push a foe 1 square away. If it slams into something, it is Stunned.'},
-  guidance:{c:'cleric',lv:1,a:'P',name:'Guidance',innate:true,cost:0,tgt:'ally',range:3,noSelf:true,bless:3,desc:'Range 3. An ally gains Bless 3: +3 chips on their next hit.'},
+  shove:{c:'fighter',lv:1,innate:true,name:'Shove',cost:0,tgt:'enemy',range:1,noDmg:true,eff:{push:[1,1,1]},desc:'Push a foe 1 square. If it slams into something, it is Stunned.'},
+  force:{c:'wizard',lv:1,innate:true,name:'Force Push',cost:0,tgt:'enemy',range:4,noDmg:true,eff:{push:[1,1,1]},proj:'#c39bff',desc:'Range 4. Push a foe 1 square. If it slams into something, it is Stunned.'},
+  guidance:{c:'cleric',lv:1,innate:true,name:'Guidance',cost:0,tgt:'ally',range:3,noSelf:true,bless:3,desc:'Range 3. An ally gains Bless 3: +3 damage on their next hit.'},
 
-  /* ---- Fighter: stuns foes and protects friends ---- */
-  tide:{c:'fighter',rar:'C',tag:'Set-up',lv:1,a:'M',name:'Tide of Iron',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,mark:1,eff:{push:[1,1,1]},follow:true,desc:'Attack. Push the foe 1 square and step after it. It is Taunted. If it slams into something, it is Stunned.'},
-  hook:{c:'fighter',rar:'C',tag:'Reach',lv:1,a:'M',name:'Hook Chain',cost:1,tgt:'enemy',range:3,reach:true,dmg:[1,1,1],wd:1,mark:1,eff:{pull:[2,2,2]},desc:'Range 3. Attack and pull the foe 2 squares toward you. It is Taunted.'},
-  shieldWall:{c:'fighter',rar:'C',tag:'Guard',lv:1,a:'M',name:'Shield Wall',cost:1,tgt:'self',area:1,aff:'ally',shield:6,markAround:1,desc:'You and allies beside you gain 6 Shield. Foes beside you are Taunted.'},
-  cleave:{c:'fighter',rar:'C',tag:'Burst',lv:1,a:'M',name:'Cleave',cost:1,tgt:'self',area:1,adjOnly:true,aff:'foe',dmg:[1,1,1],wd:1,desc:'Attack every foe beside you.'},
+  /* ---- Fighter: big dice, Stuns and Taunts ---- */
+  tide:{c:'fighter',rar:'C',tag:'Set-up',lv:1,name:'Tide of Iron',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,step:1,mark:1,eff:{push:[1,1,1]},crit:{stun:1},follow:true,desc:'Push the foe 1 and step after it. It is Taunted. A slam Stuns it.'},
+  hook:{c:'fighter',rar:'C',tag:'Reach',lv:1,name:'Hook Chain',cost:1,tgt:'enemy',range:3,reach:true,dmg:[1,1,1],wd:1,plus:2,mark:1,eff:{pull:[2,2,2]},desc:'Range 3. Pull the foe 2 squares toward you. It is Taunted.'},
+  shieldWall:{c:'fighter',rar:'C',tag:'Guard',lv:1,name:'Shield Wall',cost:1,tgt:'self',area:1,aff:'ally',shield:6,markAround:1,desc:'You and allies beside you gain 6 Shield. Foes beside you are Taunted.'},
+  cleave:{c:'fighter',rar:'C',tag:'Burst',lv:1,name:'Cleave',cost:1,tgt:'self',area:1,adjOnly:true,aff:'foe',dmg:[1,1,1],wd:1,step:-1,desc:'Attack every foe beside you.'},
+  crush:{c:'fighter',rar:'U',tag:'Burst',lv:3,name:'Crushing Blow',cost:2,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,step:2,plus:3,crit:{stun:1},desc:'A huge swing.'},
   anvil:{c:'fighter',rar:'U',tag:'Set-up',lv:3,passive:true,name:'Anvil',desc:'When you Stun a foe, it also gains +2 Mult. Once a round, a foe you push next to an ally takes a free hit from them.'},
   block:{c:'fighter',rar:'U',tag:'Guard',lv:3,passive:true,name:'Block',desc:'Allies beside you add +2 when they Defend.'},
   intercept:{c:'fighter',rar:'U',tag:'Guard',lv:3,passive:true,react:true,name:'Intercept',desc:'Reaction (1 ready action, once a round): a foe attacks an ally beside you. You take the attack instead.'},
-  sentinel:{c:'fighter',rar:'U',tag:'Guard',lv:3,passive:true,react:true,name:'Sentinel',desc:'Reaction (1 ready action, once a round): a foe moves away from beside you. Attack it; on a hit it stops and is Taunted.'},
-  quake:{c:'fighter',rar:'R',tag:'Set-up',lv:5,a:'M',name:'Earthshaker',cost:3,acts:2,tgt:'self',area:1,adjOnly:true,aff:'foe',noDmg:true,eff:{stag:[1,1,1]},desc:'2 actions. Stun every foe beside you.'},
+  sentinel:{c:'fighter',rar:'U',tag:'Guard',lv:3,passive:true,react:true,name:'Sentinel',desc:'Reaction (1 ready action, once a round): a foe moves away from beside you. Attack it; it stops and is Taunted.'},
+  quake:{c:'fighter',rar:'R',tag:'Set-up',lv:5,name:'Earthshaker',cost:3,acts:2,tgt:'self',area:1,adjOnly:true,aff:'foe',noDmg:true,eff:{stag:[1,1,1]},desc:'2 actions. Stun every foe beside you.'},
 
-  /* ---- Wizard: sets up Mult ---- */
-  hex:{c:'wizard',rar:'C',tag:'Set-up',lv:1,a:'W',name:'Hex',cost:1,tgt:'enemy',range:5,noDmg:true,mult:2,proj:'#c39bff',desc:'Range 5. The foe gains +2 Mult.'},
-  scorch:{c:'wizard',rar:'C',tag:'Burst',lv:1,a:'W',name:'Scorching Burst',cost:1,tgt:'tile',range:5,area:1,aff:'foe',dmg:[1,1,1],wd:1,dtype:'fire',fx:'fire',eff:{burn:[2,2,2]},desc:'Range 5, 3×3. Attack every foe in the area with fire. They Burn 2.'},
-  frost:{c:'wizard',rar:'C',tag:'Set-up',lv:1,a:'W',name:'Ray of Frost',cost:1,tgt:'enemy',range:4,dmg:[1,1,1],wd:1,dtype:'cold',eff:{root:[1,1,1]},proj:'#8fe3ff',desc:'Range 4. Attack with cold. The foe is Rooted: it can\'t move on its next turn.'},
-  blink:{c:'wizard',rar:'C',tag:'Reach',lv:1,a:'W',name:'Blink',cost:1,tgt:'tile',range:3,teleport:true,free:true,desc:'Free action. Teleport up to 3 squares.'},
-  chainhex:{c:'wizard',rar:'U',tag:'Set-up',lv:3,a:'W',name:'Chain Hex',cost:2,tgt:'tile',range:5,area:1,aff:'foe',noDmg:true,mult:1,fx:'arcane',desc:'Range 5, 3×3. Every foe in the area gains +1 Mult.'},
+  /* ---- Wizard: stacks Mult on foes ---- */
+  hex:{c:'wizard',rar:'C',tag:'Set-up',lv:1,name:'Hex',cost:1,tgt:'enemy',range:5,noDmg:true,mult:2,proj:'#c39bff',desc:'Range 5. The foe gains +2 Mult.'},
+  darts:{c:'wizard',rar:'C',tag:'Burst',lv:1,name:'Magic Missile',cost:1,tgt:'enemy',range:6,dmg:[1,1,1],wd:1,step:-2,hits:3,proj:'#c39bff',desc:'Range 6. Three tiny hits: each one can crit.'},
+  scorch:{c:'wizard',rar:'C',tag:'Burst',lv:1,name:'Scorching Burst',cost:1,tgt:'tile',range:5,area:1,aff:'foe',dmg:[1,1,1],wd:1,step:-1,dtype:'fire',fx:'fire',eff:{burn:[2,2,2]},crit:{burn:2},desc:'Range 5, 3×3. Every foe in the area Burns 2.'},
+  frost:{c:'wizard',rar:'C',tag:'Set-up',lv:1,name:'Ray of Frost',cost:1,tgt:'enemy',range:4,dmg:[1,1,1],wd:1,dtype:'cold',eff:{root:[1,1,1]},crit:{give:2},proj:'#8fe3ff',desc:'Range 4. The foe is Rooted: it can\'t move on its next turn.'},
+  blink:{c:'wizard',rar:'C',tag:'Reach',lv:1,name:'Blink',cost:1,tgt:'tile',range:3,teleport:true,free:true,desc:'Free action. Teleport up to 3 squares.'},
+  chainhex:{c:'wizard',rar:'U',tag:'Set-up',lv:3,name:'Chain Hex',cost:2,tgt:'tile',range:5,area:1,aff:'foe',noDmg:true,mult:1,fx:'arcane',desc:'Range 5, 3×3. Every foe in the area gains +1 Mult.'},
   amplify:{c:'wizard',rar:'U',tag:'Set-up',lv:3,passive:true,name:'Amplify',desc:'Every Mult you give is 1 higher.'},
   repel:{c:'wizard',rar:'U',tag:'Guard',lv:3,passive:true,react:true,name:'Repelling Ward',desc:'Reaction (1 ready action, once a round): a foe ends its move beside you. Push it 1 square away.'},
-  shatter:{c:'wizard',rar:'R',tag:'Set-up',lv:5,passive:true,name:'Shatter',desc:'Allies\' hits against a foe you Rooted deal ×2 damage.'},
-  fireball:{c:'wizard',rar:'R',tag:'Burst',lv:5,a:'W',name:'Fireball',cost:3,acts:2,tgt:'tile',range:4,area:1,aff:'foe',dmg:[1,1,1],wd:2,dtype:'fire',fx:'fire',eff:{burn:[3,3,3]},desc:'2 actions. Range 4, 3×3. Attack every foe in the area with 2 dice of fire. They Burn 3.'},
+  shatter:{c:'wizard',rar:'R',tag:'Set-up',lv:5,passive:true,name:'Shatter',desc:'Allies\' hits against a foe you Rooted deal ×2.'},
+  fireball:{c:'wizard',rar:'R',tag:'Burst',lv:5,name:'Fireball',cost:3,acts:2,tgt:'tile',range:4,area:1,aff:'foe',dmg:[1,1,1],wd:2,step:1,dtype:'fire',fx:'fire',eff:{burn:[3,3,3]},desc:'2 actions. Range 4, 3×3. Every foe in the area Burns 3.'},
 
-  /* ---- Rogue: cashes it in ---- */
-  pierce:{c:'rogue',rar:'C',tag:'Burst',lv:1,a:'F',name:'Piercing Strike',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:2,pierceArmor:true,desc:'Attack with 2 dice. Ignores armour.'},
-  backstab:{c:'rogue',rar:'C',tag:'Burst',lv:1,a:'F',name:'Backstab',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,multDouble:true,desc:'Attack. The foe\'s Mult counts double.'},
-  tumble:{c:'rogue',rar:'C',tag:'Reach',lv:1,a:'F',name:'Hit and Run',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,canto:2,desc:'Attack, then move up to 2 squares.'},
-  flurry:{c:'rogue',rar:'U',tag:'Burst',lv:3,a:'F',name:'Flurry',cost:2,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,hits:2,desc:'Attack twice.'},
-  shadow:{c:'rogue',rar:'U',tag:'Reach',lv:3,a:'F',name:'Shadowstep',cost:2,tgt:'enemy',range:5,teleportAdj:true,dmg:[1,1,1],wd:1,desc:'Teleport beside a foe within 5 and attack it.'},
+  /* ---- Rogue: crit-fishing and cashing in ---- */
+  pierce:{c:'rogue',rar:'C',tag:'Burst',lv:1,name:'Piercing Strike',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:2,pierceArmor:true,desc:'Ignores armour.'},
+  stab:{c:'rogue',rar:'C',tag:'Burst',lv:1,name:'Quick Stab',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:2,step:-2,crit:{mult:2},desc:'Tiny dice that crit often.'},
+  backstab:{c:'rogue',rar:'C',tag:'Burst',lv:1,name:'Backstab',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,multDouble:true,desc:'The foe\'s Mult counts double.'},
+  tumble:{c:'rogue',rar:'C',tag:'Reach',lv:1,name:'Hit and Run',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,plus:2,canto:2,desc:'Then move up to 2 squares.'},
+  flurry:{c:'rogue',rar:'U',tag:'Burst',lv:3,name:'Flurry',cost:2,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,hits:3,step:-1,crit:{act:1},desc:'Three hits.'},
+  shadow:{c:'rogue',rar:'U',tag:'Reach',lv:3,name:'Shadowstep',cost:2,tgt:'enemy',range:5,teleportAdj:true,dmg:[1,1,1],wd:1,addMult:1,desc:'Teleport beside a foe within 5 and attack it.'},
   opportunist:{c:'rogue',rar:'U',tag:'Burst',lv:3,passive:true,react:true,name:'Opportunist',desc:'Reaction (1 ready action, once a round): an ally hits a foe beside you. Attack it too.'},
   counter:{c:'rogue',rar:'U',tag:'Guard',lv:3,passive:true,react:true,name:'Counterattack',desc:'Reaction (1 ready action, once a round): a foe hits you in melee. Attack it back.'},
-  assassinate:{c:'rogue',rar:'R',tag:'Burst',lv:5,a:'F',name:'Assassinate',cost:3,tgt:'enemy',range:1,dmg:[1,1,1],wd:2,xIfStun:3,desc:'Attack with 2 dice. Against a Stunned foe, ×3 damage.'},
+  assassinate:{c:'rogue',rar:'R',tag:'Burst',lv:5,name:'Assassinate',cost:3,tgt:'enemy',range:1,dmg:[1,1,1],wd:2,step:1,xIfStun:3,desc:'Against a Stunned foe, ×3.'},
 
-  /* ---- Cleric: blesses friends (chips) and keeps them standing ---- */
-  healWord:{c:'cleric',rar:'C',tag:'Mend',lv:1,a:'P',name:'Healing Word',cost:1,tgt:'ally',range:4,heal:5,healDie:true,desc:'Range 4. An ally heals d8 + PRE.'},
-  brand:{c:'cleric',rar:'C',tag:'Set-up',lv:1,a:'P',name:'Brand',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,mult:1,desc:'Attack. The foe gains +1 Mult.'},
-  bless:{c:'cleric',rar:'C',tag:'Set-up',lv:1,a:'P',name:'Bless',cost:1,tgt:'self',area:2,aff:'ally',bless:3,desc:'You and allies within 2 gain Bless 3: +3 chips on your next hit.'},
-  sanct:{c:'cleric',rar:'C',tag:'Guard',lv:1,a:'P',name:'Sanctuary',cost:1,tgt:'ally',range:4,shield:8,desc:'Range 4. An ally gains 8 Shield.'},
-  transpose:{c:'cleric',rar:'C',tag:'Guard',lv:1,a:'P',name:'Divine Shift',cost:1,tgt:'ally',range:4,noSelf:true,swap:true,shield:4,desc:'Swap places with an ally within 4. You both gain 4 Shield.'},
+  /* ---- Cleric: Bless, heal, and holy crits ---- */
+  healWord:{c:'cleric',rar:'C',tag:'Mend',lv:1,name:'Healing Word',cost:1,tgt:'ally',range:4,heal:5,healDie:true,desc:'Range 4. An ally heals d8 + 3.'},
+  brand:{c:'cleric',rar:'C',tag:'Set-up',lv:1,name:'Brand',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,mult:1,desc:'The foe gains +1 Mult.'},
+  smite:{c:'cleric',rar:'C',tag:'Burst',lv:1,name:'Smite',cost:1,tgt:'enemy',range:1,dmg:[1,1,1],wd:1,step:1,plus:1,crit:{bless:2},desc:'A holy blow.'},
+  bless:{c:'cleric',rar:'C',tag:'Set-up',lv:1,name:'Bless',cost:1,tgt:'self',area:2,aff:'ally',bless:3,desc:'You and allies within 2 gain Bless 3: +3 damage on your next hit.'},
+  sanct:{c:'cleric',rar:'C',tag:'Guard',lv:1,name:'Sanctuary',cost:1,tgt:'ally',range:4,shield:8,desc:'Range 4. An ally gains 8 Shield.'},
+  transpose:{c:'cleric',rar:'C',tag:'Guard',lv:1,name:'Divine Shift',cost:1,tgt:'ally',range:4,noSelf:true,swap:true,shield:4,desc:'Swap places with an ally within 4. You both gain 4 Shield.'},
   radiance:{c:'cleric',rar:'U',tag:'Set-up',lv:3,passive:true,name:'Radiance',desc:'Every Bless you give is 2 higher.'},
   warding:{c:'cleric',rar:'U',tag:'Guard',lv:3,passive:true,react:true,name:'Warding Word',desc:'Reaction (1 ready action, once a round): an ally within 3 is about to take 4 or more damage. Halve it.'},
-  revive:{c:'cleric',rar:'U',tag:'Mend',lv:3,a:'P',name:'Revivify',cost:2,tgt:'self',revive:true,desc:'A Down ally stands up beside you with 2 rolls of their hit die.'},
-  judgment:{c:'cleric',rar:'R',tag:'Burst',lv:5,a:'P',name:'Judgment',cost:3,acts:2,tgt:'self',area:4,aff:'foe',onlyMult:true,dmg:[1,1,1],wd:2,fx:'holy',desc:'2 actions. Attack every foe within 4 that has Mult, with 2 dice.'},
+  revive:{c:'cleric',rar:'U',tag:'Mend',lv:3,name:'Revivify',cost:2,tgt:'self',revive:true,desc:'A Down ally stands up beside you with 2 rolls of their hit die.'},
+  judgment:{c:'cleric',rar:'R',tag:'Burst',lv:5,name:'Judgment',cost:3,acts:2,tgt:'self',area:4,aff:'foe',onlyMult:true,dmg:[1,1,1],wd:2,step:1,fx:'holy',desc:'2 actions. Attack every foe within 4 that has Mult.'},
 
   /* ---- General powers: any hero ---- */
-  openstrike:{c:'gen',rar:'C',tag:'Burst',lv:1,passive:true,name:'Opening Strike',desc:'Your first attack in each battle gets +5 chips.'},
+  openstrike:{c:'gen',rar:'C',tag:'Burst',lv:1,passive:true,name:'Opening Strike',desc:'Your first attack in each battle gets +3 damage and +1 Mult.'},
   finisher:{c:'gen',rar:'C',tag:'Burst',lv:1,passive:true,name:'Finisher',desc:'Your hits against a bloodied foe (half health or less) get +1 Mult.'},
+  wtrain:{c:'gen',rar:'C',tag:'Burst',lv:1,passive:true,name:'Heavy Weapon',desc:'Your weapon die is one step bigger on every attack (d6 to d8).'},
+  precision:{c:'gen',rar:'U',tag:'Burst',lv:3,passive:true,name:'Precision',desc:'Your weapon die is one step smaller on every attack (d6 to d4), and each crit gives +1 more Mult.'},
+  brutal:{c:'gen',rar:'C',tag:'Burst',lv:1,passive:true,name:'Brutal',desc:'When your hit crits, +3 damage.'},
   hardy:{c:'gen',rar:'C',tag:'Guard',lv:1,passive:true,name:'Hardy',desc:'+6 maximum health.'},
-  brace:{c:'gen',rar:'C',tag:'Guard',lv:1,passive:true,name:'Brace',desc:'+2 to your Defend rolls.'},
+  brace:{c:'gen',rar:'C',tag:'Guard',lv:1,passive:true,name:'Brace',desc:'Once a round, +2 to a Defend roll.'},
   quick:{c:'gen',rar:'C',tag:'Reach',lv:1,passive:true,name:'Quick Feet',desc:'+1 speed.'},
   hardshove:{c:'gen',rar:'C',tag:'Reach',lv:1,passive:true,name:'Hard Shove',desc:'Your pushes and pulls move 1 square further.'},
   eager:{c:'gen',rar:'C',tag:'Surge',lv:1,passive:true,name:'Eager',desc:'Start each battle with +1 momentum.'},
   adrenaline:{c:'gen',rar:'C',tag:'Surge',lv:1,passive:true,name:'Adrenaline',desc:'The first time you are hit each battle, gain 1 momentum.'},
-  medic:{c:'gen',rar:'C',tag:'Mend',lv:1,passive:true,name:'Field Medic',desc:'Your heals heal 2 more.'},
+  medic:{c:'gen',rar:'C',tag:'Mend',lv:1,passive:true,name:'Field Medic',desc:'Your heals on allies heal 2 more.'},
   quickrevive:{c:'gen',rar:'C',tag:'Mend',lv:1,passive:true,name:'Quick Revive',desc:'Help Up costs no action.'},
   heavy:{c:'gen',rar:'U',tag:'Burst',lv:3,passive:true,name:'Heavy Hitter',desc:'Each crit gives +2 Mult instead of +1.'},
   overkill:{c:'gen',rar:'U',tag:'Burst',lv:3,passive:true,name:'Overkill',desc:'When your hit drops a foe, the extra damage hits another foe beside it.'},
@@ -178,7 +188,7 @@ const POWERS={
   laststand:{c:'gen',rar:'R',tag:'Guard',lv:5,passive:true,name:'Last Stand',desc:'Once a battle, when you would go Down, stay at 1 health with 6 Shield.'},
 };
 /* Every hero has these two (Core Rules 2.4 and 2.5). They take no slot. */
-POWERS.secondwind={c:'any',innate:true,lv:1,a:'M',name:'Second Wind',cost:0,tgt:'self',selfWind:true,noDmg:true,desc:'Once per battle: spend a hit die to heal one roll of it + STR.'};
+POWERS.secondwind={c:'any',innate:true,lv:1,a:'M',name:'Second Wind',cost:0,tgt:'self',selfWind:true,noDmg:true,desc:'Once per battle: spend a hit die to heal one roll of it + 3.'};
 POWERS.helpup={c:'any',innate:true,lv:1,a:'P',name:'Help Up',cost:0,tgt:'tile',range:1,helpUp:true,noDmg:true,desc:'An ally beside you who is Down stands up with health equal to one roll of their hit die.'};
 for(const k in POWERS)POWERS[k].id=k;
 
@@ -197,7 +207,7 @@ const MON={
   orc:{name:'Orc Brute',role:'Brute',act:0,art:'orc',hp:28,speed:3,attrs:{M:2,F:1,W:1,P:1},saves:{M:1,W:-1},armor:1,cost:3,savage:true,acts:[{name:'Greataxe',a:'M',range:1,dmg:[3,6,9],dice:[1,8,2],eff:{push:[0,1,2]}}],note:'Savage: +2 damage to bloodied heroes.'},
   hexer:{name:'Goblin Hexer',role:'Controller',act:0,art:'goblinShaman',hp:14,speed:3,attrs:{M:1,F:2,W:2,P:1},saves:{W:1,M:-1},cost:3,acts:[{name:'Hex Bolt',a:'W',range:4,dmg:[2,3,5],dice:[1,4,1],eff:{slow:[0,1,1],weak:[0,0,1]}},{name:'Mend',tgt:'ally',range:4,heal:7}],note:'Mend 7: heals allies.'},
   lurker:{name:'Mire Lurker',role:'Lurker',act:0,art:'ooze',hp:16,speed:4,attrs:{M:1,F:3,W:1,P:1},saves:{F:1,M:-1},cost:2.5,startHidden:true,acts:[{name:'Tongue Lash',a:'F',range:3,dmg:[3,5,7],dice:[1,6,2],eff:{pull:[2,2,2]}}],note:'Starts hidden in the reeds. Its tongue drags heroes 2 squares.'},
-  captain:{name:'Bandit Captain',role:'Leader',act:0,art:'bandit',hp:32,speed:4,attrs:{M:2,F:3,W:1,P:2},saves:{F:1,M:-1},cost:5,aura:true,acts:[{name:'Sabre',a:'F',range:1,dmg:[4,6,9],dice:[1,8,2]},{name:'Rally',tgt:'self',cost:2,rally:true}],note:'Aura: allies within 2 get +2 chips. Rally ◆2: allies beside heroes strike.'},
+  captain:{name:'Bandit Captain',role:'Leader',act:0,art:'bandit',hp:32,speed:4,attrs:{M:2,F:3,W:1,P:2},saves:{F:1,M:-1},cost:5,aura:true,acts:[{name:'Sabre',a:'F',range:1,dmg:[4,6,9],dice:[1,8,2]},{name:'Rally',tgt:'self',cost:2,rally:true}],note:'Aura: allies within 2 get +2 damage. Rally ◆2: allies beside heroes strike.'},
   marshogre:{name:'Marsh Ogre',role:'Brute',act:0,art:'ogre',hp:34,sz:2,speed:3,attrs:{M:3,F:1,W:1,P:1},saves:{M:1,F:-1},steady:1,armor:2,terr:1,cost:6,acts:[{name:'Club',a:'M',range:1,dmg:[4,7,10],dice:[1,8,3]},{name:'Smash',a:'M',range:1,area:1,dmg:[6,9,13],dice:[2,8,3],cost:2,eff:{push:[0,1,1]}}],note:'Large. Smash ◆2: 2 dice against a hero and everyone around it, pushing them.'},
   warlord:{name:'Orc Warlord',role:'Boss',act:0,art:'warlord',hp:110,speed:4,attrs:{M:3,F:3,W:1,P:3},saves:{M:1,W:-1},steady:2,armor:2,terr:1,boss:true,attacks:2,p2:{savage:true},acts:[{name:'Cleaving Axe',a:'M',range:1,dmg:[4,7,10],dice:[1,8,3],eff:{push:[1,1,2]}},{name:'Hurled Axe',a:'M',range:4,dmg:[3,5,7],dice:[1,6,1],cost:2}],va:['horde','warcry','laststand'],note:'Attacks twice. Bloodied: gains Savage. Surges on rounds 1, 3 and 5.'},
   bats:{name:'Bat Swarm',plural:'bat swarms',role:'Swarm',act:1,art:'bat',hp:4,tiny:4,speed:5,attrs:{M:1,F:2,W:1,P:1},saves:{F:1},nimble:true,cost:2,acts:[{name:'Bite',range:1,flat:1,per:true}],note:'Damage equals the bats still flying. Nimble.'},
@@ -268,7 +278,7 @@ const OBST={
 /* ---------------- RELICS ---------------- */
 const RELICS={
   boots:{name:'Boots of Striding',price:120,desc:'+1 speed for every hero.'},
-  whetstone:{name:'Dwarven Whetstone',price:130,desc:'+1 chips on every hero hit.'},
+  whetstone:{name:'Dwarven Whetstone',price:130,desc:'+1 damage on every hero hit.'},
   heart:{name:'Heart of the Oak',price:110,desc:'+8 max health for every hero.'},
   hymn:{name:'Battle Hymn',price:100,desc:'Heroes start each battle with +2 momentum.'},
   map:{name:"Tactician's Map",price:140,desc:'The first basic attack each turn gives +1 more momentum.'},
@@ -392,8 +402,8 @@ const GLOSS={
   intelligence:{name:'Intelligence (INT)',forms:['intelligence','INT'],text:'Learning and reasoning. The wizard\'s key stat. Checks: history, magic and religion, foraging, making and fixing things.'},
   passive:{name:'Passive power',forms:['passive'],text:'Always on, or fires by itself when its trigger happens. Passive powers cost no momentum and no action.'},
   presence:{name:'Presence',forms:['presence'],text:'Conviction, leadership and reading people. Skills: Insight, Influence.'},
-  attack:{name:'Damage',forms:['damage dice','damage roll','weapon dice','weapon die','chips×mult'],text:'Every hit deals CHIPS × MULT. CHIPS: the dice you roll (your weapon die; powers say how many) + your key stat + Bless and other bonuses − the foe\'s armour (at least 1). MULT: 1, +1 for each die on its top number (a crit), + the foe\'s Mult, + Sneak Attack and other bonuses. Then ×2 for a weakness, ×½ if it resists. There are no misses.'},
-  crit:{name:'Crit',forms:['critical hits','critical hit','on a crit','crits','crit'],text:'A damage die that lands on its top number (a 6 on a d6, a 2 on a d2; one below it too with a Keen weapon). It turns red and gives +1 Mult. Two crits give +2, and so on.'},
+  attack:{name:'Damage',forms:['damage dice','damage roll','weapon dice','weapon die'],text:'Every hit is DAMAGE × MULT. DAMAGE: the dice you roll (your weapon die, laddered up or down by the power) + flat bonuses (the power, Bless, Training, relics) − the foe\'s armour (at least 1). Attributes add nothing in battle. MULT: 1, +1 for each die on its top number (a crit), + the foe\'s Mult, + bonuses. Then ×2 for a weakness, ×½ if it resists. There are no misses.'},
+  crit:{name:'Crit',forms:['critical hits','critical hit','on a crit','crits','crit'],text:'A damage die that lands on its top number (a 6 on a d6, a 2 on a d2; one below it too with a Keen weapon). It turns red and gives +1 Mult. Two crits give +2, and so on. Some powers do something extra on a crit ("Crit: Stun").'},
   advantage:{name:'Advantage',forms:['double advantage','advantage'],text:'Out of battle only (checks, dramatic tasks, negotiations): roll the die again and keep the best.'},
   disadvantage:{name:'Disadvantage',forms:['disadvantage'],text:'Out of battle only (checks, dramatic tasks, negotiations): roll the die again and keep the worst.'},
   momentum:{name:'Momentum (MP)',forms:['momentum'],text:'Heroes start a battle with momentum equal to the party\'s Victories since the last Camp (up to 3). They gain 1 for their first basic attack each turn and 2 for each combo they land or set up, and spend it on powers. It holds up to 10.'},
@@ -412,7 +422,7 @@ const GLOSS={
   root:{name:'Rooted',forms:['rooted','roots','root'],text:'Can\'t move on its next turn. It can still attack.'},
   weak:{name:'Weakened',forms:['weakened','weakens','weak'],text:'Deals half damage until the end of its next turn.'},
   burn:{name:'Burn',forms:['burning','burn'],text:'Burn N: at the start of its turn it takes N damage, then N drops by 1. Burn stacks. Stepping into water puts it out.'},
-  bless:{name:'Bless',forms:['blessed','bless','blessing'],text:'Bless N: +N chips on the hero\'s next hit, then it is spent. Bless stacks.'},
+  bless:{name:'Bless',forms:['blessed','bless','blessing'],text:'Bless N: +N damage on the hero\'s next hit, then it is spent. Bless stacks.'},
   hidden:{name:'Hidden',forms:['hidden','hide'],text:'Unseen. Its next hit gets +1 Mult, then it is revealed.'},
   shield:{name:'Shield',forms:['shield'],text:'Absorbs damage before health. Shields fade at the start of the owner\'s next turn.'},
   cover:{name:'Obstacles',forms:['cover'],text:'Crates, low walls and gravestones block movement. Tall obstacles (trees, pillars, walls) also block sight.'},
@@ -427,7 +437,7 @@ const GLOSS={
   sneak:{name:'Sneak Attack',forms:['sneak attacks','sneak attack'],text:'The rogue\'s hits get +1 Mult against a foe that has one of her allies beside it.'},
   combo:{name:'Combo',forms:['combos','combo'],text:'When a hero cashes in a set-up another hero made (hits a foe with their Mult, a foe they Stunned, or uses their Bless), it is a combo: the hero and each set-up maker gain momentum.'},
   setup:{name:'Set-up',forms:['set-ups','set-up','set up'],text:'Mult on a foe, a Stunned foe, or Bless on a hero. Set-ups wait for the next hit, so line them up for a friend who acts next.'},
-  armor:{name:'Armour',forms:['armored','armor','armour'],text:'A foe\'s armour is taken off the chips of every hit (at least 1 chip is left). Piercing Strike ignores it. Heroes Defend instead.'},
+  armor:{name:'Armour',forms:['armored','armor','armour'],text:'A foe\'s armour is taken off the damage of every hit (at least 1 is left). Piercing Strike ignores it. Heroes Defend instead.'},
   intent:{name:'Intent',forms:['intents','intent'],text:'Tap INTENT during a hero\'s turn to see what each foe means to do on its next turn: whom it will attack, and roughly how much damage it will deal. They change as you shove foes around, taunt them or get out of reach.'},
   nimble:{name:'Nimble',forms:['nimble'],text:'Never provokes a Sentinel\'s strike.'},
   swarm:{name:'Swarm',forms:['swarms','swarm'],text:'Up to four tiny critters sharing one square and one pool of health. You attack the swarm as a single foe. Area attacks deal double damage to it, and it deals less damage as its critters fall. Its attacks never roll.'},
@@ -447,7 +457,7 @@ const GLOSS={
   difficulty:{name:'Difficulty',forms:['difficulty'],text:'How big an encounter is: Easy, Medium, Hard (elites) or Extreme (bosses). The first battle of each land is Easy, and so are about a quarter of the rest.'},
   camp:{name:'Camp',forms:['camps','camp'],text:'A safe stop on the map. Every hero heals with their remaining hit dice, refills them and removes a Wound, and the Victories reset. Then spend gold on downtime: tend wounds or retrain a power.'},
   hitdice:{name:'Hit Dice',forms:['hit dice','hit die'],text:'Each hero has a pool of 3 hit dice of their class\'s die. Out of battle, spend one to heal one roll of it (exploding) plus Strength. Second Wind spends one in battle. A Camp refills the pool.'},
-  wound:{name:'Wounds',forms:['wounds','wound'],text:'A hero who goes Down gains a Wound: -1 chips on every hit and -1 to every check (up to -3). A hero who goes Down with 3 Wounds already dies. Each Camp removes one.'},
+  wound:{name:'Wounds',forms:['wounds','wound'],text:'A hero who goes Down gains a Wound: -1 damage on every hit and -1 to every check (up to -3). A hero who goes Down with 3 Wounds already dies. Each Camp removes one.'},
   down:{name:'Down',forms:['is down','are down','goes down','go down','downed'],text:'A hero at 0 health is Down: they can\'t act, foes ignore them, and they gain a Wound. An ally beside them can Help them up, and healing stands them up too. After a won battle Down heroes stand up with 1 health. If every hero is Down, the battle is lost.'},
   bloodied:{name:'Bloodied',forms:['bloodied'],text:'At or below half health. Bloodied does nothing by itself, but bosses change phase, some foes turn savage and some powers hit harder.'},
   check:{name:'Check',forms:['checks','check'],text:'Roll the die for an attribute: 4 or more succeeds, a 1 is a critical failure, the top number explodes. Difficulty only comes from advantage and disadvantage. Another hero can Help (+1 advantage). Class options need the right hero, and often no roll at all.'},
@@ -470,8 +480,8 @@ const GLOSS={
   help:{name:'Help',forms:['helps','helping'],text:'One hero gives another +1 advantage on a check. In a dramatic task, helping uses up the helper\'s attempt.'},
   teleport:{name:'Teleport',forms:['teleport'],text:'Move instantly without provoking free strikes.'},
   free:{name:'Free Action',forms:['free action'],text:'Costs none of your three actions.'},
-  chips:{name:'Chips',forms:['chips','CHIPS'],text:'The first half of a hit (shown in blue): the dice + your key stat + bonuses such as Bless, minus the foe\'s armour. Blue dice add chips.'},
-  mult:{name:'Mult',forms:['MULT','Mult','mult'],text:'The second half of a hit (shown in red): chips are multiplied by it. It starts at 1. Each die that lands on its top number turns red and adds +1. A foe with Mult (the wizard\'s spells, the cleric\'s Brand) adds its Mult to the next hero hit on it, then loses it. Mult stacks: Hex twice is +4.'},
+  ladder:{name:'Die Ladder',forms:['die ladder','ladder'],text:'d2, d4, d6, d8, d10, d12. A power marked ▲ steps your weapon die up (bigger hits, rarer crits); ▼ steps it down (smaller hits, more crits). A d2 crits half the time.'},
+  mult:{name:'Mult',forms:['MULT','Mult','mult'],text:'The second half of a hit (shown in red): damage is multiplied by it. It starts at 1. Each die that lands on its top number turns red and adds +1. A foe with Mult (the wizard\'s spells, the cleric\'s Brand) adds its Mult to the next hero hit on it, then loses it. Mult stacks: Hex twice is +4.'},
 };
 
 /* ---------------- EVENTS (Core Rules 4.3 to 4.5) ----------------

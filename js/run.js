@@ -214,13 +214,13 @@ function draftOffers(h,o){
    hero each, where possible), or now and then a growth card: more health, or +1 to a hero's key stat. */
 const GROW={
   vigor:{name:'Vigor',desc:h=>`+${vigorOf(h)} max health, healed at once.`},
-  train:{name:'Training',desc:h=>`+1 ${ATTR[CLASSES[h.cls].prime]}, ${CLASSES[h.cls].name}'s key stat (to ${Math.min(5,heroAttrs(h)[CLASSES[h.cls].prime]+1)}): every attack and power hits harder.`},
+  train:{name:'Training',desc:h=>`+1 damage on every hit ${CLASSES[h.cls].name} makes (to +${(h.dmgPlus||0)+1}).`},
 };
 const vigorOf=h=>Math.round((HD[h.cls]||8)*TUNE.vigor);
-function growOk(h,k){return k!=='train'||heroAttrs(h)[CLASSES[h.cls].prime]<5;}
+function growOk(h,k){return k!=='train'||(h.dmgPlus||0)<4;}
 function growHero(h,k){
   if(k==='vigor'){const n=vigorOf(h);h.maxHp+=n;h.hp+=n;return `${CLASSES[h.cls].name} gains ${n} max health.`;}
-  if(k==='train'){const a=CLASSES[h.cls].prime;h.up=h.up||{};h.up[a]=(h.up[a]||0)+1;return `${CLASSES[h.cls].name}'s ${ATTR[a]} rises to ${heroAttrs(h)[a]}.`;}
+  if(k==='train'){h.dmgPlus=(h.dmgPlus||0)+1;return `${CLASSES[h.cls].name} now deals +${h.dmgPlus} damage on every hit.`;}
 }
 function partyDraftOffers(o){
   o=o||{};const out=[],used=new Set();let grown=false;
@@ -299,7 +299,6 @@ function finishRewards(){
 }
 
 /* ---------------- the smith (Heroes book 3.2) ---------------- */
-const LADDER=[2,4,6,8,10,12];
 function wup(id){RUN.wup=RUN.wup||{};return RUN.wup[id]||(RUN.wup[id]={s:WEAPONS[id].dice[1],runes:WEAPONS[id].runes.slice()});}
 function smithMenu(id){
   const b=WEAPONS[id],w=weaponData(id),s=w.dice[1],i=LADDER.indexOf(s),out=[];

@@ -27,9 +27,7 @@ function critNote(p,u,d){
   return `crit on ${lo<d.s?lo+'-'+d.s:'a '+d.s}: +1 Mult`;
 }
 function powerDmgLine(p,u){
-  const ka=(u&&keyA(u))||p.a,b=u?(u.attrs[ka]||0)+(u.side==='hero'&&hasR('whetstone')?1:0):0;
-  if(p.dmg&&!p.noDmg){const d=powDice(p,u);
-    return `{m:Damage} {w:${diceText(d)}${u&&b?'+'+b:''}}${p.hits>1?` {w:×${p.hits}}`:''}${u?'':' {m:+ key stat}'}${p.dtype?' '+p.dtype:''} {m:· ${critNote(p,u,d)}}`;}
+  if(p.dmg&&!p.noDmg)return powerMods(p,u);
   if(p.heal)return `{h:Heals ${u?(p.healDie?'d'+(HD[u.cls]||8)+(healAmt(u,0)?'+'+healAmt(u,0):''):healAmt(u,p.heal)):(p.healDie?'a hit die roll':p.heal)}}`+(p.shield?` {b:and ${p.shield} shield}`:'');
   if(p.shield)return `{b:${p.shield} shield}`;
   return '';
@@ -49,8 +47,7 @@ function powerBlock(p,u,x,y,w,o){
   text(fitText(p.name,w-26-cw),x+24,y+3,C.gold);
   if(p.cost){const poor=!!(u&&G&&G.units&&G.units.includes(u)&&u.mom<p.cost);gem(x+w-19,y+2,poor?'empty':'full');text(String(p.cost),x+w-11,y+3,poor?C.red:'#e0c8ff');}
   else if(p.free)text('free',x+w-3,y+3,C.green,{al:'r'});
-  const ka=(u&&keyA(u))||p.a;
-  text(fitText(`${powerReach(p)}${ka&&!p.passive?' · '+ATTR[ka]:''}${p.tag?' · '+p.tag:''}${p.free?' · free action':''}`,w-26),x+24,y+11,C.mute);
+  text(fitText(`${powerReach(p)}${p.tag?' · '+p.tag:''}${p.free?' · free action':''}`,w-26),x+24,y+11,C.mute);
   let cy=y+22;
   const dl=powerDmgLine(p,u);if(dl){rich(dl,x+3,cy,w-6,C.parch,{clip:o.clip,nohit:!!o.nohit});cy+=LINE_H;}
   rich(powerDesc(p),x+3,cy,w-6,C.parch,{clip:o.clip,nohit:!!o.nohit});
