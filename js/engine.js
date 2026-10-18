@@ -1696,9 +1696,9 @@ function setupBattle(enc,party){
   {const sh={};for(const u of G.units)if(!u.object&&(u.minion||u.swarm)){if(sh[u.type]==null)sh[u.type]=u.init;else u.init=sh[u.type];}}
   G.order=G.units.filter(u=>!u.object).sort(ordCmp).map(u=>u.id);
   G.v=4;G.combo=0;
-  // momentum: one pool per side, from the party's Victories (up to 3) and relics, +1 for each Eager hero
+  // momentum: one pool per side: 1, + the party's Victories (up to 3) and relics, +1 for each Eager hero
   G.mom={hero:0,enemy:0};
-  for(const side of ['hero','enemy']){const pcs=G.units.filter(u=>u.kind==='pc'&&u.side===side);if(pcs.length)G.mom[side]=Math.min(10,Math.max(...pcs.map(u=>u.mom||0))+pcs.filter(u=>u.pas&&u.pas.eager).length);}
+  for(const side of ['hero','enemy']){const pcs=G.units.filter(u=>u.kind==='pc'&&u.side===side);if(pcs.length)G.mom[side]=Math.min(10,1+Math.max(...pcs.map(u=>u.mom||0))+pcs.filter(u=>u.pas&&u.pas.eager).length);}
   ROLLQ.length=0;
   if(enc.twist==='ring')ringFire();
   log(`${enc.title}: ${MISSIONS[enc.type].name}.`,'g');
@@ -1779,7 +1779,7 @@ async function roundEnd(){
    Every round the heroes go first: each gets three actions, and the player moves between them freely, so set-ups and
    cash-ins line up in one go. Then every foe acts, in initiative order. Then the next round. */
 function heroSide(){return G.units.filter(u=>u.side==='hero'&&live(u)&&!u.object&&!u.caged&&(u.kind==='pc'||u.kind==='npc'));}
-function readyHero(u){return live(u)&&!u.caged&&((u.kind==='pc'&&(u.acts||0)>0)||(u.mp||0)>0||(u.kind==='npc'&&!u.npcDone));}
+function readyHero(u){return live(u)&&!u.caged&&((u.kind==='pc'&&(u.acts||0)>0)||(u.mp||0)>0);}
 function nextHero(after){const L=heroSide().filter(readyHero);if(!L.length)return null;const i=after?L.findIndex(u=>u.id===after):-1;return L[(i+1)%L.length]||L[0];}
 async function startHeroPhase(){
   G.phase='hero';G.cur=null;

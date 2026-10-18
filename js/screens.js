@@ -362,7 +362,6 @@ function openSettings(inBattle,onMap){
       openModal(dialog({title:"OTHER APPS' AUDIO",w:200,body:SET.takeOver?'The game now takes over the sound: music from Spotify and other apps pauses, and the game plays even when your phone is on silent.':'Spotify and other apps keep playing under the game. Game sounds play too, but on an iPhone only while the ring/silent switch is on ring: iOS mutes any app that mixes with other audio when the phone is on silent.\n\nTip: turn off the game\'s Music and keep Sound effects on.'}));}]);
     tog.push(['Hi-res art (experimental)',!!SET.hires,()=>{SET.hires=!SET.hires;saveSet();location.reload();}]);
     tog.push(['Auto end turn',SET.autoEnd,()=>{SET.autoEnd=!SET.autoEnd;saveSet();}]);
-    tog.push(['Reactions',SET.autoReact?'AUTOMATIC':'ASK ME',()=>{SET.autoReact=!SET.autoReact;saveSet();}]);
     tog.push(['Show every roll',SET.showRolls!==false,()=>{SET.showRolls=SET.showRolls===false;saveSet();}]);
     tog.push(['3D dice',SET.dice3d!==false,()=>{SET.dice3d=SET.dice3d===false;saveSet();}]);
     tog.push(['Show foe intents',SET.showIntents===true,()=>{SET.showIntents=SET.showIntents!==true;saveSet();}]);
@@ -395,7 +394,7 @@ const HOWTO=`{g:Turns.} Each round the {g:heroes all act first}, then {g:every f
 
 {g:Set-ups and combos.} The heroes act before any foe, so set up first and cash in after: the wizard Burns, Roots and Weakens, the fighter Taunts and Stuns (slam a foe into something), the cleric Blesses. Then the rogue, or anyone, hits with a fistful of dice. Hitting a foe carrying another hero's status is a {g:combo}: +1 party momentum.
 
-{g:Momentum.} Shown as {p:◆} gems: {g:one pool for the whole party}. It starts each battle at the party's {g:Victories} (up to 3). The cleric adds 1 every time she heals, Blesses or shields, and every combo adds 1. Any hero spends it on powers.
+{g:Momentum.} Shown as {p:◆} gems: {g:one pool for the whole party}. It starts each battle at 1 + the party's {g:Victories} (up to 3). The cleric adds 1 every time she heals, Blesses or shields, and every combo adds 1. Any hero spends it on powers.
 
 {g:Powers.} Every hero starts with a basic attack, a free set-up (Brakka's {g:Shove}, Orin's {g:Force Push}, Sela's {g:Guidance}) and one power; the rewards after each battle teach more, simple ones first. Active powers cost the party's shared momentum: pick a card at the bottom, then a target. A forecast shows what can happen; tap the target again, or STRIKE, to act. {g:Passive} powers work on their own.
 

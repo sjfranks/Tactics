@@ -187,7 +187,7 @@ function unitStatuses(u){
 }
 /* Mult, Bless and Burn stack: their badges carry the number. */
 const ST_COL={mult:'#ff7a5a',bless:'#8fc4ff',burn:'#ffb040',shield:'#8ac8ff'};
-function stCount(u,k){return k==='shield'?u.shield:['mult','bless','burn'].includes(k)?(u.st[k]||0):0;}
+function stCount(u,k){return k==='shield'?u.shield:k==='burn'?(u.st[k]||0):0;}
 function statusRow(u,x,y,max){const L=unitStatuses(u).slice(0,max||6);let cx=x;
   L.forEach(k=>{const c=statusIcon(k);if(c)ctx.drawImage(c,cx,y);cx+=8;const n=stCount(u,k);if(n){text(String(n),cx,y+1,ST_COL[k]||C.white);cx+=textW(String(n))+2;}});return cx-x;}
 /* Cards and tokens always want a figure about 32 pixels tall, so large creatures use their half-size image there. */

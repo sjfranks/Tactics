@@ -84,7 +84,7 @@ function momRules(u){
   const L=['One pool for the whole party: any hero spends it on powers.'];
   L.push('+1 each time the cleric heals, Blesses or shields (Guidance, Healing Word, Bless, Sanctuary...).');
   L.push(`+1 for each {g:combo}: a hit on a foe with a status another hero gave it${hero&&hasR('drum')?' (+1 War Drum)':''}.`);
-  L.push(`Starts each battle at the party's Victories since the last Camp (up to 3)${hero&&hasR('hymn')?', +2 from the Battle Hymn':''}. Holds up to 10.`);
+  L.push(`Starts each battle at 1 + the party's Victories since the last Camp (up to 3)${hero&&hasR('hymn')?', +2 from the Battle Hymn':''}. Holds up to 10.`);
   return L;
 }
 function attrTiles(a,x,y,w,clip){

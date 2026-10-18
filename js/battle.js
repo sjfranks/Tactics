@@ -666,7 +666,7 @@ function missionBody(){const E=G.enc,M=MISSIONS[E.type],tw=E.twist&&Object.value
 function openMissionInfo(){const E=G.enc;msg(E.title||MISSIONS[E.type].name,missionBody(),null,200);}
 /* Shown when a battle begins, so the goal (and any twist) is clear before the first move. */
 /* Once, for players who skipped the tutorial: how rounds and combos work. */
-const COMBO_KEY='emberwatch.v3.combos';
+const COMBO_KEY='emberwatch.v4.combos';
 function comboSeen(){try{return !!localStorage.getItem(COMBO_KEY);}catch(e){return true;}}
 function showComboIntro(){return new Promise(res=>{try{localStorage.setItem(COMBO_KEY,'1');}catch(e){}
   openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Each round your {g:heroes all act first}, then every foe. Each hero has {g:three actions} (move, attack, power): tap a hero to switch between them, as often as you like, then END TURN.\n\nA hit rolls {r:MULT} dice and adds them up, minus the foe\'s armour. {g:Every different status on the foe is one more die}: Burning, Stunned, Rooted, Weakened, Taunted. A die on its top number turns red: {r:roll one more!}\n\nSo set up first, then cash in: the wizard Burns and Roots, the fighter Taunts and Stuns, the cleric Blesses (and her support fills the party\'s shared {p:◆ momentum}). A hit on another hero\'s set-up is a {g:combo}: +1 momentum.\n\nTap {g:INTENT} to see whom each foe means to attack.',w:210,closable:false,body:'Heroes and foes take turns. A hero gets {g:three actions} each turn: move, attack, or use a power. Actions you don\'t use stay ready: when a foe hits you, spend one to {g:Defend}.\n\nEvery hit is {b:DAMAGE} × {r:MULT}. {b:Damage}: your dice + flat bonuses − the foe\'s armour. {r:Mult}: 1, +1 for each die that lands on its top number (it turns red). Powers change the dice, add damage or Mult, or do something special on a crit.\n\nHeroes {g:set up} hits for each other: the wizard\'s spells give foes {r:+Mult}, the cleric\'s {b:Bless} adds damage, the fighter {g:Stuns} foes (they skip a turn). Cash a set-up in with another hero for a {g:combo}: +2 momentum each.\n\nTap {g:INTENT} to see whom each foe means to attack.',
@@ -725,9 +725,9 @@ function hintLines(){
   const p=powerOf(u,B.pi);const V=view();
   if(B.pend&&p)return [p.tgt==='enemy'?'Tap the target again or press {g:STRIKE}.':'Tap again or press {g:CONFIRM} to use it.',p.desc];
   const al=`{g:${u.acts} action${u.acts===1?'':'s'}} left. `;
-  if((u.acts||0)<=0){return V&&V.moves.size>1?['Move with your remaining steps, or {g:End Turn}.']:['No actions left. Tap {g:End Turn}.'];}
+  if((u.acts||0)<=0){return V&&V.moves.size>1?['Move with your remaining steps, tap another hero, or {g:End Turn}.']:['No actions left. Tap another hero, or {g:End Turn}.'];}
   if(p&&!usable(u,p))return [`{r:${p.name} needs ◆${p.cost}.} The party has ◆${momOf(u)}.`,'Pick another power, or move.'];
-  if(p&&u.acts<TUNE.actions&&!B.pend)return [al+'Act again, move, or {g:End Turn}: actions you keep stay ready to {g:Defend} until your next turn.',p.desc];
+  if(p&&u.acts<TUNE.actions&&!B.pend)return [al+'Act again, move, or tap another hero. {g:End Turn} when every hero is done.',p.desc];
   if(p){
     const how=al+(p.tgt==='enemy'?'Tap a red foe to attack, or a blue square to move.':p.tgt==='ally'?'Tap a green ally, or a blue square to move.':p.tgt==='tile'?(p.area!=null?'Tap an orange square to aim, or move.':'Tap a purple square, or move.'):'Tap the card again to use it, or move.');
     return [how,p.desc];
