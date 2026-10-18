@@ -107,7 +107,7 @@ function startRunBattle(enc,kind){
   RUN.stage='battle';RUN.enc=enc;RUN.encKind=kind||'battle';
   for(const h of living())if(h.hp<=0)h.hp=1;
   setupBattle(enc,living());
-  if(kind==='boss'&&RUN.omen){RUN.omen=false;for(const u of G.units)if(u.side==='hero'&&u.kind==='pc')u.mom=Math.min(5,u.mom+1);log('The omen holds: every hero starts with 1 more momentum.','g');}
+  if(kind==='boss'&&RUN.omen){RUN.omen=false;addMom({side:'hero'},1);log('The omen holds: the party starts with 1 more momentum.','g');}
   beginBattleScreen(onRunBattleEnd);
 }
 function beginBattleScreen(onEnd){

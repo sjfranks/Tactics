@@ -39,13 +39,13 @@ let LASTEX=[];const ROLLQ=[];
 function showRoll(o){if(AUTOPLAY||!G||(typeof CTX!=='undefined'&&CTX&&CTX.mode==='sim'))return;ROLLQ.push(o);}
 const exDice=(s,faces,k)=>faces.map(v=>({s,v,k:k||'key'}));
 function rollExF(s){const t=rollEx(s);return {t,f:LASTEX.slice()};}
-function dieList(r){return r.dice.map((v,i)=>({s:i<r.d.n?r.d.s:(r.d.xs||r.d.s),v,k:r.critAt[i]?'crit':'key'}));}
+function dieList(r){const nb=r.nBase!=null?r.nBase:r.dice.length;return r.dice.map((v,i)=>({s:r.d.s,v,k:r.critAt[i]?'crit':'key',boom:i>=nb}));}
 /* The caption under an attack's title: where its Mult comes from. */
-function multCap(X){const L=(X.M||[]).map(([l,v])=>`+${v} ${l}`).concat((X.Xm||[]).map(([l,v])=>`×${v} ${l}`));return L.length?'MULT: '+L.join(', '):null;}
-/* "4 +3 STR −1 armour = 6 × 2 = 12": chips, then Mult, then damage. */
+function multCap(X,r){const L=(X.M||[]).map(([l,v])=>`${v>0?'+':'−'}${Math.abs(v)} ${l}`);if(r&&r.boom&&r.boom.length)L.push(`crit! +${r.boom.length} more`);const D=L.length?`DICE: ${L.join(', ')}`:null;const Xs=(X.Xm||[]).map(([l,v])=>`×${v===.5?'½':v} ${l}`);return [D].concat(Xs.length?[Xs.join(', ')]:[]).filter(Boolean).join(' · ')||null;}
+/* "3 dice: 12 +2 Hook Chain −1 armour = 13 DAMAGE": the dice, the flat parts, then the total. */
 function atkVerdict(r,X){if(X.immune)return 'IMMUNE: no damage';
   const steps=(X.C||[]).map(([l,v])=>` ${v>0?'+':'−'}${Math.abs(v)} ${l}`).join('');
-  return `${r.total}${steps} = ${X.chips} DAMAGE × ${X.mult} MULT${X.xm!==1?' ×'+X.xm:''} = ${X.d}`;}
+  return `${r.dice.length} dice: ${r.total}${steps}${X.xm!==1?' ×'+(X.xm===.5?'½':X.xm):''} = ${X.d} DAMAGE`;}
 function exAvg(s){return (s+1)/2;}
 function dieSucc(s,net){const p=s>=4?(s-3)/s:0;const k=Math.abs(net);return net>=0?1-Math.pow(1-p,k+1):Math.pow(p,k+1);}
 /* The class key stat: the attribute every attack and attacking power adds once (Core Rules 3.5). */
@@ -308,8 +308,9 @@ async function teleport(u,to){await H.tele(u,to);u.x=to.x;u.y=to.y;H.upd(u);awai
 
 /* ---------------- DAMAGE & CONDITIONS ---------------- */
 function momCap(u){return resLv('Surge',u)>=2?12:10;}
-function addMom(u,n){if(u.kind!=='pc'||!live(u)||n<=0)return;const cap=momCap(u),over=Math.max(0,u.mom+n-cap);u.mom=Math.min(cap,u.mom+n);
-  if(over&&hasP(u,'overflow')){const o=allies(u).filter(a=>a!==u&&a.kind==='pc'&&a.mom<momCap(a)).sort((a,b)=>a.mom-b.mom)[0];if(o){o.mom=Math.min(momCap(o),o.mom+over);H.pop(o,`+${over} ◆`,'res');}}}
+/* Momentum is one pool per side, shared by the whole party (v0.27). */
+function momOf(u){return G&&G.mom&&u?(G.mom[u.side]||0):0;}
+function addMom(u,n){if(!u||!G||n<=0)return;G.mom=G.mom||{hero:0,enemy:0};G.mom[u.side]=Math.min(momCap(u),(G.mom[u.side]||0)+n);}
 /* Per-deed tallies for each hero (ROLE_XP), kept in G.xp for statistics; levels come from Victories at a Camp (run.js). */
 let HELPER=null;
 function xp(u,n,why){
@@ -340,7 +341,7 @@ async function kill(t,src,o){
   if(t.side==='hero'&&t.kind==='pc'&&hasR('phoenix')&&!G.phoenixUsed){G.phoenixUsed=true;t.hp=Math.ceil(t.maxHp/2);H.pop(t,'Phoenix!','gold');H.sfx('heal');note(`${t.name} rises from the ashes!`);return;}
   if(t.kind==='pc'&&hasP(t,'laststand')&&!t.lsUsed){t.lsUsed=true;t.hp=1;t.shield+=6;H.pop(t,'Last Stand!','gold');note(`${t.name} refuses to fall (1 health, 6 shield).`);H.upd(t);return;}
   t.dead=true;t.hp=0;t.shield=0;if(t.kind==='pc')t.grow={};
-  if(t.kind==='pc'&&t.side==='hero'&&hasR('chalice'))for(const a of allies(t).filter(a=>a!==t&&a.kind==='pc'&&live(a))){addMom(a,2);H.pop(a,'Chalice +2 ◆','res');}
+  if(t.kind==='pc'&&t.side==='hero'&&hasR('chalice')){addMom(t,2);H.pop(t,'Chalice +2 ◆','res');}
   if(t.kind==='pc'&&t.side==='hero'&&!t.rival&&t.wounds!=null){if(t.wounds>=woundCap()){t.slain=true;note(`${t.name} has taken one wound too many.`);}else{t.wounds++;note(`${t.name} gains a Wound (${t.wounds}).`);}}
   H.sfx(t.kind==='pc'?'fall':t.object?'crumble':'death');
   note(t.kind==='pc'?`${t.name} has fallen!`:`${t.name} is slain.`);
@@ -353,7 +354,7 @@ async function kill(t,src,o){
     if(m.acidDeath)setHaz(t.x,t.y,'acid',4,t.side);
     if(m.reassemble&&!t.reassembled&&!(o&&o.radiant))t.reassembleAt=G.round;
   }
-  if(src&&src.side==='hero'&&t.side!=='hero'&&hasR('fang'))heal(src,4);
+  if(src&&src.side==='hero'&&t.side!=='hero'&&hasR('fang')&&G.fangR!==G.round){G.fangR=G.round;addMom(src,1);}
   if(t.kind==='pc'&&hasP(t,'martyr'))for(const a of allies(t).filter(a=>a.kind==='pc'&&a!==t)){heal(a,rollEx(HD[a.cls]||8));cleanse(a);note(`${t.name}'s grace lifts ${a.name}.`);}
 }
 function applyMark(t,src){
@@ -365,12 +366,12 @@ function applyMark(t,src){
    damage) and burn (N damage at the start of its turn, then N falls by 1); these don't wear off by themselves. Timed:
    stag (Stunned: skips its next turn), root (can't move), weak (deals half damage), mark (Taunted). Older names map onto
    these: dazed is stunned, slowed is rooted, exposed is Mult, bleeding is Burn, frightened is weak. */
-const ST_MAP={daze:'stag',slow:'root',expose:'mult',bleed:'burn',fear:'weak'};
-const STACKS=['mult','bless','burn'];
+const ST_MAP={daze:'stag',slow:'root',expose:'weak',bleed:'burn',fear:'weak',mult:'weak'};
+const STACKS=['burn'];
 function addSt(t,k,v){
   if(!live(t)||t.object)return;
   k=ST_MAP[k]||k;
-  if(k==='stag'){if(t.boss){t.st.mult=(t.st.mult||0)+2;H.pop(t,'+2 Mult','res');H.upd(t);return;}if(t.st.steady)return;}
+  if(k==='stag'&&t.st.steady)return;
   if(t.boss&&k==='root')return;
   if(k==='burn'&&immuneFire(t))return;
   if(STACKS.includes(k)){t.st[k]=(t.st[k]||0)+v;H.upd(t);return;}
@@ -380,15 +381,13 @@ function addSt(t,k,v){
 }
 /* Set-ups remember who made them: a hero who uses an ally's Mult, Bless or Stun scores a combo. */
 const byHero=s=>s?s.id:null;
-function stagger(t,src){if(!live(t)||t.object)return;const had=!!t.st.stag;addSt(t,'stag',1);if(t.st.stag&&!had){t.stagBy=byHero(src);H.pop(t,'Stunned!','call');if(src&&src.side!==t.side){setupMade(src,t);if(hasP(src,'anvil'))giveMult(t,src,2,true);}}}
+function stagger(t,src){if(!live(t)||t.object)return;const had=!!t.st.stag;addSt(t,'stag',1);if(t.st.stag&&!had){t.stagBy=byHero(src);H.pop(t,'Stunned!','call');if(src&&src.side!==t.side)setupMade(src,t);}}
 /* A stunned foe (not a boss: bosses take +2 Mult instead) skips its next turn, then can't be stunned again until after
    its following turn. */
 const losesTurn=u=>u.side==='enemy'&&!u.boss&&!!u.st.stag;
-/* Give a foe Mult (Amplify adds 1). */
-function giveMult(t,src,n,quiet){if(!live(t)||t.object||n<=0)return;if(src&&hasP(src,'amplify'))n++;t.st.mult=(t.st.mult||0)+n;t.multBy=byHero(src);if(src&&src.side!==t.side)setupMade(src,t);if(!quiet)H.pop(t,`+${n} Mult`,'res');H.upd(t);}
-/* Bless a hero: +N damage on their next hit (Radiance adds 2). */
-function blessUnit(a,src,n){if(!live(a)||a.object)return;n=(n||3)+(src&&hasP(src,'radiance')?2:0);a.st.bless=(a.st.bless||0)+n;a.blessBy=byHero(src);if(src&&src!==a)setupMade(src,null);H.pop(a,`Bless +${n}`,'gold');H.upd(a);}
-const ST_NAME={steady:'steady',root:'rooted',stag:'stunned',weak:'weak',burn:'burning',mult:'Mult',mark:'taunted',bless:'blessed'};
+/* Bless a hero: their next hit rolls one more die (with Radiance, +2 damage too). */
+function blessUnit(a,src){if(!live(a)||a.object)return;a.st.bless=1;a.blessBy=byHero(src);if(src&&src!==a)setupMade(src,null);H.pop(a,'Blessed','gold');H.upd(a);}
+const ST_NAME={steady:'steady',root:'Rooted',stag:'Stunned',weak:'Weakened',burn:'Burning',mark:'Taunted',bless:'Blessed'};
 function applyEff(src,t,eff,res){
   if(!eff||!live(t)||t.object)return;
   for(const k0 in eff){
@@ -399,14 +398,14 @@ function applyEff(src,t,eff,res){
     if(t.boss&&k==='root'){note(`${t.name} can't be rooted.`);continue;}
     if(k==='burn'&&immuneFire(t))continue;
     if(k==='stag'){stagger(t,src);if(t.st.stag)note('Stunned.');continue;}
-    if(k==='mult'){giveMult(t,src,v);note(`+${v} Mult.`);continue;}
     addSt(t,k,v);
+    if(t.st[k]){(t.stBy||(t.stBy={}))[k]=byHero(src);if(src&&hasP(src,'amplify')&&!STACKS.includes(k))t.st[k]++;}
     if(k==='root')t.rootBy=byHero(src);
     if(k==='root'&&src&&src.side!==t.side)setupMade(src,t);
-    note(k==='burn'?`Burn ${t.st.burn}.`:ST_NAME[k][0].toUpperCase()+ST_NAME[k].slice(1)+'.');if(t.side!==src.side)xp(src,1,'control');
+    note(k==='burn'?`Burning ${t.st.burn}.`:ST_NAME[k]+'.');if(t.side!==src.side)xp(src,1,'control');
   }
 }
-function cleanse(t){for(const k of['root','weak','burn','stag','mark','mult'])delete t.st[k];H.upd(t);}
+function cleanse(t){for(const k of['root','weak','burn','stag','mark'])delete t.st[k];H.upd(t);}
 function decSt(u){for(const k in u.st){if(STACKS.includes(k))continue;u.st[k]--;if(u.st[k]<=0){delete u.st[k];if(k==='mark')u.marker=null;}}}
 
 /* ---------------- ADVANTAGE & DISADVANTAGE ---------------- */
@@ -453,19 +452,57 @@ function powDice(p,u){return atkDice(u&&u.kind==='pc'?u:{kind:'pc',cls:p.c},p);}
 function critP(d){if(d.nocrit)return 0;const cm=clamp(d.cmin||d.s,2,d.s),q=(d.s-cm+1)/d.s;return 1-Math.pow(1-q,d.n);}
 /* [miss, hit, crit] chances, kept in this shape for the forecast and the AI: there are no misses. */
 function dieProbs(s,net,d){const c=critP(d||{n:1,s});return [0,1-c,c];}
+/* Statuses that make a creature easier to hurt: each different one adds a die to every hit on it. */
+const DEBUFFS=['burn','stag','root','weak','mark'];
+function debuffs(t){return t&&t.st&&!t.object?DEBUFFS.filter(k=>t.st[k]):[];}
+/* MULT: how many dice a hit rolls beyond its own. [label, dice] for each source. */
+function multDice(a,p,t,foe){
+  const M=[];const add=(v,l)=>{if(v)M.push([l,v]);};
+  if(t&&t.side!==a.side){const L=debuffs(t);if(L.length)add(L.length*(p.statusX?2:1),L.map(k=>ST_NAME[k]).join(', '));}
+  if(!foe){
+    if(a.st&&a.st.bless)add(1,'Blessed');
+    if(t&&!t.object&&t.side!==a.side){
+      if(sneakOn(a,t))add(1,'Sneak Attack');
+      if(bloodied(t)&&hasP(a,'finisher'))add(1,'Finisher');
+      if(bloodied(t)&&a.side==='hero'&&hasR('hood'))add(1,'Executioner');
+    }
+    if(hasP(a,'openstrike')&&!a.openUsed)add(1,'Opening Strike');
+    if(hasP(a,'glass'))add(1,'Glass Cannon');
+  }else{
+    const m=mon(a);
+    if(m.pack&&t&&allies(a).some(o2=>o2!==a&&!o2.object&&man(o2,t)===1))add(1,'pack');
+    if(G.hordeBoon)add(1,'Bloodlust');
+  }
+  if(t&&t.kind==='pc'&&t.side!==a.side&&hasP(t,'glass'))add(1,'Glass Cannon');
+  if(a.hidden)add(1,'hidden');
+  if(a.st&&a.st.weak)add(-1,'Weakened');
+  return M;
+}
+/* The dice a hit rolls: its own, plus MULT. */
+function hitDice(a,p,t,foe){
+  const d=foe?atkDice(a,p):heroDice(a,p,t);
+  const M=multDice(a,p,t,foe),x=M.reduce((s,[,v])=>s+v,0);
+  d.base=d.n;d.n=Math.max(1,d.n+x);d.M=M;d.boomK=!foe&&hasP(a,'heavy')?2:1;
+  return d;
+}
+/* The average of a set of dice, crits rolling more (a crit on 1 in s dice adds k more on average k/(s-1) each). */
+function expDice(d){const avg=(d.s+1)/2;const q=d.nocrit?0:(d.s-clamp(d.cmin||d.s,2,d.s)+1)/d.s;const boom=q<1?(d.boomK||1)*q/(1-q):0;return d.n*avg*(1+boom)+d.b;}
 /* Average dice total (a crit shows the top number on one die). */
-function tierDice(d,res){const avg=(d.s+1)/2;return (res===3&&!d.nocrit?d.s+(d.n-1)*avg:d.n*avg)+(d.xn||0)*((d.xs||d.s)+1)/2+d.b;}
+function tierDice(d,res){const avg=(d.s+1)/2;return res===3&&!d.nocrit?expDice(d)+(d.boomK||1)*avg:expDice(d);}
 /* Roll an attack's dice. A die on its top number (or Keen's one below) is a crit: +1 Mult each. */
 function rollDice(d,net,forceCrit,bonusDie,side){
   const dice=[];for(let i=0;i<d.n;i++)dice.push(1+rnd(d.s));for(let i=0;i<(d.xn||0);i++)dice.push(1+rnd(d.xs||d.s));
   let rr=false;if(d.reroll1){const i=dice.indexOf(1);if(i>=0){dice[i]=1+rnd(d.s);rr=true;}}
   // the tutorial has no bad luck: foes never crit
   if(G&&G.tut&&side==='enemy')for(let i=0;i<dice.length;i++)if(dice[i]===d.s&&d.s>2)dice[i]=d.s-1;
-  const cm=clamp(d.cmin||d.s,2,d.s);
-  const critAt=dice.map((v,i)=>!d.nocrit&&v>=(i<d.n?cm:(d.xs||d.s)));
+  const cm=clamp(d.cmin||d.s,2,d.s),isCrit=v=>!d.nocrit&&v>=cm;
+  const critAt=dice.map((v,i)=>i<d.n?isCrit(v):false);
+  // a crit rolls one more die (two with Heavy Hitter), and those can crit too
+  const nBase=dice.length,k=d.boomK||1;let todo=critAt.filter(Boolean).length*k;
+  while(todo>0&&dice.length-nBase<8){todo--;const v=1+rnd(d.s);dice.push(v);const c=isCrit(v);critAt.push(c);if(c)todo+=k;}
   const crits=critAt.filter(Boolean).length;
   const total=dice.reduce((a,b)=>a+b,0)+d.b;
-  return {d,dice,critAt,crits,res:crits?3:2,total,net:0,tries:[dice[0]],prim:dice[0],rest:dice.slice(1),boom:[],stag:false,rr};
+  return {d,dice,critAt,nBase,crits,res:crits?3:2,total,net:0,tries:[dice[0]],prim:dice[0],rest:dice.slice(1),boom:dice.slice(nBase),stag:false,rr};
 }
 /* The die ladder: powers step the weapon die up (hits harder) or down (crits more often). */
 const LADDER=[2,4,6,8,10,12];
@@ -473,7 +510,7 @@ function ladder(s,n){if(!n)return s;let i=LADDER.indexOf(s);if(i<0)i=LADDER.find
 function heroStep(a,p){return (p.step||0)+(hasP(a,'wtrain')?1:0)-(hasP(a,'precision')?1:0);}
 /* A power's modifiers as one line of rich text (cards, forecast, compendium): its dice (with the ladder step shown),
    flat damage, Mult and what a crit does. */
-const CRIT_TXT={stun:()=>'Stun',root:()=>'Root',burn:n=>`Burn ${n}`,give:n=>`foe +${n} Mult`,push:n=>`push ${n}`,mult:n=>`+${n} Mult`,dmg:n=>`+${n} dmg`,bless:n=>`allies Bless ${n}`,act:()=>'+1 action'};
+const CRIT_TXT={stun:()=>'Stun',root:()=>'Root',weak:()=>'Weaken',burn:n=>`Burn ${n}`,push:n=>`push ${n}`,dmg:n=>`+${n} dmg`,bless:()=>'Bless allies',act:()=>'+1 action'};
 function powerMods(p,u){
   if(!p.dmg||p.noDmg)return '';
   const pc=u&&u.kind==='pc'?u:{kind:'pc',cls:p.c==='gen'||p.c==='any'?'fighter':p.c,powers:[],st:{}};
@@ -483,9 +520,8 @@ function powerMods(p,u){
   if(p.hits>1)L.push(`{w:×${p.hits} hits}`);
   const flat=(p.plus||0)+(u?(u.dmgPlus||0)+(u.side==='hero'&&hasR('whetstone')?1:0)+wBonus(u,p,'dmg'):0);
   if(flat)L.push(`{b:+${flat} dmg}`);
-  if(p.addMult)L.push(`{r:+${p.addMult} Mult}`);
   if(p.pierceArmor)L.push('{b:ignores armour}');
-  if(p.multDouble)L.push("{r:foe's Mult ×2}");
+  if(p.statusX)L.push('{r:2 dice per status}');
   if(p.xIfStun)L.push(`{g:×${p.xIfStun} vs Stunned}`);
   if(p.crit)L.push('{o:Crit: '+Object.keys(p.crit).map(k=>CRIT_TXT[k](p.crit[k])).join(', ')+'}');
   return L.join(' ');
@@ -502,13 +538,14 @@ function heroDice(a,p,t,O,fl){
   const w=p.wdie?null:(wpnOf(a)||WEAPONS[START_WEAPON[a.cls]]);
   if(w&&w.dual)d.n++;
   d.s=ladder(d.s,heroStep(a,p));
-  let cm=d.s;if(w&&w.keen&&d.s>=6)cm--;d.cmin=Math.max(2,cm);
+  let cm=d.s;if(w&&w.keen&&d.s>=6)cm--;if(hasP(a,'precision'))cm--;d.cmin=Math.max(2,cm);
   if(w&&w.nocrit)d.nocrit=true;
   if(w&&w.steady&&a.steadyR!==G.round)d.reroll1=true;
   return d;
 }
-/* Armour: a flat number taken off the damage of every hit (foes only; heroes Defend instead). */
-function armorOf(t){if(!t||t.kind!=='mon'||t.object)return 0;const bw=t.undead&&G&&G.units.some(o=>o!==t&&live(o)&&o.kind==='mon'&&mon(o).boneWall&&o.side===t.side&&man(o,t)===1)?1:0;return Math.max(0,(t.armor||0)+(TUNE.foeDef||0)+bw);}
+/* Armour: a flat number taken off the damage of every hit (foes by their stat block; the fighter 2, the cleric 1). */
+const HERO_ARMOR={fighter:2,cleric:1};
+function armorOf(t){if(t&&t.kind==='pc'&&!t.object)return HERO_ARMOR[t.cls]||0;if(!t||t.kind!=='mon'||t.object)return 0;const bw=t.undead&&G&&G.units.some(o=>o!==t&&live(o)&&o.kind==='mon'&&mon(o).boneWall&&o.side===t.side&&man(o,t)===1)?1:0;return Math.max(0,(t.armor||0)+(TUNE.foeDef||0)+bw);}
 function defDie(t){return 0;}
 /* Damage types (Core Rules 3.11). */
 function typeOf(a,p){
@@ -529,12 +566,13 @@ function typeMul(t,ty){
 }
 /* A hit: DAMAGE (C: [label, value]), MULT (M: [label, +n]) and ×MULT (Xm: [label, ×k]).
    o.dice: the rolled total (else the average); o.crits: how many dice critted (else 0, or 1 for res 3). */
+/* A hit: DAMAGE (C: [label, value] flat parts), MULT (M: [label, dice] the extra dice) and ×k (Xm: [label, ×k]).
+   o.dd: the dice (else worked out here); o.dice: the rolled total (else the average); o.crits: how many dice critted. */
 function hitParts(a,p,t,res,o,foe){
-  o=o||{};const C=[],M=[],Xm=[];
-  const dd=foe?atkDice(a,p):(o.dd||heroDice(a,p,t));
+  o=o||{};const C=[],Xm=[];
+  const dd=o.dd||hitDice(a,p,t,foe);const M=dd.M||[];
   const dice=Math.round(o.dice!=null?o.dice:tierDice(dd,res));
   let chips=dice;const add=(v,l)=>{if(v){chips+=v;C.push([l,v]);}};
-  let mult=1;const am=(v,l)=>{if(v){mult+=v;M.push([l,v]);}};
   const crits=o.crits!=null?o.crits:(res===3?1:0);
   if(!foe){
     add(p.plus||0,p.name);
@@ -542,31 +580,16 @@ function hitParts(a,p,t,res,o,foe){
     add(wBonus(a,p,'dmg')+wBonus(a,p,'acc'),'weapon');
     if(a.side==='hero'&&hasR('whetstone'))add(1,'Whetstone');
     add(a.side==='hero'?(G.pcDmgAdd||0):(G.foeDmgAdd||0),'skirmish');
-    if(a.st&&a.st.bless)add(a.st.bless,'Bless');
-    if(hasP(a,'openstrike')&&!a.openUsed)add(3,'Opening Strike');if(hasP(a,'openstrike')&&!a.openUsed)am(1,'Opening Strike');
+    if(a.st&&a.st.bless&&a.blessBy&&U(a.blessBy)&&hasP(U(a.blessBy),'radiance'))add(2,'Radiance');
+    if(hasP(a,'openstrike')&&!a.openUsed)add(3,'Opening Strike');
     add(-woundsOf(a),'Wounds');
-    {const w=wpnOf(a);am(crits*(1+(hasP(a,'heavy')?1:0)+(hasP(a,'precision')?1:0)+(w&&w.vicious&&!p.wdie?1:0))+(a.side==='hero'&&hasR('dice')&&crits?1:0),crits>1?`${crits} crits`:'crit');}
-    if(crits){add(hasP(a,'brutal')?3:0,'Brutal');if(p.crit){add(p.crit.dmg||0,'crit');am(p.crit.mult||0,'crit bonus');}}
-    am(p.addMult||0,p.name);
-    if(t&&!t.object&&t.side!==a.side){
-      if(sneakOn(a,t))am(1,'Sneak Attack');
-      if(bloodied(t)&&hasP(a,'finisher'))am(1,'Finisher');
-      if(bloodied(t)&&a.side==='hero'&&hasR('hood'))am(1,'Executioner');
-      if(a.hidden)am(1,'hidden');
-    }
-    if(hasP(a,'glass'))am(1,'Glass Cannon');
+    if(crits){add(hasP(a,'brutal')?3:0,'Brutal');if(a.side==='hero'&&hasR('dice'))add(3,'Loaded Bones');if(p.crit)add(p.crit.dmg||0,'crit');}
   }else{
     add(G.dmgAdd,'strength');
     const m=mon(a);
     if((m.savage||(m.p2&&m.p2.savage&&bloodied(a)))&&bloodied(t))add(2,'savage');
     if(allies(a).some(o2=>o2!==a&&o2.kind==='mon'&&mon(o2).aura&&man(o2,a)<=2))add(2,'aura');
-    am(crits,crits>1?`${crits} crits`:'crit');
-    if(m.pack&&allies(a).some(o2=>o2!==a&&!o2.object&&man(o2,t)===1))am(1,'pack');
-    if(G.hordeBoon)am(1,'Bloodlust');
-    if(a.hidden)am(1,'hidden');
   }
-  // the target's Mult: spent by this hit
-  if(t&&t.st&&t.st.mult)am(t.st.mult*(p.multDouble?2:1),p.multDouble?'Mult ×2 (Backstab)':'Mult');
   const ar=p.pierceArmor?0:armorOf(t);if(ar){const b=chips;chips=Math.max(1,chips-ar);if(chips!==b)C.push(['armour',chips-b]);}
   chips=Math.max(1,chips);
   let xm=1;const xx=(k,l)=>{if(k!==1){xm*=k;Xm.push([l,k]);}};
@@ -574,15 +597,12 @@ function hitParts(a,p,t,res,o,foe){
     const tm=typeMul(t,typeOf(a,p));if(tm===2)xx(2,'weakness');else if(tm===.5)xx(.5,'resists');
     if(p.xIfStun&&t.st&&t.st.stag)xx(p.xIfStun,p.name);
     if(!foe&&t.st&&t.st.root&&t.rootBy&&t.rootBy!==a.id&&hasP(U(t.rootBy),'shatter'))xx(2,'Shatter');
-    if(foe){
-      if(a.st&&a.st.weak)xx(.5,'weak');
-      if(t.side==='hero'&&hasR('ward')&&!(t.warded||{})[a.id])xx(.5,'Warding Charm');
-    }else if(a.st&&a.st.weak)xx(.5,'weak');
+    if(foe&&t.side==='hero'&&hasR('ward')&&!(t.warded||{})[a.id])xx(.5,'Warding Charm');
     if(a.st&&a.st.mark&&a.marker&&a.marker!==t.id&&live(U(a.marker)))xx(.5,'taunted');
-    if(typeMul(t,typeOf(a,p))===0)return {d:0,C,M,Xm,chips,mult,xm:0,immune:true,S:[]};
+    if(tm===0)return {d:0,C,M,Xm,chips,mult:dd.n,dd,xm:0,immune:true,S:[]};
   }
-  const d=Math.max(1,Math.round(chips*mult*xm));
-  return {d,C,M,Xm,chips,mult,xm,S:[]};
+  const d=Math.max(1,Math.round(chips*xm));
+  return {d,C,M,Xm,chips,mult:dd.n,dd,xm,S:[]};
 }
 function pcDmgX(a,p,t,res,o){
   if(p.noDmg||!p.dmg)return {d:0,C:[],M:[],Xm:[],chips:0,mult:1,xm:1,S:[]};
@@ -591,9 +611,9 @@ function pcDmgX(a,p,t,res,o){
 function pcDmg(a,p,t,res,o){return pcDmgX(a,p,t,res,o).d;}
 /* How many of a tiny swarm's critters are still standing (1-4). */
 function alive4(u){return u.tiny?Math.max(1,Math.ceil(u.tiny*u.hp/u.maxHp)):1;}
-function monDmgX(a,A,t,res,dice,crits){
+function monDmgX(a,A,t,res,dice,crits,dd){
   if(A.flat!=null){const d=Math.max(1,(A.per?A.flat*alive4(a):A.flat)+Math.floor(G.dmgAdd/2));return {d,C:[],M:[],Xm:[],chips:d,mult:1,xm:1,S:[]};}
-  return hitParts(a,A,t,res,{dice,crits},true);
+  return hitParts(a,A,t,res,{dice,crits,dd},true);
 }
 function monDmg(a,A,t,res,dice){return monDmgX(a,A,t,res,dice).d;}
 
@@ -603,7 +623,7 @@ function powerOf(u,i){return POWERS[u.powers[i]];}
 function isAttack(p){return !!p&&!!p.dmg&&!p.noDmg&&p.tgt!=='ally'&&p.aff!=='ally';}
 function powerCost(u,p){return p.cost>0&&hasP(u,'warmup')&&!u.warmUsed?p.cost-1:p.cost;}
 function usable(u,p){
-  if(!p||p.passive||powerCost(u,p)>u.mom)return false;
+  if(!p||p.passive||powerCost(u,p)>momOf(u))return false;
   if(p.swapPrev&&G&&G.order&&(u.repR===G.round||!prevHero(u)))return false;
   if(p.helpUp&&!G.units.some(h=>h.side===u.side&&h.kind==='pc'&&h.dead&&!h.gone&&!h.slain))return false;
   if(p.selfWind&&((u.swUsed&&!(hasR('thread',u)&&u.swUsed<2))||u.hp>=u.maxHp||(u.hd!=null&&u.hd<=0)))return false;
@@ -690,7 +710,7 @@ function areaTargets(u,p,C){
   if(p.aff==='ally')return allies(u).filter(a=>!a.object&&!a.caged&&cheb(a,C)<=r);
   let L=foesOf(u).filter(e=>cheb(e,C)<=r&&!(p.tgt==='self'&&e.x===C.x&&e.y===C.y));
   if(p.aff==='undead')L=L.filter(e=>e.undead);
-  if(p.onlyMult)L=L.filter(e=>e.st.mult);
+  if(p.onlyStatus)L=L.filter(e=>debuffs(e).length);
   return L;
 }
 /* Healing: a fixed amount, or one roll of the healer's hit die (healDie, exploding). Clerics add Presence from level 2. */
@@ -705,6 +725,7 @@ function healAmt(u,base,p,roll){
 function healBonus(u,a,roll){
   if(!u||u.kind!=='pc')return 0;let b=0;
   if(a!==u&&hasP(u,'medic'))b+=2;
+  if(u.side==='hero'&&u.cls==='cleric'&&hasR('thread'))b+=3;
   if(u.cls==='cleric'&&hasP(u,'gift'))b+=2;
   const pv=hasP(u,'echomercy')&&u.emR!==G.round&&prevHero(u);
   if(pv&&(G.healedR||{})[pv.id]===G.round){b+=4;if(roll)u.emR=G.round;}
@@ -725,7 +746,7 @@ function strikeTargets(u,p,T,O){
 function comboSetters(u,p,list){
   if(u.side!=='hero'||u.kind!=='pc'||p.noDmg||!p.dmg||!list.length)return [];
   const by=new Set();
-  for(const t of list){if(t.st.stag&&t.stagBy&&t.stagBy!==u.id)by.add(t.stagBy);if(t.st.mult&&t.multBy&&t.multBy!==u.id)by.add(t.multBy);}
+  for(const t of list)for(const k of debuffs(t)){const s=k==='mark'?t.marker:k==='stag'?t.stagBy:(t.stBy||{})[k];if(s&&s!==u.id)by.add(s);}
   if(u.st.bless&&u.blessBy&&u.blessBy!==u.id)by.add(u.blessBy);
   return [...by].filter(id=>{const s=U(id);return s&&s.side==='hero';});
 }
@@ -736,12 +757,12 @@ function forecast(u,p,T,O){
   rows.by=by;rows.combo=combo;
   // each target: the hit as DAMAGE × MULT, its crit chance, and the lowest and highest damage the dice can give
   const mk=t=>{
-    if(!p.dmg||p.noDmg)return {t,ctrl:true,probs:[0,1,0],dmg:null,mult:p.mult||0};
-    const dd=heroDice(u,p,t,O),probs=dieProbs(dd.s,0,dd),k=p.hits||1;
+    if(!p.dmg||p.noDmg)return {t,ctrl:true,probs:[0,1,0],dmg:null};
+    const dd=hitDice(u,p,t,false),probs=dieProbs(dd.s,0,dd),k=p.hits||1;
     const X=pcDmgX(u,p,t,2,{dd}),XC=pcDmgX(u,p,t,3,{dd});
     const lo=pcDmgX(u,p,t,2,{dd,dice:dd.n+(dd.xn||0)+dd.b,crits:0}).d*k;
     const hi=pcDmgX(u,p,t,3,{dd,dice:dd.n*dd.s+(dd.xn||0)*(dd.xs||dd.s)+dd.b,crits:dd.nocrit?0:dd.n}).d*k;
-    return {t,dice:dd,probs,X,XC,lo,hi,dmg:[0,X.d*k,XC.d*k],ctrl:false,sneak:sneakOn(u,t),mult:p.mult||0};};
+    return {t,dice:dd,probs,X,XC,lo,hi,dmg:[0,X.d*k,XC.d*k],ctrl:false,sneak:sneakOn(u,t)};};
   if(p.tgt==='enemy'){
     for(const t of strikeTargets(u,p,T,O))rows.push(mk(t));
   }else if(p.tgt==='ally'){
@@ -768,9 +789,9 @@ async function critFx(u,p,t,fl){
   if(c.stun&&live(t)){stagger(t,u);if(t.st.stag){note('Crit: Stunned.');if(fl&&fl.stagIds)fl.stagIds.add(t.id);}}
   if(c.root&&live(t)){addSt(t,'root',1);note('Crit: Rooted.');}
   if(c.burn&&live(t)){addSt(t,'burn',c.burn);note(`Crit: Burn ${c.burn}.`);}
-  if(c.give&&live(t)){giveMult(t,u,c.give);note(`Crit: +${c.give} Mult.`);}
+  if(c.weak&&live(t)){addSt(t,'weak',1);(t.stBy||(t.stBy={})).weak=u.id;note('Crit: Weakened.');}
   if(c.push&&live(t))await forceMove(t,u,c.push,false,u,fl);
-  if(c.bless)for(const a of allies(u).filter(a=>!a.object&&a.kind==='pc'&&man(a,u)<=2))blessUnit(a,u,c.bless);
+  if(c.bless)for(const a of allies(u).filter(a=>a!==u&&!a.object&&a.kind==='pc'&&man(a,u)<=2))blessUnit(a,u);
   if(c.act&&u.critActR!==G.round){u.critActR=G.round;u.acts=(u.acts||0)+1;u.acted=false;H.pop(u,'+1 action','gold');note('Crit: an action back.');}
 }
 async function pcStrike(u,p,t,C,fl){
@@ -779,7 +800,7 @@ async function pcStrike(u,p,t,C,fl){
     NOTE=[];
     let r=null,X=null,d=0;
     if(p.dmg&&!p.noDmg){
-      const dd=heroDice(u,p,t,u,fl);
+      const dd=hitDice(u,p,t,false);
       r=rollDice(dd,0,false,false,u.side);
       if(r.rr)u.steadyR=G.round;
       X=pcDmgX(u,p,t,r.res,{dd,dice:r.total,crits:r.crits});d=X.d;
@@ -787,7 +808,6 @@ async function pcStrike(u,p,t,C,fl){
       await H.rolls();
       H.result(t,r);
       // a hit spends the target's Mult, the attacker's Bless, hiding and Opening Strike
-      if(t.st.mult){delete t.st.mult;t.multBy=null;}
       if(u.st.bless){delete u.st.bless;u.blessBy=null;}
       if(t.hidden)t.hidden=false;if(u.hidden)u.hidden=false;
       if(d>0&&fl.react&&u.side==='hero'&&hasR('lens'))d+=3;
@@ -799,7 +819,6 @@ async function pcStrike(u,p,t,C,fl){
     fl.hitIds.add(t.id);
     if(live(t)){
       if(p.mark){applyMark(t,u);note('Taunted.');}
-      if(p.mult){giveMult(t,u,p.mult);note(`+${t.st.mult} Mult.`);}
       applyEff(u,t,p.eff,2);
       if(r&&r.crits&&p.crit)await critFx(u,p,t,fl);
       // runes work on every attack the weapon makes
@@ -825,7 +844,7 @@ async function support(u,a,p,fl){
   NOTE=[];
   if(p.heal){const g=heal(a,healAmt(u,p.heal,p,true)+healBonus(u,a,true));if(g>0&&a!==u)fl.healedOther=true;}
   if(p.shield){a.shield+=p.shield;H.pop(a,'⛨ '+p.shield,'shield');note(`${a.name} gains ${p.shield} shield.`);if(a!==u){xp(u,p.shield/2,'support');fl.healedOther=true;}}
-  if(p.bless){blessUnit(a,u,p.bless);note(`${a.name} is blessed (+${a.st.bless} damage).`);if(a!==u){xp(u,4,'support');fl.healedOther=true;}}
+  if(p.bless){blessUnit(a,u,p.bless);note(`${a.name} is Blessed.`);if(a!==u){xp(u,4,'support');fl.healedOther=true;}}
   if(p.cleanse){cleanse(a);note('Conditions end.');}
   const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));
   H.upd(a);
@@ -854,30 +873,8 @@ function defendRoll(t,extra){const [s,sh]=HERO_DEF[t.cls]||[4,0];const w=wpnOf(t
   if(shield){plus+=2;why.push('+2 shield');}if(extra){plus+=2;why.push('+2 Block');}if(shep){plus+=2;why.push('+2 Shepherd');}if(t.swDef){plus+=2;why.push('+2 Second Wind');}
   if(hasP(t,'brace')&&t.braceR!==G.round){t.braceR=G.round;plus+=2;why.push('+2 Brace');}
   return {s,rolls:[v0],v:v0+plus,plus,why,dice:[{s,v:v0,k:'def'}]};}
-async function guardHit(src,t,d,crit){
-  if(!src||!t||src.side===t.side||!live(t))return d;
-  const gFree=t.kind==='pc'&&resLv('Guard',t)>=2&&t.g2R!==G.round&&canReact(t)&&G.cur!==t.id;
-  // Defend: autoplay heroes defend hits of TUNE.guardMin or more; the player is asked (a 1-damage hit is not worth it)
-  if(!crit&&t.kind==='pc'&&d>=(isPlayer(t)?2:TUNE.guardMin)&&!hasP(t,'glass')&&(gFree||reactReady(t,'defend'))){
-    const B=G.units.find(F=>F!==t&&F.kind==='pc'&&F.side===t.side&&hasP(F,'block')&&man(F,t)===1&&live(F));
-    const [ds,sh]=HERO_DEF[t.cls]||[4,0];
-    const ok=gFree||await askReact(t,'DEFEND?',`{r:${src.name} hits ${t.name} for ${d}.}\n\nDefend: roll ${t.name}'s armour die (d${ds}${sh>0?' +2 shield':''}) and take that much less.\n\n{m:${gFree?'Free (Guard resonance).':`Costs 1 of ${t.name}'s ${t.acts} ready ${t.acts>1?'actions':'action'}.`}}`,'DEFEND');
-    if(ok){
-      if(gFree)t.g2R=G.round;else spendReact(t,'defend');
-      if(B)H.pop(B,'Block!','call');
-      const R=defendRoll(t,B?1:0);const nd=Math.max(1,d-R.v);
-      showRoll({side:t.side,title:`${t.name.toUpperCase()} DEFENDS`,sub:R.why.length?R.why.join(', '):`Armour d${R.s}`,dice:R.dice,verdict:`Blocks ${R.v}: ${d} → ${nd} damage`,res:2});
-      H.pop(t,'Defend','shield');t.hitSince=true;
-      note(`${t.name} defends, spending a ready action${B?' ('+B.name+' blocks)':''} (d${R.s} [${R.rolls[0]}]${R.why.length?' '+R.why.join(' '):''}: ${R.v}): ${d} to ${nd}.`);d=nd;
-      if(hasP(t,'counterguard')&&t.cgR!==G.round){t.cgR=G.round;addMom(t,1);}
-    }
-  }
-  if(d<4)return d;
-  const C=t.side==='hero'&&G.units.find(c=>c!==t&&c.kind==='pc'&&hasP(c,'warding')&&c.side===t.side&&man(c,t)<=3&&reactReady(c,'warding'));
-  if(C&&await askReact(C,'WARDING WORD?',`{r:${t.name} is about to take ${d} damage.} ${C.name} can speak a Warding Word to halve it.\n\n{m:Costs 1 of ${C.name}'s ${C.acts} ready ${C.acts>1?'actions':'action'}.}`,'WARD')){
-    spendReact(C,'warding');const nd=Math.floor(d/2);H.pop(C,'Warding Word','gold');H.pop(t,'Warded','shield');note(`${C.name}'s Warding Word halves it: ${d} to ${nd}.`);return nd;}
-  return d;
-}
+/* There are no reactions (v0.27): a hit lands as rolled. Kept as the one place a hit could be changed on its way in. */
+async function guardHit(src,t,d,crit){return d;}
 /* Intercept: the fighter spends a saved action to take a blow meant for an ally beside her. */
 function interceptor(v,src){
   if(!v)return null;
@@ -907,24 +904,23 @@ function blessNear(u,r,fl){
   const fo=fighters(u);const score=a=>Math.min(9,...fo.map(f=>man(f,a)));c.sort((a,b)=>score(a)-score(b));const a=c[0];
   blessUnit(a,u);log(`${a.name} is blessed.`,sideCol(u));xp(u,4,'support');fl.healedOther=true;
 }
-/* A combo: +2 momentum for the hero who cashed in the set-up and for each hero who made it, plus Set-up I resonance,
-   Conductor and Rhythm. One per action. */
+/* A combo: a hero hits a foe with a status another hero gave it (or uses another hero's Bless): +1 party momentum
+   (War Drum and Conductor add 1). One per action. */
 function comboHit(u,by,fl){
   if(fl.combo)return;fl.combo=true;
   G.combo=(G.combo||0)+1;G.combos=(G.combos||0)+1;
-  addMom(u,2+(u.side==='hero'&&hasR('drum')?1:0));xp(u,1,'combo');
-  if(resLv('Set-up',u)>=1&&G.comboR!==G.round){G.comboR=G.round;addMom(u,1);}
-  if(hasP(u,'conductor'))for(const h of allies(u).filter(h=>h!==u&&h.kind==='pc'))addMom(h,1);
+  const gain=1+(u.side==='hero'&&hasR('drum')?1:0)+(hasP(u,'conductor')?1:0);
+  addMom(u,gain);xp(u,1,'combo');
   const grow=h=>{if(hasP(h,'rhythm')){h.grow=h.grow||{};h.grow.rhythm=Math.min(4,(h.grow.rhythm||0)+1);}};grow(u);
   const names=[];
-  for(const id of by){const s=U(id);if(!s||s===u)continue;if(live(s))addMom(s,2);xp(s,1,'setup');grow(s);names.push(s.name);}
+  for(const id of by){const s=U(id);if(!s||s===u)continue;xp(s,1,'setup');grow(s);names.push(s.name);}
   H.combo(u,G.combo,by);
-  log(`Combo ×${G.combo}! ${names.join(' and ')} set it up for ${u.name}: +2 momentum each. `,'g');
+  log(`Combo ×${G.combo}! ${names.join(' and ')} set it up for ${u.name}: +${gain} party momentum.`,'g');
 }
 /* Saves are retired (v0.25): effects simply happen, and bosses shrug off Stun (they take +2 Mult instead). */
 function saveText(){return '';}
 async function usePower0(u,p,T){
-  const cost=powerCost(u,p);u.mom-=cost;if(p.cost>0)u.warmUsed=true;
+  const cost=powerCost(u,p);if(cost){G.mom[u.side]=Math.max(0,momOf(u)-cost);}if(p.cost>0)u.warmUsed=true;
   if(cost>=3&&u.kind==='pc')for(const h of allies(u).filter(h=>h!==u&&hasP(h,'echo')&&prevHero(h)===u)){addMom(h,1);H.pop(h,'+1 ◆','res');}
   if(p.swapPrev)u.repR=G.round;
   await usePower1(u,p,T);
@@ -990,7 +986,7 @@ async function usePower1(u,p,T){
     const pre=NOTE||[];NOTE=null;if(pre.length)log(pre.join(' '),sideCol(u));
     let list=areaTargets(u,p,C);
     if(p.adjOnly)list=list.filter(t=>man(t,u)===1);
-    if(p.noDmg&&!p.eff&&!p.mark&&!p.mult)list=[];
+    if(p.noDmg&&!p.eff&&!p.mark)list=[];
     const pushy=p.eff&&p.eff.push;
     list.sort((a,b)=>pushy?man(b,C)-man(a,C):man(a,C)-man(b,C));
     for(const t of list){if(p.aff==='ally')await support(u,t,p,fl);else await pcStrike(u,p,t,C,fl);}
@@ -1006,10 +1002,10 @@ async function usePower1(u,p,T){
   if(p.markAround)for(const f of fighters(u).filter(e=>cheb(e,u)<=p.markAround))applyMark(f,u);
   if(p.healNear){const w=allies(u).filter(a=>!a.object&&!a.caged&&man(a,u)<=3&&a.hp<a.maxHp).sort((a,b)=>a.hp/a.maxHp-b.hp/b.maxHp)[0];if(w){NOTE=[];const g=heal(w,p.healNear);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));if(g>0&&w!==u)fl.healedOther=true;}}
   if(p.gainRes)addMom(u,p.gainRes);
+  if(p.gen){addMom(u,p.gen);H.pop(u,`+${p.gen} ◆`,'res');}
   if(p.hide){u.hidden=true;H.pop(u,'Hidden','call');H.sfx('whoosh');}
-  // momentum comes from combos (comboHit) and from the first basic attack of each turn
+  // momentum comes from combos (comboHit) and from the cleric's support (gen)
   if(u.side==='hero')G.ftq=(G.ftq||[]).concat([...fl.stagIds]);
-  if((basicP(p)||p.sling)&&u.kind==='pc'&&G.cur===u.id&&!u.momBasic){u.momBasic=true;const n=1+(u.side==='hero'&&hasR('map')?1:0);addMom(u,n);H.pop(u,`+${n} ◆`,'res');}
   if(!G.over)await opportunist(u,fl);
   H.upd(u);
 }
@@ -1219,14 +1215,14 @@ async function monAttack(e,A,t,isTile){
   if(A.area)await H.area(t,A.area,/Chill/.test(A.name)?'ice':'fire');
   for(const v of victims){
     if(!live(v))continue;
-    const r=A.flat!=null?null:rollDice(atkDice(e,A),0,false,false,e.side);
+    const dd=A.flat!=null?null:hitDice(e,A,v,true);
+    const r=dd?rollDice(dd,0,false,false,e.side):null;
     const res=r?r.res:2;
     NOTE=[];
-    const X=monDmgX(e,A,v,res,r?r.total:null,r?r.crits:0);
+    const X=monDmgX(e,A,v,res,r?r.total:null,r?r.crits:0,dd);
     if(v.side==='hero'&&hasR('ward')){v.warded=v.warded||{};v.warded[e.id]=1;}
     if(r){showRoll({side:e.side,title:`${e.name.toUpperCase()}: ${A.name.toUpperCase()}`,sub:multCap(X),dice:dieList(r),verdict:atkVerdict(r,X),res:r.res});await H.rolls();}
     if(r)H.result(v,r);
-    if(v.st.mult){delete v.st.mult;v.multBy=null;}
     if(X.d>0)await damage(e,v,await guardHit(e,v,X.d,res===3),{crit:res===3,area:!!A.area});
     // Counterattack: a hero hit in melee may strike back
     if(live(v)&&!A.area&&man(e,v)===1&&hasP(v,'counter')&&reactReady(v,'counter'))counters.push(v);
@@ -1291,10 +1287,9 @@ function threatened(t){return foesOf(t).some(f=>!f.object&&man(f,t)<=5);}
 let SETUP_C=null;
 function payers(u,t){
   if(u.side!=='hero')return [];
-  const oi=id=>G.order.indexOf(id);const ti=t?oi(t.id):-1;
-  const later=G.order.slice(G.ti+1).concat(G.extra).map(U).filter(h=>h&&h!==u&&live(h)&&h.side==='hero'&&h.kind==='pc'&&!h.caged);
-  // a foe that acts before the ally shakes the set-up off first
-  return t?later.filter(h=>G.extra.includes(h.id)||ti<=G.ti||oi(h.id)<ti):later;
+  // heroes still to act this turn (all heroes act before any foe, so a set-up always lasts until they do)
+  if(G.phase!=='hero')return [];
+  return G.units.filter(h=>h!==u&&live(h)&&h.side==='hero'&&h.kind==='pc'&&!h.caged&&!h.phaseDone&&(h.acts||0)>0);
 }
 /* What a set-up on t is worth to ally h: a Stun is worth tripling an Assassinate. */
 function payoffGain(h,t,kind){
@@ -1334,36 +1329,34 @@ function valuePower(u,p,T,O){
   const rows=forecast(u,p,T,O);let v=0,hits=0;
   const P=payers(u).length>0;
   const sv=x=>{v+=x*(TUNE.aiCombo||0);};
-  // Mult on a foe is worth roughly a share of the next ally hit on it; Stun is worth the foe's skipped turn
-  const multWorth=n=>n*(TUNE.aiMult!=null?TUNE.aiMult:2.5)*(P?1:.5);
+  // a new status on a foe is worth a die on every ally hit that follows; Stun is also worth the foe's skipped turn
+  const stW=(t,k)=>t.st[k]||t.object?0:(TUNE.aiStatus!=null?TUNE.aiStatus:3.5)*(P?1:.4);
+  const effW=(t,e,alive)=>{let x=0;for(const k0 of Object.keys(e||{})){if(k0==='push'||k0==='pull')continue;const k=ST_MAP[k0]||k0;if(!tv(e[k0],2))continue;x+=stW(t,k);if(k==='stag'&&!t.st.stag&&!t.st.steady)x+=skipWorth(t);}return x*alive;};
   for(const r of rows){
     if(r.ctrl&&r.t.side!==u.side&&!r.t.object){
       hits++;const e=p.eff||{};
-      if(r.mult)v+=multWorth(r.mult+(hasP(u,'amplify')?1:0));
-      if(tv(e.stag,2)&&!r.t.st.stag&&!r.t.st.steady)v+=r.t.boss?multWorth(2):skipWorth(r.t);
+      v+=effW(r.t,e,1);
       if(e.push||e.pull)v+=forcedValue(u,r.t,p.tgt==='enemy'?O:(p.tgt==='self'?O:T),tv(e.push||e.pull,2)+pushExtra(u,p),!!e.pull);
-      if(p.mark)v+=.5+tauntWorth(u,r.t);
+      if(p.mark)v+=.5+tauntWorth(u,r.t)+stW(r.t,'mark');
       continue;
     }
     if(r.dmg){
       if(r.t.side===u.side)continue;hits++;
       v+=evRow(r)+killP(r)*(r.t.boss?10:r.t.kind==='npc'?25:18)+(r.t.pillar?5:0)+(r.t.leader&&G.enc.type==='assassinate'?evRow(r)*.8+killP(r)*30:0)+(r.t.pillar?evRow(r)*.5:0);
-      if(p.eff)v+=Object.keys(p.eff).filter(k=>k!=='push'&&k!=='pull').length*1.2;
-      if(p.crit){const c=p.crit;v+=r.probs[2]*((c.stun?skipWorth(r.t):0)+(c.give?multWorth(c.give):0)+(c.bless?c.bless*1.5:0)+(c.act?4:0)+(c.burn||0)+(c.root?1:0));}
-      if(p.mark)v+=.5+tauntWorth(u,r.t)*(1-killP(r));
+      v+=effW(r.t,p.eff,1-killP(r));
+      if(p.crit){const c=p.crit;v+=r.probs[2]*((c.stun&&!r.t.st.stag?skipWorth(r.t)+stW(r.t,'stag'):0)+(c.weak?stW(r.t,'weak'):0)+(c.bless?4:0)+(c.act?4:0)+(c.burn||0)+(c.root?stW(r.t,'root'):0));}
+      if(p.mark)v+=.5+(tauntWorth(u,r.t)+stW(r.t,'mark'))*(1-killP(r));
       if(p.eff&&(p.eff.push||p.eff.pull))v+=forcedValue(u,r.t,p.tgt==='enemy'?O:(p.tgt==='self'?O:T),tv(p.eff.push||p.eff.pull,2)+pushExtra(u,p),!!p.eff.pull);
       if(P){
         const alive=1-killP(r),e=p.eff||{};
         const fm=(tv(e.push,2)||tv(e.pull,2))?(tv(e.push,2)||tv(e.pull,2))+pushExtra(u,p)-(r.t.steady||0):0;
-        if(fm>0||tv(e.stag,2)){sv(alive*setupWorth(u,r.t,'stag')*(rows.length>1?.6:1));v+=alive*skipWorth(r.t);}
-        if(tv(e.expose,2))sv(alive*setupWorth(u,r.t,'expose'));
+        if(fm>0)sv(alive*setupWorth(u,r.t,'stag')*(rows.length>1?.6:1));
       }
-      if(r.mult)v+=multWorth(r.mult)*(1-killP(r));
     }else{
       const t=r.t,miss=t.maxHp-t.hp;
       if(r.heal)v+=miss>=4?Math.min(miss,r.heal)*1.1:0;
       if(r.shield)v+=r.shield*(threatened(t)?.5:.05);
-      if(r.bless){if(t!==u&&fighters(t).some(f=>man(f,t)<=(t.speed||3)+1))v+=r.bless*.9;else v+=.5;}
+      if(r.bless&&!t.st.bless&&t.kind==='pc'){if(fighters(t).some(f=>man(f,t)<=(t.speed||3)+1)&&(t.acts||0)>0)v+=4;else v+=.5;}
       if(r.refresh&&t.id!==u.id)v+=8;
       if(p.swap&&t.id!==u.id){const ta=threatened(t),tu=threatened(u);v+=(ta&&t.hp<t.maxHp*.5?5:0)+(u.cls==='cleric'&&!tu&&ta?1:0)-(t.kind==='pc'&&t.cls==='wizard'&&!ta?2:0);}
     }
@@ -1378,8 +1371,8 @@ function valuePower(u,p,T,O){
   if(p.igniteCenter)v+=1;
   if(p.revive)v+=25;
   if(p.selfHeal)v+=Math.min(u.maxHp-u.hp,p.selfHeal)*.8;
-  // momentum spent is worth something, and a basic attack earns 1
-  return v-(p.cost-(p.basic?1:0))*TUNE.momVal;
+  // momentum spent is worth something; the cleric's support earns it
+  return v-(p.cost-(p.gen||0))*TUNE.momVal;
 }
 /* Unused actions are lost at the end of a turn (reactions come out of the next turn), so the AI never holds actions back.
    (Under the older rules, holdValue scored saving an action for a reaction.) */
@@ -1542,7 +1535,7 @@ const BASIC={fighter:'sword',rogue:'blades',wizard:'missile',cleric:'mace'};
 const SETUP={fighter:'shove',wizard:'force',cleric:'guidance'};
 /* Every hero carries their basic weapon attack first, then the powers they have learned. */
 const EXTRA={};
-function withBasic(cls,powers){const b=[BASIC[cls],SETUP[cls]].filter(Boolean),u=(EXTRA[cls]||[]).concat(['secondwind','helpup']);return b.concat((powers||[]).filter(id=>!b.includes(id)&&!u.includes(id)&&POWERS[id]),u.filter(id=>POWERS[id]));}
+function withBasic(cls,powers){const b=[BASIC[cls],SETUP[cls]].filter(Boolean),u=(EXTRA[cls]||[]);return b.concat((powers||[]).filter(id=>!b.includes(id)&&!u.includes(id)&&POWERS[id]),u.filter(id=>POWERS[id]));}
 function wpnOf(u){return u&&u.kind==='pc'&&u.wpn?(u.wpd||WEAPONS[u.wpn]):null;}
 function wBonus(u,p,k){const w=wpnOf(u);return w&&basicP(p)?(w[k]||0):0;}
 function rivalWeapon(cls,lvl){const t=Math.min(4,1+Math.floor((lvl+1)/3));const L=Object.values(WEAPONS).filter(w=>w.cls===cls&&w.tier<=t).sort((a,b)=>b.tier-a.tier);return (L[0]||WEAPONS[START_WEAPON[cls]]).id;}
@@ -1551,7 +1544,7 @@ function makePc(h,x,y,side){
   const all=withBasic(h.cls,h.powers),pas={};for(const id of all)if(POWERS[id].passive)pas[id]=1;
   const mhp=h.maxHp+(!rival&&hasR('heart')?8:0)+(pas.hardy?6:0);
   const vic=!rival&&typeof CTX!=='undefined'&&CTX&&CTX.vic!=null?Math.min(3,CTX.vic):TUNE.momStart;
-  const mom=Math.min(5,vic+(pas.eager?1:0)+(!rival&&pas.afterglow?(h.glow||0):0)+(!rival&&G&&G.resN&&resLv('Surge',{side})>=1?1:0))+(!rival&&hasR('hymn')?2:0)+(!rival&&hasR('crown')?3:0);
+  const mom=Math.min(5,vic+(!rival&&pas.afterglow?(h.glow||0):0)+(!rival&&G&&G.resN&&resLv('Surge',{side})>=1?1:0))+(!rival&&hasR('hymn')?2:0)+(!rival&&hasR('crown')?3:0);
   return {id:(rival?'r_':'h_')+h.cls,side,kind:'pc',cls:h.cls,name:rival?C.rival:C.name,x,y,hp:Math.min(h.hp,mhp),maxHp:mhp,speed:C.speed+(pas.quick?1:0),dmgPlus:rival?0:(h.dmgPlus||0),lvl:h.lvl,
     wpn:h.weapon||(rival?rivalWeapon(h.cls,h.lvl):START_WEAPON[h.cls]),attrs:attrsFor(h.cls,h.lvl,rival?null:h.up),steady:C.steady||0,nimble:!!C.nimble&&((h.lvl||1)>=2||!rival),hdMax:!rival&&typeof hdMax==='function'&&typeof RUN!=='undefined'&&RUN&&CTX&&(CTX.mode==='run'||CTX.mode==='sim')?hdMax(h):undefined,mom,acts:1,powers:all.filter(id=>!POWERS[id].passive),pas,wounds:rival?0:(h.wounds||0),hd:rival||h.hd==null?null:h.hd,wpd:rival?null:weaponData(h.weapon||START_WEAPON[h.cls]),grow:Object.assign({},h.grow||{}),st:{},shield:0,react:true,mp:0,rival};
 }
@@ -1703,6 +1696,9 @@ function setupBattle(enc,party){
   {const sh={};for(const u of G.units)if(!u.object&&(u.minion||u.swarm)){if(sh[u.type]==null)sh[u.type]=u.init;else u.init=sh[u.type];}}
   G.order=G.units.filter(u=>!u.object).sort(ordCmp).map(u=>u.id);
   G.v=4;G.combo=0;
+  // momentum: one pool per side, from the party's Victories (up to 3) and relics, +1 for each Eager hero
+  G.mom={hero:0,enemy:0};
+  for(const side of ['hero','enemy']){const pcs=G.units.filter(u=>u.kind==='pc'&&u.side===side);if(pcs.length)G.mom[side]=Math.min(10,Math.max(...pcs.map(u=>u.mom||0))+pcs.filter(u=>u.pas&&u.pas.eager).length);}
   ROLLQ.length=0;
   if(enc.twist==='ring')ringFire();
   log(`${enc.title}: ${MISSIONS[enc.type].name}.`,'g');
@@ -1710,12 +1706,11 @@ function setupBattle(enc,party){
   log('— Round 1 —','g');
 }
 function isPlayer(u){return u.side==='hero'&&(u.kind==='pc'||u.kind==='npc')&&!AUTOPLAY;}
-async function beginTurn(u,extra){
+async function beginTurn(u,extra,quiet){
   if(G.round>1||u.side!=='hero')u.shield=0;
   u.react=true;u.acted=false;u.moved=false;
   // heroes: fresh actions (fewer on an Inspired extra turn, one while dazed); unused reactions lapse
   if(u.kind==='pc'){let a=(extra?TUNE.extraActs:TUNE.actions)-(u.st.stag?1:0);if(u.st.daze)a=Math.min(a,1);u.acts=Math.max(0,a);u.atk=0;u.basicUsed=false;u.flurry=false;u.momBasic=false;u.swDef=false;}
-  if(u.kind==='pc'&&TUNE.momTurn)u.mom=Math.min(momCap(u),u.mom+TUNE.momTurn);
   if(u.kind==='pc'&&live(u)){
     const pv=prevHero(u);
     if(hasP(u,'bulwark')&&pv&&pv.hitSince){u.shield+=4;H.pop(u,'⛨ 4','shield');}
@@ -1723,7 +1718,7 @@ async function beginTurn(u,extra){
     if(hasP(u,'rallyp'))for(const a of allies(u).filter(a=>a!==u&&!a.object&&cheb(a,u)===1)){a.shield+=2;H.pop(a,'⛨ 2','shield');}
     u.hitSince=false;
   }
-  await H.turn(u);
+  if(!quiet)await H.turn(u);
   if(u.boss)await villain(u);
   if(!live(u))return;
   // Burn: N damage at the start of its turn (ignores armour), then N falls by 1
@@ -1739,7 +1734,7 @@ async function endTurn(u){
   if(u&&live(u)){const h=Tt(u.x,u.y).haz;if(h&&!HAZ[h.t].once){NOTE=[];await applyHazard(u);const ex=NOTE||[];NOTE=null;if(ex.length)log(ex.join(' '),sideCol(u));}}
   if(u&&live(u))decSt(u);
   if(u)u.brutal=false;
-  G.cur=null;G.await=false;
+  if(G.phase!=='hero'){G.cur=null;G.await=false;}
   await checkEnd();
 }
 async function roundEnd(){
@@ -1780,29 +1775,55 @@ async function roundEnd(){
   log(`— Round ${G.round} —`,'g');
   await H.banner('round');
 }
-/* ---------------- TURNS: one initiative order, heroes and foes mixed ---------------- */
+/* ---------------- TURNS: sides take turns (v0.27) ----------------
+   Every round the heroes go first: each gets three actions, and the player moves between them freely, so set-ups and
+   cash-ins line up in one go. Then every foe acts, in initiative order. Then the next round. */
+function heroSide(){return G.units.filter(u=>u.side==='hero'&&live(u)&&!u.object&&!u.caged&&(u.kind==='pc'||u.kind==='npc'));}
+function readyHero(u){return live(u)&&!u.caged&&((u.kind==='pc'&&(u.acts||0)>0)||(u.mp||0)>0||(u.kind==='npc'&&!u.npcDone));}
+function nextHero(after){const L=heroSide().filter(readyHero);if(!L.length)return null;const i=after?L.findIndex(u=>u.id===after):-1;return L[(i+1)%L.length]||L[0];}
+async function startHeroPhase(){
+  G.phase='hero';G.cur=null;
+  if(G.round>1&&hasR('map'))addMom({side:'hero'},1);
+  for(const u of heroSide()){u.npcDone=false;u.phaseDone=false;await beginTurn(u,false,true);if(G.over)return;}
+  const f=heroSide()[0];if(f)await H.turn(f);
+}
+async function endHeroPhase(){
+  for(const u of heroSide())await endTurn(u);
+  if(G.over)return;
+  G.phase='foe';G.cur=null;G.await=false;
+  G.fq=G.order.filter(id=>{const u=U(id);return u&&u.side!=='hero';});
+}
 async function nextTurn(){
   while(G&&!G.over){
     await H.rolls();if(!G||G.over)return;
-    let u=null;
-    let extra=false;
-    if(G.extra.length){u=U(G.extra.shift());if(!live(u)||u.caged)continue;extra=true;}
-    else{
-      G.ti++;
-      if(G.ti>=G.order.length){await roundEnd();if(G.over)return;G.ti=0;}
-      u=U(G.order[G.ti]);
-      if(!u||!live(u)||u.object||u.caged)continue;
+    if(!G.phase){await startHeroPhase();if(G.over)return;continue;}
+    if(G.phase==='hero'){
+      const hs=heroSide();
+      if(hs.some(isPlayer)){
+        const c=G.cur&&U(G.cur);
+        if(!c||!hs.includes(c)){const n=nextHero(null)||hs.find(isPlayer);G.cur=n?n.id:null;}
+        G.await=true;pushSnap();H.upd();H.save();return;
+      }
+      // autoplay: every hero takes their actions, one after another
+      G.await=false;
+      const ORD={cleric:0,wizard:1,fighter:2,rogue:3};
+      for(const u of hs.slice().sort((a,b)=>(ORD[a.cls]??5)-(ORD[b.cls]??5))){if(!live(u)||G.over)break;G.cur=u.id;try{await pcTurn(u);}catch(e){console.error(e);}u.phaseDone=true;if(G.over)return;await H.pause(60);}
+      await endHeroPhase();if(G.over)return;continue;
     }
+    // the foes, one by one
+    const id=(G.fq||[]).shift();
+    if(id==null){await roundEnd();if(G.over)return;G.phase=null;continue;}
+    const u=U(id);
+    if(!u||!live(u)||u.object||u.caged)continue;
     G.cur=u.id;
     if(losesTurn(u)){
-      delete u.st.stag;u.stagBy=null;u.st.steady=2;u.react=true;
+      delete u.st.stag;u.stagBy=null;u.st.steady=2;
       await H.turn(u);H.pop(u,'Stunned!','call');log(`${u.name} is stunned and loses its turn.`,'e');
       await endTurn(u);if(G.over)return;await H.pause(120);continue;
     }
-    await beginTurn(u,extra);
+    await beginTurn(u,false);
     if(G.over)return;
     if(!live(u)){G.cur=null;continue;}
-    if(isPlayer(u)){G.await=true;pushSnap();H.upd();H.save();return;}
     G.await=false;
     try{await (u.kind==='mon'?monTurn(u):pcTurn(u));}catch(e){console.error(e);}
     if(G.over)return;
@@ -1811,25 +1832,25 @@ async function nextTurn(){
     await H.pause(80);
   }
 }
+/* The player ends the heroes' turn: every hero is done, and the foes act. */
 async function playerEndTurn(){
   if(!G||!G.await||G.over)return;
-  const u=U(G.cur);G.await=false;
-  await endTurn(u);
+  G.await=false;
+  await endHeroPhase();
   if(!G.over)await nextTurn();
 }
+/* The player picks which hero acts next. */
+function switchHero(u){if(!G||G.phase!=='hero'||!u||u.side!=='hero'||!live(u)||u.caged||u.object)return false;G.cur=u.id;return true;}
 /* Upcoming turns from the active one onward, wrapping into later rounds. */
 function upcoming(n){
   const out=[];if(!G)return out;
-  const cur=G.cur?U(G.cur):null;
-  if(cur&&live(cur))out.push({u:cur,round:G.round,now:true});
-  for(const id of G.extra){const u=U(id);if(live(u))out.push({u,round:G.round,extra:true});}
-  let i=G.ti,round=G.round,guard=0;
-  while(out.length<n&&guard++<200){
-    i++;if(i>=G.order.length){i=0;round++;}
-    const u=U(G.order[i]);if(!u||!live(u)||u.object||u.caged)continue;
-    out.push({u,round});
-  }
-  return out;
+  const hs=()=>G.units.filter(u=>u.side==='hero'&&live(u)&&!u.object&&!u.caged&&(u.kind==='pc'||u.kind==='npc'));
+  const fs=()=>G.order.map(U).filter(u=>u&&u.side!=='hero'&&live(u)&&!u.object&&!u.caged);
+  let round=G.round;
+  if(G.phase==='hero'||!G.phase){for(const u of hs())out.push({u,round,now:u.id===G.cur});for(const u of fs())out.push({u,round});}
+  else{const cur=G.cur&&U(G.cur);if(cur&&live(cur))out.push({u:cur,round,now:true});for(const id of G.fq||[]){const u=U(id);if(u&&u!==cur&&live(u)&&!u.object&&!u.caged)out.push({u,round});}}
+  while(out.length<n){round++;const a=hs(),b=fs();if(!a.length&&!b.length)break;for(const u of a)out.push({u,round});for(const u of b)out.push({u,round});}
+  return out.slice(0,n);
 }
 function outcome(){
   const E=G.enc;const hs=G.units.filter(u=>u.side==='hero'&&u.kind==='pc');

@@ -95,8 +95,7 @@ function unitBody(u,full){
   if(u.kind==='pc'){
     s+=attrLine(u.attrs)+'\n';
     s+=`Speed ${effSpeed(u)}\n`;
-    if(G&&G.cur===u.id)s+=`Actions {${u.acts>0?'h':'m'}:${u.acts||0} of ${TUNE.actions} left}${u.mp>0?` · {h:${u.mp}} squares of movement left`:''}\n`;
-    else if(G&&u.kind==='pc'&&G.cur!==u.id&&(u.acts||0)>0)s+=`{b:${u.acts} ready ${u.acts>1?'actions':'action'} for reactions (Defend) until ${u.name}'s next turn}\n`;
+    if(G&&u.side==='hero'&&G.phase==='hero')s+=`Actions {${u.acts>0?'h':'m'}:${u.acts||0} of ${TUNE.actions} left}${u.mp>0?` · {h:${u.mp}} squares of movement left`:''}\n`;
     s+=condText(u);
     if(u.st.mark&&u.marker&&U(u.marker))s+=`(by ${U(u.marker).name}) `;
     if(full){s+=(u.wounds?`{r:Wounds ${u.wounds}} (−${u.wounds} damage on every hit). `:'')+(u.hd!=null?`Hit dice ${u.hd}.`:'')+'\n\n'+CLASSES[u.cls].trait+'\n';for(const id of u.powers)s+='\n'+'{g:'+POWERS[id].name+'}: '+powerText(POWERS[id],u)+'\n';}
@@ -285,7 +284,7 @@ H.turn=async u=>{
   const v=vis(u);v.last={x:u.x*TS,y:u.y*TS};
   B.pend=null;B.inspect=null;
   const c=uc(u);ring({x:c.x,y:c.y+TS*.25},u.side==='enemy'?'#ff8a6a':'#8ac0ff',TS*.6,420);
-  if(isPlayer(u)){B.pi=defaultPower(u);B.page=pageOfPower(u,B.pi,PORT?4:5);B.vkey='';sfx('turn');B.toast={t0:NOW,dur:900,text:`${u.name}'s turn`,col:C.blue};}
+  if(isPlayer(u)){B.pi=defaultPower(u);B.page=pageOfPower(u,B.pi,PORT?4:5);B.vkey='';sfx('turn');B.toast={t0:NOW,dur:900,text:G.phase==='hero'?"Heroes' turn":`${u.name}'s turn`,col:C.blue};}
   else{sfx('foeturn');B.toast={t0:NOW,dur:700,text:`${u.name}`,col:u.side==='enemy'?C.red:C.blue};await sleep(300);}
 };
 H.banner=async(kind,b,va)=>{
@@ -443,7 +442,7 @@ function activeUnit(){return G&&G.cur?U(G.cur):null;}
 function playerUnit(){const u=activeUnit();return G&&G.await&&u&&live(u)&&isPlayer(u)?u:null;}
 function view(){
   const u=playerUnit();if(!u)return null;
-  const key=[G.cmd,G.cur,B.pi,u.x,u.y,u.mp,u.acts,u.mom,HIST.length,G.units.map(o=>o.x+','+o.y+(live(o)?'':'d')).join(';'),JSON.stringify(G.walls)].join('|');
+  const key=[G.cmd,G.cur,B.pi,u.x,u.y,u.mp,u.acts,momOf(u),HIST.length,G.units.map(o=>o.x+','+o.y+(live(o)?'':'d')).join(';'),JSON.stringify(G.walls)].join('|');
   if(key!==B.vkey){B.vkey=key;B.V=unitView(u,B.pi);}
   return B.V;
 }
@@ -455,11 +454,18 @@ function setPend(k){
   B.pend={k,T,O};B.inspect=null;sfx('select');
 }
 function selfPend(u){const p=powerOf(u,B.pi);if(p&&p.tgt==='self'&&canAct(u,p))B.pend={k:K(u.x,u.y),T:{x:u.x,y:u.y},O:{x:u.x,y:u.y,s:0,prov:0,haz:0,prev:null}};}
+/* Make this hero the one the player is moving. */
+function selectHero(u){B.pi=defaultPower(u);B.page=pageOfPower(u,B.pi,PORT?4:5);B.pend=null;B.inspect=null;B.vkey='';sfx('select');const c=uc(u);ring({x:c.x,y:c.y+TS*.25},'#8ac0ff',TS*.6,320);selfPend(u);}
 async function afterCmd(u){
   B.busy=false;B.pend=null;B.vkey='';
   if(!G||G.over)return;
   if(live(u)&&(u.acts||0)>0)selfPend(u);
-  if(SET.autoEnd&&!G.tut&&G.await&&G.cur===u.id&&turnDone(u)){await sleep(250);if(G&&G.await&&G.cur===u.id&&!B.busy)await endTurnUI();}
+  // a hero with nothing left to do hands over to the next one; when nobody has anything left, the turn can end
+  if(G.await&&G.cur===u.id&&turnDone(u)&&!(G.tut&&!G.tut.free)){
+    const n=nextHero(u.id);
+    if(n&&n!==u&&!turnDone(n)){await sleep(200);if(G&&G.await&&!B.busy&&switchHero(n))selectHero(n);}
+    else if(SET.autoEnd&&!G.tut){await sleep(250);if(G&&G.await&&!B.busy)await endTurnUI();}
+  }
 }
 async function doMove(n){
   const u=playerUnit();if(!u||B.busy)return;
@@ -508,6 +514,7 @@ function boardTap0(x,y){
     if(p.tgt==='self'&&t===u)return setPend(k);
   }
   if(V.moves.has(k)&&!t)return doMove(V.moves.get(k));
+  if(t&&t!==u&&isPlayer(t)&&switchHero(t)){selectHero(t);return;}
   if(t&&t!==u){B.inspect=t.id;B.pend=null;return;}
   if(t===u){B.inspect=null;selfPend(u);return;}
   B.pend=null;B.inspect=null;
@@ -662,7 +669,7 @@ function openMissionInfo(){const E=G.enc;msg(E.title||MISSIONS[E.type].name,miss
 const COMBO_KEY='emberwatch.v3.combos';
 function comboSeen(){try{return !!localStorage.getItem(COMBO_KEY);}catch(e){return true;}}
 function showComboIntro(){return new Promise(res=>{try{localStorage.setItem(COMBO_KEY,'1');}catch(e){}
-  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Heroes and foes take turns. A hero gets {g:three actions} each turn: move, attack, or use a power. Actions you don\'t use stay ready: when a foe hits you, spend one to {g:Defend}.\n\nEvery hit is {b:DAMAGE} × {r:MULT}. {b:Damage}: your dice + flat bonuses − the foe\'s armour. {r:Mult}: 1, +1 for each die that lands on its top number (it turns red). Powers change the dice, add damage or Mult, or do something special on a crit.\n\nHeroes {g:set up} hits for each other: the wizard\'s spells give foes {r:+Mult}, the cleric\'s {b:Bless} adds damage, the fighter {g:Stuns} foes (they skip a turn). Cash a set-up in with another hero for a {g:combo}: +2 momentum each.\n\nTap {g:INTENT} to see whom each foe means to attack.',
+  openModal(dialog({title:'HOW COMBAT WORKS',w:210,closable:false,body:'Each round your {g:heroes all act first}, then every foe. Each hero has {g:three actions} (move, attack, power): tap a hero to switch between them, as often as you like, then END TURN.\n\nA hit rolls {r:MULT} dice and adds them up, minus the foe\'s armour. {g:Every different status on the foe is one more die}: Burning, Stunned, Rooted, Weakened, Taunted. A die on its top number turns red: {r:roll one more!}\n\nSo set up first, then cash in: the wizard Burns and Roots, the fighter Taunts and Stuns, the cleric Blesses (and her support fills the party\'s shared {p:◆ momentum}). A hit on another hero\'s set-up is a {g:combo}: +1 momentum.\n\nTap {g:INTENT} to see whom each foe means to attack.',w:210,closable:false,body:'Heroes and foes take turns. A hero gets {g:three actions} each turn: move, attack, or use a power. Actions you don\'t use stay ready: when a foe hits you, spend one to {g:Defend}.\n\nEvery hit is {b:DAMAGE} × {r:MULT}. {b:Damage}: your dice + flat bonuses − the foe\'s armour. {r:Mult}: 1, +1 for each die that lands on its top number (it turns red). Powers change the dice, add damage or Mult, or do something special on a crit.\n\nHeroes {g:set up} hits for each other: the wizard\'s spells give foes {r:+Mult}, the cleric\'s {b:Bless} adds damage, the fighter {g:Stuns} foes (they skip a turn). Cash a set-up in with another hero for a {g:combo}: +2 momentum each.\n\nTap {g:INTENT} to see whom each foe means to attack.',
     buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 function showObjective(){return new Promise(res=>{const E=G.enc;openModal(dialog({title:(E.title||MISSIONS[E.type].name).toUpperCase(),body:missionBody()+'\n\n{m:Tap the objective bar at the top to see this again.}',w:200,closable:false,buttons:[{l:'TO BATTLE',hot:true,fn:res}]}));});}
 /* Name, health and momentum of the active (or inspected) unit. Tap for the full character sheet. */
@@ -686,10 +693,10 @@ function drawInfoBarP(){
   bar(tx,y+13,bw,7,f,foe?'#d04030':f>.5?'#50c050':f>.25?'#d8b030':'#d04030');
   if(pc){
     const ms=MOMSEEN[show.id];let gain=null;
-    if(!ms||ms.n!==show.mom){MOMSEEN[show.id]={n:show.mom,t:ms&&show.mom>ms.n?NOW:(ms?ms.t:0),d:ms&&show.mom>ms.n?show.mom-ms.n:(ms?ms.d:0)};}
+    const sm=momOf(show);if(!ms||ms.n!==sm){MOMSEEN[show.id]={n:sm,t:ms&&sm>ms.n?NOW:(ms?ms.t:0),d:ms&&sm>ms.n?sm-ms.n:(ms?ms.d:0)};}
     const M=MOMSEEN[show.id];if(M.t&&NOW-M.t<700)gain={n:M.d,t:M.t};
     let cost=0;if(u===show&&!insp){const p=powerOf(u,B.pi);if(p&&p.cost&&canAct(u,p))cost=p.cost;}
-    gemRow(rx-gw+1,y+13,show.mom,10,cost,gain);
+    gemRow(rx-gw+1,y+13,momOf(show),10,cost,gain);
     hit(rx-gw,y+11,gw,11,{fn:()=>openGloss('momentum'),id:'infomom'});
   }
   hit(0,y,rx-(pc?gw:0),h,{fn:()=>openUnitInfo(show),id:'infoline'});
@@ -700,12 +707,14 @@ function drawTurnPlate(){
   const cur=activeUnit();
   if(!PL.plate||!cur||!live(cur))return;
   const foe=cur.side==='enemy';
-  const t=(isPlayer(cur)?cur.name+"'s turn":cur.name).toUpperCase();
+  const t=(G.phase==='hero'&&isPlayer(cur)?`Heroes' turn · ${cur.name}`:G.phase==='hero'?"Heroes' turn":`Foes' turn · ${cur.name}`).toUpperCase();
   const w=textW(t)+24,x=Math.floor((SW-w)/2),y=PL.plate.y;
   rect(x,y,w,11,C.edge);rect(x+1,y+1,w-2,9,foe?'#5a1a14':'#1a2e5a');rect(x+1,y+1,w-2,1,foe?'#a03a2a':'#4a6ab0');
   rect(x-4,y+5,4,1,foe?'#a03a2a':'#4a6ab0');rect(x+w,y+5,4,1,foe?'#a03a2a':'#4a6ab0');
   gem(x+3,y+2,foe?'foe':'full');gem(x+w-10,y+2,foe?'foe':'full');
   text(t,SW/2,y+3,foe?'#ffc0b0':'#d8e8ff',{al:'c'});
+  // tap the plate to move on to the next hero who still has actions
+  if(G.phase==='hero'&&G.await&&isPlayer(cur))hit(x,y,w,11,{fn:()=>{if(B.busy)return;const n=nextHero(cur.id);if(n&&n!==cur&&switchHero(n))selectHero(n);},id:'plate'});
 }
 /* One or two lines of guidance above the powers. */
 function hintLines(){
@@ -717,7 +726,7 @@ function hintLines(){
   if(B.pend&&p)return [p.tgt==='enemy'?'Tap the target again or press {g:STRIKE}.':'Tap again or press {g:CONFIRM} to use it.',p.desc];
   const al=`{g:${u.acts} action${u.acts===1?'':'s'}} left. `;
   if((u.acts||0)<=0){return V&&V.moves.size>1?['Move with your remaining steps, or {g:End Turn}.']:['No actions left. Tap {g:End Turn}.'];}
-  if(p&&!usable(u,p))return [`{r:${p.name} needs ◆${p.cost}.} You have ◆${u.mom}.`,'Pick another power, or move.'];
+  if(p&&!usable(u,p))return [`{r:${p.name} needs ◆${p.cost}.} The party has ◆${momOf(u)}.`,'Pick another power, or move.'];
   if(p&&u.acts<TUNE.actions&&!B.pend)return [al+'Act again, move, or {g:End Turn}: actions you keep stay ready to {g:Defend} until your next turn.',p.desc];
   if(p){
     const how=al+(p.tgt==='enemy'?'Tap a red foe to attack, or a blue square to move.':p.tgt==='ally'?'Tap a green ally, or a blue square to move.':p.tgt==='tile'?(p.area!=null?'Tap an orange square to aim, or move.':'Tap a purple square, or move.'):'Tap the card again to use it, or move.');
@@ -797,7 +806,7 @@ function drawTrayP(){
     text('▶',bx+side/2,py+ph/2-6,C.gold,{al:'c'});for(let i=0;i<pages;i++){rect(bx+2,py+ph/2+2+i*4,side-4,3,C.edge);rect(bx+3,py+ph/2+3+i*4,side-6,1,i===B.page?C.gold:C.dim);}}
 }
 function powerPill(u,i,x,y,w,h){
-  const p=powerOf(u,i);const ok=canAct(u,p);const on=i===B.pi;const afford=u.mom>=(p.cost||0);
+  const p=powerOf(u,i);const ok=canAct(u,p);const on=i===B.pi;const afford=momOf(u)>=(p.cost||0);
   rect(x,y,w,h,C.edge);
   rect(x+1,y+1,w-2,h-2,on?'#4e3a18':ok?'#2c221a':'#1a1411');
   rect(x+1,y+1,w-2,1,on?'#c09040':ok?'#4e3e2e':'#241c16');
@@ -966,7 +975,7 @@ function drawUnit(u){
     if(pv){const lw=Math.min(fw,Math.round((bw-2)*pv/u.maxHp));if(Math.floor(NOW/180)%2)rect(bx+1+fw-lw,by+1,lw,Q>1?2:1,'#ffffff');}
   }
   if(u.shield>0){const ic=statusIcon('shield');if(ic)ctx.drawImage(ic,X+W-8,Y+W-10);}
-  // gold pips: actions left this turn; blue pips: actions kept ready for reactions until their next turn
+  // pips: actions left this turn (gold for the hero you are moving, pale for the others)
   if(u.kind==='pc'){const cur=G.cur===u.id,n2=u.acts||0;const ps=3+Q;for(let i=0;i<n2;i++){const px=X+1+i*(ps+1),py=Y+1;rect(px,py,ps,ps,C.edge);rect(px+1,py+1,ps-2,ps-2,cur?'#ffd860':'#7fd0ff');rect(px+1,py+1,ps-2,1,cur?'#fff4c0':'#d0f0ff');}}
   const sts=unitStatuses(u).filter(k=>k!=='shield');
   // Mult first and loudest: it is what the next hit cashes in
@@ -1035,7 +1044,7 @@ function drawUnitCard(u,x,y,w,h,closable){
   bar(x+37,y+16,w-37,5,u.hp/u.maxHp,u.side==='enemy'?'#d04030':'#50c050');
   text(`${Math.max(0,u.hp)}/${u.maxHp}`,x+37,y+23,C.parch);
   let by=y+37;
-  if(u.kind==='pc'){let cost=0;const pu=playerUnit();if(pu===u){const p=powerOf(u,B.pi);if(p&&p.cost&&canAct(u,p))cost=p.cost;}gemRow(x,by,u.mom,10,cost);hit(x,by,62,8,{fn:()=>openGloss('momentum'),id:'cmom'});by+=10;}
+  if(u.kind==='pc'){let cost=0;const pu=playerUnit();if(pu===u){const p=powerOf(u,B.pi);if(p&&p.cost&&canAct(u,p))cost=p.cost;}gemRow(x,by,momOf(u),10,cost);hit(x,by,62,8,{fn:()=>openGloss('momentum'),id:'cmom'});by+=10;}
   if(closable){button(x+w-9,y-1,9,8,'×',()=>{B.inspect=null;},{});}
   const body=unitBody(u,false);
   const bh=richH(body,w-4);
@@ -1052,7 +1061,7 @@ function forcedPreview(u,p,t,O){
 function drawForecast(u,x,y0,w,h){
   const p=powerOf(u,B.pi);const P=B.pend;const rows=forecast(u,p,P.T,P.O);const r=rows[0];
   const wide=w>=150;let y=y0;
-  const bxw=wide&&r&&(r.dmg||(r.ctrl&&r.mult))?90:0,lw=w-bxw;
+  const bxw=wide&&r&&r.dmg?90:0,lw=w-bxw;
   ctx.drawImage(powerIcon(p),x,y);
   text(fitText(p.name,lw-22),x+19,y+1,C.gold);
   if(p.cost){gem(x+19,y+8,'full');text(String(p.cost),x+27,y+9,'#e0c8ff');}else text(p.free?'free action':'no cost',x+19,y+9,C.mute);
@@ -1062,51 +1071,49 @@ function drawForecast(u,x,y0,w,h){
     text(`HP ${tgt.hp}/${tgt.maxHp}`+(rows.length>1?`  +${rows.length-1} more`:''),x+19,y+9,C.mute);y+=19;}
   else{text(p.tgt==='self'||p.area!=null?'No one in the area.':'',x,y,C.mute);y+=10;}
   let body='';
-  // the hit, Balatro style: blue DAMAGE × red MULT = the total
+  // the hit: the blue DIE, × the red MULT (how many of them roll) = the damage
   const cmBox=(bx,by,w2,lab,val,fill,rim,col)=>{rect(bx,by,w2,22,C.edge);rect(bx+1,by+1,w2-2,20,fill);frame(bx,by,w2,22,rim);text(lab,bx+w2/2,by+2,col,{al:'c'});text(val,bx+w2/2,by+9,C.white,{al:'c',sc:2,ol:C.edge});};
-  const drawCM=(bx,by,chips,mult,xm,dmg)=>{
-    cmBox(bx,by,26,'DMG',chips,'#10264a','#3a7ad8','#8fc4ff');text('×',bx+29,by+9,C.white,{sc:1});
+  const drawCM=(bx,by,die,mult,xm,dmg)=>{
+    cmBox(bx,by,26,'DIE',die,'#10264a','#3a7ad8','#8fc4ff');text('×',bx+29,by+9,C.white,{sc:1});
     cmBox(bx+34,by,26,'MULT',mult,'#4a1410','#d84a3a','#ff8a70');
-    rect(bx+63,by,24,22,C.edge);rect(bx+64,by+1,22,20,'#2a2010');frame(bx+63,by,24,22,C.gold2);text(xm!==1?'×'+(xm<1?'½':xm):'=',bx+75,by+2,C.gold,{al:'c'});text(String(dmg),bx+75,by+9,'#ffe070',{al:'c',sc:2,ol:C.edge});};
+    rect(bx+63,by,24,22,C.edge);rect(bx+64,by+1,22,20,'#2a2010');frame(bx+63,by,24,22,C.gold2);text(xm!==1?'×'+(xm<1?'½':xm):'≈',bx+75,by+2,C.gold,{al:'c'});text(String(dmg),bx+75,by+9,'#ffe070',{al:'c',sc:2,ol:C.edge});};
   const bx0=wide?x+w-87:x,by0=wide?y0:y;
+  const stLine=(t,e)=>{const L=[];for(const k0 of Object.keys(e||{})){if(k0==='push'||k0==='pull')continue;const k=ST_MAP[k0]||k0;if(tv(e[k0],2)&&!t.st[k])L.push(ST_NAME[k]);}if(p.mark&&!t.st.mark)L.push('Taunted');return L;};
   if(r&&r.ctrl){
-    const n=r.mult?r.mult+(hasP(u,'amplify')?1:0):0;
-    if(n){drawCM(bx0,by0,'—','+'+n,1,'—');if(!wide)y+=33;body+=`{r:${tgt.name} gains +${n} Mult}: the next hero to hit it adds ${n} to their MULT.\n`;}
-    const e=p.eff||{};
-    if(tv(e.stag,2))body+=tgt.boss?'{r:A boss shrugs off Stun: it gains +2 Mult instead.}\n':'{g:Stunned:} it skips its next turn.\n';
-    if(rows.by&&rows.by.length)body+=`{g:COMBO!} ${rows.by.map(id=>U(id).name).join(' and ')} set this up: +2 {p:◆} each.\n`;
+    const L=stLine(tgt,p.eff);
+    if(L.length)body+=`{r:${tgt.name} becomes ${L.join(' and ')}}: every hit on it rolls ${L.length>1?L.length+' more dice':'one more die'} until the end of its next turn.\n`;
+    if(tv((p.eff||{}).stag,2))body+=tgt.boss?'{m:A boss is Stunned but keeps its turn.}\n':'{g:Stunned:} it skips its next turn.\n';
     const fp=forcedPreview(u,p,tgt,P.O);if(fp)body+=fp+'\n';
   }else if(r&&r.dmg){
     const X=r.X,k=p.hits||1,dd=r.dice;
-    drawCM(bx0,by0,String(X.chips),String(X.mult),X.xm,X.d*k);
-    text(`${r.lo}–${r.hi}`,bx0+75,by0+24,C.mute,{al:'c'});
+    drawCM(bx0,by0,`d${dd.s}`,String(dd.n),X.xm,X.d*k);
+    text(`${r.lo}–${r.hi}+`,bx0+75,by0+24,C.mute,{al:'c'});
     if(!wide)y+=33;
     const kp=killP(r);
-    const cl=[`{w:${diceText(dd)}}`].concat(X.C.map(([l,v])=>`${v<0?'{r:−':'{b:+'}${Math.abs(v)} ${l}}`));
     body+=powerMods(p,u)+'\n';
-    body+=`{b:DAMAGE} ${cl.join(' ')}${k>1?`, {w:${k} hits}`:''}.\n`;
-    const ml=['1'].concat(X.M.filter(([l])=>!/crit/.test(l)).map(([l,v])=>`{r:+${v} ${l}}`));
-    body+=`{r:MULT} ${ml.join(' ')}${X.Xm.length?' '+X.Xm.map(([l,v])=>`{g:×${v===.5?'½':v} ${l}}`).join(' '):''}. {r:+${hasP(u,'heavy')?2:1} for each die on its top number} ({w:${Math.round(r.probs[2]*100)}%} for at least one).\n`;
+    const ml=[`${dd.base} own`].concat(X.M.map(([l,v])=>`${v>0?'{r:+':'{m:−'}${Math.abs(v)} ${l}}`));
+    body+=`{r:MULT ${dd.n}} dice: ${ml.join(' ')}. {r:A crit rolls ${hasP(u,'heavy')?'two':'one'} more!} ({w:${Math.round(r.probs[2]*100)}%})\n`;
+    if(X.C.length||X.Xm.length)body+=`{b:DAMAGE} the dice ${X.C.map(([l,v])=>`${v<0?'{m:−':'{b:+'}${Math.abs(v)} ${l}}`).join(' ')}${X.Xm.length?' '+X.Xm.map(([l,v])=>`{g:×${v===.5?'½':v} ${l}}`).join(' '):''}${k>1?`, {w:${k} hits}`:''}.\n`;
     if(kp>0)body+=`{r:☠ ${Math.round(kp*100)}% to finish it.}\n`;
-    if(r.mult)body+=`{r:Then it gains +${r.mult+(hasP(u,'amplify')?1:0)} Mult} for the next hero.\n`;
-    if(rows.by&&rows.by.length)body+=`{g:COMBO!} ${rows.by.map(id=>U(id).name).join(' and ')} set this up: +2 {p:◆} each.\n`;
+    const L=stLine(tgt,p.eff);if(L.length)body+=`{r:Then it is ${L.join(' and ')}}: more dice for the next hits.\n`;
+    if(rows.by&&rows.by.length)body+=`{g:COMBO!} ${rows.by.map(id=>U(id).name).join(' and ')} set this up: +1 {p:◆} for the party.\n`;
     const e=p.eff||{};
     if((tv(e.push,2)||tv(e.pull,2))&&!p.eff.pull)body+='{m:If it slams into something it is Stunned.}\n';
     const fp=forcedPreview(u,p,tgt,P.O);if(fp)body+=fp+'\n';
   }else if(r){
-    body+=(r.heal?`Heals {h:${r.heal}}. `:'')+(r.shield?`Shield {b:${r.shield}}. `:'')+(r.empower?'Blessed. ':'')+(r.refresh?'Can move and act again. ':'')+'\n';
+    body+=(r.heal?`Heals {h:${r.heal}}. `:'')+(r.shield?`Shield {b:${r.shield}}. `:'')+(r.bless?'Blessed: one more die on the next hit. ':'')+(p.gen?`{p:+${p.gen} ◆ party momentum.} `:'')+(r.refresh?'Can move and act again. ':'')+'\n';
   }
   if(P.O&&P.O.prov)body+=`{r:! Moving there provokes ${P.O.prov} parting blow${P.O.prov>1?'s':''}.}\n`;
   if(P.O&&P.O.haz)body+=`{o:! The path crosses a hazard.}\n`;
   body+=p.desc;
-  y=Math.max(y,wide&&r&&(r.dmg||(r.ctrl&&r.mult))?y0+33:y);
+  y=Math.max(y,wide&&r&&r.dmg?y0+33:y);
   const bot=y0+h-15;
   const bh=richH(body,w-2);
   scrollArea('fc',x,y,w,bot-2-y,bh,(yy,clip)=>rich(body,x+1,yy,w-3,C.parch,{clip}));
   B.strikeR={x,y:bot,w:w-27,h:13};button(x,bot,w-27,13,p.tgt==='enemy'?'STRIKE':'CONFIRM',confirmPend,{hot:true,disabled:B.busy});
   button(x+w-25,bot,25,13,'×',()=>{B.pend=null;},{});
 }
-function endLabel(u){return u.kind==='pc'&&(u.acts||0)>0?`END · KEEP ${u.acts}`:'END TURN';}
+function endLabel(u){return 'END TURN';}
 function drawCtrlBar(){
   const y=PL.ctrlY,h=PL.ctrlH,pu=playerUnit();
   const bs=[['↶ UNDO',undoUI,{disabled:B.busy||!canUndo()}],['LOG',openLog,{}],['TURNS',openOrder,{}],['INTENT',toggleIntents,{on:SET.showIntents===true}]];
@@ -1154,7 +1161,7 @@ function drawHotbar(){
     rect(x,y,cw,chh,C.edge);rect(x+1,y+1,cw-2,chh-2,on?'#4a3818':ok?'#2e241c':'#1e1814');rect(x+1,y+1,cw-2,1,on?'#a07828':ok?'#5a4632':'#2a221c');
     if(on){frame(x,y,cw,chh,C.gold);}
     if(!ok)ctx.globalAlpha=.4;ctx.drawImage(powerIcon(p),x+2,y+2);ctx.globalAlpha=1;
-    if(p.cost){gem(x+cw-15,y+2,u.mom>=p.cost?'full':'empty');text(String(p.cost),x+cw-7,y+3,u.mom>=p.cost?'#e0c8ff':C.red);}
+    if(p.cost){gem(x+cw-15,y+2,momOf(u)>=p.cost?'full':'empty');text(String(p.cost),x+cw-7,y+3,momOf(u)>=p.cost?'#e0c8ff':C.red);}
     else if(p.free)text('free',x+cw-2,y+3,ok?C.green:C.dim,{al:'r'});
     text(fitText(p.name,cw-4),x+cw/2,y+chh-8,on?C.gold:ok?C.parch:C.dim,{al:'c',sh:C.edge});
     (B.cardR||(B.cardR={}))[i]={x,y,w:cw,h:chh};hit(x,y,cw,chh,{fn:()=>cardTap(i),id:'card'+i});

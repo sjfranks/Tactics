@@ -173,8 +173,8 @@ function clearDice(){for(const o of DICE3D.objs){DICE3D.scene.remove(o.mesh);o.m
    fade. Other dice are the roller's colour (blue for heroes, red for foes), DEF dice steel. Explosions and the extra dice
    of a critical hit follow one by one, glowing gold. A short caption sits at the top of the board: what the roll is,
    how advantage worked, then the result. Tap to hurry it along. */
-/* Every die is the same size, and its colour says what it does: BLUE dice add DAMAGE, a die that lands on its top
-   number turns RED and glows (a crit: +1 MULT), STEEL dice Defend or shield, GREEN dice heal. */
+/* Every die is the same size, and its colour says what it does: BLUE dice deal damage, a die that lands on its top
+   number turns RED and glows (a crit: roll one more), STEEL dice shield, GREEN dice heal. */
 const DIE_COL={chip:['#2f6fd0','#ffffff'],crit:['#d03a2a','#ffffff'],def:['#8a9cb0','#0e1a28'],heal:['#3a9a48','#ffffff']},CRIT_GLOW=0xff3010;
 const DIE3D_OK=s=>s===2||[4,6,8,10,12].includes(s);
 function makeDieV(s,col,ink,o){if(s===2){const S=dieShape(2,o&&o.k);return makeDie(2,col,ink,S.F.map(f=>Math.abs(f.n[1])>.9?(f.n[1]>0?1:2):''),o);}return makeDie(s,col,ink,defaultLabels(s),o);}
@@ -195,25 +195,27 @@ async function throwCard(o){
     let by=box(label.text,BY+3,C.gold,C.rim);
     if(label.sub){ctx.globalAlpha=a*(.8+.2*Math.sin(NOW/140));by=box(label.sub,by,label.subCol,label.subCol);ctx.globalAlpha=a;}
     if(label.res)box(label.res,by,label.col,label.col);
-    for(const m of label.marks||[]){const c='#ff8a70',bob=Math.round(Math.sin(NOW/160)*1.5),tw=textW('+1 MULT')+6,up=m.y-TS*.62<BY+40,ty=up?m.y+TS*.62+9+bob:m.y-TS*.62+bob;
-      rect(m.x-tw/2,ty-9,tw,9,'rgba(14,9,6,.85)');frame(m.x-tw/2,ty-9,tw,9,c);text('+1 MULT',m.x,ty-7,c,{al:'c'});for(let i=0;i<3;i++)rect(m.x-2+i,up?ty-10-i:ty+i,5-2*i,1,c);}
+    for(const m of label.marks||[]){const c='#ff8a70',bob=Math.round(Math.sin(NOW/160)*1.5),tw=textW('ONE MORE!')+6,up=m.y-TS*.62<BY+40,ty=up?m.y+TS*.62+9+bob:m.y-TS*.62+bob;
+      rect(m.x-tw/2,ty-9,tw,9,'rgba(14,9,6,.85)');frame(m.x-tw/2,ty-9,tw,9,c);text('ONE MORE!',m.x,ty-7,c,{al:'c'});for(let i=0;i<3;i++)rect(m.x-2+i,up?ty-10-i:ty+i,5-2*i,1,c);}
     ctx.globalAlpha=1;
     if(DICE3D.busy)hit(0,0,SW,SH,{fn:()=>{DICE3D.skip=true;},id:'diceskip'});}});
   const kind=d=>d.k==='def'||d.k==='heal'?d.k:'chip';
-  const objs=first.map(d=>{const c=DIE_COL[kind(d)];return makeDieV(d.s,c[0],c[1],{});});
-  objs.forEach(q=>DICE3D.scene.add(q.mesh));
-  const n=simulate(objs,DICE3D.objs);
-  objs.forEach((q,i)=>forceTop(q,first[i].v));
-  DICE3D.objs.push(...objs);sfx('dice');
-  if(!DICE3D.skip)await playback(DICE3D.objs,objs,n);else objs.forEach(q=>{q.mesh.position.copy(q.last.p);q.mesh.quaternion.copy(q.last.q);});
-  // crits turn red and glow once they land
-  const crits=objs.filter((q,i)=>first[i].k==='crit');
-  if(crits.length){
-    for(const q of crits){q.col=DIE_COL.crit[0];q.ink=DIE_COL.crit[1];setLabels(q,q.labels);q.mats.forEach(m=>{if(m.emissive){m.emissive.setHex(CRIT_GLOW);m.emissiveIntensity=.35;}});}
-    label.marks=crits.map(q=>{const p=q.last.p,v=new THREE.Vector3(p.x,p.y,p.z).project(DICE3D.cam);return {x:BX+(v.x+1)/2*COLS*TS,y:BY+(1-v.y)/2*ROWS*TS};});
-    sfx('crit');
-  }
-  DICE3D.r.render(DICE3D.scene,DICE3D.cam);
+  // crits turn red and glow once they land; each one rolls one more die
+  const glowCrits=(objs,list)=>{const cs=objs.filter((q,i)=>list[i].k==='crit');if(!cs.length)return;
+    for(const q of cs){q.col=DIE_COL.crit[0];q.ink=DIE_COL.crit[1];setLabels(q,q.labels);q.mats.forEach(m=>{if(m.emissive){m.emissive.setHex(CRIT_GLOW);m.emissiveIntensity=.35;}});}
+    label.marks=(label.marks||[]).concat(cs.map(q=>{const p=q.last.p,v=new THREE.Vector3(p.x,p.y,p.z).project(DICE3D.cam);return {x:BX+(v.x+1)/2*COLS*TS,y:BY+(1-v.y)/2*ROWS*TS};}));
+    sfx('crit');};
+  const throwSet=async list=>{
+    const objs=list.map(d=>{const c=DIE_COL[kind(d)];return makeDieV(d.s,c[0],c[1],{});});
+    objs.forEach(q=>DICE3D.scene.add(q.mesh));
+    const n=simulate(objs,DICE3D.objs);
+    objs.forEach((q,i)=>forceTop(q,list[i].v));
+    DICE3D.objs.push(...objs);sfx('dice');
+    if(!DICE3D.skip)await playback(DICE3D.objs,objs,n);else objs.forEach(q=>{q.mesh.position.copy(q.last.p);q.mesh.quaternion.copy(q.last.q);});
+    glowCrits(objs,list);DICE3D.r.render(DICE3D.scene,DICE3D.cam);
+  };
+  await throwSet(first.filter(d=>!d.boom));
+  for(const d of first.filter(d=>d.boom)){if(!DICE3D.skip)await sleep(220);await throwSet([d]);}
   label.res=o.verdict;
   await holdDice((700+(o.verdict||'').length*18)*spd());
   cvS.opacity='0';DICE3D.busy=false;

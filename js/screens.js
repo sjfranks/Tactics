@@ -385,39 +385,25 @@ function openSettings(inBattle,onMap){
     button(x+w/2-30,y+h-16,60,12,'CLOSE',closeModal,{hot:true});
   }});
 }
-const HOWTO=`{g:Turn order.} Everyone rolls {g:initiative} (their Dexterity die) when a battle starts. Turns go from highest to lowest, heroes and foes mixed, every round. TURNS shows who is next. On a hero's turn they have {g:three actions}, then tap END TURN.
+const HOWTO=`{g:Turns.} Each round the {g:heroes all act first}, then {g:every foe}. On the heroes' turn every hero has {g:three actions}: move, attack or use a power (a few big powers take two). Tap a hero to switch to them at any time, and come back later. Tap END TURN when you are done; actions left over are lost. Tap TURNS to see the order.
 
-{g:Actions.} A hero gets {g:three actions} at the start of each turn: moving, attacking and each power cost one (a few big powers cost two), in any order. Attack as often as you have actions. Tap a blue square to move, or drag the hero: a move takes you up to your speed.
+{g:Damage: dice × Mult.} A hit rolls {r:MULT} dice of its size ({b:the die}) and adds them up, plus flat bonuses, minus the foe's armour. Mult starts at the power's own dice (usually one). {g:Every different status on the target adds a die}: Burning, Stunned, Rooted, Weakened, Taunted. Bless on the attacker adds one more. A status counts once, so stack different ones. A die that lands on its top number is a {r:crit}: roll one more! The forecast shows the die, the Mult and the expected damage.
 
-{g:Reactions.} Actions you don't spend stay {g:ready} (the blue pips) until your next turn starts. When a foe hits a hero who has one, the game asks whether to {g:Defend}: roll your armour die (+2 with a shield) and take that much less damage. Later, powers add other reactions (Intercept, Opportunist, Repelling Ward, Warding Word).
+{g:Power modifiers.} Every attacking power is your weapon die with a few modifiers on its card: {b:▲ or ▼} steps the die up (bigger hits) or down (more crits: a d2 crits half the time), {b:+N dmg} adds flat damage, and {o:Crit:} effects (Stun, Weaken, Bless allies, an action back) happen when any die crits.
 
-{g:Damage × Mult.} Every hit is {b:DAMAGE} × {r:MULT}. {b:Damage}: the dice you roll + flat bonuses (the power, Bless, Training) − the foe's armour. Attributes add nothing in battle. {r:Mult} starts at 1: +1 for each die that lands on its top number (a {g:crit}), + the foe's {r:Mult}, + bonuses like the rogue's {g:Sneak Attack}. A weakness doubles the damage; a resistance halves it. There are no misses. The forecast shows the damage, the mult and the total before you commit.
+{g:The dice.} Every roll is thrown as 3D dice with a short caption. {b:Blue} dice deal damage; a die on its top number turns {r:red} and another die follows it; {h:green} dice heal.
 
-{g:Power modifiers.} Every attacking power is your weapon die with a few modifiers, shown on its card: {b:▲ or ▼} steps the die up (bigger hits) or down (more crits: a d2 crits half the time), {b:+N dmg} adds flat damage, {r:+N Mult} multiplies, and {o:Crit:} effects (Stun, Burn, Bless, an extra action...) happen when any die crits.
+{g:Set-ups and combos.} The heroes act before any foe, so set up first and cash in after: the wizard Burns, Roots and Weakens, the fighter Taunts and Stuns (slam a foe into something), the cleric Blesses. Then the rogue, or anyone, hits with a fistful of dice. Hitting a foe carrying another hero's status is a {g:combo}: +1 party momentum.
 
-{g:The dice.} Every roll is thrown as 3D dice with a short caption. The colours mean one thing each: {b:blue} dice add damage; a die on its top number turns {r:red} (+1 Mult); {m:steel} dice Defend; {h:green} dice heal. Tap to hurry a roll along.
+{g:Momentum.} Shown as {p:◆} gems: {g:one pool for the whole party}. It starts each battle at the party's {g:Victories} (up to 3). The cleric adds 1 every time she heals, Blesses or shields, and every combo adds 1. Any hero spends it on powers.
 
-{g:Set-ups and combos.} Heroes set each other up. The wizard's spells give foes {r:+Mult}: the next hero to hit adds it to their MULT. The cleric's {b:Bless} adds damage to an ally's next hit. A foe slammed into something is {g:Stunned}: it skips its next turn. Set-ups stack and wait for the next hit. Cashing in another hero's set-up is a {g:combo}: +2 momentum for both.
-
-{g:Momentum.} Shown as {p:◆} gems. Heroes start each battle with momentum equal to the party's {g:Victories} (up to 3), gain 1 for their first basic attack each turn and 2 for each combo, and spend it on powers.
-
-{g:Powers.} Every hero starts with a basic attack, a free set-up (Brakka's {g:Shove}, Orin's {g:Force Push}, Sela's {g:Guidance}) and one power; the rewards after each battle teach more, simple ones first. Active powers cost momentum: pick a card at the bottom, then a target. A forecast shows what can happen; tap the target again, or STRIKE, to act. {g:Passive} powers work on their own. Each power has a tag; 4 or 8 powers of one tag across the party give everyone its {g:resonance}.
+{g:Powers.} Every hero starts with a basic attack, a free set-up (Brakka's {g:Shove}, Orin's {g:Force Push}, Sela's {g:Guidance}) and one power; the rewards after each battle teach more, simple ones first. Active powers cost the party's shared momentum: pick a card at the bottom, then a target. A forecast shows what can happen; tap the target again, or STRIKE, to act. {g:Passive} powers work on their own.
 
 {g:Foes.} Tap INTENT to see whom each foe means to attack, and how hard. From the second land, foes gain {r:Malice} every round and spend it on threats (top of the screen). Some foes resist or are weak to damage types, and bosses change when {g:bloodied}.
 
-{g:Moving.} Moving away from foes is safe: there are no free strikes (unless a fighter learns {g:Sentinel}). Foes block movement, so surround them: the rogue's {g:Sneak Attack} needs an ally beside her target.
+{g:Moving.} Moving away from foes is safe: there are no free strikes. Foes block movement, so surround them: the rogue's {g:Sneak Attack} needs an ally beside her target.
 
-{g:Down and Wounds.} A hero at 0 health is {g:Down} and gains a {g:Wound} (-1 damage on every hit, -1 to checks). An ally beside them can Help them up. A hero who goes Down with 3 Wounds dies. If every hero is Down, the battle is lost.
-
-{g:The journey.} Pick your path through three lands: battles, elites, merchants, {g:Camps}, treasure, road events and events. Every battle won gives gold, a {g:Victory} and a {g:reward}: pick 1 of 3 cards, each a power for one hero or {g:growth} (more health, or +1 to a key stat). Elites and bosses give two rewards with better powers, and treasure. Heroes do not level up: they grow by the rewards you pick. Between battles, spend {g:hit dice} to heal (EQUIP, then HEAL). At a Camp heroes heal, refill their hit dice and lose a Wound. Events test an attribute ({g:check}: 4+ on its die), and some are {g:dramatic tasks} or {g:negotiations}.
-
-{g:Boons, Dread and the Chronicle.} Each journey starts with a {g:boon}: two gifts and a bargain, pick one. Every journey, won or lost, adds to your {g:Chronicle}, which unlocks new relics as you reach milestones. Slay the dragon to unlock {g:Dread} levels: harder journeys that score more.
-
-{g:Equipment.} Each hero carries one weapon; its die and {g:runes} power every attack. Better ones turn up in shops, treasure and events, and the {g:smith} can temper, hone or inscribe them. You can own many relics but wear only two.
-
-{g:Undo.} UNDO rewinds your last move or action. Press it again to go further back, even to a previous hero's turn.
-
-Tap any {k:blue underlined word} to see what it means. Tap a hero's portrait to open their sheet.`;
+{g:Healing, Down and Wounds.} Only the cleric heals in battle. A hero at 0 health is {g:Down} and gains a {g:Wound} (-1 damage on every hit, -1 to checks); only the cleric's Revivify brings them back before the battle ends. A hero who goes Down with 3 Wounds dies. If every hero is Down, the battle is lost.`;
 function openHowTo(){openModal(dialog({title:'HOW TO PLAY',body:HOWTO,w:280,buttons:[{l:'CLOSE',hot:true}]}));}
 
 /* ---------------- compendium ---------------- */

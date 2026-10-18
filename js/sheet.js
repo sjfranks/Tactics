@@ -45,7 +45,7 @@ function powerBlock(p,u,x,y,w,o){
   inset(x+1,y+1,20,20,'#100b08');ctx.drawImage(powerIcon(p),x+3,y+3);
   const cw=p.cost?20:p.free?20:0;
   text(fitText(p.name,w-26-cw),x+24,y+3,C.gold);
-  if(p.cost){const poor=!!(u&&G&&G.units&&G.units.includes(u)&&u.mom<p.cost);gem(x+w-19,y+2,poor?'empty':'full');text(String(p.cost),x+w-11,y+3,poor?C.red:'#e0c8ff');}
+  if(p.cost){const poor=!!(u&&G&&G.units&&G.units.includes(u)&&momOf(u)<p.cost);gem(x+w-19,y+2,poor?'empty':'full');text(String(p.cost),x+w-11,y+3,poor?C.red:'#e0c8ff');}
   else if(p.free)text('free',x+w-3,y+3,C.green,{al:'r'});
   text(fitText(`${powerReach(p)}${p.tag?' · '+p.tag:''}${p.free?' · free action':''}`,w-26),x+24,y+11,C.mute);
   let cy=y+22;
@@ -80,11 +80,11 @@ function monActBlock(A,x,y,w,o){
 }
 /* ---------- the sheet ---------- */
 function momRules(u){
-  const Cc=CLASSES[u.cls],P=POSS[Cc.pro]||'their',hero=u.side==='hero';
-  const b=POWERS[BASIC[u.cls]];
-  const L=[`+${1+(hero&&hasR('map')?1:0)} for ${P} first basic attack${b?` ({g:${b.name}})`:''} each turn.`];
-  L.push(`+2 for each {g:combo} ${Cc.pro} sets up for an ally or lands ${Cc.pro==='he'?'himself':'herself'}.`);
-  L.push(`Starts each battle with momentum equal to the party's Victories since the last Camp (up to 3)${hero&&hasR('hymn')?', +2 from the Hymnal':''}. Holds up to 10.`);
+  const hero=u.side==='hero';
+  const L=['One pool for the whole party: any hero spends it on powers.'];
+  L.push('+1 each time the cleric heals, Blesses or shields (Guidance, Healing Word, Bless, Sanctuary...).');
+  L.push(`+1 for each {g:combo}: a hit on a foe with a status another hero gave it${hero&&hasR('drum')?' (+1 War Drum)':''}.`);
+  L.push(`Starts each battle at the party's Victories since the last Camp (up to 3)${hero&&hasR('hymn')?', +2 from the Battle Hymn':''}. Holds up to 10.`);
   return L;
 }
 function attrTiles(a,x,y,w,clip){
@@ -132,7 +132,7 @@ function sheetLayout(u,x,y,w,clip,o){
   if(pc){
     // momentum
     cy+=secHead('MOMENTUM',x,cy,w,C.mom);
-    if(!o.plain){gemRow(x,cy,u.mom||0,10);text(`${u.mom||0} / 10`,x+64,cy+1,'#e0c8ff');cy+=10;}
+    if(!o.plain){gemRow(x,cy,momOf(u),10);text(`${momOf(u)} / 10 (shared)`,x+64,cy+1,'#e0c8ff');cy+=10;}
     for(const l of momRules(u)){gem(x+1,cy,'full');cy+=Math.max(9,rich(l,x+10,cy+1,w-10,C.parch,{clip}))+1;}
     cy+=rich('Spend momentum on powers that show a {p:◆} cost.',x,cy+1,w,C.mute,{clip})+5;
     // attributes, checks and specialties
