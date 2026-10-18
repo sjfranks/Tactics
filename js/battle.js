@@ -703,18 +703,32 @@ function drawInfoBarP(){
   if(insp)button(w-14,y+6,12,12,'×',()=>{B.inspect=null;},{});
 }
 /* "ORIN'S TURN" plate in the space above the board. */
+/* Which heroes can still do something this turn: the roster chips, the board markers and END TURN all use this. */
+function heroLeft(u){return !!u&&u.side==='hero'&&u.kind==='pc'&&live(u)&&!u.caged&&!turnDone(u);}
+function heroesLeft(){return G&&G.phase==='hero'?G.units.filter(heroLeft):[];}
+const CLS_COL={fighter:'#7aa0e8',rogue:'#60c878',wizard:'#b88af8',cleric:'#f0d060'};
 function drawTurnPlate(){
   const cur=activeUnit();
   if(!PL.plate||!cur||!live(cur))return;
-  const foe=cur.side==='enemy';
-  const t=(G.phase==='hero'&&isPlayer(cur)?`Heroes' turn · ${cur.name}`:G.phase==='hero'?"Heroes' turn":`Foes' turn · ${cur.name}`).toUpperCase();
-  const w=textW(t)+24,x=Math.floor((SW-w)/2),y=PL.plate.y;
+  const heroT=G.phase==='hero',foe=!heroT&&cur.side==='enemy';
+  const pcs=heroT?G.units.filter(u=>u.side==='hero'&&u.kind==='pc'):[];
+  const left=heroesLeft().length;
+  const t=(heroT?(left?`${left} to go`:'All done'):`Foes' turn · ${cur.name}`).toUpperCase();
+  const cw=pcs.length?pcs.length*11+4:0;
+  const w=textW(t)+16+cw,x=Math.floor((SW-w)/2),y=PL.plate.y;
   rect(x,y,w,11,C.edge);rect(x+1,y+1,w-2,9,foe?'#5a1a14':'#1a2e5a');rect(x+1,y+1,w-2,1,foe?'#a03a2a':'#4a6ab0');
   rect(x-4,y+5,4,1,foe?'#a03a2a':'#4a6ab0');rect(x+w,y+5,4,1,foe?'#a03a2a':'#4a6ab0');
-  gem(x+3,y+2,foe?'foe':'full');gem(x+w-10,y+2,foe?'foe':'full');
-  text(t,SW/2,y+3,foe?'#ffc0b0':'#d8e8ff',{al:'c'});
-  // tap the plate to move on to the next hero who still has actions
-  if(G.phase==='hero'&&G.await&&isPlayer(cur))hit(x,y,w,11,{fn:()=>{if(B.busy)return;const n=nextHero(cur.id);if(n&&n!==cur&&switchHero(n))selectHero(n);},id:'plate'});
+  // one chip per hero: bright and pulsing while they can still act, dark with a tick when done; tap to switch to them
+  pcs.forEach((u,i)=>{
+    const cx=x+4+i*11,cy=y+1,ok=heroLeft(u),sel=G.cur===u.id&&G.await;
+    rect(cx,cy,9,9,sel?C.gold:C.edge);
+    const col=!live(u)?'#5a1a14':ok?CLS_COL[u.cls]||C.parch:'#2a303c';
+    rect(cx+1,cy+1,7,7,col);
+    if(ok&&!sel){ctx.globalAlpha=.25+.25*Math.sin(NOW/180+i);rect(cx+1,cy+1,7,7,'#ffffff');ctx.globalAlpha=1;}
+    text(!live(u)?'x':ok?(CLASSES[u.cls].title[0]):'✓',cx+3,cy+2,ok?C.edge:'#6a7484');
+    if(heroT&&G.await&&isPlayer(cur))hit(cx,cy,9,9,{fn:()=>{if(B.busy||!live(u)||G.cur===u.id)return;if(switchHero(u))selectHero(u);},id:'chip'+u.id});
+  });
+  text(t,x+cw+10+Math.floor(textW(t)/2),y+3,foe?'#ffc0b0':left||!heroT?'#d8e8ff':'#a8f0a8',{al:'c'});
 }
 /* One or two lines of guidance above the powers. */
 function hintLines(){
@@ -942,6 +956,8 @@ function drawUnit(u){
   if(v.dying){const q=(NOW-v.dying.t0)/v.dying.dur;a=Math.max(0,1-q*1.4);}
   if(v.fade){const q=(NOW-v.fade.t0)/v.fade.dur;if(q>=1)v.fade=null;else a*=v.fade.out?1-q:q;}
   if(u.hidden)a*=.5;
+  const hero2=G.phase==='hero'&&G.await&&u.side==='hero'&&u.kind==='pc'&&live(u);
+  if(hero2&&!heroLeft(u))a*=.6;
   const flash=v.flash&&NOW<v.flash;
   const idle=!v.anim&&!v.dying&&live(u);
   const seed=u.id.charCodeAt(u.id.length-1);
@@ -977,6 +993,8 @@ function drawUnit(u){
   if(u.shield>0){const ic=statusIcon('shield');if(ic)ctx.drawImage(ic,X+W-8,Y+W-10);}
   // pips: actions left this turn (gold for the hero you are moving, pale for the others)
   if(u.kind==='pc'){const cur=G.cur===u.id,n2=u.acts||0;const ps=3+Q;for(let i=0;i<n2;i++){const px=X+1+i*(ps+1),py=Y+1;rect(px,py,ps,ps,C.edge);rect(px+1,py+1,ps-2,ps-2,cur?'#ffd860':'#7fd0ff');rect(px+1,py+1,ps-2,1,cur?'#fff4c0':'#d0f0ff');}}
+  // a bobbing arrow over every hero who can still act (not the one you are moving: she has her brackets)
+  if(hero2&&heroLeft(u)&&G.cur!==u.id){const bob=Math.round(Math.sin(NOW/170+seed)*1.5),ax=X+Math.floor(W/2),ay=Y-5+bob,c='#ffe070';for(let i=0;i<4;i++){rect(ax-3+i,ay+i,7-2*i,1,C.edge);}for(let i=0;i<3;i++)rect(ax-2+i,ay+i,5-2*i,1,c);}
   const sts=unitStatuses(u).filter(k=>k!=='shield');
   // Mult first and loudest: it is what the next hit cashes in
   sts.sort((a,b)=>(b==='mult')-(a==='mult'));
@@ -1119,8 +1137,8 @@ function drawCtrlBar(){
   const bs=[['↶ UNDO',undoUI,{disabled:B.busy||!canUndo()}],['LOG',openLog,{}],['TURNS',openOrder,{}],['INTENT',toggleIntents,{on:SET.showIntents===true}]];
   const bw=Math.floor((SW-4)*.165);
   bs.forEach((b,i)=>button(2+i*(bw+2),y,bw,h,b[0],b[1],b[2]));
-  const ex=2+4*(bw+2),done=!!pu&&turnDone(pu);
-  B.endR={x:ex,y,w:SW-2-ex,h};button(ex,y,SW-2-ex,h,pu?endLabel(pu):'…',()=>endTurnUI(),{hot:!!pu,disabled:!pu||B.busy,glow:done});
+  const ex=2+4*(bw+2),n=heroesLeft().length,done=!!pu&&n===0;
+  B.endR={x:ex,y,w:SW-2-ex,h};button(ex,y,SW-2-ex,h,pu?(n?`END · ${n} LEFT`:'END TURN'):'…',()=>endTurnUI(),{hot:!!pu&&n===0,disabled:!pu||B.busy,glow:done});
 }
 function drawRight(){
   panel(225,13,95,133,{});
