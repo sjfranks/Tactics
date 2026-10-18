@@ -1,24 +1,25 @@
 ---
 title: Rogue Tactics 1e — Bestiary
-version: 0.26
+version: 0.27
 book: 3 of 3 (Core Rules · Heroes · Bestiary)
 tags: [game-design, rulebook, roguelite, tactics, monsters]
 ---
 
 # Rogue Tactics 1e — Bestiary
 
-> v 0.26 "Damage × Mult". Book 3 of 3. The foes of the three regions, their roles, three bosses, and how to build an encounter. Rules are in [Core Rules](core-rules.md) and classes, powers and weapon upgrades in [Heroes](heroes.md). **Every number in this book is a first guess (TBC)** and needs playtesting.
+> v 0.27 "Sides and Dice". Book 3 of 3. The foes of the three regions, their roles, three bosses, and how to build an encounter. Rules are in [Core Rules](core-rules.md) and classes, powers and weapon upgrades in [Heroes](heroes.md). **Every number in this book is a first guess (TBC)** and needs playtesting.
 
 ---
 
 ## Foes at a Glance
 
-Foes use the same rules as heroes: attributes, dice, **DAMAGE × MULT**, statuses. They differ in a few ways:
+Foes use the same rules as heroes: attributes, dice (**MULT dice**, one more for each status on the hero), statuses. They differ in a few ways:
 
 - Foes have **no hit dice and no wounds**. They have an HP total, and they fall at 0 HP.
 - A foe lists only the **attributes that matter**. Anything unlisted is 1.
-- Foes have **flat armour** instead of a Defend roll: it comes off the damage of every hero hit (below).
+- Foes have **flat armour**, like heroes: it comes off the damage of every hero hit (below).
 - Foes do not have momentum. Instead the foes share a pool of **Malice** (below).
+- Foes act on **their side's turn**, after all the heroes, one by one in initiative order (Core 3.3).
 - Every foe has a **role** (below) that says how it moves and whom it targets.
 - A foe may list a **weakness**, **resistance** or **immunity** to a damage type (Core 3.11), and a **Terrifying** rating, which is flavour only: it changes nothing in battle.
 
@@ -26,10 +27,10 @@ Foes use the same rules as heroes: attributes, dice, **DAMAGE × MULT**, statuse
 
 | Type | Rules |
 |---|---|
-| **Minion** | 1 HP. Any hit slays it. **Flat damage** (no roll, so no crits and no Mult). A group shares one initiative roll. Comes in hordes of four. |
+| **Minion** | 1 HP. Any hit slays it. **Flat damage** (no roll, so no crits and no extra dice; hero armour does not stop it). A group shares one initiative roll. Comes in hordes of four. |
 | **Standard** | A normal foe with HP, attack dice and armour. |
 | **Elite** | A standard foe with more HP. A harder battle with a better reward. |
-| **Boss** | Cannot be Stunned (a Stun gives it **+2 Mult** instead) or Rooted. Often has Steadfast. Has **surges** (below). |
+| **Boss** | A Stun does not cost it its turn (it is still slowed, and the Stun still adds its die to hits on it). Cannot be Rooted. Often has Steadfast. Has **surges** (below). |
 | **Swarm** | Up to four tiny critters in one tile sharing one HP pool (4 × the listed HP). Flat damage **per critter still standing**. **Double damage from area attacks.** |
 
 ### Foe Roles
@@ -41,13 +42,15 @@ Foes use the same rules as heroes: attributes, dice, **DAMAGE × MULT**, statuse
 | **Brute** | High HP and damage, little armour. Charges and smashes. | Straight at the nearest hero. | Nearest hero. |
 | **Soldier** | High armour. Holds a line and protects its friends. | Stays beside an ally. Moves to the hero in front. | A hero it Taunted, then a hero beside one of its allies. |
 | **Skirmisher** | Fast and fragile. Hits and repositions. | Moves round the side, and away after its attack if it can. | The hero with the **fewest allies beside them**. |
-| **Artillery** | Ranged attacker, low HP. | Keeps away from melee. | The hero with the **smallest Defend die**. |
+| **Artillery** | Ranged attacker, low HP. | Keeps away from melee. | The hero with the **least armour**. |
 | **Controller** | Statuses, healing and areas. | Stays at mid-range. | The **largest cluster** of heroes. |
 | **Lurker** | Fragile ambusher. Hides, then strikes. | Starts hidden when it can. | The **lowest-HP hero** who is not beside another hero. |
 | **Leader** | Buffs and commands. A Leader is also one of the other roles. | Stays behind its allies. | Uses its Rally before it attacks. |
 
 > [!tip] Using roles
-> A good encounter mixes two or three roles: soldiers hold the front, artillery and controllers cover them from behind, and a lurker punishes a loose formation. A hero who sets up a combo on the right foe (a Stunned controller, a Hexed artillery) usually wins the exchange.
+> A good encounter mixes two or three roles: soldiers hold the front, artillery and controllers cover them from behind, and a lurker punishes a loose formation. A party that sets up a combo on the right foe (a Stunned controller, a Weakened, Burning artillery) usually wins the exchange.
+>
+> *Engine note:* in the game every foe picks its move and target by the damage it expects to deal (a kill counts most, the wizard and cleric a little more), and a foe Taunted by the fighter must go for her if it can; the target priorities above are the design aim.
 
 ---
 
@@ -59,24 +62,24 @@ Foes use the same rules as heroes: attributes, dice, **DAMAGE × MULT**, statuse
 > **Traits** and special actions
 
 - **Cost** is the foe's value in an encounter budget (below). A horde of four minions costs 2.
-- **HP** is as listed before tuning. In the game every foe (not minions or objects) has **34%** of it (`foeHpMul`, v0.26: heroes no longer add attributes to their hits), rising 3% per stop of depth; bosses have their own health per region (Encounter Building).
-- **Armour** is a flat number (**None**, **1**, **2** or **3**) **taken off the damage of every hero hit**, to a minimum of 1. *Piercing Strike* ignores it; Burn, slams and hazards ignore it too. A tuning knob (`foeDef`, 0 now) shifts every foe's armour up or down.
-- **Attack** is the foe's dice and bonus, such as **d6+1**. Its **DAMAGE** is the roll + the bonus + its **strength** (+1 for about every 8 stops of depth) + **2** if *Savage* against a bloodied hero + **2** within 2 of an *Aura* ally. Its **MULT** is 1 + **1 per crit** + **1** for *Pack* + **1** during *Bloodlust* or *Rally the Horde* + **1** if it attacks from hiding. Then **×½** if it is **Weak**, **×½** if it is **Taunted** and hits anyone but the taunter, and **×½** for the Warding Charm. A hero may **Defend** a hit that has no crit (Core 3.6).
-- **Flat** attacks (minions and swarms) never roll: their damage is the number (per critter for swarms), + half the strength bonus.
+- **HP** is as listed before tuning. In the game every foe (not minions or objects) has **50%** of it (`foeHpMul`, v0.27: hits roll a die per status), rising 3% per stop of depth; bosses have their own health per region (Encounter Building).
+- **Armour** is a flat number (**None**, **1**, **2** or **3**) **taken off the damage of every hero hit**, to a minimum of 1. *Piercing Strike* ignores it; Burning, slams and hazards ignore it too. A tuning knob (`foeDef`, 0 now) shifts every foe's armour up or down.
+- **Attack** is the foe's dice and bonus, such as **d6+1**. It rolls its dice (usually one) **plus one die for each different status on the hero** (Burning, Stunned, Rooted, Weakened, Taunted), **+1** for *Pack*, **+1** during *Bloodlust* or *Rally the Horde*, **+1** if it attacks from hiding and **+1** against a *Glass Cannon* hero; **−1** if the foe is **Weakened** (never below 1 die). A die on its top number crits and **brings one more die**. Then + the bonus + its **strength** (+1 for about every 8 stops of depth) + **2** if *Savage* against a bloodied hero + **2** within 2 of an *Aura* ally, − the hero's **armour** (fighter 2, cleric 1; at least 1). Then **×½** if it is **Taunted** and hits anyone but the taunter, and **×½** for the Warding Charm. Heroes cannot Defend (Core 3.6).
+- **Flat** attacks (minions and swarms) never roll: their damage is the number (per critter for swarms), + half the strength bonus. Hero armour does not reduce it.
 - **Initiative** is listed as a die (the foe's DEX die). Minions and swarms of one type share one roll.
 - **Special actions** marked **◆** cost **Malice** (below).
-- In the tables, `(crit)` after a status means "only if at least one die crits", and `(not crit)` means "only if none does". Minions and swarms never crit, so their statuses always apply.
+- In the tables, `(crit)` after a status means "only if at least one die crits", and `(not crit)` means "only if none does". Minions and swarms never crit, so their statuses always apply. In the tables **Burn N** is Burning N, **Root** Rooted, **Weak** Weakened, **Stun** Stunned and **Taunt** Taunted (Core 3.10); a hero already carrying the status only has it refreshed (Burning adds to its number).
 
 ### Traits
 
 | Trait | Effect |
 |---|---|
-| **Pack** | **+1 Mult** if another foe is beside the target. |
+| **Pack** | **One more die** if another foe is beside the target. |
 | **Savage** | **+2 damage** against **bloodied** heroes. |
-| **Nimble** | A Sentinel's strike never catches it. *(Not yet in the engine.)* |
+| **Nimble** | Did nothing since v0.27: there are no Sentinels (kept as a tag for later). |
 | **Skulk** | After its turn, it slips 1 tile away from the heroes if it can. |
 | **Aura** | Allied foes within 2 tiles get **+2 damage** on their hits. |
-| **Fireproof** | **Immune** to fire and to Burn. |
+| **Fireproof** | **Immune** to fire and to Burning. |
 | **Undead** | **Weak** to radiant (×2). **Immune** to poison and necrotic. |
 | **Incorporeal** | **Resists** physical damage (×½). |
 | **Reassemble** | The first time it is slain, it stands up again at the end of the next round with 40% of its HP, unless the killing blow was radiant. |
@@ -99,7 +102,7 @@ The foes share one pool of **Malice (◆)**. **Threats start in region II**: the
 
 | Threat | Cost | Unlocked | Effect |
 |---|---|---|---|
-| **Bloodlust** | 3 | region I elites and boss; every battle from region II | Every foe's hits get **+1 Mult** this round. |
+| **Bloodlust** | 3 | region I elites and boss; every battle from region II | Every foe's hits roll **one more die** next round (it fires at the end of a round). |
 | **Eruption** (Wildfire, Acid Seep, Eruption) | 5 | region I elites and boss; every battle from region II | The ground erupts under **1, 2 or 3** heroes (by region): fire in regions I and III, acid in region II, for 3 rounds. Move off it or suffer it (Core 3.1). |
 | **Reinforcements** | 7 | regions II and III | A horde of minions (two plus the region number: 4 or 5) pours in from the edges, up to 12 foes. In a **boss** battle they stop coming once **four foes** are on the board, so a long boss fight does not snowball. |
 | **Dark Rite** | 6 | region III | Every foe gains **8 Shield**. |
@@ -139,7 +142,7 @@ Bandits, goblins and beasts of the marsh and forest. Hazards: snares, webs. Haza
 > **Bandit Captain** · *Elite* · *Leader, Skirmisher* · Cost 5
 > **HP** 32 · **SPD** 4 · **Armour** None · **Attack** *Sabre* d8+2, range 1
 > **Initiative** d8
-> **Traits** *Aura* (allies within 2: +2 damage). **Rally ◆2:** each ally within 3 that stands beside a hero strikes that hero (a flat blow of 3 + its STR or DEX + the strength bonus; 2 for minions and swarms), which the hero may Defend.
+> **Traits** *Aura* (allies within 2: +2 damage). **Rally ◆2:** each ally within 3 that stands beside a hero strikes that hero (a flat blow of 3 + its STR or DEX + the strength bonus; 2 for minions and swarms; hero armour does not reduce it).
 
 > **Marsh Ogre** · *Elite* · *Brute* · Cost 6
 > **HP** 34 · **SPD** 3 · **Armour** 2 · **Steadfast** 1 · **Attack** *Club* d8+3, range 1
@@ -157,8 +160,8 @@ Bandits, goblins and beasts of the marsh and forest. Hazards: snares, webs. Haza
 > **Phase 2 (bloodied):** gains **Savage**.
 >
 > **Surges** (free, once each, at the start of the boss's turn in rounds 1, 3 and 5 in this order):
-> 1. **Rally the Horde.** A horde of four Goblin Rabble pours in from the top, and every foe's hits get **+1 Mult** (in the engine, until the end of the round).
-> 2. **Warcry.** Heroes within 3 are **Weakened** (half damage) and **Taunted** by the Warlord.
+> 1. **Rally the Horde.** A horde of four Goblin Rabble pours in from the top, and every foe's hits roll **one more die** until the end of the round.
+> 2. **Warcry.** Heroes within 3 are **Weakened** (their hits roll one fewer die) and **Taunted** by the Warlord (their hits on anyone else are halved). Both are statuses: every foe's hits on them roll two more dice.
 > 3. **Last Stand.** The Warlord **heals 15** and the foes gain **5 Malice**.
 >
 > **Escort.** Goblin Cutthroats and Hobgoblin Guards, up to a budget of about 6 (no foe of cost 5 or more).
@@ -214,7 +217,7 @@ A land of barrows, bones and spiders. Hazards: webs, acid pools. Undead are weak
 > 2. **Soul Siphon.** Every hero within 4 loses **4 health** to the Lich, who heals that much.
 > 3. **Death Nova.** Every hero takes **4 necrotic damage**.
 >
-> Surge damage is flat: no armour, no Defend.
+> Surge damage is flat: armour does not reduce it.
 >
 > **Escort.** Skeletons and Skeleton Archers, up to a budget of about 8.
 
@@ -222,7 +225,7 @@ A land of barrows, bones and spiders. Hazards: webs, acid pools. Undead are weak
 
 ## Region III: Ashen Waste
 
-A land of fire, ash and stone. Hazards: fire, lava. Fireproof foes are immune to fire and Burn.
+A land of fire, ash and stone. Hazards: fire, lava. Fireproof foes are immune to fire and Burning.
 
 | Foe | Type · Role | Cost | HP | SPD | Armour | Attack | Init | Traits and notes |
 |---|---|---|---|---|---|---|---|---|
@@ -262,8 +265,8 @@ A land of fire, ash and stone. Hazards: fire, lava. Fireproof foes are immune to
 >
 > **Surges** (free, once each, at the start of the boss's turn in rounds 1, 3 and 5 in this order):
 > 1. **Wing Buffet.** Heroes within 2 (diagonals count) are hurled **2 squares** away (they can slam and be Stunned) and **Rooted**.
-> 2. **Terrifying Presence.** Every hero is **Weakened** (half damage), and the foes gain **3 Malice**.
-> 3. **Inferno.** The dragon floods the **row with the most heroes** with fire: **6 damage** to each hero in it (no armour, no Defend), and the row burns for 2 rounds.
+> 2. **Terrifying Presence.** Every hero is **Weakened** (their hits roll one fewer die, and foes' hits on them one more), and the foes gain **3 Malice**.
+> 3. **Inferno.** The dragon floods the **row with the most heroes** with fire: **6 damage** to each hero in it (armour does not reduce it), and the row burns for 2 rounds.
 >
 > **Escort.** Ember Imps and Fire Drakes, up to a budget of about 8.
 
@@ -283,7 +286,7 @@ Encounters are built like PF2e's. An encounter's **difficulty** is a **budget** 
 | **Extreme** | 120 | Bosses (the boss takes most of it; the rest buys its escort, no foe costing 5 or more) |
 
 - **Foe value.** A foe as strong as one hero is worth **30**, so a Medium fight is two of them, or a crowd of weaker ones. Heroes do not level up (Core 4.2), so the party's expected strength at each stop stands in for its level: *party strength* = 4 × (4 + 0.85 × (1 + 0.75 × the stop's depth)). A Medium budget buys foes costing *party strength* × 0.4.
-- **Tuning by region** (`tools/sim.js`): every foe budget × 1.1, 1.05 and 0.65 in regions I, II and III; on top of that, ordinary battles × 1.5, 2 and 1.4 (`battleMul`), elites × 1.5, 1.6 and 1 (`eliteBudget`); boss health is the listed HP × 0.55 × 1.2, 1.45 or 0.22 by region, rising 3% per stop. Every foe, bosses included, then has 34% of that (`foeHpMul`). Foe health rises 3% and their strength bonus 0.12 per stop of depth. With these numbers the simulator wins about 31–34% of runs (v0.26).
+- **Tuning by region** (`tools/sim.js`): every foe budget × 1.1, 1.05 and 0.65 in regions I, II and III; on top of that, ordinary battles × 1.5, 2 and 1.4 (`battleMul`), elites × 1.5, 1.6 and 1 (`eliteBudget`); boss health is the listed HP × 0.55 × 1, 1.45 or 0.26 by region (`bossAct`), rising 3% per stop. Every foe, bosses included, then has 50% of that (`foeHpMul`). Foe health rises 3% and their strength bonus 0.12 per stop of depth. With these numbers the simulator wins about 31–45% of runs (v0.27; the result is noisy).
 - **Party size.** Each hero more or fewer than four adds or removes a quarter of the budget (PF2e's character adjustment).
 - **Up to 12 creatures** per battle, drawn at random from the region's pool.
 
@@ -298,8 +301,8 @@ A battle can have a **mission** other than "defeat every foe". Normal battles dr
 | **Rout** | Defeat every foe. | ×1 |
 | **Ambush** | The heroes are surrounded. Defeat every foe. | ×1.1 |
 | **Hold the Shrine** | End 3 rounds with a hero on the shrine and no foe on it. More foes arrive. | ×0.7 |
-| **Rescue** | Reach the caged captive (a hero beside the cage frees them), then lead them to the bottom edge. The freed captive takes its own turn in the order: move it up to SPD 3, like a hero with only a Move. If they fall, you fail. | ×0.8 |
-| **Plunder** | Grab all 3 chests (or defeat every foe). All 3 earns bonus gold. | ×0.9 |
+| **Rescue** | Reach the caged captive (a hero beside the cage frees them), then lead them to the bottom edge. The freed captive moves on the heroes' turn: up to SPD 3, like a hero with only a Move. If they fall, you fail. | ×0.8 |
+| **Plunder** | Grab all 3 chests (or defeat every foe). Each chest gives +1 party momentum; all 3 earns bonus gold. | ×0.9 |
 | **Survive** | Hold out for 5 rounds against reinforcements. | ×0.6 |
 | **Assassinate** | Slay the chief. | ×0.8 |
 | **Stop the Ritual** | Topple both ritual pillars within 5 rounds, or a Bound Horror breaks free. | ×0.75 |
@@ -346,6 +349,6 @@ Rewards follow Core 4.1 and 4.2: **battles** give gold, 1 Victory and a reward p
 ## Design Notes for the Bestiary
 
 - **Source.** The foe pools, costs, mission list, twists and surges come from the Emberwatch Tactics prototype and are converted to these rules. Roles follow D&D 4e's Monster Vault and Draw Steel (the Leader role and Malice come from Draw Steel; Lurker, Soldier and Artillery from 4e). The extra foes (Mire Lurker, Wailing Shade, Bone Warden, Ember Hound, Ash Wraith) are new.
-- **Conversion (v0.25).** Emberwatch armour 0 / 1 / 2 / 3 is back as **flat armour** 0 / 1 / 2 / 3, now taken off the **damage** before MULT, so a set-up multiplies what gets through. (From v0.19 to v0.24 it was a DEF die of None / d4 / d6 / d8.) Attack dice and bonuses were kept. Old status names on foe attacks map onto the v0.25 ones: bleeding → Burn (the old number of turns becomes the Burn), slowed → Root, dazed and staggered → Stun, marked → Taunt.
+- **Conversion (v0.25).** Emberwatch armour 0 / 1 / 2 / 3 is back as **flat armour** 0 / 1 / 2 / 3, taken off the **damage** of each hit (since v0.27 off the total of all the dice, so more dice shrug it off). (From v0.19 to v0.24 it was a DEF die of None / d4 / d6 / d8.) Attack dice and bonuses were kept. Old status names on foe attacks map onto the current ones: bleeding → Burning (the old number of turns becomes the Burning number), slowed → Rooted, dazed and staggered → Stunned, marked → Taunted, exposed → Weakened.
 - **Malice** replaces the old rule that a boss may unleash a surge every round; surges are free and scheduled (rounds 1, 3 and 5), and Malice pays for threats and ◆ abilities.
-- **To test.** Whether swarms are too deadly. Whether three bosses with escorts of cost 6 to 8 are the right size. Whether armour 3 (Bone Warden, Rock Golem, the dragon) makes d4 heroes feel useless without set-ups.
+- **To test.** Whether swarms are too deadly. Whether three bosses with escorts of cost 6 to 8 are the right size. Whether armour 3 (Bone Warden, Rock Golem, the dragon) makes d4 heroes feel useless without set-ups. Whether Weakened means enough on foes that roll a single die (it cannot take them below one, Design Notes). Whether foes, which also gain a die for each status on a hero, punish Taunted and Weakened heroes too hard.
