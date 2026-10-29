@@ -1,64 +1,621 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#0d0b0a">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script>
-/* If the game fails to start, show why instead of a black screen, with a way out.
-   Errors from other sites' scripts (browser extensions, content blockers) are ignored:
-   they are reported only as "Script error." and don't stop the game. */
-window.__ERRS=[];
-window.addEventListener('error',function(e){
-  var f=e.filename||'';
-  if(!f||f.indexOf(location.origin)!==0)return;
-  window.__ERRS.push((e.message||'Error')+' ('+f.split('/').pop().split('?')[0]+':'+(e.lineno||0)+')');
-});
-window.addEventListener('load',function(){setTimeout(function(){
-  if((window.__STARTED&&!window.__ERRS.length)||document.getElementById('boot-err'))return;
-  var msg=window.__ERRS.length?window.__ERRS.slice(0,3).join('<br>'):'A game file did not load. Check your connection and reload.';
-  var d=document.createElement('div');d.id='boot-err';
-  d.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;z-index:9;padding:24px;font:15px -apple-system,sans-serif;color:#e8dcc0;background:#0d0b0a';
-  d.innerHTML='<p><b>Rogue Tactics failed to start.</b></p><p style="color:#9a8a70">'+String(msg).replace(/<(?!br>)/g,'&lt;')+'</p>'+
-    '<p><button id="boot-reload" style="font-size:16px;padding:10px 16px">Reload</button> '+
-    '<button id="boot-reset" style="font-size:16px;padding:10px 16px">Clear saved data &amp; reload</button></p>';
-  document.body.appendChild(d);
-  document.getElementById('boot-reload').onclick=function(){location.reload();};
-  document.getElementById('boot-reset').onclick=function(){try{Object.keys(localStorage).filter(function(k){return k.indexOf('emberwatch')===0;}).forEach(function(k){localStorage.removeItem(k);});}catch(_){}location.reload();};
-},400);});
-</script>
-<title>Rogue Tactics</title>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Goblin Crypt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700;12..96,800&family=IM+Fell+English+SC&family=Alegreya+Sans:wght@400;500;700;800&display=swap">
 <style>
-  :root{color-scheme:dark}
-  html,body{margin:0;height:100%;background:#050303;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
-  #game{position:fixed;left:0;top:0;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;outline:none}
+/* Layout: full-bleed sunlit board seen from high above; unit panel top-left, hand of cards docked in the thumb zone */
+:root{
+  --void:#15121a;
+  --panel:rgba(15,26,51,.92);
+  --panel-2:#1b2c52;
+  --case:#0f1a33;
+  --gilt:#c9a24a;
+  --pewter:#a8b4c8;
+  --skirt:0 1px 0 rgba(255,236,190,.14) inset,0 3px 0 #070d1c;
+  --team:#3db8ff;
+  --parch:#efe1c0;
+  --muted:#a8997f;
+  --gold:#e3ad4f;
+  --hero:#63e07f;
+  --gob:#ff5b47;
+  --arcane:#86b6ff;
+  --line:rgba(201,162,74,.5);
+  --display:'Bricolage Grotesque','Trebuchet MS',system-ui,sans-serif;
+  --body:'Bricolage Grotesque','Trebuchet MS',system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;overscroll-behavior:none;background:var(--void);color:var(--parch);overflow:hidden;font-family:var(--body);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+#app{position:fixed;inset:0;overflow:hidden;overflow:clip;touch-action:none;background:var(--void)}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#vig{position:absolute;inset:0;pointer-events:none;z-index:2;background:radial-gradient(ellipse 90% 75% at 50% 46%,rgba(14,10,8,0) 62%,rgba(14,10,8,.3) 88%,rgba(10,7,6,.55) 100%)}
+button{font-family:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* ---------- top HUD ---------- */
+#top{position:absolute;left:0;right:0;top:0;z-index:5;pointer-events:none}
+#top>*{pointer-events:auto}
+/* thin unit strip: who is selected and their HP on the left, turn tokens on the right */
+.ustrip{display:flex;align-items:center;gap:8px;height:38px;box-sizing:content-box;padding-top:env(safe-area-inset-top,0px);padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px));background:linear-gradient(180deg,#14234a,#0f1a33);border-bottom:2px solid #c9a24a;box-shadow:0 3px 12px rgba(0,0,0,.4)}
+.uwho{flex:1;min-width:0;height:100%;display:flex;align-items:center;gap:7px;padding:0;border:none;background:none;text-align:left}
+.uwho .ubadge{width:26px;height:30px}.uwho .ubadge>span{width:22px;height:26px}.uwho .ubadge svg{width:14px;height:14px}
+.uwho .nm{font-family:var(--display);font-weight:800;font-size:16px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.uwho .hpw{flex:none;display:flex;flex-direction:column;gap:2px}
+.uwho .hpn{font-family:var(--display);font-weight:800;font-size:12px;color:#cfe0f5;line-height:1;white-space:nowrap}.uwho .hpn i{font-size:16px;color:#fff}
+.uwho .hpb{width:46px;height:4px;border-radius:2px;background:#2a3550;overflow:hidden}.uwho .hpb i{display:block;height:100%;background:#5be08a}
+.uwho.gob .hpb i{background:var(--gob)}
+.uwho .more{flex:none;width:16px;height:16px;stroke:#8fb8e8;fill:none;stroke-width:2.2}
+.uwho .dim{font-size:12.5px;color:#9fb4d4}
+.rnd{flex:none;font-size:10px;font-weight:800;letter-spacing:.1em;color:#8fe0ff;padding:3px 6px;border-radius:5px;background:rgba(61,184,255,.14)}
+.rnd.gob{color:#ff8a7a;background:rgba(255,90,70,.16)}
+.tokens{flex:none;display:flex;gap:4px}
+.tok{position:relative;width:26px;height:30px;padding:0;border:none;background:#fff;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);display:grid;place-items:center;transition:transform .15s,opacity .2s}
+.tok>span{width:22px;height:26px;clip-path:inherit;display:grid;place-items:center;background:linear-gradient(160deg,#55c8ff,#1659b8)}
+.tok svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.tok.sel{background:#ffd76a;transform:translateY(2px) scale(1.12)}
+.tok.gob>span{background:linear-gradient(160deg,#ff6a5a,#8a1610)}
+.tok .ini{position:absolute;right:-1px;bottom:-1px;min-width:13px;height:13px;padding:0 2px;border-radius:7px;background:#0f1a33;color:#efe1c0;font:800 9px/13px var(--display);text-align:center;box-shadow:0 0 0 1px #c9a24a}
+.tok{overflow:visible}
+.tok img{transition:filter .25s}
+#goPill{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 58px);z-index:6;touch-action:manipulation;padding:7px 18px;border-radius:999px;border:1.5px solid var(--gold);background:rgba(43,29,14,.94);box-shadow:var(--skirt);font:800 17px var(--display);color:#ffe2a6;animation:cpulse 1.4s ease-in-out infinite}
+@keyframes cpulse{50%{box-shadow:var(--skirt),0 0 14px rgba(227,173,79,.55)}}
+#rotBtn{position:absolute;left:10px;bottom:calc(100% + 76px);z-index:6;padding:7px 14px;border-radius:999px;border:1.5px solid #8fd0ff;background:rgba(20,40,64,.94);box-shadow:0 4px 10px rgba(0,0,0,.4);font:800 15px var(--display);color:#dff2ff}
+#bar #endBtn{transition:opacity .2s,transform .2s}
+/* End sits at the right end of the card row, level with the cards */
+#bar #endBtn{position:relative;right:auto;bottom:auto;flex:none;align-self:flex-start;margin-top:-6px;pointer-events:auto}
+/* character sheet */
+#csheet .sheet{padding:0;overflow:hidden}
+.cs-head{display:flex;align-items:center;gap:12px;padding:16px 18px 12px;background:linear-gradient(120deg,#1d3a78,#0c1a3c)}
+.cs-head.gob{background:linear-gradient(120deg,#6a1a1a,#2a0c0c)}
+.cs-head .ubadge{width:52px;height:60px}.cs-head .ubadge>span{width:46px;height:54px}.cs-head .ubadge svg{width:28px;height:28px}
+.cs-head h2{margin:0;font-size:28px}
+.cs-head small{display:block;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#9fc4ee}
+.cs-body{padding:12px 18px 16px;display:flex;flex-direction:column;gap:12px}
+.cs-hp{display:flex;align-items:baseline;gap:10px;font-family:var(--display);font-weight:800;color:#cfe0f5}.cs-hp i{font-size:40px;color:#fff;line-height:1}
+.cs-hp .bar{flex:1;height:8px;border-radius:4px;background:#2a3550;overflow:hidden;align-self:center}.cs-hp .bar b{display:block;height:100%;background:#5be08a}
+.cs-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.cs-stats div{padding:6px 4px;border-radius:8px;background:rgba(61,184,255,.1);text-align:center;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#9fb4d4}
+.cs-stats b{display:block;font-family:var(--display);font-size:20px;letter-spacing:0;color:#fff}
+.cs-tags{display:flex;flex-wrap:wrap;gap:5px}
+.cs-tags span{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;background:#2a3550;color:#dfe9ff}
+.cs-cards{display:flex;flex-direction:column;gap:6px}
+.cs-card{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:7px 9px;border-radius:9px;background:linear-gradient(90deg,hsl(var(--hue) 45% 24%),hsl(var(--hue) 40% 14%));border:1px solid hsl(var(--hue) 60% 45% / .5)}
+.cs-card svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.cs-card b{display:block;font-family:var(--display);font-size:15px;color:#fff}
+.cs-card p{font-size:12.5px!important;line-height:1.3!important;color:#d6e2f5!important}
+.cs-card em{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#ffd77a;white-space:nowrap}
+.cs-note{font-size:12.5px!important;color:#9fb4d4!important}
+#csClose{margin-top:4px}
+.cs-fig{flex:none;width:110px;height:140px;margin:-6px -6px -12px -8px;object-fit:contain;filter:drop-shadow(0 6px 8px rgba(0,0,0,.45))}
+.badge>span img,.tok>span img,.ubadge>span img{width:100%;height:100%;object-fit:cover;display:block}
+/* crit flash */
+#flash{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;background:radial-gradient(circle at 50% 55%,rgba(255,220,110,.55),rgba(255,140,30,.18) 45%,rgba(255,120,0,0) 75%)}
+#flash.go{animation:flash .5s ease-out}
+@keyframes flash{0%{opacity:0}15%{opacity:1}100%{opacity:0}}
+.ubadge{flex:none;width:44px;height:50px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:#fff;display:grid;place-items:center}
+.ubadge>span{width:39px;height:45px;clip-path:inherit;display:grid;place-items:center;background:linear-gradient(160deg,#55c8ff,#1659b8)}
+.ubadge.gob>span{background:linear-gradient(160deg,#ff6a5a,#8a1610)}
+.ubadge svg{width:24px;height:24px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.ubadge svg .f{fill:#fff;stroke:none}
+/* ---------- roll tally & boss bar ---------- */
+#roll{position:absolute;left:0;top:0;z-index:6;display:flex;flex-direction:column;align-items:center;gap:1px;padding:10px 26px 12px;pointer-events:none;will-change:transform;transition:opacity .25s;background:radial-gradient(closest-side,rgba(6,10,24,.82),rgba(6,10,24,.62) 62%,rgba(6,10,24,0));text-shadow:0 2px 0 #000,0 0 6px rgba(0,0,0,.9)}
+#roll.out{opacity:0}
+#roll .notes,#roll .res{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 8px;max-width:230px}
+#roll .notes:empty,#roll .res:empty,#roll .chips:empty,#roll .rl:empty{display:none}
+#roll .notes span{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);white-space:nowrap;animation:pop .2s ease-out}
+#roll .notes .red{color:#ff8a6c}#roll .notes .blue{color:#a9d4ff}
+#roll .res span{font-size:13px;font-weight:700;color:#e8eefa;white-space:nowrap;animation:pop .2s ease-out}
+#roll .res b{font-family:var(--display);font-size:24px;margin-right:3px;color:#ffd9c9}
+#roll .res .hurt b{color:#ff6b55}#roll .res .crit b{color:#ffd25a}#roll .res .heal b{color:#8dffa6}#roll .res .info b{font-family:var(--body);font-size:15px;letter-spacing:.04em;text-transform:uppercase;color:var(--gold)}
+#roll .res small{font-size:11px;color:#b9c4d8;margin-left:3px}
+#roll .res .ko{color:#ff9a86}
+#roll .rl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#e8eefa;font-weight:800;white-space:nowrap}
+#roll .chips{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;align-items:center;font-variant-numeric:tabular-nums}
+.chip{min-width:14px;padding:0 1px;display:inline-grid;place-items:center;font-weight:800;font-size:18px;color:#fff;animation:pop .2s ease-out}
+.chip.crit{color:#ffd25a;text-shadow:0 2px 0 #000,0 0 10px rgba(255,170,40,.95)}
+.chip.bad{color:#ff9a86}
+.chip.drop{opacity:.4;text-decoration:line-through;text-decoration-thickness:2px}
+.chip.bonus{color:var(--gold);font-size:15px}
+.chip.tot{font-family:var(--display);font-size:30px;color:#fff;padding-left:3px}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+#boss{display:flex;align-items:center;gap:8px;max-width:560px;margin:4px auto 0;padding:0 12px}
+#boss .bn{font-size:14px!important}
+#boss .bb{height:7px!important}
+#boss .bn{flex:none;font-family:var(--display);font-size:17px;font-weight:800;color:#ffb09a;text-shadow:0 2px 0 #000,0 0 12px rgba(255,80,60,.5)}
+#boss .bb{flex:1;height:9px;border-radius:5px;background:rgba(20,10,12,.85);border:1px solid rgba(255,120,90,.45);overflow:hidden}
+#boss .bb i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#b0201a,#ff5b47);transition:width .35s}
+
+/* ---------- callouts ---------- */
+#combos{position:absolute;left:0;right:0;top:auto;bottom:calc(var(--dk,92px) + 56px);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;z-index:6}
+.combo{font-family:var(--display);font-size:30px;color:var(--gold);text-shadow:0 2px 0 #000,0 0 18px rgba(227,173,79,.6);animation:combo 1.5s ease-out forwards;white-space:nowrap}
+.combo.red{color:#ff7a5c;text-shadow:0 2px 0 #000,0 0 18px rgba(255,90,70,.7)}
+.combo.blue{color:#a9d4ff;text-shadow:0 2px 0 #000,0 0 18px rgba(120,180,255,.7)}
+.combo.green{color:#8dffa6;text-shadow:0 2px 0 #000,0 0 18px rgba(90,255,140,.6)}
+@keyframes combo{0%{transform:scale(1.8);opacity:0}12%{transform:scale(1);opacity:1}75%{opacity:1}100%{transform:translateY(-24px);opacity:0}}
+#banner{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;z-index:7}
+#banner span{font-family:var(--display);font-size:clamp(36px,11vw,60px);text-align:center;color:var(--parch);text-shadow:0 3px 0 #000,0 0 40px rgba(227,173,79,.45);opacity:0;padding:6px 28px;background:linear-gradient(90deg,transparent,rgba(11,9,16,.75) 20%,rgba(11,9,16,.75) 80%,transparent)}
+#banner span.gob{color:#ff8a6e;text-shadow:0 3px 0 #000,0 0 40px rgba(255,80,60,.5)}
+#banner span.show{animation:ban 1.4s ease-in-out forwards}
+@keyframes ban{0%{opacity:0;transform:translateX(-40px)}18%{opacity:1;transform:none}78%{opacity:1;transform:none}100%{opacity:0;transform:translateX(40px)}}
+
+/* ---------- unit tags & floating numbers ---------- */
+#tags,#floats{position:absolute;inset:0;pointer-events:none;z-index:3}
+.tag{position:absolute;left:0;top:0;display:flex;flex-direction:column;align-items:center;gap:2px;will-change:transform}
+.ap{display:none;gap:3px;padding:2px 4px;border-radius:6px;background:rgba(8,14,30,.78)}
+.tag.pp .ap{display:flex}
+.ap i{width:7px;height:7px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe9a0,#e3a21c);box-shadow:0 0 4px rgba(255,200,80,.7);transition:background .2s,box-shadow .2s}
+.ap i.off{background:#2a3044;box-shadow:none}.ap i.spend{animation:spend .7s ease-in-out infinite}
+.tag.done .ap{display:none}
+.tag.of{opacity:.55;flex-direction:row;gap:3px}.tag.of .ap{display:none}
+.tag.of::after{content:attr(data-floor);font:800 10px/1 var(--display);color:#efe1c0;text-shadow:0 1px 0 #000}
+@keyframes spend{50%{background:#ff8a5c;box-shadow:0 0 7px #ff6a3a}}
+.tag.zz::before{content:'z Z';font:800 12px/1 var(--display);letter-spacing:.06em;color:#cfe0f5;text-shadow:0 1px 0 #000,0 0 4px #000}
+.tag.zz .hp{opacity:.5}
+.tag.done .hp{filter:saturate(.2) brightness(.8)}
+.hp{position:relative;width:34px;height:7px;border-radius:3px;background:#0a1226;box-shadow:0 0 0 1.5px rgba(8,14,30,.9),0 2px 3px rgba(0,0,0,.45);overflow:hidden;transition:transform .12s}
+.tag.sel .hp{transform:scale(1.2)}
+.tag.boss .hp{width:52px;height:8px}
+.hp i{position:absolute;left:0;top:0;bottom:0;border-radius:2px}
+.hp .trail{background:#fff;transition:width .32s cubic-bezier(.5,0,.8,.4) .18s}
+.hp .fill{background:linear-gradient(180deg,#8ff0a8,#2fbf62);transition:width .09s}
+.tag.gob .hp .fill{background:linear-gradient(180deg,#ff8a7a,#d4281c)}
+.tag.boss .hp .fill{background:linear-gradient(180deg,#ffd76a,#d4281c)}
+.float{position:absolute;left:0;top:0;font-family:var(--display);font-size:34px;font-weight:700;color:#fff;text-shadow:0 2px 0 #000,0 0 10px rgba(0,0,0,.8);white-space:nowrap;will-change:transform,opacity}
+.float.dmg{color:#ffd9c9}.float.hurt{color:#ff6b55}.float.crit{color:#ffd25a;font-size:44px;text-shadow:0 2px 0 #000,0 0 18px rgba(255,190,60,.9)}
+.float.heal{color:#8dffa6}.float.info{font-family:var(--body);font-size:15px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--gold)}
+.float.verdict{font-size:30px;letter-spacing:.03em}.float.verdict.vhit{color:#ffd9c9}.float.verdict.vmiss{color:#c8d0da;font-size:26px}.float.verdict.crit{font-size:40px}
+.float small{display:block;font-family:var(--body);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#cfc3aa;text-align:center}
+
+/* ---------- dock ---------- */
+#dock{position:absolute;left:0;right:0;bottom:0;z-index:5;padding:6px max(8px,env(safe-area-inset-right,0px)) 0 max(8px,env(safe-area-inset-left,0px));background:linear-gradient(180deg,#14234a,#0f1a33);border-top:2px solid #c9a24a;box-shadow:0 -4px 16px rgba(0,0,0,.4)}
+.dk{position:relative;max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:0}
+@keyframes shake{20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+#bar{position:relative;z-index:3;display:flex;align-items:flex-start;gap:8px;box-sizing:border-box;height:calc(58px + env(safe-area-inset-bottom,0px));padding:6px 0 env(safe-area-inset-bottom,0px)}
+.sq{flex:none;position:relative;z-index:4;width:46px;height:46px;padding:0;border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border:none;border-top:2px solid var(--gilt);background:linear-gradient(180deg,#22365f,#1b2c52);box-shadow:var(--skirt);color:#fff;transition:transform .12s}
+.sq:active{transform:scale(.92)}
+.sq svg{width:20px;height:20px;stroke:var(--parch);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#menuBtn[aria-expanded="true"]{background:linear-gradient(180deg,#2c4270,#22365f);border-top-color:#f3d77a}
+#endBtn{border:none;border-top:2px solid #f3d77a;background:linear-gradient(180deg,#d6a43a,#8a5e12);box-shadow:0 1px 0 rgba(255,240,200,.3) inset,0 3px 0 #4a3208}
+#endBtn svg{width:16px;height:16px;fill:#fff8e0;stroke:#fff8e0}
+#endBtn span{font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fff8e0}
+#endBtn:disabled{opacity:.45;filter:saturate(.3)}
+#menu{position:absolute;left:0;bottom:calc(100% + 10px);z-index:6;width:220px;padding:6px;border-radius:14px;background:rgba(15,26,51,.97);border:1px solid var(--line);border-top:2px solid var(--gilt);box-shadow:0 12px 30px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:2px}
+.mi{display:flex;align-items:center;gap:10px;width:100%;padding:10px;border:none;border-radius:9px;background:none;font-size:14px;font-weight:700;color:#e6efff;text-align:left}
+.mi:active{background:rgba(201,162,74,.15)}
+.mi svg{flex:none;width:20px;height:20px;stroke:var(--parch);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.mi span{flex:1}
+.sw{flex:none;position:relative;width:36px;height:20px;border-radius:10px;background:#34405e;transition:background .15s}
+.sw::after{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s}
+.mi.on .sw{background:#e0524a}#muteBtn.on .sw{background:#3db8ff}
+.mi .sv{font-style:normal;font-size:12px;font-weight:800;color:var(--gold);padding:3px 8px;border-radius:6px;background:rgba(227,173,79,.15)}
+.mi.on .sw::after{transform:translateX(16px)}
+#muteBtn:not(.on) svg .wave{display:none}
+.setl{display:flex;flex-direction:column;gap:2px;margin:6px 0 4px}
+.mi:disabled{opacity:.4}
+.mnote{font-size:11.5px!important;color:var(--pewter);padding:4px 10px 6px;margin:0;line-height:1.35}
+#endBtn.pulse{animation:glow 1.1s ease-in-out infinite}
+@keyframes glow{50%{box-shadow:0 0 22px rgba(227,173,79,.7)}}
+
+/* ---------- overlays ---------- */
+.ov{position:absolute;inset:0;z-index:10;display:grid;place-items:center;background:rgba(8,6,12,.7);padding:max(16px,env(safe-area-inset-left,0px));padding-block:calc(env(safe-area-inset-top,0px) + 16px) calc(env(safe-area-inset-bottom,0px) + 16px);overflow:auto;touch-action:pan-y}
+.sheet{width:100%;max-width:440px;background:linear-gradient(180deg,#1b2c52,#0f1a33);border:1px solid var(--line);border-top:2px solid var(--gilt);border-radius:16px;padding:20px 20px 18px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.sheet .kick{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:800;margin:0 0 4px}
+.sheet h2{font-family:var(--display);font-size:38px;line-height:1;margin:0 0 8px;text-wrap:balance}
+.sheet h3{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin:16px 0 6px}
+.sheet p,.sheet li{font-size:15px;line-height:1.45;color:#ddd0b4;margin:0}
+.sheet ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.sheet li b{color:var(--parch)}
+.sheet.cf{max-width:320px;text-align:center}
+#logSheet{padding:16px 16px 14px}
+#logSheet h2{font-size:28px;margin-bottom:8px}
+#logList{max-height:56vh;overflow-y:auto;display:flex;flex-direction:column;gap:3px;padding-right:4px;touch-action:pan-y;font-size:13.5px;line-height:1.35}
+#logList .le{color:#d6e2f5;padding:2px 0 2px 8px;border-left:3px solid #3a4a6a}
+#logList .le b{color:#fff}
+#logList .le.hero{border-left-color:#3aa6ff}
+#logList .le.foe{border-left-color:#ff5a46}
+#logList .le.dice{color:#ffd9a0;border-left-color:#c98a1e;font-variant-numeric:tabular-nums}
+#logList .le.dice s{opacity:.55}
+#logList .le.hdr{border:none;margin-top:8px;padding:0;font-family:var(--display);font-weight:800;font-size:15px;color:var(--gold);letter-spacing:.06em;text-transform:uppercase}
+#logList .le.empty{border:none;color:#9fb4d4}
+.sheet.cf{max-width:320px;text-align:center}
+.sheet.cf h2{font-size:30px}
+.sheet.cf p b{color:var(--parch)}
+.cfb{display:flex;gap:10px;margin-top:16px}
+.cfb button{flex:1;margin:0!important;height:46px;font-size:20px!important}
+#cfBack{border-radius:12px;border:none;border-top:2px solid var(--gilt);background:linear-gradient(180deg,#22365f,#1b2c52);box-shadow:var(--skirt);font-family:var(--display);color:#e8f2ff}
+.sheet .go{margin-top:18px;width:100%;height:48px;border-radius:12px;border:1.5px solid var(--gold);background:linear-gradient(180deg,#4a3418,#2b1d0e);font-family:var(--display);font-size:24px;color:#ffe2a6}
+.foes{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.foes span{font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:#3a1d1d;color:#ffc2b4;border:1px solid rgba(255,90,70,.3)}
+.foes span.boss{background:#5a1a10;color:#ffd27a;border-color:var(--gold)}
+.steps{display:flex;gap:6px;margin:0 0 12px}
+.steps i{flex:1;height:4px;border-radius:2px;background:#3a3140}
+.steps i.done{background:var(--gold)}.steps i.now{background:#ff8a6e}
+#end h2.win{color:var(--gold)}#end h2.lose{color:#ff7a5c}
+/* ---------- table-top skin: slate panels with a bevelled edge, brass and gold trim, cream-framed cards on a wood rail ---------- */
+:root{--slate:#2b323d;--slate-2:#1f252d;--slate-hi:#5b6574;--slate-lo:#12161c;--brass:#d6a748;--cream:#f1dfb6;--parchment:#eedcb3}
+.ustrip{position:relative;height:44px;gap:9px;background:linear-gradient(180deg,#38414e,#232932 60%,#1d2229);border-bottom:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.12),inset 0 -1px 0 rgba(0,0,0,.5),0 2px 0 var(--slate-hi),0 4px 0 var(--slate-lo),0 8px 18px rgba(0,0,0,.45)}
+.hexb{flex:none;position:relative;width:38px;height:42px;padding:0;border:none;background:linear-gradient(180deg,#7d8796,#3e4652);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);display:grid;place-items:center;transition:transform .12s}
+.hexb::before{content:'';position:absolute;inset:2.5px;clip-path:inherit;background:linear-gradient(180deg,#3a424f,#1f252d)}
+.hexb svg{position:relative;width:18px;height:18px;stroke:#eef1f5;fill:none;stroke-width:2.4;stroke-linecap:round}
+.hexb:active{transform:scale(.92)}
+.uwho .nm{font-size:16px;text-shadow:0 1px 0 rgba(0,0,0,.6)}
+.ustrip{gap:6px}.uwho{gap:6px}.uwho .more{display:none}.tokens{gap:3px}.tok{width:24px;height:28px}.tok>span{width:20px;height:24px}
+.uwho .hpb{width:46px;height:6px;border-radius:3px;background:#11151b;box-shadow:inset 0 1px 1px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08)}.uwho .hpb i{background:linear-gradient(180deg,#8ff08a,#33b04a)}
+.uwho .ubadge{background:linear-gradient(180deg,#f3d68a,#a8782a)}
+.rnd{color:#cfe6ff;background:linear-gradient(180deg,#36506e,#24364c);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 0 0 1px #11161d;border-radius:6px;padding:4px 7px}
+.tok{background:linear-gradient(180deg,#e6ebf2,#8a94a3)}
+.tok.sel{background:linear-gradient(180deg,#ffe6a0,#c48a26)}
+.tok .ini{background:#1d2229;box-shadow:0 0 0 1px var(--brass)}
+#menu{position:absolute;left:max(8px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 52px);bottom:auto;z-index:9;width:230px;padding:6px;border-radius:12px;background:linear-gradient(180deg,#323a46,#1f252d);border:1px solid var(--slate-hi);border-top-color:#7d8796;box-shadow:0 0 0 1px var(--slate-lo),0 14px 32px rgba(0,0,0,.55)}
+.mi{color:#eef1f5}
+#goPill{bottom:calc(100% + 72px)}
+#dock{padding-top:8px;background:none;border-top:none;box-shadow:none;pointer-events:none}#dock .dk>*{pointer-events:auto}#bar{pointer-events:none} /* taps between and around the buttons reach the board */
+#bar{height:calc(96px + env(safe-area-inset-bottom,0px));padding:4px 0 env(safe-area-inset-bottom,0px)}
+#endBtn{position:absolute;right:2px;bottom:calc(100% + 44px);z-index:6;width:62px;height:68px;padding:0;border:none;background:linear-gradient(180deg,#ffe9a6,#a8741e);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;filter:drop-shadow(0 4px 4px rgba(0,0,0,.5));transition:transform .12s;box-shadow:none}
+#endBtn::before{content:'';position:absolute;inset:3px;clip-path:inherit;background:radial-gradient(circle at 50% 30%,#f6cf6a,#d49a2c 55%,#9c6a16)}
+#endBtn>*{position:relative}
+#endBtn svg{width:20px;height:20px;fill:#fff8e6;stroke:#6b4610;stroke-width:1;stroke-linejoin:round}
+#endBtn span{font:800 12px/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:#fff8e6;text-shadow:0 1px 0 #6b4610}
+#endBtn:active{transform:scale(.93)}
+#endBtn:disabled{opacity:.5;filter:saturate(.3) drop-shadow(0 4px 4px rgba(0,0,0,.5))}
+.sheet{background:linear-gradient(180deg,#323a46,#1f252d);border:1px solid var(--slate-hi);border-top:2px solid #7d8796;box-shadow:0 0 0 1px var(--slate-lo),0 20px 60px rgba(0,0,0,.6)}
+.sheet .go{border:1.5px solid #f3cf72;background:linear-gradient(180deg,#d9a33a,#9a6618);color:#fff8e6;text-shadow:0 1px 0 #6b4610}
+#cfBack{border-top:2px solid #7d8796;background:linear-gradient(180deg,#3a424f,#252b34)}
+.ap{background:rgba(18,22,28,.85);box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+@media (prefers-reduced-motion:reduce){.combo,#banner span.show,.chip,#roll{animation-duration:.01s}}
+/* ---------- hotbar: a row of ability buttons with an info line above, End beside it ---------- */
+#bar{height:auto!important;display:flex;align-items:flex-end;gap:8px;padding:4px 0 calc(8px + env(safe-area-inset-bottom,0px))!important;pointer-events:none}
+#hb{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;pointer-events:auto}
+#hbInfo{min-height:36px;padding:5px 10px 6px;border-radius:10px;background:linear-gradient(180deg,rgba(50,58,70,.95),rgba(30,35,43,.95));box-shadow:0 0 0 1px #12161c,inset 0 1px 0 rgba(255,255,255,.08);font-size:12.5px;line-height:1.3;color:#d9e1ec}
+#hbInfo .tx{display:flex;align-items:baseline;gap:8px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hbInfo .tx b{font:800 15px var(--display);color:#fff}
+#hbInfo .mt{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#f3cf72;overflow:hidden;text-overflow:ellipsis}
+#hbInfo .tx2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#hbInfo .tx2 i{font-style:normal;color:#9fb4d4}
+#hbInfo .bl{font-style:normal;font-weight:800;color:#ff8a6c}
+#hbInfo b.dis{color:#ff8a6c}
+#dock{--tile:clamp(38px,calc((min(100vw,560px) - 86px) / 7),58px)} /* six slots and End across the dock */
+#hbRow{display:flex;align-items:stretch;gap:6px;touch-action:none}
+#hbPager{flex:none;width:24px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;border-radius:9px;background:linear-gradient(180deg,#323a46,#1f252d);box-shadow:inset 0 0 0 1px #12161c}
+#hbPager button{flex:1;width:100%;padding:0;border:none;background:none;display:grid;place-items:center;color:#eef1f5}
+#hbPager button:active{background:rgba(255,255,255,.08)}
+#hbPager svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+#hbPager b{font:800 12px/1 var(--display);color:#f3cf72;font-variant-numeric:tabular-nums}
+#hotbar{display:flex;gap:6px;transition:transform .18s ease-out}
+#hotbar.in-l{animation:hbInL .18s ease-out}#hotbar.in-r{animation:hbInR .18s ease-out}
+@keyframes hbInL{from{transform:translateX(-24px);opacity:.3}}@keyframes hbInR{from{transform:translateX(24px);opacity:.3}}
+.hk{position:relative;flex:none;width:var(--tile);height:var(--tile);padding:0;border:none;border-radius:11px;background:linear-gradient(180deg,#6b7584,#2b323d);box-shadow:inset 0 0 0 2px #12161c,0 3px 0 #0b0e12;transition:transform .12s,box-shadow .15s;touch-action:manipulation}
+.hk .ic{position:absolute;inset:4px;border-radius:8px;display:grid;place-items:center;background:radial-gradient(circle at 50% 38%,hsl(var(--hue) 68% 48%),hsl(var(--hue) 62% 20%));box-shadow:inset 0 2px 6px rgba(0,0,0,.5)}
+.hk svg{width:56%;height:56%;stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 4px hsl(var(--hue) 100% 75% / .75))}
+.hk .key{position:absolute;left:7px;top:5px;font:800 10px/1 var(--display);color:rgba(255,255,255,.8);text-shadow:0 1px 0 #000}
+.hk .dv{position:absolute;right:6px;bottom:6px;font:800 9px/1 var(--display);color:#fff;background:rgba(0,0,0,.55);padding:2px 3px;border-radius:4px}
+.hk .cd{position:absolute;inset:4px;border-radius:8px;display:grid;place-items:center;background:rgba(8,10,16,.7);font:800 22px/1 var(--display);color:#fff}
+.hk.off .ic{filter:grayscale(.85) brightness(.5)}
+.hk.sel{transform:translateY(-4px);box-shadow:inset 0 0 0 2px #fff3c4,0 0 0 2px #e0a63a,0 0 18px rgba(255,196,80,.7),0 3px 0 #0b0e12}
+.hk:active{transform:translateY(-1px) scale(.95)}
+.hk.shake{animation:shake .35s}
+.hk:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#bar #endBtn{position:relative!important;right:auto!important;bottom:auto!important;margin:0;align-self:flex-end;flex:none;width:var(--tile);height:var(--tile)}
+#bar #endBtn svg{width:15px;height:15px}#bar #endBtn span{font-size:10px}
+.hk.empty{background:linear-gradient(180deg,#262c35,#1a1f26);box-shadow:inset 0 0 0 2px #12161c,inset 0 3px 8px rgba(0,0,0,.55)}
+.hk.empty::after{content:'';position:absolute;inset:7px;border-radius:7px;border:1.5px dashed rgba(160,175,195,.22)}
+.hk.empty .key{color:rgba(255,255,255,.28);text-shadow:none}
+#rotBtn{bottom:calc(100% + 40px)!important}
+#goPill{bottom:calc(100% + 44px)!important}
+/* a phone on its side: one low row (buttons, the info line, End) so the board keeps the height */
+@media (orientation:landscape) and (max-height:540px){
+  .dk{max-width:none}
+  #hb{flex-direction:row;align-items:flex-end;gap:8px}
+  #hotbar{flex:none;min-height:0}
+  #dock{--tile:50px}
+  #hbInfo{flex:1;min-width:0;min-height:50px;box-sizing:border-box}
+  #hbInfo .tx2{-webkit-line-clamp:2}
+}
+/* the dialogue box spans the dock; the play-by-play of each action is written into it */
+#dock{padding-left:max(6px,env(safe-area-inset-left,0px));padding-right:max(6px,env(safe-area-inset-right,0px))}
+@media (max-width:600px){.dk{max-width:none}}
+#hbInfo{margin-bottom:6px;box-sizing:border-box}
+#roll{box-sizing:border-box;align-items:stretch;gap:2px;padding:6px 10px 7px;text-shadow:none}
+#roll .notes,#roll .res,#roll .chips{justify-content:flex-start;max-width:none}
+#roll .rl{text-align:left}
+#roll .chips{gap:4px 6px}
+.chip{font-size:16px}.chip.tot{font-size:22px}
+#roll .res b{font-size:19px}
+@media (orientation:landscape) and (max-height:540px){
+  .dk{flex-direction:row;align-items:flex-end;gap:8px}
+  #hbInfo{flex:1;min-width:0;margin-bottom:0;min-height:50px}
+  #bar{flex:none}
+}
+@media (prefers-reduced-motion:reduce){.hk,.hk.sel{transition:none;transform:none}}
+/* ================= GRIMDARK: night, iron, bone and blood ================= */
+/* Layout unchanged; skin: soot ground, blackened-iron plates with a tarnished-brass hairline, bone text, blood for harm, ember for choice */
+:root{--soot:#0b0908;--iron:#1e1a17;--iron-2:#2b2521;--iron-hi:#5c5046;--bone:#e3d6b9;--bone-dim:#a99d86;--blood:#8a1a14;--blood-hi:#cf3b2e;--ember:#e8873a;--tarnish:#9a7e48;
+  --display:'IM Fell English SC',Georgia,'Times New Roman',serif;--body:'Alegreya Sans','Trebuchet MS',system-ui,sans-serif;--gold:#c9a46a;--parch:#e3d6b9}
+html,body,#app{background:var(--soot)}
+body{font-family:var(--body)}
+#vig{background:radial-gradient(ellipse 82% 72% at 50% 44%,rgba(20,16,12,0) 52%,rgba(20,16,12,.32) 82%,rgba(12,9,7,.7) 100%)}
+#vig::after{content:'';position:absolute;inset:0;opacity:.13;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")}
+/* top plate */
+.ustrip{background:linear-gradient(180deg,#2a2420,#14110f 70%,#0f0c0b);box-shadow:inset 0 1px 0 rgba(255,228,190,.08),inset 0 -1px 0 #000,0 1px 0 var(--tarnish),0 2px 0 #000,0 10px 22px rgba(0,0,0,.7)}
+.hexb{background:linear-gradient(180deg,#8a7656,#2a231e)}.hexb::before{background:linear-gradient(180deg,#2b2420,#120f0d)}.hexb svg{stroke:var(--bone)}
+.uwho .nm{font-family:var(--display);font-weight:400;font-size:20px;letter-spacing:.02em;color:var(--bone);text-shadow:0 1px 0 #000,0 0 12px rgba(0,0,0,.8)}
+.uwho .hpn{font-family:var(--body);color:var(--bone-dim)}.uwho .hpn i{color:var(--bone)}
+.uwho .hpb{height:6px;border-radius:1px;background:#070505;box-shadow:inset 0 0 0 1px #3d3128,0 0 0 1px #000}.uwho .hpb i{background:linear-gradient(180deg,#e0584a,#7c120c)}
+.uwho .ubadge,.ubadge{background:linear-gradient(180deg,#b29a6c,#3e3122)!important}
+.ubadge>span{background:linear-gradient(160deg,#3c4652,#151a20)!important}.ubadge.gob>span{background:linear-gradient(160deg,#5a1610,#1e0504)!important}
+.rnd{font-family:var(--display);font-weight:400;font-size:13px;letter-spacing:.06em;color:var(--bone);background:linear-gradient(180deg,#3a2f27,#1a1512);box-shadow:inset 0 0 0 1px #5c4a3a,0 0 0 1px #000;border-radius:3px}
+.rnd.gob{color:#f0b0a0;background:linear-gradient(180deg,#5a1610,#22070a)}
+.tok{background:linear-gradient(180deg,#a89068,#3c3022)}.tok>span{background:linear-gradient(160deg,#3c4652,#151a20)}.tok.gob>span{background:linear-gradient(160deg,#5a1610,#1e0504)}
+.tok.sel{background:linear-gradient(180deg,#f2b462,#8a4612)}
+.tok .ini{background:#0d0a09;color:var(--bone);font-family:var(--body);box-shadow:0 0 0 1px var(--tarnish)}
+/* nameplates over the field */
+.hp{width:36px;height:6px;border-radius:1px;background:#070505;box-shadow:0 0 0 1px #000,0 0 0 2px rgba(150,125,95,.35),0 2px 4px rgba(0,0,0,.7)}
+.hp i{border-radius:0}
+.hp .fill{background:linear-gradient(180deg,#c3cf9a,#56703a)}
+.tag.gob .hp .fill{background:linear-gradient(180deg,#e45a4c,#7a130d)}
+.tag.boss .hp .fill{background:linear-gradient(180deg,#f0a050,#7a130d)}
+.hp .trail{background:#e9dcc0}
+.ap{background:rgba(8,6,5,.88);box-shadow:0 0 0 1px #3d3128;border-radius:2px}
+.ap i{background:radial-gradient(circle at 35% 30%,#ffd29a,#c25a16);box-shadow:0 0 5px rgba(232,135,58,.7)}
+/* the info scroll and the iron hotbar */
+#hbInfo{border-radius:3px;background:linear-gradient(180deg,#231e1b,#141110);box-shadow:inset 0 0 0 1px #4a3e33,inset 0 1px 0 rgba(255,228,190,.06),0 0 0 1px #000,0 8px 16px rgba(0,0,0,.65);color:var(--bone-dim);font-family:var(--body);font-size:13px}
+#hbInfo .tx b{font-family:var(--display);font-weight:400;font-size:18px;letter-spacing:.02em;color:var(--bone)}
+#hbInfo .mt{color:var(--tarnish);letter-spacing:.1em}
+#hbInfo .tx2 i{color:#cdb48a}#hbInfo .tx2 i b,#hbInfo .tx2 b{color:var(--ember)}
+.hk{border-radius:3px;background:linear-gradient(180deg,#6a5c4c,#2a231f 45%,#171311);box-shadow:inset 0 0 0 1px #0a0807,inset 0 1px 0 rgba(255,228,190,.16),0 2px 0 #000,0 4px 10px rgba(0,0,0,.6)}
+.hk::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:2;background:radial-gradient(circle at 4px 4px,#b4a07e 1px,#3a2e24 1.6px,transparent 2.2px),radial-gradient(circle at calc(100% - 4px) 4px,#b4a07e 1px,#3a2e24 1.6px,transparent 2.2px),radial-gradient(circle at 4px calc(100% - 4px),#b4a07e 1px,#3a2e24 1.6px,transparent 2.2px),radial-gradient(circle at calc(100% - 4px) calc(100% - 4px),#b4a07e 1px,#3a2e24 1.6px,transparent 2.2px)}
+.hk .ic{inset:5px;border-radius:1px;background:radial-gradient(circle at 50% 40%,hsl(var(--hue) 42% 24%),hsl(var(--hue) 38% 8%) 78%);box-shadow:inset 0 0 0 1px #000,inset 0 0 14px rgba(0,0,0,.85)}
+.hk svg{stroke:var(--bone);stroke-width:1.7;filter:drop-shadow(0 0 3px hsl(var(--hue) 85% 55% / .55))}
+.hk .key{left:8px;top:7px;font-family:var(--body);color:var(--bone-dim);z-index:3}
+.hk .dv{right:7px;bottom:7px;font-family:var(--body);color:var(--bone);background:rgba(0,0,0,.75);border-radius:1px}
+.hk .cd{inset:5px;border-radius:1px;background:rgba(0,0,0,.72);font-family:var(--display);font-weight:400;color:var(--bone)}
+.hk.off .ic{filter:grayscale(1) brightness(.38)}
+.hk.sel{transform:translateY(-3px);box-shadow:inset 0 0 0 1px #000,0 0 0 2px var(--ember),0 0 18px rgba(232,135,58,.55),0 2px 0 #000}
+.hk.empty{background:linear-gradient(180deg,#221d19,#0f0c0b)}.hk.empty::after{inset:5px;border-radius:1px;border:1px solid rgba(140,115,85,.16);background:repeating-linear-gradient(135deg,rgba(255,255,255,.015) 0 4px,transparent 4px 8px)}
+#hbPager{border-radius:2px;background:linear-gradient(180deg,#2a2420,#120f0d);box-shadow:inset 0 0 0 1px #4a3e33,0 0 0 1px #000}
+#hbPager b{font-family:var(--display);font-weight:400;font-size:14px;color:var(--tarnish)}#hbPager button{color:var(--bone-dim)}
+/* End: a blood-red seal in a brass rim */
+#bar #endBtn{background:linear-gradient(180deg,#c9a46a,#4a3416)}
+#bar #endBtn::before{background:radial-gradient(circle at 50% 32%,#b8281e,#6a0e09 60%,#2a0504)}
+#bar #endBtn span{font-family:var(--display);font-weight:400;letter-spacing:.06em;color:var(--bone);text-shadow:0 1px 0 #000}
+#bar #endBtn svg{fill:var(--bone);stroke:#2a0504}
+/* readouts, banners, sheets */
+#roll{border-radius:3px;background:linear-gradient(180deg,#2a2420,#151210);box-shadow:inset 0 0 0 1px #5a4a3a,inset 0 1px 0 rgba(255,228,190,.07),0 0 0 1px #000,0 8px 18px rgba(0,0,0,.7)}
+#roll .rl{font-family:var(--display);font-weight:400;font-size:15px;letter-spacing:.03em;text-transform:none;color:var(--bone)}
+#roll .notes span{color:var(--tarnish)}#roll .notes .red{color:#e2705c}#roll .notes .blue{color:#a9bfd6}
+#roll .res span{color:var(--bone-dim)}#roll .res b{font-family:var(--display);font-weight:400;color:var(--bone)}
+#roll .res .hurt b,#roll .res .dmg b{color:#e2584a}#roll .res .crit b{color:#f0b050}#roll .res .heal b{color:#a8c88a}#roll .res .info b{font-family:var(--body);color:var(--tarnish)}
+#roll .res .ko{color:#e2705c}
+.chip{color:var(--bone);font-family:var(--body)}.chip.crit{color:#f0b050;text-shadow:0 0 10px rgba(240,160,60,.8)}.chip.bad{color:#e2705c}.chip.bonus{color:var(--tarnish)}.chip.tot{font-family:var(--display);font-weight:400;color:#fff}
+/* character sheet, intro and end screens */
+.cs-head{background:linear-gradient(120deg,#3a3028,#16120f)!important;border-bottom:1px solid var(--tarnish)}.cs-head.gob{background:linear-gradient(120deg,#4a1410,#1a0605)!important}
+.cs-head h2{font-family:var(--display);font-weight:400}.cs-head small{color:var(--tarnish)}
+.cs-hp{font-family:var(--display);font-weight:400;color:var(--bone-dim)}.cs-hp i{color:var(--bone)}.cs-hp .bar{border-radius:1px;background:#070505;box-shadow:inset 0 0 0 1px #3d3128}.cs-hp .bar b{background:linear-gradient(180deg,#e0584a,#7c120c)}
+.cs-stats div{border-radius:2px;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1px #3d3128;color:var(--bone-dim)}.cs-stats b{font-family:var(--display);font-weight:400;color:var(--bone)}
+.cs-tags span{border-radius:2px;background:#2a221d;color:var(--bone)}
+.cs-card{border-radius:3px;background:linear-gradient(90deg,hsl(var(--hue) 30% 16%),#141110)!important;border:1px solid #3d3128!important}.cs-card b{font-family:var(--display);font-weight:400;color:var(--bone)}.cs-card p{color:var(--bone-dim)!important}.cs-card em{color:var(--tarnish)}.cs-card svg{stroke:var(--bone)}
+.cs-note{color:var(--bone-dim)!important}
+.foes span{border-radius:2px;background:#2a0c0a;color:#e8b8a8;border:1px solid rgba(200,60,45,.35)}.foes span.boss{background:#3a1208;color:#f0c070;border-color:var(--tarnish)}
+.steps i{border-radius:0;background:#2a2420}.steps i.done{background:var(--tarnish)}.steps i.now{background:var(--blood-hi)}
+#end h2.win{color:var(--gold)}#end h2.lose{color:var(--blood-hi)}
+#logList .le{color:var(--bone-dim)}#logList .le b{color:var(--bone)}#logList .le.hero{border-left-color:#7a8a9a}#logList .le.foe{border-left-color:var(--blood-hi)}#logList .le.dice{color:#d6b68a;border-left-color:var(--tarnish)}#logList .le.hdr{font-family:var(--display);font-weight:400;color:var(--tarnish)}
+.combo{font-family:var(--display);font-weight:400}
+/* numbers stay in the plain face: the engraved one draws 1 like a Roman I */
+.chip.tot,#roll .res b,.hk .cd,#hbPager b,.cs-hp i,.cs-stats b,.rnd{font-family:var(--body)!important;font-weight:800!important}
+#banner span{font-family:var(--display);font-weight:400;letter-spacing:.04em;color:var(--bone);background:linear-gradient(90deg,transparent,rgba(0,0,0,.88) 20%,rgba(0,0,0,.88) 80%,transparent);text-shadow:0 2px 0 #000,0 0 30px rgba(200,55,43,.55)}
+.sheet,#menu{border-radius:3px;background:linear-gradient(180deg,#231e1b,#110e0c);border:1px solid #4a3e33;border-top:2px solid var(--tarnish);box-shadow:0 0 0 1px #000,0 24px 60px rgba(0,0,0,.8)}
+.sheet h2{font-family:var(--display);font-weight:400;color:var(--bone)}.sheet .kick,.sheet h3{color:var(--tarnish)}.sheet p,.sheet li{color:var(--bone-dim)}
+.sheet .go{border-radius:3px;border:1px solid var(--blood-hi);background:linear-gradient(180deg,#9a1e16,#4a0a07);font-family:var(--display);font-weight:400;color:var(--bone);text-shadow:0 1px 0 #000}
+.mi{color:var(--bone)}
+/* ================= the table speaks: foe intents, odds, the fallen, numbers that land ================= */
+/* foe intents: an arrow from each goblin to the hero it means to strike; dotted where it means to walk */
+#intents{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3;overflow:visible}
+#intents .it{fill:none;stroke-width:2;stroke-linecap:round;opacity:.4}
+#intents .it.attack{stroke:#ff5b47;marker-end:url(#ahR)}
+#intents .it.heal{stroke:#a8e08a;marker-end:url(#ahG);stroke-dasharray:1 5}
+#intents .it.approach{stroke:#e0c0b0;stroke-dasharray:2 6;opacity:.28;marker-end:url(#ahO)}
+#intents .it.next{stroke-width:3;opacity:.95}
+#intents .it.attack.next{stroke-dasharray:9 5;animation:itdash .9s linear infinite}
+#intents .it.focus{opacity:1;stroke-width:3.2}
+@keyframes itdash{to{stroke-dashoffset:-14}}
+/* the odds over each target of the chosen ability: damage to expect, and the chance to finish it */
+.tag .fc{display:none;align-items:baseline;gap:4px;margin-bottom:1px;padding:1px 5px 2px;border-radius:2px;background:rgba(8,6,5,.92);box-shadow:0 0 0 1px #6a2a20,0 2px 6px rgba(0,0,0,.7);font:800 11px/1.1 var(--body);white-space:nowrap;animation:pop .18s ease-out}
+.tag .fc.on{display:flex}
+.tag .fc b{font-size:15px;color:#ffb09a}
+.tag .fc i{font-style:normal;font-size:10.5px;letter-spacing:.05em;color:#ffd25a}
+.tag .fc.heal{box-shadow:0 0 0 1px #3d5a2a,0 2px 6px rgba(0,0,0,.7)}.tag .fc.heal b{color:#b8f09a}
+.tag .fc.ff{box-shadow:0 0 0 1px #c9a24a,0 2px 6px rgba(0,0,0,.7)}.tag .fc.ff b{color:#ffcf6a}
+#hbInfo .odds{color:var(--bone)}#hbInfo .odds b{color:#ffd25a}
+/* a fallen hero: grey, lying where they fell, marked Down until a heal raises them */
+.tag.down .hp{opacity:.3}
+.tag.down::before{content:'Down';font:800 11px/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:#ff9a86;text-shadow:0 1px 0 #000,0 0 6px #000;animation:dpulse 1.6s ease-in-out infinite}
+@keyframes dpulse{50%{opacity:.45}}
+.uwho.down .hpn i{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#ff9a86}
+/* damage that jumps off the struck piece, bigger for a bigger blow; crits in gold */
+.float.num{font-family:var(--body);font-weight:800;font-size:28px;letter-spacing:-.02em;color:#ffe0d0;text-shadow:0 2px 0 #000,0 0 12px rgba(0,0,0,.9)}
+.float.num.s2{font-size:36px}.float.num.s3{font-size:46px}
+.float.num.hurt{color:#ff6b55}
+.float.num.crit{color:#ffd25a;font-size:42px;text-shadow:0 2px 0 #000,0 0 22px rgba(255,170,40,.95)}.float.num.crit.s3{font-size:54px}
+.float.verdict.vdown{color:#ff7a5c;font-size:34px}
+.float.verdict.vraise{color:#ffe08a;font-size:34px;text-shadow:0 2px 0 #000,0 0 22px rgba(255,210,100,.9)}
+/* the tally at the end of a battle */
+.rep{width:100%;margin-top:14px;table-layout:fixed;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.rep th:first-child{width:38%}
+.rep th{padding:0 2px 5px;font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--tarnish);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rep td{padding:5px 2px;text-align:right;color:var(--bone-dim);border-top:1px solid #2e2620}
+.rep td:first-child{text-align:left;color:var(--bone)}
+.rep .rnm{display:flex;align-items:center;gap:5px;min-width:0}
+.rep .rn{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rep .rf{flex:none;width:22px;height:22px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 1px var(--tarnish);display:grid;place-items:center;background:#1a1512}
+.rep .rf img{width:100%;height:100%;object-fit:cover}.rep .rf svg{width:13px;height:13px;stroke:var(--bone);fill:none;stroke-width:2}
+.rep tr.mvp td{color:var(--bone)}
+.rep em{flex:none;font-style:normal;font-size:14px;line-height:1;color:#f0c070;text-shadow:0 0 8px rgba(240,192,112,.5)}
+.sheet p.repn{margin-top:8px;font-size:11.5px;color:var(--tarnish)}
+@media (max-width:380px){.rep th{font-size:8.5px;letter-spacing:.02em}.rep th:first-child{width:34%}}
+@media (prefers-reduced-motion:reduce){#intents .it.attack.next{animation:none}.tag.down::before{animation:none}}
+.combo.turn{font-size:22px;letter-spacing:.04em;color:var(--bone);text-shadow:0 2px 0 #000,0 0 16px rgba(0,0,0,.9)}
+/* a hero is hurt: the edges of the screen flush red, harder for a bigger wound */
+#hurt{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;background:radial-gradient(ellipse 75% 70% at 50% 48%,rgba(140,10,8,0) 55%,rgba(150,12,8,.55) 100%)}
+#hurt.go{animation:hurt .6s ease-out}
+@keyframes hurt{0%{opacity:0}12%{opacity:var(--k,.6)}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){#hurt.go{animation-duration:.3s}}
+#intentBtn.on .sw{background:#a8843e}
 </style>
-</head>
-<body>
-<canvas id="game" width="320" height="180" aria-label="Rogue Tactics"></canvas>
-<script src="js/vendor/three.min.js?v=BUILD" async></script>
-<script src="js/vendor/cannon.min.js?v=BUILD" async></script>
-<script src="js/data.js?v=BUILD"></script>
-<script src="js/engine.js?v=BUILD"></script>
-<script src="js/font.js?v=BUILD"></script>
-<script src="js/sprites.js?v=BUILD"></script>
-<script src="js/art.js?v=BUILD"></script>
-<script src="js/art64.js?v=BUILD"></script>
-<script src="js/audio.js?v=BUILD"></script>
-<script src="js/core.js?v=BUILD"></script>
-<script src="js/battle.js?v=BUILD"></script>
-<script src="js/dice3d.js?v=BUILD"></script>
-<script src="js/terrain.js?v=BUILD"></script>
-<script src="js/sheet.js?v=BUILD"></script>
-<script src="js/illus.js?v=BUILD"></script>
-<script src="js/run.js?v=BUILD"></script>
-<script src="js/tutorial.js?v=BUILD"></script>
-<script src="js/screens.js?v=BUILD"></script>
-<script src="js/journey.js?v=BUILD"></script>
-<script src="js/legacy.js?v=BUILD"></script>
-<script>try{go(TITLE_SCREEN);requestAnimationFrame(loop);window.__STARTED=true;}catch(e){window.__ERRS.push(String(e&&e.message||e)+' (start)');}</script>
-</body>
-</html>
+
+<div id="app">
+  <canvas id="c" aria-label="Battle map"></canvas>
+  <div id="vig"></div>
+  <svg id="intents" aria-hidden="true"><defs><marker id="ahR" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4.2" markerHeight="4.2" orient="auto"><path d="M0,0L10,5L0,10z" fill="#ff5b47"/></marker><marker id="ahG" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4.2" markerHeight="4.2" orient="auto"><path d="M0,0L10,5L0,10z" fill="#a8e08a"/></marker><marker id="ahO" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="3.6" markerHeight="3.6"><circle cx="5" cy="5" r="3.4" fill="none" stroke="#e0c0b0" stroke-width="2"/></marker></defs></svg>
+  <div id="tags"></div>
+  <div id="floats"></div>
+
+  <div id="top">
+    <div class="ustrip">
+      <button class="hexb" id="menuBtn" aria-label="Menu" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
+      <button class="uwho" id="uwho" aria-label="Open character sheet"></button>
+      <span class="rnd" id="roundLbl">R1</span>
+      <div class="tokens" id="tokens"></div>
+    </div>
+    <div id="menu" hidden>
+      <button class="mi" id="menuUndo"><svg viewBox="0 0 24 24"><path d="M9 7L4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12h-3" transform="translate(0 -5)"/></svg><span>Undo</span></button>
+      <button class="mi" id="menuView"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="1.2"/></svg><span>Reset view</span></button>
+      <button class="mi" id="menuFloor" hidden><svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg><span>Floor</span><em id="floorLbl" class="sv">Upper floor</em></button>
+      <button class="mi" id="threatBtn"><svg viewBox="0 0 24 24"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><circle cx="12" cy="16.8" r=".5"/></svg><span>Danger area</span><i class="sw"></i></button>
+      <button class="mi on" id="intentBtn"><svg viewBox="0 0 24 24"><path d="M4 18c3-8 8-11 15-11"/><path d="M15 3.5l4.5 3.5-3.5 4.5"/></svg><span>Foe intents</span><i class="sw"></i></button>
+      <button class="mi" id="menuLog"><svg viewBox="0 0 24 24"><path d="M6 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg><span>Combat log</span></button>
+      <button class="mi" id="helpBtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.7"/><circle cx="12" cy="17" r=".6"/></svg><span>How to play</span></button>
+      <button class="mi" id="settingsBtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg><span>Settings</span><em class="sv">›</em></button>
+    </div>
+    <div id="boss" hidden><span class="bn">Grubnash</span><div class="bb"><i id="bossBar"></i></div></div>
+  </div>
+  <div id="flash"></div>
+  <div id="hurt"></div>
+
+  <div id="roll" hidden><div class="rl" id="rollLbl"></div><div class="notes" id="rollNotes"></div><div class="chips" id="rollChips"></div><div class="res" id="rollRes"></div></div>
+  <div id="combos"></div>
+  <div id="banner"><span id="bannerTxt"></span></div>
+
+  <div id="dock">
+    <div class="dk">
+      <button id="goPill" hidden>Confirm?</button>
+      <button id="rotBtn" hidden aria-label="Turn the wall">⟲ <span>Across</span></button>
+      <div id="hbInfo" aria-live="polite"></div>
+      <div id="bar">
+        <div id="hb"><div id="hbRow"><div id="hbPager"><button id="pgUp" aria-label="Previous hotbar"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button><b id="pgNum">1</b><button id="pgDn" aria-label="Next hotbar"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></div><div id="hotbar" role="toolbar" aria-label="Abilities"></div></div></div>
+        <button id="endBtn" aria-label="End turn"><svg viewBox="0 0 24 24"><path d="M7 4.5l11 7.5-11 7.5z"/></svg><span>End</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ov" id="intro" hidden>
+    <div class="sheet">
+      <div class="steps" id="introSteps"></div>
+      <p class="kick" id="introKick">Battle 1 of 4</p>
+      <h2 id="introTitle">The Crypt Gate</h2>
+      <p id="introText"></p>
+      <div class="foes" id="introFoes"></div>
+      <button class="go" id="introGo">Set up the board</button>
+    </div>
+  </div>
+  <div class="ov" id="settings" hidden>
+    <div class="sheet">
+      <h2>Settings</h2>
+      <div class="setl">
+        <button class="mi on" id="muteBtn"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg><span>Sound</span><i class="sw"></i></button>
+        <button class="mi" id="styleBtn"><svg viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 22V12M3 7l9 5 9-5"/></svg><span>Model style</span><em id="styleLbl" class="sv">Painted</em></button>
+        <button class="mi" id="restartBtn"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v5h5"/></svg><span>Restart battle</span></button>
+      </div>
+      <p class="mnote">Twist two fingers to turn the board, pinch to zoom. Drag the floor or slide two fingers to look around.</p>
+      <button class="go" id="settingsClose">Done</button>
+    </div>
+  </div>
+  <div class="ov" id="logv" hidden>
+    <div class="sheet" id="logSheet"><h2>Combat log</h2><div id="logList"></div><button class="go" id="logClose">Close</button></div>
+  </div>
+  </div>
+  <div class="ov" id="confirm" hidden>
+    <div class="sheet cf">
+      <h2>End this turn?</h2>
+      <p id="cfText"></p>
+      <div class="cfb"><button id="cfBack">Keep playing</button><button class="go" id="cfEnd">End turn</button></div>
+    </div>
+  </div>
+  <div class="ov" id="csheet" hidden>
+    <div class="sheet" id="csBody"></div>
+  </div>
+  <div class="ov" id="help" hidden>
+    <div class="sheet">
+      <h2>Goblin Crypt</h2>
+      <p>Four battles stand between your party and the Goblin King: a gorge crossing, a ridge camp, the warg pens and his throne room. Every hero has 3 actions on their turn, every goblin 2. Moving is an action, and so is each ability. The dice are real dice: a <b>1</b> misses, a top face is a <b>crit</b> that explodes into another die, and the target's <b>toughness</b> die soaks up the rest. The party rests to full health between battles.</p>
+      <h3>Controls</h3>
+      <ul>
+        <li><b>Tap</b> a blue square or <b>drag</b> a hero to move.</li>
+        <li><b>Pick an ability</b> on the hotbar (or press its number), then tap a target. Each target shows the odds over its head: the damage to expect and the chance to finish it (<b>KO</b>). If you'd have to walk there first, the path lights up with <b>Confirm?</b>: tap it (or the target again) to go, anywhere else to cancel.</li>
+        <li><b>Red arrows</b> show what each goblin means to do if it acted now: who it would strike, or where it would walk. The bold one acts next. They change as you play, so use them: step out of reach, hide, or Taunt and watch every arrow swing to Brakka.</li>
+        <li><b>Undo</b> in the ☰ menu takes back moves and abilities that rolled no dice. Dice are final: once a roll is made it stands, and so does everything before it.</li>
+        <li><b>Twist two fingers</b> to turn the board, pinch to zoom, and drag the floor to look around. On a computer, shift-drag or right-drag turns it. Tap during the goblins' turn to speed it up.</li>
+        <li>Each hero has five hotbars of six slots: page with the arrows beside the bar, a sideways swipe, or <b>[</b> and <b>]</b>.</li>
+      </ul>
+      <h3>Turns</h3>
+      <ul>
+        <li>Each round every piece rolls <b>initiative</b> (d10, plus 3 for Vex and wargs, 1 for Orlen, cutters and archers, −1 for Grubnash). The higher roll goes first, then heroes and goblins alternate, one piece at a time. The strip at the top shows who acts now and who comes next.</li>
+        <li><b>Disadvantage:</b> each attack after a piece's first in a turn throws one more die for every attack it has already made, and the highest are set aside.</li>
+        <li>A hero at 0 HP is <b>down</b>, not dead: they lie where they fell, and goblins leave the body be. Sister Wenna's <b>Heal</b> raises them with whatever it rolls. If every hero is down, the battle is lost.</li>
+        <li>A <b>Prone</b> hero spends an action to stand up.</li>
+      </ul>
+      <h3>Attack and toughness</h3>
+      <ul>
+        <li>The attacker rolls its dice. If every die it keeps is a <b>1</b>, the attack misses, and nothing that rides on the hit happens.</li>
+        <li>Otherwise the target rolls its <b>toughness die</b> and takes the total minus that roll. Toughness dice never explode.</li>
+        <li>A <b>crit</b> (a die on its top face) cuts straight through: no toughness roll. Only blows up close crit: arrows, bolts, rays, hexes and Fireball never do.</li>
+        <li>Toughness: Brakka d4, Sister Wenna and Vex d2 (a coin), Orlen none; cutters and archers none, shamans d2, wargs d4, Grubnash d6.</li>
+        <li>Toughness moves in steps (none, d2, d4, d6, d8): <b>Taunt</b> +1 step, <b>Prone</b> −1, <b>Rebuke</b> −2 until Wenna's next turn; <b>Frozen</b> leaves none at all.</li>
+        <li>One roll, many targets: Cleave, Thunderwave and Fireball roll once, and each figure caught rolls its own toughness. Grubnash Smash, fire, falls and slams ignore toughness.</li>
+      </ul>
+      <h3>Combos</h3>
+      <ul>
+        <li><b>Prone</b> and <b>Frozen</b> foes take +1 die from every hit and are less tough. Charge, Thunderwave and Dirty Trick knock them down; Frost Ray freezes.</li>
+        <li><b>Rebuke</b> then strike: two steps off a foe's toughness, so a warg's d4 is gone and Grubnash's d6 falls to a d2.</li>
+        <li><b>Charge</b> a goblin into a wall, a pillar or another piece for a +2 Slam; shove it into fire for +2 burn.</li>
+        <li><b>Grapple</b> moves a foe or a friend beside Brakka one square in any direction: drag a goblin off a ledge or into the gorge, or pull a friend out of harm's way.</li>
+        <li><b>Hide</b> lasts until the end of Vex's next turn. Strike from hiding for +2 dice; add <b>Bless</b> and a prone target for a five-die backstab.</li>
+        <li><b>Haste</b> gives a hero a fourth action on their next turn.</li>
+        <li><b>Taunt</b> pulls every goblin onto Brakka, his toughness a step higher, while the others work.</li>
+        <li><b>Fireball</b> leaves burning squares for 2 rounds; anything standing in fire takes 2 each turn. Fire burns friends too.</li>
+      </ul>
+      <h3>Terrain</h3>
+      <ul>
+        <li><b>High ground:</b> a ranged attack on a foe at least a step lower adds +1 die. Melee gets no height bonus.</li>
+        <li><b>Cliffs</b> up to 2 squares high can be climbed, up or down; each square of height costs an extra square of movement. Chevrons mark a square you'd reach by climbing.</li>
+        <li><b>Engaged:</b> a shooter or caster (mage, archer, shaman) with a foe right beside it can't attack or cast unless it stands higher. Stepping away gives each such foe a free strike.</li>
+        <li><b>Cover:</b> a ranged attack on a target with a wall, rock, tree, pillar or crate right beside it, on the shooter's side, rolls with disadvantage.</li>
+        <li><b>Ice Wall</b> raises three blocks in a row (⟲ turns it across or down). They block movement and sight and give cover; a basic attack breaks one, and they melt after 3 rounds. Ice raised on fire turns to steam and puts it out; Fireball melts ice; Frost Ray can't freeze a foe standing in fire.</li>
+        <li><b>Ledges:</b> a foe shoved or grappled off high ground takes +2. <b>Gorges</b> can only be crossed on the bridges, and a goblin thrown in falls to its death.</li>
+        <li><b>Walls</b> block arrows, bolts and spells. Pillars and crates don't.</li>
+      </ul>
+      <h3>Foes</h3>
+      <ul>
+        <li><b>Cutters</b> rush the weakest hero in reach. <b>Archers</b> keep their distance and shoot from up to 4 squares. <b>Shamans</b> mend hurt goblins and hex from range 3.</li>
+        <li><b>Wargs</b> run 3 squares and hunt as a pack: +1 die on a hero another warg stands beside.</li>
+        <li><b>Grubnash</b> fills a 2×2 block, cleaves every hero beside him, can't be shoved, and kicks the fallen out of his way. Twice he blows his war horn for two more cutters.</li>
+        <li><b>Grubnash Smash:</b> he lowers his head and the path ahead of him is marked in red. At the start of his next turn he charges down it: anyone in the way is thrown aside, knocked Prone and takes 1d10. If he hits a wall, he falls Prone. Get out of the marked path.</li>
+        <li>When Grubnash falls, his court loses heart and flees, and the battle is won.</li>
+      </ul>
+      <button class="go" id="helpClose">To battle</button>
+    </div>
+  </div>
+  <div class="ov" id="end" hidden>
+    <div class="sheet">
+      <div class="steps" id="endSteps"></div>
+      <h2 id="endTitle">Victory</h2>
+      <p id="endText"></p>
+      <div id="endReport"></div>
+      <button class="go" id="againBtn">Next battle</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/vendor/three.min.js"></script>
+<script src="js/rules.js?v=BUILD"></script>
+<script src="js/view.js?v=BUILD"></script>
+</body></html>

@@ -1,188 +1,137 @@
-#!/usr/bin/env node
-/* Rogue Tactics journey simulator.
-   Plays whole journeys headlessly with the heroes' autoplay AI and reports win rates, where runs end,
-   how worn down the party is before each boss, and how often winning runs picked each power.
-   Usage: node tools/sim.js [runs=200] [seed=1] [--json]            */
-'use strict';
-const fs=require('fs'),path=require('path'),vm=require('vm');
-const RUNS=+(process.argv[2]||200),SEED0=+(process.argv[3]||1),JSON_OUT=process.argv.includes('--json');
-const root=path.join(__dirname,'..');
+// Headless balance simulator: plays whole battles with a greedy hero policy against the real goblin AI.
+// node sim.js [battles per level] [level|all] [rules file]
+const path = require('path');
+const GC = require(path.resolve(process.argv[4] || path.join(__dirname, '../js/rules.js')));
+const N = +process.argv[2] || 200, ONLY = process.argv[3] && process.argv[3] !== 'all' ? +process.argv[3] : null;
+const KNOWN = new Set(['rout', 'log', 'note', 'combo', 'float', 'wait', 'sfx', 'shake', 'fx', 'face', 'faceDir', 'cast', 'aim', 'endAim', 'status', 'par', 'roll', 'total', 'verdict', 'strike', 'miss', 'damage', 'kill', 'down', 'wake', 'fall', 'burn', 'ice', 'move', 'push', 'swing', 'shot', 'sweep', 'heal', 'smashMark', 'smashClear', 'smash', 'flinch', 'banner', 'spawn', 'turn', 'idle', 'clearDice', 'round', 'player', 'end']);
 
-/* ---- load the game rules into a sandbox that looks enough like a browser ---- */
-const store={};
-const ctx={console,performance:{now:()=>Date.now()},setTimeout,clearTimeout,
-  localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=String(v);},removeItem:k=>{delete store[k];}},
-  window:{}};
-ctx.globalThis=ctx;vm.createContext(ctx);
-let rngState=1;
-vm.runInContext(`Math.random=()=>{let t=(globalThis.__seed+=0x6D2B79F5)|0;t=Math.imul(t^t>>>15,1|t);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};globalThis.__seed=1;`,ctx);
-for(const f of['data.js','engine.js','run.js'])vm.runInContext(fs.readFileSync(path.join(root,'js',f),'utf8'),ctx,{filename:f});
-vm.runInContext(`Object.assign(TUNE,${process.env.TUNE||'{}'});`,ctx);
-// MONS='{"lich":{"hp":100}}' overrides monster stats, for tuning one foe at a time
-vm.runInContext(`for(const [k,v] of Object.entries(${process.env.MONS||'{}'}))Object.assign(MON[k],v);`,ctx);
-// PRE='...' runs any code after the data loads, e.g. to try new power costs
-if(process.env.PRE)vm.runInContext(process.env.PRE,ctx);
-// INSTR=file.js loads instrumentation code into the sandbox; __I is printed at the end
-if(process.env.INSTR){vm.runInContext(fs.readFileSync(process.env.INSTR,'utf8'),ctx);process.on('exit',()=>console.log('INSTR',JSON.stringify(vm.runInContext('globalThis.__I',ctx))));}
-// USES=1 prints how often the autoplay heroes used each power
-if(process.env.USES){vm.runInContext(`globalThis.__USES={};const __up=usePower;usePower=async function(u,p,T){if(u.side==='hero')__USES[p.name]=(__USES[p.name]||0)+1;return __up(u,p,T);};`,ctx);
-  process.on('exit',()=>{const U=vm.runInContext('__USES',ctx);console.log('POWER USES',Object.entries(U).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+' '+v).join(', '));});}
-vm.runInContext(`
-CTX={mode:'sim',relics:[]};
-function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-function go(){} function goReward(){} function toast(){} function sfx(){}
-const _roundEnd=roundEnd;roundEnd=async function(){if(G.round>=30){G.over=true;G.result='lose';return;}return _roundEnd();};
-`,ctx);
-
-/* ---- one journey ---- */
-vm.runInContext(`
-AUTOPLAY=true;UNLOCK_ALL=true;
-async function simBattle(enc,kind){
-  CTX={mode:'sim',relics:RUN.gear,vic:RUN.vic,dread:RUN.dread||0};RUN.encKind=kind;
-  for(const h of living())if(h.hp<=0)h.hp=1;
-  setupBattle(enc,living());
-  if(kind==='boss'&&RUN.omen){RUN.omen=false;for(const u of G.units)if(u.side==='hero'&&u.kind==='pc')u.mom=Math.min(5,u.mom+1);}
-  let guard=0;await nextTurn();
-  while(!G.over&&guard++<5){await nextTurn();}
-  const hs=G.units.filter(u=>u.side==='hero'&&u.kind==='pc');
-  globalThis.__last={hpEnd:hs.reduce((a,h)=>a+Math.max(0,h.dead?0:h.hp),0)/hs.reduce((a,h)=>a+h.maxHp,0),rounds:G.round,
-    why:G.result==='win'?'':hs.every(h=>h.dead)?'wipe':G.round>=30?'timeout':'objective',down:hs.filter(h=>h.dead).length,combos:G.combos||0};
-  if(!G.over)return 'lose';
-  return G.result;
-}
-function hpFrac(){let a=0,b=0;for(const h of living()){a+=Math.max(0,h.hp);b+=effMaxHp(h);}return b?a/b:0;}
-/* Catch Breath before a fight when a hero is below 60%. */
-function simCatch(){for(const h of living())while(h.hd>0&&h.hp<effMaxHp(h)*.6)catchBreath(h);}
-function takeOffers(P,S){
-  let g=0;
-  while(P&&P.steps&&P.steps.length&&g++<40){
-    const s=nextRewardStep();if(!s)break;
-    if(s==='summary'){takeReward(null);continue;}
-    const o=P.offers;const choice=o&&o.length?o[Math.floor(Math.random()*o.length)]:null;
-    let drop=null;
-    if(s==='draft'&&choice&&choice.id){const h=heroOf(choice.cls);if(h.powers.length>=slotsOf(h))drop=h.powers[Math.floor(Math.random()*h.powers.length)];
-      S.picks.push(choice.id);(S.offers=S.offers||[]).push({o:o.map(x=>x.id),p:choice.id});}
-    takeReward(choice,drop);
-  }
-  for(const h of living()){const best=RUN.stash.filter(id=>WEAPONS[id].cls===h.cls).sort((a,b)=>WEAPONS[b].tier-WEAPONS[a].tier)[0];if(best&&WEAPONS[best].tier>WEAPONS[h.weapon].tier&&!RUN.wup[h.weapon])equipWeapon(h.cls,best);}
-  RUN.pending=null;
-}
-function simCamp(S){
-  (S.restHp=S.restHp||[]).push(+hpFrac().toFixed(2));
-  for(const h of living())if(h.wounds>=2)tendWound(h.cls);
-  if(breakCamp()==='reward')takeOffers(RUN.pending,S);
-  RUN.stage='map';
-}
-async function simFollow(F,S,n){
-  if(F.battle){const r=await simBattle(F.battle.enc||F.battle,'battle');S.battles++;const L=globalThis.__last;
-    (S.fights=S.fights||[]).push({act:RUN.act,kind:'battle',type:F.battle.type,foes:[],hp:+L.hpEnd.toFixed(2),r:L.rounds,down:L.down,why:L.why,combos:L.combos});
-    if(r!=='win'){S.diedAt='event@'+RUN.act;S.why=L.why;return false;}resolveVictory();takeOffers(RUN.pending,S);}
-  else if(F.reward)takeOffers(RUN.pending,S);
-  return true;
-}
-async function simRun(seed){
-  globalThis.__seed=seed*7919+13;
-  newRun(${+(process.env.DREAD||0)});
-  if(takeBoon(pick(RUN.boons))==='reward')takeOffers(RUN.pending,{picks:[]});
-  const S={seed,result:'lose',act:0,floor:0,battles:0,picks:[],bossHp:[],bossLvl:[],bossGold:[],hpAfter:[],diedAt:null,shopSpent:0,goldEnd:0,weapons:[],relics:[],deaths:0,wounds:[]};
-  while(true){
-    simCatch();
-    const av=availableNodes().map(id=>RUN.map.nodes[id]);
-    let n;const hf=hpFrac();
-    const tired=living().some(h=>h.wounds>=2)||living().reduce((a,h)=>a+h.hd,0)<living().length;
-    const want=hf<.45||tired?['rest','shop','event','road','treasure','battle','elite']:hf<.7?['rest','treasure','event','shop','road','battle','elite']:null;
-    if(want){for(const t of want){const c=av.filter(q=>q.type===t);if(c.length){n=c[Math.floor(Math.random()*c.length)];break;}}}
-    if(!n)n=av[Math.floor(Math.random()*av.length)];
-    S.floor=n.f;S.act=RUN.act;
-    if(n.type==='battle'||n.type==='elite'||n.type==='boss'){
-      if(n.type==='boss'){S.bossHp.push(+hpFrac().toFixed(2));S.bossLvl.push(living().map(h=>h.powers.length).join(','));S.bossGold.push(RUN.gold);}
-      const A=arrive(n.id);const enc=A.battle;const type=enc.type;
-      (S.preHp=S.preHp||[]).push({act:RUN.act,kind:n.type,hp:+hpFrac().toFixed(2)});
-      const r=await simBattle(enc,n.type);S.battles++;
-      const L=globalThis.__last;(S.fights=S.fights||[]).push({act:RUN.act,kind:n.type,type,twist:enc.twist,foes:enc.enemies.map(e=>e.type||'rival'),hp:+L.hpEnd.toFixed(2),r:L.rounds,down:L.down,why:L.why,combos:L.combos});
-      if(r!=='win'){S.diedAt=(n.type==='boss'?'boss':n.type)+'@'+RUN.act+':'+type;S.why=L.why;break;}
-      resolveVictory();S.hpAfter.push(+hpFrac().toFixed(2));S.deaths=RUN.heroes.filter(h=>h.dead).length;
-      const P=RUN.pending,final=P&&P.final,boss=n.type==='boss';takeOffers(P,S);
-      if(final){S.result='win';break;}
-      if(boss){RUN.act++;RUN.map=genMap(RUN.act);RUN.pos=null;makeCamp({newAct:true});simCamp(S);}
-      if(!living().length)break;
-      continue;
+const DMG = {};
+let lastLabel = '';
+function tally(B, list) { list.forEach(e => { if (e.t === 'par') return e.list.forEach(l => tally(B, l)); if (e.t === 'roll' && !e.append) lastLabel = e.label; if (e.t === 'damage' && B.U(e.id).side === 'hero') { let k = e.from != null ? B.U(e.from).kind : 'other'; if (k === 'king') k = /Smash/.test(lastLabel) ? 'king-smash' : 'king-cleave'; DMG[k] = (DMG[k] || 0) + e.amount; } }); }
+function check(B, evs, where) {
+  const S = B.S; tally(B, evs);
+  const walk = list => list.forEach(e => { if (!KNOWN.has(e.t)) throw new Error(`${where}: unknown event ${e.t}`); if (e.t === 'par') e.list.forEach(walk); });
+  walk(evs);
+  const seen = new Map();
+  for (const u of S.units) {
+    if (!u.alive) continue;
+    if (u.hp < 0 || u.hp > u.maxHp) throw new Error(`${where}: ${u.name} hp ${u.hp}`);
+    if (u.down && u.hp !== 0) throw new Error(`${where}: down with hp`);
+    for (const [c, r] of B.cellsOf(u)) {
+      if (!B.inB(c, r)) throw new Error(`${where}: ${u.name} off board ${c},${r}`);
+      const k = B.key(c, r, u.l);
+      if (seen.has(k)) throw new Error(`${where}: ${u.name} on top of ${seen.get(k)} at ${k}`);
+      seen.set(k, u.name);
+      const ob = B.obstAt(c, r); if (!u.l && ob && ob !== 'ice') throw new Error(`${where}: ${u.name} inside ${ob} at ${k}`);
     }
-    const A=arrive(n.id);
-    if(n.type==='rest'){simCamp(S);}
-    else if(n.type==='shop'){
-      const items=RUN.shop.items;const g0=RUN.gold;
-      if(living().reduce((a,h)=>a+h.hd,0)<living().length*1.5){const it=items.find(i=>i.kind==='heal');if(it)buyItem(it);}
-      for(const it of shuffle(items.filter(i=>i.kind==='weapon')))if(RUN.gold>=it.price&&hasClass(WEAPONS[it.id].cls)&&WEAPONS[it.id].tier>WEAPONS[heroOf(WEAPONS[it.id].cls).weapon].tier)buyItem(it);
-      for(const it of shuffle(items.filter(i=>i.kind!=='heal'&&i.kind!=='weapon')))if(RUN.gold>=it.price&&Math.random()<.75){const h=it.kind==='power'?heroOf(it.cls):null;const drop=h&&h.powers.length>=slotsOf(h)?h.powers[0]:null;if(buyItem(it,drop)&&it.kind==='power')S.picks.push(it.id);}
-      // the smith: temper a random hero's weapon if there is gold to spare
-      for(const h of shuffle(living().slice())){const m=smithMenu(h.weapon).find(o=>o.k==='temper');if(m&&RUN.gold>=m.cost+20){smithDo(h.weapon,m);break;}}
-      S.shopSpent+=g0-RUN.gold;RUN.shop=null;RUN.stage='map';
-      takeOffers({steps:[]},S);
-    }else if(n.type==='treasure'){takeOffers(RUN.pending,S);}
-    else if(A&&A.screen==='event'){
-      const ev=eventOf(RUN.event);const opts=ev.opts.filter(optOk);
-      const o=opts.find(q=>q.cls&&q.auto)||opts[Math.floor(Math.random()*opts.length)];
-      const res=resolveEvent(o);RUN.event=null;
-      if(!await simFollow(afterOutcome(res),S,n))break;
-    }else if(A&&A.screen==='task'){
-      let g=0;while(!RUN.task.done&&g++<40){for(const h of living()){if(RUN.task.done||RUN.task.acted.includes(h.cls))continue;
-        const ap=taskApproaches().sort((a,b)=>checkChance(h,b.a,b.cls===h.cls?1:0)-checkChance(h,a.a,a.cls===h.cls?1:0))[0];taskAttempt(h.cls,ap);}}
-      const res=finishTask();if(!await simFollow(afterOutcome(res),S,n))break;
-    }else if(A&&A.screen==='talk'){
-      let g=0;while(!RUN.talk.done&&g++<5){const args=talkArgs();const arg=args.sort((a,b)=>checkChance(bestFor(b.a,b.cls),b.a,talkNet(b))-checkChance(bestFor(a.a,a.cls),a.a,talkNet(a)))[0];talkArg(arg);}
-      const res=finishTalk();if(!await simFollow(afterOutcome(res),S,n))break;
-    }
-    RUN.stage='map';
-    if(!living().length)break;
   }
-  S.goldEnd=RUN.gold;const LV=RUN.heroes;S.lvlEnd=LV.reduce((a,h)=>a+h.powers.length,0)/LV.length;S.weapons=LV.map(h=>h.weapon);S.relics=RUN.gear.slice();S.lvls=LV.map(h=>h.lvl);
-  S.deaths=RUN.heroes.filter(h=>h.dead).length;S.woundsEnd=RUN.heroes.reduce((a,h)=>a+(h.wounds||0),0);
-  return S;
 }
-`,ctx);
 
-(async()=>{
-  const out=[];const t0=Date.now();
-  for(let i=0;i<RUNS;i++){const S=await vm.runInContext(`simRun(${SEED0+i})`,ctx);out.push(S);
-    if(!JSON_OUT&&(i+1)%25===0)process.stderr.write(`${i+1}/${RUNS} runs, ${((Date.now()-t0)/1000).toFixed(0)}s\n`);}
-  if(JSON_OUT){console.log(JSON.stringify(out));return;}
-  report(out);
-})();
+// ---------------- the hero policy: greedy on expected value, one action at a time ----------------
+const T = 300;
+function options(B, u) {
+  const opts = [], S = B.S, foes = B.gobs();
+  const allyLater = S.order.slice(S.turn + 1).map(B.U).filter(x => x.side === 'hero' && B.up(x));
+  for (const id of B.def(u).cards) {
+    if (B.block(u, id)) continue;
+    const card = B.CARDS[id], tg = B.targets(u, id);
+    if (card.atk || (card.target === 'enemy' && id === 't_trick') || id === 'c_rebuke') {
+      for (const [k, e] of tg) {
+        if (e.unit == null) continue;
+        const t = B.U(e.unit), from = e.path ? e.path[e.path.length - 1] : u;
+        let v = 0;
+        if (card.atk) { const f = B.forecast(u, id, t, from, T); v = f.avg + f.kill * (t.hp + 5); if (id === 'm_frost') v += 2.5 * (1 - f.miss); if (id === 'f_charge') v += 1.5 * (1 - f.miss); }
+        else if (id === 't_trick') v = t.st.prone ? 0 : 1.5 + allyLater.length * .8;
+        else if (id === 'c_rebuke') { const d = B.toughDie(t); v = d >= 4 ? 1 + allyLater.filter(h => B.dist(h, t) <= 3).length * d / 3 : 0; }
+        if (e.path) v -= 1.6; // the walk costs an action
+        if (S.smash && S.smash.cells.includes(B.key(from.c, from.r))) v -= 5;
+        opts.push({ v, id, target: e.unit, path: e.path });
+      }
+    } else if (card.sweep) {
+      const fs = (card.sweep === 'around' ? foes.filter(t => B.cheb(t, u) === 1) : foes.filter(t => B.dist(t, u) === 1));
+      let v = 0; for (const t of fs) { const f = B.forecast(u, id, t, u, T); v += f.avg + f.kill * (t.hp + 5) + (card.shove ? 1 : 0); }
+      opts.push({ v, id, target: u.id });
+    } else if (card.area) {
+      for (const [k, e] of tg) {
+        const hit = B.blastAt(e.cell); let v = 0;
+        for (const x of hit) { const f = B.forecast(u, id, x, u, T); v += x.side === 'gob' ? f.avg + f.kill * (x.hp + 5) + 1.5 : -(f.avg * 2 + 4); }
+        if (v > 0) opts.push({ v, id, target: e.cell });
+      }
+    } else if (id === 'c_heal') {
+      for (const [k, e] of tg) { const t = B.U(e.unit); if (e.path) continue; const need = t.down ? 99 : t.maxHp - t.hp; if (t.down) opts.push({ v: 20, id, target: t.id }); else if (need >= 4) opts.push({ v: Math.min(need, 4.5) * 1.1, id, target: t.id }); }
+    } else if (id === 'c_bless') {
+      for (const [k, e] of tg) { const t = B.U(e.unit); if (e.path || t.st.blessed) continue; const later = t === u ? 0 : allyLater.includes(t) ? 1 : 0; if (later && ['fighter', 'thief'].includes(t.kind)) opts.push({ v: 1.8, id, target: t.id }); }
+    } else if (id === 'c_haste') {
+      for (const [k, e] of tg) { const t = B.U(e.unit); if (e.path || t === u || t.st.hasted) continue; if (['fighter', 'thief'].includes(t.kind)) opts.push({ v: 2.2, id, target: t.id }); }
+    } else if (id === 'f_taunt') {
+      const near = foes.filter(g => B.dist(g, u) <= 4).length, soft = B.heroes().filter(h => h !== u && h.hp < h.maxHp * .5).length;
+      if (near >= 2 && soft) opts.push({ v: 1.5 + soft, id, target: u.id });
+    } else if (id === 't_hide') {
+      if (!u.st.hidden && u.ap >= 2) opts.push({ v: 1.2, id, target: u.id });
+    } else if (id === 'f_grab') {
+      for (const g of B.grabbable(u)) {
+        if (g.side !== 'gob') continue;
+        for (const [k, e] of B.grabCells(u, g)) if (B.obstAt(e.cell.c, e.cell.r) === 'chasm') opts.push({ v: g.hp + 8, id, target: { grab: g.id, cell: e.cell } });
+      }
+    }
+  }
+  return opts;
+}
+function positionMove(B, u) { // no good action: walk toward a useful square
+  const rch = B.reach(u), foes = B.gobs().filter(g => !g.asleep); if (!foes.length) return null;
+  let best = null;
+  for (const n of rch.values()) {
+    if (!n.end || n.cost === 0) continue;
+    const d = Math.min(...foes.map(g => B.dist(n, g)));
+    let sc;
+    if (B.isRanged(u)) { const sees = foes.some(g => B.dist(n, g) <= 4 && B.los(n, g)); sc = (sees ? 0 : 10) + (d <= 1 ? 8 : 0) - Math.min(d, 4) * .5; }
+    else if (u.kind === 'cleric') { const hurt = B.heroes().filter(h => h !== u && h.hp < h.maxHp); const dh = hurt.length ? Math.min(...hurt.map(h => B.dist(n, h))) : 0; sc = d * .6 + Math.max(0, dh - 3) * 2; }
+    else sc = d;
+    sc += B.burning(n.c, n.r, n.l) ? 20 : 0;
+    if (B.S.smash && B.S.smash.cells.includes(B.key(n.c, n.r))) sc += 30;
+    if (!best || sc < best.sc) best = { sc, path: B.pathTo(rch, B.key(n.c, n.r, n.l)) };
+  }
+  const here = Math.min(...foes.map(g => B.dist(u, g)));
+  if (best && (B.isRanged(u) ? true : Math.min(...foes.map(g => B.dist(best.path[best.path.length - 1], g))) < here)) return best.path;
+  return null;
+}
+function heroTurn(B, stats) {
+  const S = B.S, u = B.U(S.active);
+  for (let k = 0; k < 8 && S.phase === 'player' && S.active === u.id && u.ap > 0; k++) {
+    if (S.smash && S.smash.cells.includes(B.key(u.c, u.r))) { // first get out of the King's way
+      const rch = B.reach(u); let out = null;
+      for (const n of rch.values()) if (n.end && !S.smash.cells.includes(B.key(n.c, n.r)) && (!out || n.cost < out.cost)) out = n;
+      if (out) { const evs = B.move(u.id, B.pathTo(rch, B.key(out.c, out.r, out.l))); check(B, evs, 'dodge'); continue; }
+    }
+    const opts = options(B, u).sort((a, b) => b.v - a.v), best = opts[0];
+    let evs;
+    if (best && best.v > .9) { evs = B.act(u.id, best.id, best.target, best.path); stats.uses[best.id] = (stats.uses[best.id] || 0) + 1; }
+    else { const p = positionMove(B, u); if (!p) break; evs = B.move(u.id, p); }
+    if (!evs.length) break;
+    check(B, evs, `${S.level} r${S.round} ${u.name}`);
+    if (S.level === 3 && !S.kingDied && !S.units.find(x => x.kind === 'king').alive) S.kingDied = S.round;
+  }
+  if (S.phase === 'player') { const evs = B.endTurn(); check(B, evs, `${S.level} r${S.round} end`); }
+}
 
-function report(R){
-  const n=R.length,wins=R.filter(r=>r.result==='win');
-  const pct=v=>(100*v).toFixed(0)+'%';
-  console.log(`\nRUNS ${n}   WIN RATE ${pct(wins.length/n)}`);
-  const died={};for(const r of R)if(r.diedAt){const k=r.diedAt.split(':')[0];died[k]=(died[k]||0)+1;}
-  console.log('Runs ended at:',Object.entries(died).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${pct(v/n)}`).join(', '));
-  const reach=[0,1,2].map(a=>R.filter(r=>r.bossHp.length>a).length);
-  console.log('Reached boss of act 1/2/3:',reach.map(v=>pct(v/n)).join(' / '),'   beat act 1/2/3:',[0,1,2].map(a=>pct(R.filter(r=>r.act>a||r.result==='win').length/n)).join(' / '));
-  for(let a=0;a<3;a++){const hs=R.filter(r=>r.bossHp.length>a);if(!hs.length)continue;
-    const avg=k=>hs.reduce((s,r)=>s+r[k][a],0)/hs.length;
-    const lv=hs.reduce((s,r)=>s+r.bossLvl[a].split(',').reduce((x,y)=>x+ +y,0)/4,0)/hs.length;
-    console.log(`Act ${a+1} boss: party health on arrival ${pct(avg('bossHp'))}, gold ${avg('bossGold').toFixed(0)}, average powers per hero ${lv.toFixed(1)}`);}
-  {const W=R.filter(r=>r.result==='win');if(W.length)console.log(`Average powers per hero at the end of a won journey: ${(W.reduce((s,r)=>s+r.lvlEnd,0)/W.length).toFixed(1)}`);}
-  console.log(`Heroes dead per run: ${(R.reduce((s,r)=>s+r.deaths,0)/n).toFixed(2)}   Wounds at the end: ${(R.reduce((s,r)=>s+(r.woundsEnd||0),0)/n).toFixed(1)}`);
-  const hpa=R.flatMap(r=>r.hpAfter);console.log(`Party health after a battle (avg): ${pct(hpa.reduce((a,b)=>a+b,0)/hpa.length)}   shop spend/run: ${(R.reduce((s,r)=>s+r.shopSpent,0)/n).toFixed(0)}   gold left at end: ${(R.reduce((s,r)=>s+r.goldEnd,0)/n).toFixed(0)}`);
-  const W={};for(const r of R)if(r.why)W[r.why]=(W[r.why]||0)+1;console.log('Loss reasons:',JSON.stringify(W));
-  for(let a=0;a<3;a++)for(const k of['battle','elite','boss']){const F=R.flatMap(r=>(r.fights||[]).filter(f=>f.act===a&&f.kind===k));if(!F.length)continue;
-    const won=F.filter(f=>!f.why);console.log(`  act ${a+1} ${k.padEnd(6)} n=${String(F.length).padStart(4)}  lost ${pct(1-won.length/F.length).padStart(4)}  health left when won ${pct(won.reduce((s,f)=>s+f.hp,0)/Math.max(1,won.length)).padStart(4)}  heroes down ${(won.reduce((s,f)=>s+f.down,0)/Math.max(1,won.length)).toFixed(2)}  rounds ${(won.reduce((s,f)=>s+f.r,0)/Math.max(1,won.length)).toFixed(1)}  combos/round ${(F.reduce((s,f)=>s+(f.combos||0),0)/Math.max(1,F.reduce((s,f)=>s+f.r,0))).toFixed(2)}`);}
-  const mt={};for(const r of R)if(r.diedAt){const m=r.diedAt.split(':')[1];if(m)mt[m]=(mt[m]||0)+1;}
-  console.log('Deaths by mission:',Object.entries(mt).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}`).join(', '));
-  const rh=R.flatMap(r=>r.restHp||[]);console.log(`Party health on reaching a campfire: ${pct(rh.reduce((a,b)=>a+b,0)/Math.max(1,rh.length))}`);
-  for(let a=0;a<3;a++){const ph=R.flatMap(r=>(r.preHp||[]).filter(q=>q.act===a&&q.kind==='battle').map(q=>q.hp));if(ph.length)console.log(`  act ${a+1}: party health going into a normal battle ${pct(ph.reduce((x,y)=>x+y,0)/ph.length)}`);}
-  // power balance, fair version: among runs offered a power, win rate when it was taken vs passed over
-  {const T={};for(const r of R){const seen=new Set();for(const e of r.offers||[])for(const id of e.o){if(seen.has(id))continue;seen.add(id);const t=T[id]=T[id]||{p:0,pw:0,s:0,sw:0};if(e.p===id){t.p++;if(r.result==='win')t.pw++;}else{t.s++;if(r.result==='win')t.sw++;}}}
-   const rows=Object.entries(T).filter(([k,t])=>t.p>=8&&t.s>=8).map(([k,t])=>({k,d:t.pw/t.p-t.sw/t.s,p:t.p,wp:t.pw/t.p,ws:t.sw/t.s})).sort((a,b)=>b.d-a.d);
-   console.log('\nPOWER EFFECT (first time offered: win rate if taken vs passed over)');
-   for(const r of rows)console.log(`  ${r.k.padEnd(12)} taken ${String(r.p).padStart(4)} win ${pct(r.wp).padStart(4)}  passed win ${pct(r.ws).padStart(4)}  effect ${(r.d>=0?'+':'')+(100*r.d).toFixed(0)}pts${r.d>.15?'  <-- strong':r.d<-.12?'  <-- weak':''}`);}
-  return;
-  // power balance: win rate of runs that picked a power vs the base rate
-  const base=wins.length/n;const P={};
-  for(const r of R){for(const id of new Set(r.picks)){(P[id]=P[id]||{n:0,w:0,depth:0});P[id].n++;if(r.result==='win')P[id].w++;P[id].depth+=r.bossHp.length;}}
-  const rows=Object.entries(P).map(([id,v])=>({id,n:v.n,wr:v.w/v.n,depth:v.depth/v.n})).sort((a,b)=>b.wr-a.wr);
-  const avgDepth=R.reduce((s,r)=>s+r.bossHp.length,0)/n;
-  console.log(`\nPOWER PICKS (win rate when picked; base ${pct(base)}; bosses reached, base ${avgDepth.toFixed(2)})`);
-  for(const r of rows)if(r.n>=Math.max(5,n*.03))console.log(`  ${r.id.padEnd(12)} picked ${String(r.n).padStart(4)}  win ${pct(r.wr).padStart(4)}  bosses ${r.depth.toFixed(2)}${r.wr>base*1.6&&r.wr-base>.08?'  <-- strong':r.wr<base*.5&&base-r.wr>.08?'  <-- weak':''}`);
+function play(level, seed, stats) {
+  const S = GC.newState(level, seed), B = GC.battle(S);
+  check(B, B.begin(), 'begin');
+  for (let k = 0; k < 2000 && !S.result; k++) heroTurn(B, stats);
+  const hs = S.units.filter(u => u.side === 'hero');
+  if (S.level === 3 && S.result === 'win') { stats.kingRound = (stats.kingRound || []); stats.kingRound.push(S.kingDied || S.round); }
+  return { win: S.result === 'win', rounds: S.round, downs: hs.filter(h => h.down).length, hpLeft: hs.reduce((a, h) => a + (h.down ? 0 : h.hp), 0) / hs.reduce((a, h) => a + h.maxHp, 0), horns: S.horns, totalDowns: Object.values(S.stats).reduce((a, s) => a + s.downs, 0) };
+}
+const levels = ONLY != null ? [ONLY] : GC.LEVELS.map((_, i) => i);
+for (const lv of levels) {
+  const stats = { uses: {} }, res = [];
+  const t0 = Date.now();
+  for (let i = 0; i < N; i++) res.push(play(lv, 1000 + i * 7919, stats));
+  const avg = f => (res.reduce((a, r) => a + f(r), 0) / res.length);
+  const wr = res.filter(r => r.win).map(r => r.rounds), lr = res.filter(r => !r.win).map(r => r.rounds), med = a => a.length ? a.sort((x, y) => x - y)[a.length >> 1] : '-';
+  console.log(`    rounds: wins median ${med(wr)}, losses median ${med(lr)}, capped ${res.filter(r => r.rounds >= 99).length}`);
+  console.log(`L${lv + 1} ${GC.LEVELS[lv].name.padEnd(20)} win ${(avg(r => r.win) * 100).toFixed(0).padStart(3)}%  rounds ${avg(r => r.rounds).toFixed(1)}  hp left ${(avg(r => r.hpLeft) * 100).toFixed(0)}%  downs ${avg(r => r.totalDowns).toFixed(2)}  ${((Date.now() - t0) / N).toFixed(0)}ms/battle`);
+  if (process.env.DMG) { console.log('    damage to heroes per battle:', Object.entries(DMG).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${(v / N).toFixed(1)}`).join(' · ')); for (const k in DMG) delete DMG[k]; }
+  if (stats.kingRound) { const k = stats.kingRound.sort((a, b) => a - b); console.log('    king falls in round: median', k[k.length >> 1], ' p25', k[k.length >> 2], ' p75', k[(k.length * 3) >> 2]); }
+  if (process.env.USES) console.log('   ', Object.entries(stats.uses).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${(v / N).toFixed(1)}`).join(' · '));
 }
