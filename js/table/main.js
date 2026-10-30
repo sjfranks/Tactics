@@ -1,5 +1,5 @@
 'use strict';
-// GOBLIN CRYPT · THE TABLE · the camera, the frame loop, the campaign and start-up (loads last)
+// GOBLIN CRYPT · THE TABLE · the camera, the frame loop and start-up (loads last)
 // One of the view's scripts (see js/table/core.js); they share one scope and load in the order index.html lists them.
 // ---------------- camera & loop ----------------
 let topH = 80, dockH = 220;
@@ -99,6 +99,7 @@ function frame(t) {
   if (mover) follow = mover; else if (follow) follow = null;
   if (reticle.visible && reticleOn) { const q = reticleOn.root.position; reticle.position.set(q.x, q.y + .07, q.z); lieFlat(reticle, q.x, q.z, t * .0012); reticle.material.opacity = (reticle.userData.op ?? 1) * (.8 + .2 * Math.sin(t * .009)); }
   if (smashMarks) smashMat.opacity = .5 + .35 * Math.sin(t * .009);
+  if (G && G.B.vents.length) { const soon = UI.phase !== 'intro' && (G.S.round + 1) % GC.TUNE.vents.every === 0; ventMat.emissiveIntensity = soon ? 1.1 + .9 * (.5 + .5 * Math.sin(t * .01)) : .8; } // vents throb the round before they blow
   if (rollAt && !$('#roll').hidden) placeRoll();
   updateBubbles(t);
   for (let i = floats.length - 1; i >= 0; i--) {
@@ -112,86 +113,6 @@ function frame(t) {
   renderer.render(scene, camera);
 }
 
-// ---------------- campaign / hot reload ----------------
-function clearBoard() {
-  units.forEach(u => { if (!u) return; scene.remove(u.root); scene.remove(u.ring); u.tag.remove(); });
-  units = [];
-  [...burnFx.keys()].forEach(clearBurnFx);
-  floats.splice(0).forEach(f => f.el.remove()); bubbles.splice(0).forEach(b => b.el.remove());
-  liveDice.splice(0).forEach(d => scene.remove(d));
-  while (propGroup.children.length) propGroup.remove(propGroup.children[0]);
-  levelEmit.splice(0).forEach(e => { const i = emitters.indexOf(e); if (i >= 0) emitters.splice(i, 1); });
-  lvLight.userData.base = 0; lvLight.intensity = 0;
-  [...ICE.keys()].forEach(k => removeIceFx(k)); hideArrow(); hideRoll(); tweens.length = 0; clearSmashFx();
-  hitStop = 0; slowT = 0; slowK = 1; kick = 0;
-}
-// set-up shot: pulled back over the middle so the whole map is in frame while the pieces land
-function overview(now) {
-  follow = null; camAzT = camAz - angDiff(camAz, baseAz()); camTX = 0; camTZ = 0;
-  zoomT = Math.max(1, Math.min(COLS / VIEWC, 3) * 1.04, (ROWS / VIEWR) * 1.04);
-  if (now) { camAz = camAzT; camX = camTX; camZ = camTZ; zoom = zoomT; }
-}
-// play view: default distance, framed on the party with a little room toward the foes
-function defaultView(now) {
-  const hs0 = units.filter(u => u && u.side === 'hero' && u.alive); if (!hs0.length) return;
-  follow = null; zoomT = 1;
-  camTX = hs0.reduce((a, u) => a + u.root.position.x, 0) / hs0.length; camTZ = hs0.reduce((a, u) => a + u.root.position.z, 0) / hs0.length - 1.5; clampCam();
-  if (!bigMap()) { camTX = 0; camTZ = 0; }
-  if (now) { camX = camTX; camZ = camTZ; zoom = zoomT; }
-}
-// lay out a battle: the rules make a fresh state (or take a saved one), the table builds the diorama and the pieces
-function loadLevel(i, saved) {
-  level = i; const L = LEVELS[i];
-  clearBoard();
-  G = GC.battle(saved || GC.newState(i));
-  boardFromRules(G.B); buildBoard(L); buildHL();
-  (L.props || []).forEach(([type, c, r]) => PROPS[type](c, r));
-  const [hs, hg, sc, si, bg] = L.art.sky;
-  hemi.color.setHex(hs); hemi.groundColor.setHex(hg); sun.color.setHex(sc); sun.intensity = si; scene.fog.color.setHex(bg); scene.background.setHex(bg);
-  G.S.units.forEach(r => { if (r.alive) makeUnit(r); });
-  overview(true);
-  combatLog.length = 0; undoStack.length = 0;
-  Object.assign(UI, { phase: 'intro', busy: true, sel: null, card: null, aim: null, round: 1, over: false, inspect: null, active: null, order: [], turn: -1, confirm: null, intents: [], fcFocus: null });
-  UI.fc.clear();
-  $('#boss').hidden = true;
-  updateHud(); measure(); renderDock();
-  if (saved && G.S.phase === 'player') { // back from a reload: straight to the hero whose turn it was
-    try {
-      liveUnits().forEach(showNow);
-      QUIET = true; try { sync(); } finally { QUIET = false; }
-      UI.round = G.S.round; UI.order = G.S.order.slice(); UI.turn = G.S.turn;
-      G.S.units.forEach(r => { const u = vu(r.id); if (u) u.init = r.init; });
-      UI.active = vu(G.S.active); UI.phase = 'player'; UI.busy = false;
-      defaultView(true); updateBoss(); updateHud(); renderTokens(); setSel(UI.active, true); computeIntents(); refresh();
-      return;
-    } catch (e) { console.error(e); return loadLevel(i); }
-  }
-  showIntro();
-}
-function showIntro() {
-  const L = LEVELS[level];
-  steps('#introSteps');
-  $('#introKick').textContent = level === LEVELS.length - 1 ? `Battle ${level + 1} of ${LEVELS.length} · Boss` : `Battle ${level + 1} of ${LEVELS.length}`;
-  $('#introTitle').textContent = L.name; $('#introText').textContent = L.text;
-  const counts = {}; L.foes.forEach(([k]) => counts[k] = (counts[k] || 0) + 1);
-  $('#introFoes').innerHTML = Object.entries(counts).map(([k, n]) => { const d = GC.UNITS[k]; return `<span class="${d.boss ? 'boss' : ''}">${n > 1 ? n + '× ' : ''}${d.name}${d.title ? ' ' + d.title : ''}</span>`; }).join('');
-  $('#introGo').textContent = level === 0 ? 'Set up the board' : 'To battle';
-  $('#intro').hidden = false;
-}
-// a reload keeps the battle if it is the player's move; otherwise it starts the battle again
-function snapshot() {
-  if (!G || UI.phase !== 'player' || UI.busy || UI.over) return { level: Math.min(level, LEVELS.length - 1) };
-  return { v: 2, level, state: G.snapshot() };
-}
-function start(data) {
-  resize();
-  applyEnvStyle(); $('#styleLbl').textContent = STYLE_NAME[STYLE]; $('#intentBtn').classList.toggle('on', showIntents); $('#barkBtn').classList.toggle('on', showBarks);
-  makePortraits();
-  const lv = data && Number.isInteger(data.level) && LEVELS[data.level] ? data.level : 0;
-  let saved = null;
-  if (data && data.v === 2 && typeof data.state === 'string') { try { saved = JSON.parse(data.state); if (saved.v !== 2 || saved.level !== lv) saved = null; } catch (e) { saved = null; } }
-  loadLevel(lv, saved);
-  requestAnimationFrame(frame);
-}
+// ---------------- start-up (the campaign and its save are in campaign.js) ----------------
 try { window.claude?.hot?.snapshot?.(snapshot); } catch (e) { }
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});

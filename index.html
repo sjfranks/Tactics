@@ -474,6 +474,28 @@ body{font-family:var(--body)}
 #talk .tnext{font:800 10.5px var(--body);font-style:normal;letter-spacing:.12em;text-transform:uppercase;color:var(--bone-dim)}
 #logList .le.say{color:var(--bone);font-style:italic;border-left-color:var(--gold)}
 #barkBtn.on .sw{background:#a8843e}
+/* the campaign: boons to choose between battles, and the ones the party carries */
+.boons{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.boon{display:flex;gap:10px;align-items:flex-start;width:100%;padding:10px 12px;border-radius:3px;border:1px solid #4a3e33;background:linear-gradient(180deg,#2a231e,#171310);text-align:left;color:var(--bone);transition:border-color .15s,box-shadow .15s,transform .12s}
+.boon:hover{border-color:#7a6448}.boon:active{transform:scale(.985)}
+.boon.sel{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 0 18px rgba(201,164,106,.35)}
+.boon .bf{flex:none;width:36px;height:36px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:#1a1512;box-shadow:0 0 0 1px var(--tarnish)}
+.boon .bf img{width:100%;height:100%;object-fit:cover}.boon .bf svg{width:18px;height:18px;stroke:var(--gold);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.boon .bt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.boon .bt b{font:400 17px/1.15 var(--display);color:var(--bone)}
+.boon .bt small{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--tarnish)}
+.boon .bt span{font-size:13.5px;line-height:1.35;color:var(--bone-dim)}
+.sheet .go:disabled{opacity:.45;filter:saturate(.4)}
+.boonchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}
+.boonchips b{font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--tarnish);margin-right:2px}
+.boonchips span,.cs-boons span{font-size:12px;font-weight:700;padding:3px 9px;border-radius:2px;background:#2a2016;color:#f0d8a8;border:1px solid rgba(201,164,106,.35)}
+.hk .us{position:absolute;right:6px;top:6px;font:800 10px/1 var(--body);color:#1a1208;background:linear-gradient(180deg,#d8f0b0,#78a848);padding:2px 4px;border-radius:2px;z-index:3}
+#end h3{margin:16px 0 6px}
+#musicBtn.on .sw,#muteBtn.on .sw{background:#a8843e}
+/* a tip: a short word of advice above the hotbar, the first time something comes up */
+#coach{position:absolute;left:50%;bottom:calc(var(--dk,92px) + 10px);z-index:7;transform:translateX(-50%);width:min(440px,calc(100% - 24px));box-sizing:border-box;display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:3px;background:#e8dcc0;color:#231a12;box-shadow:0 0 0 1px #000,0 10px 26px rgba(0,0,0,.6);animation:pop .2s ease-out}
+#coach p{flex:1;min-width:0;margin:0;font:600 13.5px/1.35 var(--body)}
+#coachOk{flex:none;padding:6px 12px;border:none;border-radius:2px;background:#3a2c20;color:#f0e4c8;font:800 12px var(--body);letter-spacing:.04em}
 </style>
 
 <div id="app">
@@ -507,6 +529,7 @@ body{font-family:var(--body)}
 
   <div id="roll" hidden><div class="rl" id="rollLbl"></div><div class="notes" id="rollNotes"></div><div class="chips" id="rollChips"></div><div class="res" id="rollRes"></div></div>
   <div id="combos"></div>
+  <div id="coach" hidden role="status"><p id="coachText"></p><button id="coachOk">Got it</button></div>
   <div id="banner"><span id="bannerTxt"></span></div>
   <div id="talk" hidden role="dialog" aria-live="polite"><div class="tk"><span id="talkFace" class="ubadge"></span><div class="tb"><b id="talkName"></b><p id="talkText"></p></div><button id="talkSkip">Skip</button></div><i class="tnext">Tap to go on</i></div>
 
@@ -529,6 +552,7 @@ body{font-family:var(--body)}
       <h2 id="introTitle">The Crypt Gate</h2>
       <p id="introText"></p>
       <div class="foes" id="introFoes"></div>
+      <div class="boonchips" id="introBoons" hidden></div>
       <button class="go" id="introGo">Set up the board</button>
     </div>
   </div>
@@ -537,10 +561,16 @@ body{font-family:var(--body)}
       <h2>Settings</h2>
       <div class="setl">
         <button class="mi on" id="muteBtn"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg><span>Sound</span><i class="sw"></i></button>
+        <button class="mi on" id="musicBtn"><svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg><span>Music</span><i class="sw"></i></button>
         <button class="mi on" id="barkBtn"><svg viewBox="0 0 24 24"><path d="M4 5h16v10H9l-5 4z"/></svg><span>Banter</span><i class="sw"></i></button>
         <button class="mi" id="styleBtn"><svg viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 22V12M3 7l9 5 9-5"/></svg><span>Model style</span><em id="styleLbl" class="sv">Painted</em></button>
+        <button class="mi" id="speedBtn"><svg viewBox="0 0 24 24"><path d="M4 6l7 6-7 6zM13 6l7 6-7 6z"/></svg><span>Game speed</span><em id="speedLbl" class="sv">Normal</em></button>
+        <button class="mi" id="diffBtn"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg><span>Difficulty</span><em id="diffLbl" class="sv">Normal</em></button>
         <button class="mi" id="restartBtn"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v5h5"/></svg><span>Restart battle</span></button>
+        <button class="mi" id="tipsBtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.5" r=".6"/></svg><span>Show the tips again</span></button>
+        <button class="mi" id="newBtn"><svg viewBox="0 0 24 24"><path d="M5 21V4h9l1 2h4v9h-7l-1-2H5"/></svg><span>New campaign</span></button>
       </div>
+      <p class="mnote" id="diffNote"></p>
       <p class="mnote">Twist two fingers to turn the board, pinch to zoom. Drag the floor or slide two fingers to look around.</p>
       <button class="go" id="settingsClose">Done</button>
     </div>
@@ -551,7 +581,7 @@ body{font-family:var(--body)}
   </div>
   <div class="ov" id="confirm" hidden>
     <div class="sheet cf">
-      <h2>End this turn?</h2>
+      <h2 id="cfTitle">End this turn?</h2>
       <p id="cfText"></p>
       <div class="cfb"><button id="cfBack">Keep playing</button><button class="go" id="cfEnd">End turn</button></div>
     </div>
@@ -562,7 +592,14 @@ body{font-family:var(--body)}
   <div class="ov" id="help" hidden>
     <div class="sheet">
       <h2>Goblin Crypt</h2>
-      <p>Four battles stand between your party and the Goblin King: a gorge crossing, a ridge camp, the warg pens and his throne room. Every hero has 3 actions on their turn, every goblin 2. Moving is an action, and so is each ability. The dice are real dice: a <b>1</b> misses, a top face is a <b>crit</b> that explodes into another die, and the target's <b>toughness</b> die soaks up the rest. The party rests to full health between battles.</p>
+      <p>Five battles stand between your party and the Goblin King: a gorge crossing, a ridge camp, the warg pens, the forge pits and his throne room. Every hero has 3 actions on their turn, every goblin 2. Moving is an action, and so is each ability. The dice are real dice: a <b>1</b> misses, a top face is a <b>crit</b> that explodes into another die, and the target's <b>toughness</b> die soaks up the rest. The party rests to full health between battles.</p>
+      <h3>The campaign</h3>
+      <ul>
+        <li>After each victory the party makes camp and picks one of three <b>boons</b>: a better weapon, tougher armour, more health, a faster cooldown, Healing Draughts for everyone. Boons last the rest of the campaign; each hero's sheet lists theirs.</li>
+        <li><b>Healing Draught</b>: one a battle. Drink it, or pour it for a friend beside you, to heal 2d4.</li>
+        <li>The campaign saves itself in this browser after every move. Close the page and come back to the same turn.</li>
+        <li><b>Settings</b> has the difficulty (goblins have 75%, 100% or 125% of their health; it counts from the next battle), game speed, music, banter, and a new campaign.</li>
+      </ul>
       <h3>Controls</h3>
       <ul>
         <li><b>Tap</b> a blue square or <b>drag</b> a hero to move.</li>
@@ -571,6 +608,7 @@ body{font-family:var(--body)}
         <li><b>Undo</b> in the ☰ menu takes back moves and abilities that rolled no dice. Dice are final: once a roll is made it stands, and so does everything before it.</li>
         <li><b>Twist two fingers</b> to turn the board, pinch to zoom, and drag the floor to look around. On a computer, shift-drag or right-drag turns it. Tap during the goblins' turn to speed it up.</li>
         <li>Each hero has five hotbars of six slots: page with the arrows beside the bar, a sideways swipe, or <b>[</b> and <b>]</b>.</li>
+        <li><b>Keys:</b> 1–6 pick an ability, <b>E</b> or <b>Enter</b> ends the turn, <b>Z</b> undoes, <b>Esc</b> puts the ability down. In a scene, Enter or a tap goes on and Esc skips.</li>
       </ul>
       <h3>Turns</h3>
       <ul>
@@ -607,6 +645,7 @@ body{font-family:var(--body)}
         <li><b>Cover:</b> a ranged attack on a target with a wall, rock, tree, pillar or crate right beside it, on the shooter's side, rolls with disadvantage.</li>
         <li><b>Ice Wall</b> raises three blocks in a row (⟲ turns it across or down). They block movement and sight and give cover; a basic attack breaks one, and they melt after 3 rounds. Ice raised on fire turns to steam and puts it out; Fireball melts ice; Frost Ray can't freeze a foe standing in fire.</li>
         <li><b>Ledges:</b> a foe shoved or grappled off high ground takes +2. <b>Gorges</b> can only be crossed on the bridges, and a goblin thrown in falls to its death.</li>
+        <li><b>Lava</b> can't be entered. A goblin shoved, charged or grappled into it takes +5 and is knocked Prone. <b>Fire vents</b> erupt every second round and throb the round before: anyone standing on a vent then burns.</li>
         <li><b>Walls</b> block arrows, bolts and spells. Pillars and crates don't.</li>
       </ul>
       <h3>Foes</h3>
@@ -626,6 +665,7 @@ body{font-family:var(--body)}
       <h2 id="endTitle">Victory</h2>
       <p id="endText"></p>
       <div id="endReport"></div>
+      <div id="endBoons" hidden><h3>Choose a boon for the road</h3><div class="boons" id="boonList" role="group" aria-label="Boons"></div></div>
       <button class="go" id="againBtn">Next battle</button>
     </div>
   </div>
@@ -644,5 +684,6 @@ body{font-family:var(--body)}
 <script src="js/table/play.js?v=BUILD"></script>
 <script src="js/table/hud.js?v=BUILD"></script>
 <script src="js/table/input.js?v=BUILD"></script>
+<script src="js/table/campaign.js?v=BUILD"></script>
 <script src="js/table/main.js?v=BUILD"></script>
 </body></html>

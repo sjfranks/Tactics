@@ -196,7 +196,22 @@ $('#menuBtn').onclick = () => { ac(); setMenu($('#menu').hidden); sfx('select');
 $('#threatBtn').onclick = () => { ac(); showThreat = !showThreat; $('#threatBtn').classList.toggle('on', showThreat); sfx('select'); refreshHL(); };
 $('#intentBtn').onclick = () => { ac(); showIntents = !showIntents; $('#intentBtn').classList.toggle('on', showIntents); try { localStorage.setItem('gc-intents', showIntents ? '1' : '0'); } catch (e) { } sfx('select'); };
 $('#barkBtn').onclick = () => { ac(); showBarks = !showBarks; $('#barkBtn').classList.toggle('on', showBarks); try { localStorage.setItem('gc-barks', showBarks ? '1' : '0'); } catch (e) { } sfx('select'); };
-$('#muteBtn').onclick = () => { ac(); muted = !muted; $('#muteBtn').classList.toggle('on', !muted); };
+$('#muteBtn').onclick = () => { ac(); muted = !muted; $('#muteBtn').classList.toggle('on', !muted); try { localStorage.setItem('gc-mute', muted ? '1' : '0'); } catch (e) { } };
+$('#musicBtn').onclick = () => { ac(); musicOn = !musicOn; try { localStorage.setItem('gc-music', musicOn ? '1' : '0'); } catch (e) { } renderSettings(); sfx('select'); };
+$('#speedBtn').onclick = () => { ac(); FAST = !FAST; try { localStorage.setItem('gc-fast', FAST ? '1' : '0'); } catch (e) { } renderSettings(); sfx('select'); };
+// difficulty: how tough the goblins are, from the next battle on
+$('#diffBtn').onclick = () => { ac(); const ks = Object.keys(GC.TUNE.difficulty); CAMP.diff = ks[(ks.indexOf(CAMP.diff) + 1) % ks.length]; saveCamp(); renderSettings(); sfx('select'); };
+$('#tipsBtn').onclick = () => { ac(); tipsSeen = {}; try { localStorage.removeItem('gc-tips'); } catch (e) { } $('#settings').hidden = true; sfx('select'); tipsNow(); };
+$('#newBtn').onclick = async () => {
+  ac(); $('#settings').hidden = true;
+  if (await ask('Start a new campaign?', `The party goes back to the Gorge Crossing and gives up its ${CAMP.boons.length} boon${CAMP.boons.length === 1 ? '' : 's'}.`, 'New campaign', 'Keep this one')) { $('#intro').hidden = true; newCampaign(); }
+};
+// the settings that show a value
+function renderSettings() {
+  $('#muteBtn').classList.toggle('on', !muted); $('#musicBtn').classList.toggle('on', musicOn);
+  $('#speedLbl').textContent = FAST ? 'Fast' : 'Normal'; $('#diffLbl').textContent = GC.TUNE.difficulty[CAMP.diff].label;
+  $('#diffNote').textContent = `${GC.TUNE.difficulty[CAMP.diff].label}: goblins have ${Math.round(GC.TUNE.difficulty[CAMP.diff].hp * 100)}% of their health. A change counts from the next battle.`;
+}
 function swapPiece(u) { // rebuild a unit's miniature in the current style, keeping its pose and effects
   const old = u.piece, np = buildPiece(u.kind);
   np.piece.rotation.copy(old.rotation); np.piece.position.copy(old.position); np.piece.visible = old.visible;
@@ -214,19 +229,40 @@ function setStyle(st) {
   renderDock();
 }
 $('#styleBtn').onclick = () => { ac(); setStyle(STYLES[(STYLES.indexOf(STYLE) + 1) % STYLES.length]); };
-$('#restartBtn').onclick = () => { setMenu(false); $('#settings').hidden = true; $('#end').hidden = true; loadLevel(level); };
+$('#restartBtn').onclick = async () => {
+  setMenu(false); $('#settings').hidden = true;
+  if (UI.phase === 'intro' || UI.over || await ask('Restart this battle?', 'The battle starts again from the briefing. The boons stay.', 'Restart', 'Keep playing')) { $('#end').hidden = true; $('#intro').hidden = true; loadLevel(level); }
+};
 $('#uwho').onclick = () => { ac(); openSheet(); };
 $('#csheet').onclick = e => { if (e.target.id === 'csheet') $('#csheet').hidden = true; };
-$('#endBtn').onclick = () => {
-  ac(); if (UI.busy || UI.phase !== 'player' || UI.over) return;
-  const h = UI.active, ap = h ? ru(h).ap : 0; if (!h || ap <= 0) { endTurn(); return; }
-  $('#cfText').innerHTML = `<b>${h.name}</b> still has ${ap} action${ap > 1 ? 's' : ''}.`;
+// a question in the page itself (the viewer allows no browser dialogs): resolves true for the first button
+function ask(title, html, yes, no) {
+  $('#cfTitle').textContent = title; $('#cfText').innerHTML = html; $('#cfEnd').textContent = yes; $('#cfBack').textContent = no;
   $('#confirm').hidden = false; sfx('select');
-};
+  return new Promise(res => {
+    const done = v => { $('#confirm').hidden = true; $('#cfEnd').onclick = $('#cfBack').onclick = $('#confirm').onclick = null; if (!v) sfx('pick'); res(v); };
+    $('#cfEnd').onclick = () => done(true); $('#cfBack').onclick = () => done(false);
+    $('#confirm').onclick = e => { if (e.target.id === 'confirm') done(false); };
+  });
+}
+async function askEndTurn() {
+  if (UI.busy || UI.phase !== 'player' || UI.over || !$('#confirm').hidden) return;
+  const h = UI.active, ap = h ? ru(h).ap : 0;
+  if (!h || ap <= 0 || await ask('End this turn?', `<b>${h.name}</b> still has ${ap} action${ap > 1 ? 's' : ''}.`, 'End turn', 'Keep playing')) endTurn();
+}
+$('#endBtn').onclick = () => { ac(); askEndTurn(); };
+// keys: E or Enter ends the turn, Z (or Ctrl+Z) undoes; Enter answers the open question or sheet, Escape backs out
+window.addEventListener('keydown', e => {
+  if (!$('#talk').hidden || e.altKey) return; // a scene takes its own keys
+  const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
+  if (!$('#confirm').hidden) { if (k === 'enter') { e.preventDefault(); $('#cfEnd').click(); } else if (k === 'escape') { e.preventDefault(); $('#cfBack').click(); } return; }
+  if (k === 'enter' && !$('#intro').hidden) { e.preventDefault(); $('#introGo').click(); return; }
+  if (k === 'enter' && !$('#end').hidden) { e.preventDefault(); $('#againBtn').click(); return; }
+  if ([...document.querySelectorAll('.ov')].some(o => !o.hidden)) return;
+  if (k === 'z' && (mod || !e.shiftKey)) { e.preventDefault(); undoMove(); }
+  else if ((k === 'e' || k === 'enter') && !mod && myHero()) { e.preventDefault(); askEndTurn(); }
+});
 $('#rotBtn').onclick = () => { ac(); UI.wallDir = UI.wallDir === 'v' ? 'h' : 'v'; sfx('pick'); refresh(); }; // turn the ice wall across or down
-$('#cfEnd').onclick = () => { $('#confirm').hidden = true; endTurn(); };
-$('#cfBack').onclick = () => { $('#confirm').hidden = true; sfx('pick'); };
-$('#confirm').onclick = e => { if (e.target.id === 'confirm') $('#confirm').hidden = true; };
 $('#helpBtn').onclick = () => { setMenu(false); $('#help').hidden = false; };
 $('#settingsBtn').onclick = () => { ac(); setMenu(false); $('#settings').hidden = false; sfx('select'); };
 $('#settingsClose').onclick = () => { $('#settings').hidden = true; };
@@ -242,7 +278,7 @@ $('#menuLog').onclick = () => { setMenu(false); ac(); renderLog(); $('#logv').hi
 $('#logClose').onclick = () => { $('#logv').hidden = true; };
 $('#logv').onclick = e => { if (e.target.id === 'logv') $('#logv').hidden = true; };
 $('#helpClose').onclick = () => { ac(); $('#help').hidden = true; };
-$('#againBtn').onclick = () => { ac(); $('#end').hidden = true; if (endAction) endAction(); };
+$('#againBtn').onclick = () => { ac(); if ($('#againBtn').disabled) return; $('#end').hidden = true; if (endAction) endAction(); };
 $('#introGo').onclick = async () => {
   ac(); $('#intro').hidden = true;
   const order0 = liveUnits().sort((a, b) => (a.side === b.side ? 0 : a.side === 'hero' ? -1 : 1));

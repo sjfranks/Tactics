@@ -50,12 +50,30 @@ const DIALOGUE = {
         ['cutter', "Loose the dogs! Dinner's walked in all by itself!"]
       ],
       win: [
-        ['thief', "Grubnash's hall is through there. I can smell the throne from here."],
-        ['cleric', 'Rest. Pray. Tomorrow we end this.']
+        ['thief', "There's a stair behind the pens. Heat's coming up it, and the sound of hammers."],
+        ['cleric', 'Rest first. Whatever is down there, we meet it on our feet.']
       ],
       lose: [
         ['warg', '*The pack feeds.*'],
         ['cleric', 'Drag them out! Everyone out, now!']
+      ]
+    },
+    { // The Forge Pits
+      before: [
+        ['mage', "Smell that? Brimstone. They're forging blades for the king down here."],
+        ['thief', 'Lava on every side and a lot of goblins with hammers. Lovely.'],
+        ['shaman', 'Feed them to the fire! The fire is always hungry!'],
+        ['fighter', "Then we'll feed it goblins."],
+        ['cleric', 'Mind the vents. When they start to throb, step off them.']
+      ],
+      win: [
+        ['fighter', 'Hot work.'],
+        ['cleric', 'The great stair climbs from here to his hall. He knows we are coming now.'],
+        ['thief', 'Good. Let him sweat.']
+      ],
+      lose: [
+        ['shaman', 'The forge is fed!'],
+        ['mage', 'Out! Back up the stair, before we cook!']
       ]
     },
     { // Throne of Grubnash

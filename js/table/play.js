@@ -179,16 +179,16 @@ function afterAction() {
   if (mine) {
     faceViewer(u);
     if (r.ap <= 0 || !G.up(r)) UI.card = null;
-    else if (UI.card && G.block(r, UI.card)) UI.card = u.def.cards[0];
+    else if (UI.card && G.block(r, UI.card)) UI.card = G.cardsOf(r)[0];
   }
-  computeIntents(); refresh(); renderTools();
+  computeIntents(); refresh(); renderTools(); saveTurn(); tipsNow();
   // the turn passes on by itself once the hero has no actions left (or has fallen)
   if (mine && (r.ap <= 0 || !G.up(r))) setTimeout(() => { const r2 = G.U(u.id); if (UI.phase === 'player' && !UI.busy && !UI.over && UI.active === u && (r2.ap <= 0 || !G.up(r2))) endTurn(); }, 450);
 }
 function setSel(u, quiet) {
   UI.peek = null; UI.sel = u; UI.aim = null; UI.inspect = null;
   const r = u && G.U(u.id);
-  UI.card = u && u.side === 'hero' && r && r.ap > 0 && G.up(r) ? u.def.cards[0] : null;
+  UI.card = u && u.side === 'hero' && r && r.ap > 0 && G.up(r) ? G.cardsOf(r)[0] : null;
   if (!quiet && u) sfx('select');
   if (u) { setView(viewFor(u)); focusOn(u.root.position); }
   refresh();
@@ -240,45 +240,60 @@ function undoMove() {
   finally { QUIET = false; }
   combatLog.length = s0.log; logEvent(`${logName(UI.active)} takes it back`, 'hero');
   clearDice(); hideRoll(); sfx('lift');
-  setSel(UI.active, true); computeIntents(); renderTools(); renderDock();
+  setSel(UI.active, true); computeIntents(); renderTools(); renderDock(); saveTurn();
 }
 
 // ---------------- the end of a battle ----------------
 let endAction = null;
 function steps(el) { $(el).innerHTML = LEVELS.map((_, i) => `<i class="${i < level ? 'done' : i === level ? 'now' : ''}"></i>`).join(''); }
 const listOf = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
-// the tally of the battle: what each hero dealt, finished, healed and took; the best of them is named
+// a tally: what each hero dealt, finished, healed and took; the best of them is starred
+function tallyTable(rows, note) {
+  const score = s => s.dealt + s.healed * 1.2 + s.kills * 3 - s.downs * 4;
+  const best = rows.reduce((a, b) => score(b.s) > score(a.s) ? b : a, rows[0]);
+  return `<table class="rep"><tr><th></th><th>Dealt</th><th>Kills</th><th>Healed</th><th>Taken</th><th>Down</th></tr>${rows.map(r => { const s = r.s; return `<tr${r === best ? ' class="mvp"' : ''}><td><div class="rnm"><span class="rf">${face(r.kind)}</span><span class="rn">${r.name.replace('Sister ', '')}</span>${r === best ? '<em title="Best">★</em>' : ''}</div></td><td>${s.dealt}</td><td>${s.kills}</td><td>${s.healed}</td><td>${s.taken}</td><td>${s.downs}</td></tr>`; }).join('')}</table><p class="repn">${note}</p>`;
+}
 function report() {
-  const st = G.S.stats, hs = units.filter(u => u && u.side === 'hero' && st[u.id]);
-  const score = h => { const s = st[h.id]; return s.dealt + s.healed * 1.2 + s.kills * 3 - s.downs * 4; };
-  const mvp = hs.reduce((a, b) => score(b) > score(a) ? b : a, hs[0]);
-  return `<table class="rep"><tr><th></th><th>Dealt</th><th>Kills</th><th>Healed</th><th>Taken</th><th>Down</th></tr>${hs.map(h => { const s = st[h.id]; return `<tr${h === mvp ? ' class="mvp"' : ''}><td><div class="rnm"><span class="rf">${face(h.kind)}</span><span class="rn">${h.name.replace('Sister ', '')}</span>${h === mvp ? '<em title="Best in battle">★</em>' : ''}</div></td><td>${s.dealt}</td><td>${s.kills}</td><td>${s.healed}</td><td>${s.taken}</td><td>${s.downs}</td></tr>`; }).join('')}</table><p class="repn">★ Best in battle: most harm dealt and healed</p>`;
+  const st = G.S.stats, rows = units.filter(u => u && u.side === 'hero' && st[u.id]).map(u => ({ kind: u.kind, name: u.name, s: st[u.id] }));
+  return tallyTable(rows, '★ Best in battle: most harm dealt and healed');
+}
+function campaignReport() {
+  const rows = ['fighter', 'cleric', 'mage', 'thief'].filter(k => CAMP.tally[k]).map(k => ({ kind: k, name: GC.UNITS[k].name, s: CAMP.tally[k] }));
+  return rows.length ? `<h3>The whole campaign · ${CAMP.battles} battle${CAMP.battles === 1 ? '' : 's'} fought</h3>` + tallyTable(rows, '★ Hero of the campaign') : '';
 }
 function gameOver(win) {
   UI.over = true; UI.phase = 'over'; UI.sel = null; UI.card = null; UI.active = null; UI.inspect = null; UI.intents = []; refresh();
   if (win) heroes().forEach((h, i) => wait(300 + i * 140).then(() => { faceViewer(h); playClip(h, 'cheer'); }));
   const last = level === LEVELS.length - 1, rounds = G.S.round, L = LEVELS[level], rep = report();
+  // the campaign moves on at once (closing the page during the closing scene keeps the result)
+  addTally(); CAMP.state = null;
+  if (win && !last) { CAMP.level = level + 1; CAMP.offer = GC.offerBoons(CAMP.boons); }
+  if (win && last) CAMP.done = true;
+  saveCamp();
   setTimeout(async () => {
     const sc = DLG.scenes[level]; await talk(sc && (win ? sc.win : sc.lose));
     const t = $('#endTitle'), btn = $('#againBtn');
     const up = heroes().map(h => h.name), down = units.filter(h => h && h.side === 'hero' && h.alive && h.down).map(h => h.name);
+    $('#endBoons').hidden = true; btn.disabled = false;
     if (win) level++;
     steps('#endSteps');
     if (win && last) {
       t.textContent = 'The Goblin King Falls'; t.className = 'win';
       $('#endText').textContent = `Grubnash's crown rolls across the flagstones and the crypt is yours. ${listOf(up)} walk${up.length === 1 ? 's' : ''} out into the daylight${down.length ? `, carrying ${listOf(down)}` : ''}.`;
-      btn.textContent = 'New campaign'; endAction = () => loadLevel(0); sfx('win');
+      $('#endReport').innerHTML = rep + campaignReport();
+      btn.textContent = 'New campaign'; endAction = newCampaign; sfx('win');
     } else if (win) {
       t.textContent = 'Victory'; t.className = 'win';
-      $('#endText').textContent = `${L.name} is cleared in ${rounds} round${rounds > 1 ? 's' : ''}. ${down.length ? `${listOf(down)} ${down.length > 1 ? 'are' : 'is'} carried from the field and back on their feet by nightfall. ` : ''}The party rests, binds its wounds and heads deeper. ${LEVELS[level].name} lies ahead.`;
-      btn.textContent = 'Next battle'; endAction = () => loadLevel(level); sfx('crit');
+      $('#endText').textContent = `${L.name} is cleared in ${rounds} round${rounds > 1 ? 's' : ''}. ${down.length ? `${listOf(down)} ${down.length > 1 ? 'are' : 'is'} carried from the field and back on their feet by nightfall. ` : ''}The party makes camp before ${LEVELS[level].name}.`;
+      $('#endReport').innerHTML = rep;
+      offerBoons(() => loadLevel(level), 'March on'); sfx('crit');
     } else {
       const n = units.filter(u => u && u.alive && u.side === 'gob').length;
       t.textContent = 'The Party Has Fallen'; t.className = 'lose';
       $('#endText').textContent = `The goblins hold ${L.name}. ${n} foe${n === 1 ? '' : 's'} still stand${n === 1 ? 's' : ''}. Regroup and try this battle again.`;
+      $('#endReport').innerHTML = rep;
       btn.textContent = 'Retry battle'; endAction = () => loadLevel(level); sfx('taunt');
     }
-    $('#endReport').innerHTML = rep;
     $('#end').hidden = false;
   }, win ? 1500 : 1100);
 }

@@ -98,7 +98,7 @@ async function downFx(e) {
   sfx('topple'); shake(.18); hitstop(100);
   if (u._ro) { u._ro.classList.add('ko'); u._ro.insertAdjacentHTML('beforeend', '<small>down</small>'); }
   floatAt(u.root.position.clone().setY(u.root.position.y + u.h + .3), 'Down!', 'verdict vdown', 'heal can raise them', 1700);
-  setDownLook(u, true);
+  setDownLook(u, true); setTimeout(() => tip('down'), 1800);
   if (!u.st.prone) await setProne(u, true); else playClip(u, 'down', { hold: true });
   if (UI.sel === u && u.side === 'hero') UI.card = null;
   renderDock();

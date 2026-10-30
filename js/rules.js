@@ -86,7 +86,7 @@ const BOONS = {
   deepfrost: { who: 'mage', name: 'Deep Frost', text: 'Frost Ray rolls d6 and comes back a round sooner.', cards: { m_frost: { die: 6, cd: -1 } } },
   wards: { who: 'mage', name: 'Warding Robes', text: 'Orlen gains toughness d2 and +3 HP.', mod: { tough: 1, hp: 3 } },
   serrated: { who: 'thief', name: 'Serrated Dagger', text: "Vex's dagger rolls d6.", mod: { die: 6 } },
-  fleet: { who: 'thief', name: 'Fleet Foot', text: 'Vex moves 4 squares, and her Rope Hook swings as far.', mod: { move: 1 } },
+  fleet: { who: 'thief', name: 'Fleet Foot', text: 'Vex moves 4 squares, and the Rope Hook swings as far.', mod: { move: 1 } },
   shadow: { who: 'thief', name: 'Shadow Cloak', text: 'Hide comes back a round sooner, and Vex gains +3 HP.', cards: { t_hide: { cd: -1 } }, mod: { hp: 3 } },
   draughts: { who: 'party', name: 'Healing Draughts', text: 'Every hero carries a draught into each battle: drink it, or pour it for a friend beside you, to heal 2d4.', add: 'potion' },
   hardened: { who: 'party', name: 'Battle-Hardened', text: 'Every hero gains +3 HP.', mod: { hp: 3 } },
@@ -1074,7 +1074,7 @@ function battle(S) {
       if (u.side === 'hero') {
         for (const k in u.cd) if (u.cd[k] > 0) u.cd[k]--;
         if (u.st.taunt) status(u, 'taunt', false);
-        if (u.st.hidden) u.st.hidden = 2; // hiding lasts through this turn, then fades unless she strikes
+        if (u.st.hidden) u.st.hidden = 2; // hiding lasts through this turn, then fades unless the thief strikes
         S.units.forEach(x => { if (x.st.rebuked === u.id + 1) status(x, 'rebuked', false); }); // her rebukes last until her next turn
       }
       ev({ t: 'turn', id: u.id });

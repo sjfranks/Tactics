@@ -45,12 +45,13 @@ function openSheet() {
   let html;
   if (u && u.alive && G) {
     const r = ru(u), foe = u.side === 'gob', sts = statusList(u);
-    const cards = foe ? '' : `<div class="cs-cards">${u.def.cards.map(id => { const c = CARDS[id], blk = G.block(r, id), [hue, art] = ART[id]; return `<div class="cs-card" style="--hue:${hue}"><svg viewBox="0 0 24 24">${art}</svg><div><b>${c.name}</b><p>${c.text}</p></div><em>${blk && UI.phase === 'player' ? blk : c.cd ? '↻ ' + c.cd : c.cost}</em></div>`; }).join('')}</div>`;
+    const cards = foe ? '' : `<div class="cs-cards">${G.cardsOf(r).map(id => { const c = CARDS[id], blk = G.block(r, id), [hue, art] = ART[id], cd = G.cardCd(r, id); return `<div class="cs-card" style="--hue:${hue}"><svg viewBox="0 0 24 24">${art}</svg><div><b>${c.name}</b><p>${G.cardText(r, id)}</p></div><em>${blk && UI.phase === 'player' ? blk : cd ? '↻ ' + cd : c.cost}</em></div>`; }).join('')}</div>`;
+    const bn = foe ? [] : boonNames(u.kind), boons = bn.length ? `<div class="cs-tags cs-boons">${bn.map(n => `<span>★ ${n}</span>`).join('')}</div>` : '';
     const note = u.down ? 'Down: Heal raises them. Goblins leave the fallen be.' : foe ? u.def.note : u === UI.active && UI.phase === 'player' ? `${r.ap} action${r.ap === 1 ? '' : 's'} left this turn` : '';
     html = `<div class="cs-head ${foe ? 'gob' : ''}">${PORTRAIT[u.kind] ? `<img class="cs-fig" alt="" src="${PORTRAIT[u.kind].body}">` : `<span class="ubadge ${foe ? 'gob' : ''}"><span>${ICONS[u.kind]}</span></span>`}<div><h2>${u.name}</h2><small>${foe ? (u.def.boss ? 'Goblin King' : 'Foe') : u.def.role}</small></div></div>
       <div class="cs-body"><div class="cs-hp"><i>${u.hp}</i>/ ${u.maxHp}<span class="bar"><b style="width:${u.hp / u.maxHp * 100}%"></b></span></div>
-      <div class="cs-stats"><div>Move<b>${G.moveOf(r)}</b></div><div>Die<b>d${u.def.die}</b></div><div>Range<b>${u.def.range}</b></div><div>Tough<b>${G.dieName(G.toughDie(r))}</b></div></div>
-      ${sts.length ? `<div class="cs-tags">${sts.map(x => `<span>${ST_DESC[x]}</span>`).join('')}</div>` : ''}${note ? `<p class="cs-note">${note}</p>` : ''}${cards}
+      <div class="cs-stats"><div>Move<b>${G.moveOf(r)}</b></div><div>Die<b>d${G.dieOf(r)}</b></div><div>Range<b>${u.def.range}</b></div><div>Tough<b>${G.dieName(G.toughDie(r))}</b></div></div>
+      ${boons}${sts.length ? `<div class="cs-tags">${sts.map(x => `<span>${ST_DESC[x]}</span>`).join('')}</div>` : ''}${note ? `<p class="cs-note">${note}</p>` : ''}${cards}
       <p class="cs-note">${L.name} · Round ${UI.round} · ${foesLeft} foes left</p>
       <button class="go" id="csClose">Close</button></div>`;
   } else html = `<div class="cs-body"><p class="cs-note">${L.name} · Round ${UI.round} · ${foesLeft} foes left. Tap a unit to see its sheet.</p><button class="go" id="csClose">Close</button></div>`;
@@ -76,7 +77,8 @@ const ART = {
   m_wave: [356, '<circle cx="12" cy="12" r="2.5"/><path d="M7.5 7.5a6.4 6.4 0 0 0 0 9M16.5 7.5a6.4 6.4 0 0 1 0 9M4.5 4.5a10.6 10.6 0 0 0 0 15M19.5 4.5a10.6 10.6 0 0 1 0 15"/>'],
   c_haste: [138, '<path d="M13 3L6 13h5l-1 8 8-11h-5z"/><path d="M2 9h3M1 13h4M3 17h3"/>'],
   t_hook: [205, '<path d="M14 3v8a4 4 0 0 1-8 0V9"/><path d="M4 11l2-2 2 2"/><path d="M14 3c2 0 4 1 5 3M14 3l6 0"/><path d="M14 15v6"/>'],
-  t_trick: [356, '<path d="M5 4v10h6l6 3h3v3H5z"/><path d="M14 8l3-3M17 11l3-2"/>']
+  t_trick: [356, '<path d="M5 4v10h6l6 3h3v3H5z"/><path d="M14 8l3-3M17 11l3-2"/>'],
+  potion: [138, '<path d="M9.5 3h5M10.5 3v5.2L5.6 16.4A2.6 2.6 0 0 0 7.9 20.5h8.2a2.6 2.6 0 0 0 2.3-4.1L13.5 8.2V3"/><path d="M7.4 14.5h9.2"/>']
 };
 
 let units = [], level = 0; // units[id] is the piece for the rules' unit with that id

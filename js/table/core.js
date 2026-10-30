@@ -84,7 +84,9 @@ const UI = { hbPage: {}, peek: null, wallDir: 'h', view: 'upper', phase: 'intro'
 // ---------------- tweening ----------------
 let now = performance.now();
 const tweens = [];
-let vnow = 0, ffwd = false; // tweens run on their own clock: tapping while pieces move plays it at speed
+// tweens run on their own clock: tapping while pieces move plays it at speed (ffwd); FAST is the Game speed setting
+let vnow = 0, ffwd = false, FAST = false, TIME_SCALE = 1; // TIME_SCALE: tools/test.js plays the table faster with it
+try { FAST = localStorage.getItem('gc-fast') === '1'; } catch (e) { }
 function tween(ms, fn, e = ease.inOut) { return new Promise(res => tweens.push({ start: vnow, ms, fn, e, res })); }
 const wait = ms => tween(ms, () => {});
 function runTweens(ms) {
@@ -94,7 +96,7 @@ function runTweens(ms) {
   if (ffwd) { hitStop = 0; slowT = 0; slowK = 1; }
   if (hitStop > 0) { const s = Math.min(hitStop, step); hitStop -= s; step -= s; }
   if (slowT > 0) { slowT -= ms; step *= slowK; if (slowT <= 0) slowK = 1; }
-  vnow += step * (ffwd ? 2.6 : 1);
+  vnow += step * (ffwd ? 2.6 : 1) * (FAST ? 1.7 : 1) * TIME_SCALE;
   for (let i = tweens.length - 1; i >= 0; i--) {
     const tw = tweens[i]; const p = Math.min(1, (vnow - tw.start) / tw.ms);
     tw.fn(tw.e(p));
@@ -104,6 +106,7 @@ function runTweens(ms) {
 
 // ---------------- audio ----------------
 let AC = null, muted = false, noiseBuf = null;
+try { muted = localStorage.getItem('gc-mute') === '1'; } catch (e) { }
 function ac() {
   if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
   if (AC.state === 'suspended') AC.resume();
@@ -145,6 +148,51 @@ function sfx(type, v = 1) {
     case 'win': [523, 659, 784, 1046, 1318].forEach((f, i) => tone(t + i * .1, 'triangle', f, 0, .12, .6)); break;
   }
 }
+
+// ---------------- music: a slow, quiet score for each place, made on the fly ----------------
+// A drone and a soft pad change chord every two bars, and now and then a plucked note rings out in the place's mode;
+// the throne room adds a war drum once the battle is on. It is all oscillators: nothing to download.
+let musicOn = true;
+try { musicOn = localStorage.getItem('gc-music') !== '0'; } catch (e) { }
+const SCORE = { // root: MIDI note · mode: the scale · chords: the scale degree each two bars sits on
+  outdoor: { root: 45, mode: [0, 2, 3, 5, 7, 8, 10], chords: [0, 5, 3, 4], bpm: 66, pad: 'triangle', pluck: 'triangle' },
+  crypt: { root: 41, mode: [0, 1, 3, 5, 7, 8, 10], chords: [0, 1, 5, 0], bpm: 56, pad: 'sawtooth', pluck: 'sine' },
+  lava: { root: 40, mode: [0, 1, 4, 5, 7, 8, 10], chords: [0, 1, 0, 6], bpm: 60, pad: 'sawtooth', pluck: 'square' },
+  throne: { root: 38, mode: [0, 2, 3, 5, 7, 8, 11], chords: [0, 5, 6, 4], bpm: 72, pad: 'sawtooth', pluck: 'triangle', drum: true }
+};
+let musicTheme = null, musicBus = null, musicNext = 0, musicStep = 0;
+const midiHz = n => 440 * Math.pow(2, (n - 69) / 12);
+function setMusic(theme) { musicTheme = SCORE[theme] ? theme : 'crypt'; musicStep = 0; }
+function musicVoice(t, type, f, peak, att, dur, cut) {
+  const o = AC.createOscillator(), g = AC.createGain(), fl = AC.createBiquadFilter();
+  o.type = type; o.frequency.setValueAtTime(f, t); fl.type = 'lowpass'; fl.frequency.value = cut; fl.Q.value = .5;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + att); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(fl); fl.connect(g); g.connect(musicBus); o.start(t); o.stop(t + dur + .05);
+}
+function warDrum(t, peak) {
+  const o = AC.createOscillator(), g = AC.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(46, t + .25);
+  g.gain.setValueAtTime(peak, t); g.gain.exponentialRampToValueAtTime(0.0001, t + .35); o.connect(g); g.connect(musicBus); o.start(t); o.stop(t + .4);
+}
+function musicTick() {
+  if (!AC || AC.state !== 'running' || !musicTheme) return;
+  if (!musicBus) { musicBus = AC.createGain(); musicBus.gain.value = 0; musicBus.connect(AC.destination); }
+  const on = musicOn && !muted && !document.hidden; musicBus.gain.setTargetAtTime(on ? 1 : 0, AC.currentTime, .6);
+  if (!on) { musicNext = 0; return; }
+  const sc = SCORE[musicTheme], beat = 60 / sc.bpm / 2; // eighth notes
+  if (musicNext < AC.currentTime) musicNext = AC.currentTime + .05;
+  const note = (d, oct = 0) => sc.root + sc.mode[((d % 7) + 7) % 7] + 12 * (oct + Math.floor(d / 7));
+  while (musicNext < AC.currentTime + .4) {
+    const t = musicNext, st = musicStep++, deg = sc.chords[Math.floor(st / 16) % sc.chords.length];
+    if (st % 16 === 0) { // a new chord: a root drone under a soft three-note pad
+      musicVoice(t, 'sine', midiHz(note(deg, -1)), .05, 1.2, beat * 16 + 1.5, 400);
+      [0, 2, 4].forEach((k, i) => musicVoice(t + i * .06, sc.pad, midiHz(note(deg + k, 1)), .012, 1.8, beat * 16 + 1, 900));
+    }
+    if (st % 2 === 0 && Math.random() < .22) musicVoice(t, sc.pluck, midiHz(note(deg + [0, 2, 4, 7, 9][Math.floor(Math.random() * 5)], 2)), .018, .01, 1.4, 2400);
+    if (sc.drum && (st % 8 === 0 || st % 8 === 5) && UI.phase !== 'intro' && !UI.over) warDrum(t, st % 8 === 0 ? .09 : .05);
+    musicNext += beat;
+  }
+}
+setInterval(musicTick, 150);
 
 // ---------------- renderer / scene ----------------
 const canvas = $('#c');

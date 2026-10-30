@@ -84,23 +84,23 @@ function renderDock() {
   const bar = $('#hotbar'), box = $('#hbInfo');
   bar.innerHTML = '';
   if (!h) { box.innerHTML = `<span class="tx2">${hint || (UI.phase === 'player' ? 'Tap a hero' : '')}</span>`; measure(); return; }
-  const pg = hbPageOf(h), ids = h.def.cards;
+  const pg = hbPageOf(h), ids = G.cardsOf(hr);
   $('#pgNum').textContent = pg + 1; $('#hbPager').setAttribute('aria-label', `Hotbar ${pg + 1} of ${HB_PAGES}`);
   for (let i = 0; i < HB_SLOTS; i++) {
     const id = ids[pg * HB_SLOTS + i];
     if (!id) { const e = document.createElement('div'); e.className = 'hk empty'; e.setAttribute('aria-hidden', 'true'); e.innerHTML = `<span class="key">${i + 1}</span>`; bar.appendChild(e); continue; }
-    const c = CARDS[id], block = G.block(hr, id), [hue, art] = ART[id], cd = hr.cd[id] > 0 ? hr.cd[id] : 0;
+    const c = CARDS[id], block = G.block(hr, id), [hue, art] = ART[id], cd = hr.cd[id] > 0 ? hr.cd[id] : 0, dn = G.diceName(hr, id);
     const b = document.createElement('button'); b.className = 'hk' + (UI.card === id ? ' sel' : '') + (block ? ' off' : ''); b.style.setProperty('--hue', hue); b.dataset.id = id;
-    b.setAttribute('aria-label', `${i + 1}: ${c.name}. ${c.text}${block ? ' (' + block + ')' : ''}`); b.setAttribute('aria-pressed', UI.card === id ? 'true' : 'false');
-    b.innerHTML = `<span class="ic"><svg viewBox="0 0 24 24">${art}</svg></span><span class="key">${i + 1}</span>${c.die ? `<span class="dv">d${c.die}</span>` : ''}${cd ? `<span class="cd">${cd}</span>` : ''}`;
+    b.setAttribute('aria-label', `${i + 1}: ${c.name}. ${G.cardText(hr, id)}${block ? ' (' + block + ')' : ''}`); b.setAttribute('aria-pressed', UI.card === id ? 'true' : 'false');
+    b.innerHTML = `<span class="ic"><svg viewBox="0 0 24 24">${art}</svg></span><span class="key">${i + 1}</span>${dn ? `<span class="dv">${dn}</span>` : ''}${c.uses != null ? `<span class="us">×${hr.uses[id] || 0}</span>` : ''}${cd ? `<span class="cd">${cd}</span>` : ''}`;
     b.onclick = () => { if (!hbSwiped) hotTap(h, id); };
     bar.appendChild(b);
   }
   const show = UI.peek && ids.includes(UI.peek) ? UI.peek : UI.card, focus = UI.fcFocus != null && UI.fc.has(UI.fcFocus) ? fcLine(UI.fcFocus) : '';
   if (show) {
     const c = CARDS[show], blk = G.block(hr, show);
-    const meta = [c.cost, c.target === 'self' ? 'Self' : c.range > 1 || c.reach ? `Range ${G.reachOf(hr, c)}` : 'Melee', c.cd ? `Cooldown ${c.cd}` : ''].filter(Boolean).join(' · ');
-    box.innerHTML = `<span class="tx"><b>${c.name}</b><span class="mt">${meta}</span></span><span class="tx2">${focus ? `<span class="odds">${focus}</span>` : `${blk ? `<em class="bl">${blk}.</em> ` : ''}${c.text}${!blk && hint ? ` <i>${hint}</i>` : ''}`}</span>`;
+    const cdn = G.cardCd(hr, show), meta = [c.cost, c.target === 'self' ? 'Self' : c.range > 1 || c.reach ? `Range ${G.reachOf(hr, c)}` : 'Melee', cdn ? `Cooldown ${cdn}` : '', c.uses != null ? `${hr.uses[show] || 0} left` : ''].filter(Boolean).join(' · ');
+    box.innerHTML = `<span class="tx"><b>${c.name}</b><span class="mt">${meta}</span></span><span class="tx2">${focus ? `<span class="odds">${focus}</span>` : `${blk ? `<em class="bl">${blk}.</em> ` : ''}${G.cardText(hr, show)}${!blk && hint ? ` <i>${hint}</i>` : ''}`}</span>`;
   } else box.innerHTML = `<span class="tx2">${hint || ''}</span>`;
   measure();
 }
@@ -136,11 +136,11 @@ function hotTap(h, id) {
   if (block) { UI.peek = id; sfx('select'); renderDock(); const el = document.querySelector(`.hk[data-id="${id}"]`); if (el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); } return; }
   UI.peek = null;
   if (UI.card === id && CARDS[id].target === 'self') { useCard(h, id, null); return; } // tap a chosen self ability again to use it
-  UI.card = id; UI.aim = null; UI.fcFocus = null; sfx('pick'); refresh();
+  UI.card = id; UI.aim = null; UI.fcFocus = null; sfx('pick'); refresh(); tipsNow();
 }
 window.addEventListener('keydown', e => { // 1–6 pick abilities, Escape puts the chosen one down
   const h = myHero(); if (e.ctrlKey || e.metaKey || e.altKey || !h) return;
-  const k = +e.key, id = k >= 1 && k <= HB_SLOTS ? h.def.cards[hbPageOf(h) * HB_SLOTS + k - 1] : null; if (id) { e.preventDefault(); hotTap(h, id); }
+  const k = +e.key, id = k >= 1 && k <= HB_SLOTS ? G.cardsOf(ru(h))[hbPageOf(h) * HB_SLOTS + k - 1] : null; if (id) { e.preventDefault(); hotTap(h, id); }
   else if (e.key === ']' || e.key === '[') { e.preventDefault(); hbPage(e.key === ']' ? 1 : -1); }
   else if (e.key === 'Escape' && UI.card) { UI.card = null; UI.aim = null; UI.peek = null; refresh(); }
 });
@@ -154,6 +154,34 @@ function previewCost(u, cost) {
   units.forEach(x => { if (x && x.tag) delete x.tag.dataset.cost; });
   if (u && cost) u.tag.dataset.cost = Math.min(cost, ru(u).ap);
 }
+// ---------------- tips: a word of advice the first time something comes up ----------------
+const TIPS = {
+  move: 'Each hero has 3 actions a turn: the orange pips over their head. Tap a blue square to walk there for 1 action, or pick an ability on the bar below.',
+  odds: 'The numbers over a foe are your odds with the chosen ability: the damage to expect, and the chance to finish it (KO).',
+  intents: 'The red arrows show what each goblin means to do next; the bold one acts next. Step out of reach, hide or Taunt, and watch them change.',
+  down: "A hero at 0 HP is down, not dead. Sister Wenna's Heal raises them, and the goblins leave the fallen alone.",
+  vents: 'Fire vents erupt every second round, and they pulse the round before. Step off them, or leave a goblin standing on one.',
+  undo: 'Changed your mind? Undo, in the ☰ menu (or Z), takes back a move or an ability that threw no dice.'
+};
+let tipsSeen = {};
+try { tipsSeen = JSON.parse(localStorage.getItem('gc-tips') || '{}') || {}; } catch (e) { }
+function tip(id) {
+  if (tipsSeen[id] || !TIPS[id] || QUIET || !$('#coach').hidden || UI.phase !== 'player') return;
+  tipsSeen[id] = 1; try { localStorage.setItem('gc-tips', JSON.stringify(tipsSeen)); } catch (e) { }
+  $('#coachText').textContent = TIPS[id]; $('#coach').hidden = false;
+  clearTimeout(tip.t); tip.t = setTimeout(() => { $('#coach').hidden = true; }, 14000);
+}
+$('#coachOk').onclick = () => { $('#coach').hidden = true; clearTimeout(tip.t); sfx('pick'); };
+// the tips that fit the moment, once the table is still
+function tipsNow() {
+  if (UI.phase !== 'player' || UI.busy || UI.over) return;
+  if (!tipsSeen.move) return tip('move');
+  if (UI.fc.size && [...UI.fc.values()].some(f => f.heal == null)) return tip('odds');
+  if (UI.intents.some(i => i.it.kind === 'attack')) tip('intents');
+  if (tipsSeen.intents && G.B.vents.length) tip('vents');
+  if (tipsSeen.intents && undoStack.length) tip('undo');
+}
+
 // ---------------- foe intents ----------------
 // a curved arrow from each goblin to the hero it means to strike (red) or the goblin it means to mend (green), and a
 // dotted line to where it would walk; the next goblin to act draws bold
