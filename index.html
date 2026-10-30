@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b0908"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Goblin Crypt</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -496,6 +496,7 @@ body{font-family:var(--body)}
 #coach{position:absolute;left:50%;bottom:calc(var(--dk,92px) + 10px);z-index:7;transform:translateX(-50%);width:min(440px,calc(100% - 24px));box-sizing:border-box;display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:3px;background:#e8dcc0;color:#231a12;box-shadow:0 0 0 1px #000,0 10px 26px rgba(0,0,0,.6);animation:pop .2s ease-out}
 #coach p{flex:1;min-width:0;margin:0;font:600 13.5px/1.35 var(--body)}
 #coachOk{flex:none;padding:6px 12px;border:none;border-radius:2px;background:#3a2c20;color:#f0e4c8;font:800 12px var(--body);letter-spacing:.04em}
+#bootErr{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:16px;background:var(--soot)}#bootErr p{word-break:break-word}
 </style>
 
 <div id="app">
@@ -671,6 +672,18 @@ body{font-family:var(--body)}
   </div>
 </div>
 
+<script>
+/* if the game cannot start, show why, with a way to try again */
+window.__ERRS = [];
+window.addEventListener('error', e => { if (!e.filename || e.filename.indexOf(location.origin) === 0 || location.protocol === 'file:') window.__ERRS.push((e.message || 'Error') + (e.filename ? ' (' + e.filename.split('/').pop().split('?')[0] + ':' + (e.lineno || 0) + ')' : '')); });
+window.addEventListener('load', () => setTimeout(() => {
+  const gl = (() => { try { return !!document.createElement('canvas').getContext('webgl'); } catch (e) { return false; } })();
+  if ((typeof G !== 'undefined' && G) || (gl && !window.__ERRS.length)) return; // started, or still starting
+  const d = document.createElement('div'); d.id = 'bootErr';
+  d.innerHTML = '<div class="sheet"><h2>Goblin Crypt could not start</h2><p>' + (gl ? (window.__ERRS.slice(0, 3).join('<br>') || 'A game file did not load. Check the connection and reload.') : 'It needs WebGL, which this browser has turned off or does not have.') + '</p><button class="go" onclick="location.reload()">Reload</button></div>';
+  document.body.appendChild(d);
+}, 4000));
+</script>
 <script src="js/vendor/three.min.js"></script>
 <script src="js/rules.js?v=BUILD"></script>
 <script src="js/dialogue.js?v=BUILD"></script>

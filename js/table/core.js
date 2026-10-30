@@ -6,6 +6,7 @@
 // =====================================================================================================================
 'use strict';
 const $ = s => document.querySelector(s);
+const REDUCED = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })(); // the player asks for less motion
 const V3 = THREE.Vector3, UP = new V3(0, 1, 0);
 const rand = (a, b) => a + Math.random() * (b - a);
 let G = null;

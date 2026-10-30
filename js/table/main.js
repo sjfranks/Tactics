@@ -29,7 +29,7 @@ function updateCamera() {
   const ex = VC * ca + VR * sa + .08, ez = VC * sa + VR * ca + .08, cp = Math.cos(PITCH), sp = Math.sin(PITCH);
   const dW = (ex / 2) * ppt / (W / 2) + (ez / 2) * cp;
   const dH = ((ez / 2) * sp + .25) * ppt / (avail / 2) + (ez / 2) * cp * .45;
-  const d = Math.max(dW, dH) * zoom * (1 - kick); // a crit or a king's fall leans the camera in
+  const d = Math.max(dW, dH) * zoom * (1 - (REDUCED ? 0 : kick)); // a crit or a king's fall leans the camera in
   camera.position.set(camX + Math.sin(camAz) * cp * d, sp * d, camZ + Math.cos(camAz) * cp * d);
   if (shakeAmt > .002) { camera.position.add(new V3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(shakeAmt)); shakeAmt *= .84; }
   camera.near = Math.max(.5, d * .3); camera.far = d + 40; // a near plane close to the board keeps depth precise on phones

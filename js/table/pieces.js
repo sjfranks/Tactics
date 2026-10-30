@@ -288,7 +288,7 @@ async function deploy(u, delay = 0) { // each one leaps down onto the field
   u.piece.position.y = 0; u.ring.visible = true; u.blob.visible = true; u.viewFaded = undefined; sfx('drop'); dust(u.root.position); releaseClip(u); playClip(u, 'land');
   if (u.def.boss) { updateBoss(); shake(.2); }
 }
-function shake(a) { shakeAmt = Math.max(shakeAmt, a); }
+function shake(a) { if (!REDUCED) shakeAmt = Math.max(shakeAmt, a); } // no shaking when the player asks for less motion
 function chest(u) { return u.root.position.clone().setY(u.root.position.y + .5); }
 async function projectile(from, to, kind) {
   const d = from.distanceTo(to), dur = 150 + d * 45, arc = kind === 'arrow' ? .25 + d * .05 : kind === 'fire' ? .9 + d * .1 : .15;

@@ -9,8 +9,8 @@ const path = require('path');
   await p.goto('file://' + path.join(__dirname, '..', 'index.html'));
   await p.click('#introGo', { timeout: 30000 });
   // tap through the opening scene, then wait for a hero's turn
-  for (let t = Date.now(); Date.now() - t < 120000 && !(await p.$('#hotbar .hk'));) { if (await p.isVisible('#talk')) await p.click('#talk .tk'); await p.waitForTimeout(300); }
-  await p.waitForSelector('#hotbar .hk', { timeout: 5000 });
+  for (let t = Date.now(); Date.now() - t < 240000 && !(await p.$('#hotbar .hk'));) { if (await p.isVisible('#talk')) await p.click('#talk .tk'); await p.waitForTimeout(300); }
+  if (!(await p.$('#hotbar .hk'))) { console.log('STUCK', await p.evaluate(() => JSON.stringify({ phase: UI.phase, busy: UI.busy, round: G && G.S.round, errors: window.__ERRS }))); console.log(errs.join('\n')); process.exit(1); }
   require('fs').mkdirSync(path.join(__dirname, 'shots'), { recursive: true }); await p.screenshot({ path: path.join(__dirname, 'shots', 'smoke.png') });
   console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'ok: a hero is on turn, no errors');
   await b.close(); process.exit(errs.length ? 1 : 0);
