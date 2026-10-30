@@ -53,7 +53,7 @@ const PLAY = {
   cast: e => { const u = vu(e.id); if (!u) return null; const p = liftShot(u); return e.wait ? p : null; },
   aim: e => { const u = vu(e.id); return u ? aimAt(u, typeof e.at === 'number' ? vu(e.at) : e.at, e.kind) : null; },
   endAim: () => endAim(),
-  status: e => { const u = vu(e.id); return u ? applyStatus(u, e.key, e.on) : null; },
+  status: e => { const u = vu(e.id); if (!u) return null; if (e.armour != null) setArmour(u, e.armour); return applyStatus(u, e.key, e.on); },
   par: e => Promise.all(e.list.map((evs, i) => wait(i * (e.stagger || 0)).then(() => play(evs)))),
   roll: e => showDice(e),
   total: e => showTotal(e.value, e.suffix || ''),
@@ -221,6 +221,7 @@ function sync() {
     if (u.down !== r.down) setDownLook(u, r.down);
     for (const k of STATUSES) if (!!u.st[k] !== !!r.st[k]) applyStatus(u, k, !!r.st[k], true);
     if (u.asleep !== r.asleep) { u.asleep = r.asleep; u.tag.classList.toggle('zz', r.asleep); }
+    if (u.armour !== G.armourOf(r)) setArmour(u, G.armourOf(r));
     if (!u.deployed && UI.phase !== 'intro') showNow(u);
   }
   for (const k of [...ICE.keys()]) if (!GS.ice[k]) removeIceFx(k);

@@ -497,6 +497,11 @@ body{font-family:var(--body)}
 #coach p{flex:1;min-width:0;margin:0;font:600 13.5px/1.35 var(--body)}
 #coachOk{flex:none;padding:6px 12px;border:none;border-radius:2px;background:#3a2c20;color:#f0e4c8;font:800 12px var(--body);letter-spacing:.04em}
 #bootErr{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:16px;background:var(--soot)}#bootErr p{word-break:break-word}
+/* armour: a small shield beside the health bar, red while stripped, gold while raised */
+.hpr{position:relative}
+.tag .arm{position:absolute;right:100%;top:50%;margin-right:3px;transform:translateY(-50%);display:grid;place-items:center;width:13px;height:15px;font:800 9.5px/1 var(--body);color:#1a1410;background:linear-gradient(180deg,#e3dccd,#8f8677);clip-path:polygon(50% 0,100% 16%,100% 58%,50% 100%,0 58%,0 16%)}
+.tag .arm.low{background:linear-gradient(180deg,#ffa08c,#b02a1c);color:#fff}
+.tag .arm.up{background:linear-gradient(180deg,#ffe49a,#b8862a)}
 </style>
 
 <div id="app">
@@ -593,7 +598,7 @@ body{font-family:var(--body)}
   <div class="ov" id="help" hidden>
     <div class="sheet">
       <h2>Goblin Crypt</h2>
-      <p>Five battles stand between your party and the Goblin King: a gorge crossing, a ridge camp, the warg pens, the forge pits and his throne room. Every hero has 3 actions on their turn, every goblin 2. Moving is an action, and so is each ability. The dice are real dice: a <b>1</b> misses, a top face is a <b>crit</b> that explodes into another die, and the target's <b>toughness</b> die soaks up the rest. The party rests to full health between battles.</p>
+      <p>Five battles stand between your party and the Goblin King: a gorge crossing, a ridge camp, the warg pens, the forge pits and his throne room. Every hero has 3 actions on their turn, every goblin 2. Moving is an action, and so is each ability. The dice are real dice: a <b>1</b> misses, a top face is a <b>crit</b> that explodes into another die, and the target's <b>armour</b> takes a fixed amount off the rest. The party rests to full health between battles.</p>
       <h3>The campaign</h3>
       <ul>
         <li>After each victory the party makes camp and picks one of three <b>boons</b>: a better weapon, tougher armour, more health, a faster cooldown, Healing Draughts for everyone. Boons last the rest of the campaign; each hero's sheet lists theirs.</li>
@@ -618,24 +623,24 @@ body{font-family:var(--body)}
         <li>A hero at 0 HP is <b>down</b>, not dead: they lie where they fell, and goblins leave the body be. Sister Wenna's <b>Heal</b> raises them with whatever it rolls. If every hero is down, the battle is lost.</li>
         <li>A <b>Prone</b> hero spends an action to stand up.</li>
       </ul>
-      <h3>Attack and toughness</h3>
+      <h3>Attack and armour</h3>
       <ul>
         <li>The attacker rolls its dice. If every die it keeps is a <b>1</b>, the attack misses, and nothing that rides on the hit happens.</li>
-        <li>Otherwise the target rolls its <b>toughness die</b> and takes the total minus that roll. Toughness dice never explode.</li>
-        <li>A <b>crit</b> (a die on its top face) cuts straight through: no toughness roll. Only blows up close crit: arrows, bolts, rays, hexes and Fireball never do.</li>
-        <li>Toughness: Brakka d4, Sister Wenna and Vex d2 (a coin), Orlen none; cutters and archers none, shamans d2, wargs d4, Grubnash d6.</li>
-        <li>Toughness moves in steps (none, d2, d4, d6, d8): <b>Taunt</b> +1 step, <b>Prone</b> −1, <b>Rebuke</b> −2 until Wenna's next turn; <b>Frozen</b> leaves none at all.</li>
-        <li>One roll, many targets: Cleave, Thunderwave and Fireball roll once, and each figure caught rolls its own toughness. Grubnash Smash, fire, falls and slams ignore toughness.</li>
+        <li>Otherwise the target takes the total less its <b>armour</b>: the number on the shield beside its health bar. There is no roll for it.</li>
+        <li>A <b>crit</b> (a die on its top face) cuts straight through armour. Only blows up close crit: arrows, bolts, rays, hexes and Fireball never do.</li>
+        <li>Armour: Brakka 2, Sister Wenna and Vex 1, Orlen none; cutters and archers none, shamans 1, wargs 2, Grubnash 3.</li>
+        <li><b>Taunt</b> adds 1, <b>Prone</b> takes 1 off, <b>Rebuke</b> takes 2 off until Wenna's next turn, and <b>Frozen</b> leaves none. The shield turns red while armour is stripped.</li>
+        <li>One roll, many targets: Cleave, Thunderwave and Fireball roll once, and each figure caught loses its own armour. Grubnash Smash, fire, falls and slams ignore armour.</li>
       </ul>
       <h3>Combos</h3>
       <ul>
-        <li><b>Prone</b> and <b>Frozen</b> foes take +1 die from every hit and are less tough. Charge, Thunderwave and Dirty Trick knock them down; Frost Ray freezes.</li>
-        <li><b>Rebuke</b> then strike: two steps off a foe's toughness, so a warg's d4 is gone and Grubnash's d6 falls to a d2.</li>
+        <li><b>Prone</b> and <b>Frozen</b> foes take +1 die from every hit and lose armour. Charge, Thunderwave and Dirty Trick knock them down; Frost Ray freezes.</li>
+        <li><b>Rebuke</b> then strike: 2 off a foe's armour, so a warg's is gone and Grubnash's falls to 1.</li>
         <li><b>Charge</b> a goblin into a wall, a pillar or another piece for a +2 Slam; shove it into fire for +2 burn.</li>
         <li><b>Grapple</b> moves a foe or a friend beside Brakka one square in any direction: drag a goblin off a ledge or into the gorge, or pull a friend out of harm's way.</li>
         <li><b>Hide</b> lasts until the end of Vex's next turn. Strike from hiding for +2 dice; add <b>Bless</b> and a prone target for a five-die backstab.</li>
         <li><b>Haste</b> gives a hero a fourth action on their next turn.</li>
-        <li><b>Taunt</b> pulls every goblin onto Brakka, his toughness a step higher, while the others work.</li>
+        <li><b>Taunt</b> pulls every goblin onto Brakka, his armour 1 higher, while the others work.</li>
         <li><b>Fireball</b> leaves burning squares for 2 rounds; anything standing in fire takes 2 each turn. Fire burns friends too.</li>
       </ul>
       <h3>Terrain</h3>

@@ -39,7 +39,7 @@ function renderTokens() {
     box.appendChild(b);
   });
 }
-const ST_DESC = { hidden: 'Hidden: cannot be targeted; next attack +2 dice', blessed: 'Blessed: next roll +1 die', hasted: 'Hasted: +1 action next turn', prone: 'Prone: standing up costs an action; hits against it +1 die; toughness −1 step', frozen: 'Frozen: cannot move; no toughness; next hit +1 die', taunt: 'Taunting: goblins must attack; toughness +1 step', rebuked: 'Rebuked: toughness −2 steps' };
+const ST_DESC = { hidden: 'Hidden: cannot be targeted; next attack +2 dice', blessed: 'Blessed: next roll +1 die', hasted: 'Hasted: +1 action next turn', prone: 'Prone: standing up costs an action; hits against it +1 die; armour −1', frozen: 'Frozen: cannot move; no armour; next hit +1 die', taunt: 'Taunting: goblins must attack; armour +1', rebuked: 'Rebuked: armour −2' };
 function openSheet() {
   const u = UI.inspect || UI.sel || UI.active, L = lvl(), foesLeft = units.filter(x => x.alive && x.side === 'gob').length;
   let html;
@@ -50,7 +50,7 @@ function openSheet() {
     const note = u.down ? 'Down: Heal raises them. Goblins leave the fallen be.' : foe ? u.def.note : u === UI.active && UI.phase === 'player' ? `${r.ap} action${r.ap === 1 ? '' : 's'} left this turn` : '';
     html = `<div class="cs-head ${foe ? 'gob' : ''}">${PORTRAIT[u.kind] ? `<img class="cs-fig" alt="" src="${PORTRAIT[u.kind].body}">` : `<span class="ubadge ${foe ? 'gob' : ''}"><span>${ICONS[u.kind]}</span></span>`}<div><h2>${u.name}</h2><small>${foe ? (u.def.boss ? 'Goblin King' : 'Foe') : u.def.role}</small></div></div>
       <div class="cs-body"><div class="cs-hp"><i>${u.hp}</i>/ ${u.maxHp}<span class="bar"><b style="width:${u.hp / u.maxHp * 100}%"></b></span></div>
-      <div class="cs-stats"><div>Move<b>${G.moveOf(r)}</b></div><div>Die<b>d${G.dieOf(r)}</b></div><div>Range<b>${u.def.range}</b></div><div>Tough<b>${G.dieName(G.toughDie(r))}</b></div></div>
+      <div class="cs-stats"><div>Move<b>${G.moveOf(r)}</b></div><div>Die<b>d${G.dieOf(r)}</b></div><div>Range<b>${u.def.range}</b></div><div>Armour<b>${G.armourOf(r)}</b></div></div>
       ${boons}${sts.length ? `<div class="cs-tags">${sts.map(x => `<span>${ST_DESC[x]}</span>`).join('')}</div>` : ''}${note ? `<p class="cs-note">${note}</p>` : ''}${cards}
       <p class="cs-note">${L.name} · Round ${UI.round} · ${foesLeft} foes left</p>
       <button class="go" id="csClose">Close</button></div>`;
@@ -109,7 +109,7 @@ function makeUnit(r) {
   ring.rotation.x = -Math.PI / 2; ring.renderOrder = 2; scene.add(ring);
   const hit = new THREE.Mesh(hitGeo, hitMat); hit.position.y = .55; root.add(hit);
   const tag = document.createElement('div'); tag.className = 'tag ' + side;
-  tag.innerHTML = `<div class="fc"></div><div class="hp"><i class="trail"></i><i class="fill"></i></div>` + (side === 'hero' ? '<div class="ap"></div>' : '');
+  tag.innerHTML = `<div class="fc"></div><div class="hpr"><b class="arm" hidden></b><div class="hp"><i class="trail"></i><i class="fill"></i></div></div>` + (side === 'hero' ? '<div class="ap"></div>' : '');
   if (def.boss) tag.classList.add('boss');
   $('#tags').appendChild(tag);
   const u = { id: r.id, kind: r.kind, def, side, name: def.name, hp: r.hp, maxHp: r.maxHp, c: r.c, r: r.r, l: r.l || 0, st: {}, alive: true, down: false, asleep: !!r.asleep, init: 0, deployed: false, root, piece, fig, stand, h, rig, ring, hit, tag, blob, size: r.size || 1, fx: {} };
@@ -117,7 +117,7 @@ function makeUnit(r) {
   if (u.size > 1) { hit.scale.set(2.5, 2, 2.5); hit.position.y = 1.1; blob.scale.setScalar(2.1); }
   if (u.asleep) tag.classList.add('zz');
   piece.visible = false; ring.visible = false; blob.visible = false;
-  hit.userData.unit = u; ownMats(u); updateTag(u); resetRig(u);
+  hit.userData.unit = u; ownMats(u); updateTag(u); resetRig(u); setArmour(u, G ? G.armourOf(r) : 0);
   units[r.id] = u; return u;
 }
 // take a piece off the table at once
@@ -144,6 +144,13 @@ function updateTag(u) {
   const w = Math.max(0, u.hp / u.maxHp * 100) + '%';
   u.tag.querySelector('.fill').style.width = w; u.tag.querySelector('.trail').style.width = w;
   if (u.def.boss) updateBoss();
+}
+// the shield on a nameplate: what each blow loses. Red when it has been stripped (Rebuke, Prone, Frozen), gold when
+// raised (Taunt); hidden for the fallen and for those with none to lose
+function setArmour(u, a) {
+  const base = G ? (G.U(u.id).armour || 0) : 0, el = u.tag.querySelector('.arm');
+  u.armour = a; el.hidden = u.down || (!a && !base); el.textContent = a;
+  el.classList.toggle('low', a < base); el.classList.toggle('up', a > base); el.title = `Armour ${a}`;
 }
 function updateBoss() {
   const k = units.find(u => u && u.def.boss && u.alive);

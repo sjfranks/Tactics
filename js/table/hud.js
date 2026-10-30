@@ -60,7 +60,7 @@ function renderFc() {
 function fcLine(id) {
   const f = UI.fc.get(id), t = vu(id); if (!f || !t) return '';
   if (f.heal != null) return `<b>${shortName(t)}</b>: ~${f.heal.toFixed(1)} HP${f.revive ? ', and they rise' : f.need < f.heal ? ` (${f.need} missing)` : ''}`;
-  return `<b>${shortName(t)}</b>: hit <b>${pct(1 - f.miss)}</b> · ~${f.avg.toFixed(1)} damage${f.kill >= .01 ? ` · KO <b>${pct(f.kill)}</b>` : ''}${f.tough ? ` · toughness d${f.tough}` : ''}`;
+  return `<b>${shortName(t)}</b>: hit <b>${pct(1 - f.miss)}</b> · ~${f.avg.toFixed(1)} damage${f.kill >= .01 ? ` · KO <b>${pct(f.kill)}</b>` : ''}${f.armour ? ` · armour ${f.armour}` : ''}`;
 }
 function renderDock() {
   renderTools();

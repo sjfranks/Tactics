@@ -146,6 +146,18 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     await p.click('#csClose');
   }
 
+  console.log('armour: a number on the nameplate, stripped by Rebuke');
+  await setup(2, 'cleric', "const w = S.units.find(u => u.kind === 'warg'); w.c = 1; w.r = 5;");
+  {
+    const badge = kind => p.evaluate(k => { const u = units.find(x => x && x.alive && x.kind === k && (k !== 'warg' || x.r === 5)); const el = u.tag.querySelector('.arm'); return { text: el.textContent, hidden: el.hidden, low: el.classList.contains('low') }; }, kind);
+    const b0 = await badge('warg'), bk = await badge('fighter'), bm = await badge('mage');
+    ok(b0.text === '2' && !b0.hidden && !b0.low && bk.text === '2' && bm.hidden, `shields: warg ${b0.text}, Brakka ${bk.text}, Orlen none`);
+    await p.click('.hk[data-id="c_rebuke"]'); await p.waitForTimeout(150); await tapCell(1, 5); await idle();
+    const b1 = await badge('warg');
+    ok(b1.text === '0' && b1.low, `Rebuke strips the warg's armour: ${b0.text} → ${b1.text}, shown in red`);
+    ok(await p.evaluate(() => !combatLog.some(e => /toughness/i.test(e.html))), 'nothing rolls for defence any more');
+  }
+
   console.log('difficulty');
   await setup(1, 'fighter', '', { diff: 'hard' });
   ok(await p.evaluate(() => G.S.units.filter(u => u.side === 'gob').every(u => u.maxHp === Math.round(GC.UNITS[u.kind].hp * 1.25))), 'Hard: every goblin has 125% health');

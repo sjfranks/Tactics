@@ -25,7 +25,7 @@ function applyStatus(u, k, on, instant) {
 function standNow(u) { u.piece.rotation.x = 0; u.piece.rotation.z = 0; u.piece.position.set(0, 0, 0); resetRig(u); if (u.st.hidden) setBase(u, 'sneak'); }
 // a fallen hero: grey, lying where they fell, waiting for a healer
 function setDownLook(u, on) {
-  u.down = on; u.tag.classList.toggle('down', on); updateTag(u);
+  u.down = on; u.tag.classList.toggle('down', on); updateTag(u); setArmour(u, u.armour || 0);
   if (!u.grey) return;
   const g0 = u.grey.value, g1 = on ? .85 : 0;
   if (QUIET) u.grey.value = g1; else tween(on ? 520 : 320, k => { u.grey.value = g0 + (g1 - g0) * k; });
@@ -50,7 +50,7 @@ function missFx(t) { if (!t || !t.alive) return; sfx('whoosh'); roResult(t, `<b>
 function damageFx(e) {
   const t = vu(e.id); if (!t) return;
   const fin = e.amount; t.hp = e.hp; updateTag(t);
-  t._ro = roResult(t, `<b>${fin > 0 ? '−' + fin : '0'}</b>${shortName(t)}${e.soak ? `<small>${e.soak} soaked</small>` : ''}`, t.side === 'hero' ? 'hurt' : (e.crit || fin >= 8 ? 'crit' : 'dmg'));
+  t._ro = roResult(t, `<b>${fin > 0 ? '−' + fin : '0'}</b>${shortName(t)}${e.soak ? `<small>armour stops ${e.soak}</small>` : ''}`, t.side === 'hero' ? 'hurt' : (e.crit || fin >= 8 ? 'crit' : 'dmg'));
   numFloat(t, fin, e.crit);
   sfx('hit'); flash(t, 0xffffff); shake(fin >= 6 ? .14 : .07);
   if (t.side === 'hero' && fin > 0 && !QUIET) { const v = $('#hurt'); v.style.setProperty('--k', Math.min(1, .35 + fin / 10).toFixed(2)); v.classList.remove('go'); void v.offsetWidth; v.classList.add('go'); } // the edges of the table flush red when a hero bleeds
@@ -219,8 +219,7 @@ const diceFor = u => !u ? 'gob' : u.side === 'hero' ? u.kind : u.kind === 'king'
 // of the first row are set aside
 async function showDice(e) {
   const R = e.roll, u = vu(e.id), sides = R.sides, dis = R.dis, noCrit = R.noCrit, center = atPos(e.at), sname = dis ? 'bad' : diceFor(u);
-  if (e.append) addChip(e.append, 'bonus'); // a toughness roll is set beside the attack it answers
-  else showRoll(e.label, sides, center.clone().addScaledVector(camToward(), .62).addScaledVector(camRight(), .55));
+  showRoll(e.label, sides, center.clone().addScaledVector(camToward(), .62).addScaledVector(camRight(), .55));
   if (dis) roNote(dis > 1 ? `Disadvantage ×${dis} · roll +${dis}, keep lowest` : 'Disadvantage · roll +1, keep lowest', 'red');
   (e.notes || []).forEach(n => roNote(n, n.startsWith('Shatter') ? 'blue' : ''));
   (e.bonus || []).forEach(b => addChip(b, 'bonus'));
