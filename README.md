@@ -13,6 +13,7 @@ A tabletop tactics game on a 3D board. Four heroes (Brakka the fighter, Sister W
 - **Planning:** foe intent arrows show whom each goblin means to strike or where it would walk; the odds over each target show the damage to expect and the chance to finish it.
 - **Down, not dead:** a hero at 0 HP lies where they fell until Heal raises them. The battle is lost only when every hero is down.
 - **Undo** takes back moves and abilities that rolled no dice. Dice are final.
+- **Dialogue:** the party and the goblins trade words before and after each battle (tap to go on, or Skip), and figures call out in the fight. Turn the barks off with **Banter** in Settings.
 
 The in-game *How to play* sheet (☰ menu) has the full rules.
 
@@ -22,6 +23,7 @@ The in-game *How to play* sheet (☰ menu) has the full rules.
 | --- | --- |
 | `js/rules.js` | The rules (`GC`): stat blocks, abilities, maps, dice, movement, sight and the goblins' minds. No graphics code. A battle is plain JSON; every order (`move`, `act`, `endTurn`) changes it and returns a list of events. |
 | `js/view.js` | The table: the three.js diorama, miniatures, dice, sound and HUD. It decides nothing: it asks the rules what a hero may do, sends orders, and plays back the events. |
+| `js/dialogue.js` | Everything the characters say: a short scene before and after each battle, and the barks heroes and goblins call out in the fight (crits, kills, a friend going down, Taunt, the war horn...). Plain data; edit the lines freely. |
 | `index.html` | Styles and markup. |
 | `js/vendor/three.min.js` | three.js r128. |
 | `tools/sim.js` | Balance simulator: plays whole battles with a greedy hero bot against the real goblin AI. |

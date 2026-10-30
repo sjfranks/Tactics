@@ -460,6 +460,20 @@ body{font-family:var(--body)}
 @keyframes hurt{0%{opacity:0}12%{opacity:var(--k,.6)}100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){#hurt.go{animation-duration:.3s}}
 #intentBtn.on .sw{background:#a8843e}
+/* dialogue: a speech bubble over a figure, and the scene box at the foot of the screen */
+.bubble{position:absolute;left:0;top:0;max-width:170px;padding:5px 9px 6px;border-radius:3px;background:#e8dcc0;color:#231a12;font:600 12.5px/1.25 var(--body);text-align:center;box-shadow:0 0 0 1px #000,0 4px 10px rgba(0,0,0,.6);pointer-events:none;will-change:transform,opacity}
+.bubble::after{content:'';position:absolute;left:50%;bottom:-6px;margin-left:-6px;border:6px solid transparent;border-bottom:0;border-top-color:#e8dcc0}
+.bubble.gob{background:#3a1410;color:#f0c8b8;box-shadow:0 0 0 1px #000,0 0 0 2px rgba(200,60,45,.5),0 4px 10px rgba(0,0,0,.6)}.bubble.gob::after{border-top-color:#3a1410}
+#talk{position:absolute;inset:0;z-index:9;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px;padding:0 max(12px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 24px) max(12px,env(safe-area-inset-left,0px));background:linear-gradient(0deg,rgba(0,0,0,.6),rgba(0,0,0,0) 45%);cursor:pointer}
+#talk .tk{width:100%;max-width:560px;box-sizing:border-box;display:flex;gap:12px;align-items:flex-start;padding:12px 14px 14px;border-radius:3px;background:linear-gradient(180deg,#231e1b,#110e0c);border:1px solid #4a3e33;border-top:2px solid var(--tarnish);box-shadow:0 0 0 1px #000,0 16px 40px rgba(0,0,0,.8)}
+#talk .ubadge{width:48px;height:56px}#talk .ubadge>span{width:43px;height:50px}#talk .ubadge svg{width:24px;height:24px}
+#talk .tb{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+#talkName{font:400 18px/1.1 var(--display);color:var(--gold)}
+#talkText{margin:0;min-height:2.7em;font:500 15.5px/1.35 var(--body);color:var(--bone)}
+#talkSkip{flex:none;padding:4px 10px;border:1px solid #4a3e33;border-radius:2px;background:#1a1512;font:800 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--bone-dim)}
+#talk .tnext{font:800 10.5px var(--body);font-style:normal;letter-spacing:.12em;text-transform:uppercase;color:var(--bone-dim)}
+#logList .le.say{color:var(--bone);font-style:italic;border-left-color:var(--gold)}
+#barkBtn.on .sw{background:#a8843e}
 </style>
 
 <div id="app">
@@ -494,6 +508,7 @@ body{font-family:var(--body)}
   <div id="roll" hidden><div class="rl" id="rollLbl"></div><div class="notes" id="rollNotes"></div><div class="chips" id="rollChips"></div><div class="res" id="rollRes"></div></div>
   <div id="combos"></div>
   <div id="banner"><span id="bannerTxt"></span></div>
+  <div id="talk" hidden role="dialog" aria-live="polite"><div class="tk"><span id="talkFace" class="ubadge"></span><div class="tb"><b id="talkName"></b><p id="talkText"></p></div><button id="talkSkip">Skip</button></div><i class="tnext">Tap to go on</i></div>
 
   <div id="dock">
     <div class="dk">
@@ -522,6 +537,7 @@ body{font-family:var(--body)}
       <h2>Settings</h2>
       <div class="setl">
         <button class="mi on" id="muteBtn"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg><span>Sound</span><i class="sw"></i></button>
+        <button class="mi on" id="barkBtn"><svg viewBox="0 0 24 24"><path d="M4 5h16v10H9l-5 4z"/></svg><span>Banter</span><i class="sw"></i></button>
         <button class="mi" id="styleBtn"><svg viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 22V12M3 7l9 5 9-5"/></svg><span>Model style</span><em id="styleLbl" class="sv">Painted</em></button>
         <button class="mi" id="restartBtn"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v5h5"/></svg><span>Restart battle</span></button>
       </div>
@@ -617,5 +633,6 @@ body{font-family:var(--body)}
 
 <script src="js/vendor/three.min.js"></script>
 <script src="js/rules.js?v=BUILD"></script>
+<script src="js/dialogue.js?v=BUILD"></script>
 <script src="js/view.js?v=BUILD"></script>
 </body></html>
