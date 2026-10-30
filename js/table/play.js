@@ -267,8 +267,9 @@ function gameOver(win) {
   const last = level === LEVELS.length - 1, rounds = G.S.round, L = LEVELS[level], rep = report();
   // the campaign moves on at once (closing the page during the closing scene keeps the result)
   addTally(); CAMP.state = null;
+  const campRep = win && last ? campaignReport() : '';
   if (win && !last) { CAMP.level = level + 1; CAMP.offer = GC.offerBoons(CAMP.boons); }
-  if (win && last) CAMP.done = true;
+  if (win && last) CAMP = freshCamp(CAMP.diff); // the campaign is won: the next visit starts a new one
   saveCamp();
   setTimeout(async () => {
     const sc = DLG.scenes[level]; await talk(sc && (win ? sc.win : sc.lose));
@@ -280,7 +281,7 @@ function gameOver(win) {
     if (win && last) {
       t.textContent = 'The Goblin King Falls'; t.className = 'win';
       $('#endText').textContent = `Grubnash's crown rolls across the flagstones and the crypt is yours. ${listOf(up)} walk${up.length === 1 ? 's' : ''} out into the daylight${down.length ? `, carrying ${listOf(down)}` : ''}.`;
-      $('#endReport').innerHTML = rep + campaignReport();
+      $('#endReport').innerHTML = rep + campRep;
       btn.textContent = 'New campaign'; endAction = newCampaign; sfx('win');
     } else if (win) {
       t.textContent = 'Victory'; t.className = 'win';

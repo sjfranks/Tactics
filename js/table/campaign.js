@@ -12,7 +12,8 @@ let CAMP = freshCamp();
 function saveCamp() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(CAMP)); } catch (e) { } }
 function readCamp(c) {
   if (!c || c.v !== 1 || !Number.isInteger(c.level) || !LEVELS[c.level]) return null;
-  return { ...freshCamp(), ...c, boons: (c.boons || []).filter(id => GC.BOONS[id]) };
+  const offer = Array.isArray(c.offer) ? c.offer.filter(id => GC.BOONS[id] && !(c.boons || []).includes(id)) : [];
+  return { ...freshCamp(), ...c, boons: (c.boons || []).filter(id => GC.BOONS[id]), offer: offer.length ? offer : null, diff: GC.TUNE.difficulty[c.diff] ? c.diff : 'normal', tally: c.tally && typeof c.tally === 'object' ? c.tally : {} };
 }
 function loadCamp() { try { return readCamp(JSON.parse(localStorage.getItem(SAVE_KEY))); } catch (e) { return null; } }
 // the battle in progress, kept whenever it is the player's move
@@ -145,8 +146,8 @@ function snapshot() {
 function start(data) {
   resize();
   applyEnvStyle(); $('#styleLbl').textContent = STYLE_NAME[STYLE]; $('#intentBtn').classList.toggle('on', showIntents); $('#barkBtn').classList.toggle('on', showBarks);
-  renderSettings(); makePortraits();
-  CAMP = (data && data.v === 3 && readCamp(data.camp)) || loadCamp() || freshCamp();
+  makePortraits();
+  CAMP = (data && data.v === 3 && readCamp(data.camp)) || loadCamp() || freshCamp(); renderSettings();
   let saved = null;
   if (CAMP.state) { try { saved = JSON.parse(CAMP.state); if (saved.v !== 3 || saved.level !== CAMP.level || saved.phase !== 'player') saved = null; } catch (e) { saved = null; } }
   loadLevel(CAMP.level, saved);

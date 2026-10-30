@@ -264,7 +264,7 @@ window.addEventListener('keydown', e => {
 });
 $('#rotBtn').onclick = () => { ac(); UI.wallDir = UI.wallDir === 'v' ? 'h' : 'v'; sfx('pick'); refresh(); }; // turn the ice wall across or down
 $('#helpBtn').onclick = () => { setMenu(false); $('#help').hidden = false; };
-$('#settingsBtn').onclick = () => { ac(); setMenu(false); $('#settings').hidden = false; sfx('select'); };
+$('#settingsBtn').onclick = () => { ac(); setMenu(false); renderSettings(); $('#settings').hidden = false; sfx('select'); };
 $('#settingsClose').onclick = () => { $('#settings').hidden = true; };
 $('#settings').onclick = e => { if (e.target.id === 'settings') $('#settings').hidden = true; };
 $('#menuUndo').onclick = () => { setMenu(false); ac(); undoMove(); };
