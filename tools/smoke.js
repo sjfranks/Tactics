@@ -8,7 +8,9 @@ const path = require('path');
   await p.route('**fonts.g**', r => r.fulfill({ body: '', contentType: 'text/css' })); // play offline: the system fonts stand in
   await p.goto('file://' + path.join(__dirname, '..', 'index.html'));
   await p.click('#introGo', { timeout: 30000 });
-  await p.waitForSelector('#hotbar .hk', { timeout: 120000 });
+  // tap through the opening scene, then wait for a hero's turn
+  for (let t = Date.now(); Date.now() - t < 120000 && !(await p.$('#hotbar .hk'));) { if (await p.isVisible('#talk')) await p.click('#talk .tk'); await p.waitForTimeout(300); }
+  await p.waitForSelector('#hotbar .hk', { timeout: 5000 });
   await p.screenshot({ path: path.join(__dirname, 'smoke.png') });
   console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'ok: a hero is on turn, no errors');
   await b.close(); process.exit(errs.length ? 1 : 0);
