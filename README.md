@@ -1,6 +1,6 @@
 # Goblin Crypt
 
-A tabletop tactics game on a 3D board. Four heroes (Brakka the fighter, Sister Wenna the cleric, Orlen the mage and Vex the thief) fight through four battles to the Goblin King: the Gorge Crossing, Goblin Ridge, the Warg Pens and the Throne of Grubnash.
+A tabletop tactics game on a 3D board. Four heroes (Brakka the fighter, Sister Wenna the cleric, Orlen the mage and Vex the thief) fight through five battles to the Goblin King: the Gorge Crossing, Goblin Ridge, the Warg Pens, the Forge Pits and the Throne of Grubnash.
 
 ## Play
 
@@ -13,32 +13,45 @@ A tabletop tactics game on a 3D board. Four heroes (Brakka the fighter, Sister W
 - **Planning:** foe intent arrows show whom each goblin means to strike or where it would walk; the odds over each target show the damage to expect and the chance to finish it.
 - **Down, not dead:** a hero at 0 HP lies where they fell until Heal raises them. The battle is lost only when every hero is down.
 - **Undo** takes back moves and abilities that rolled no dice. Dice are final.
-- **Dialogue:** the party and the goblins trade words before and after each battle (tap to go on, or Skip), and figures call out in the fight. Turn the barks off with **Banter** in Settings.
+- **The campaign:** after each victory the party makes camp and picks one of three **boons** (a reforged blade, a shield, Healing Draughts for everyone, faster prayers...). Boons last the rest of the campaign. The campaign saves itself in the browser after every move, so you can close the page and come back to the same turn.
+- **Settings:** difficulty (goblins have 75%, 100% or 125% of their health), game speed, music, banter, model style, a new campaign.
+- **Dialogue:** the party and the goblins trade words before and after each battle, and figures call out in the fight.
+- **Keys:** 1–6 pick an ability, E or Enter ends the turn, Z undoes, Esc puts the ability down.
 
-The in-game *How to play* sheet (☰ menu) has the full rules.
+The in-game *How to play* sheet (☰ menu) has the full rules, and the first battle explains itself with tips as things come up.
 
 ## Code
 
+The rules decide everything and know nothing of the screen; the table (the view) shows what happens and decides nothing.
+
 | File | What it is |
 | --- | --- |
-| `js/rules.js` | The rules (`GC`): stat blocks, abilities, maps, dice, movement, sight and the goblins' minds. No graphics code. A battle is plain JSON; every order (`move`, `act`, `endTurn`) changes it and returns a list of events. |
-| `js/view.js` | The table: the three.js diorama, miniatures, dice, sound and HUD. It decides nothing: it asks the rules what a hero may do, sends orders, and plays back the events. |
-| `js/dialogue.js` | Everything the characters say: a short scene before and after each battle, and the barks heroes and goblins call out in the fight (crits, kills, a friend going down, Taunt, the war horn...). Plain data; edit the lines freely. |
-| `index.html` | Styles and markup. |
+| `js/rules.js` | The rules (`GC`): stat blocks, abilities, boons, maps, dice, movement, sight and the goblins' minds. No graphics code. A battle is plain JSON; every order (`move`, `act`, `endTurn`) changes it and returns a list of events. Runs in Node too. |
+| `js/dialogue.js` | Everything the characters say: a scene before and after each battle, and the barks called out in the fight. Plain data; edit freely. |
+| `js/table/` | The table, in scripts that share one scope and load in order: `core` (geometry, UI state, the clock, sound and music, renderer, textures, particles), `board` (the diorama), `dice`, `minis` (the miniatures), `pieces` (the pieces on the board), `effects` (what each event looks like), `talk` (speech bubbles and scenes), `play` (the event player, orders, undo, the end of a battle), `hud` (hotbar, odds, foe intents, tips), `input` (pointer, keys, buttons), `campaign` (boons, the save, laying out a battle) and `main` (camera, frame loop, start-up). |
+| `index.html` | Styles, markup and the help sheet. |
 | `js/vendor/three.min.js` | three.js r128. |
-| `tools/sim.js` | Balance simulator: plays whole battles with a greedy hero bot against the real goblin AI. |
-| `tools/smoke.js` | Browser smoke test (Playwright): loads the game and plays to the first hero turn. |
+
+### Tools
+
+| Command | What it does |
+| --- | --- |
+| `node tools/sim.js 500 all` | Balance simulator: plays whole battles with a greedy hero bot against the real goblin AI, each with the boons a party would have earned by then. Add `DIFF=easy` or `DIFF=hard`, `BOONS=0` to fight without boons, `DMG=1` to split damage to heroes by source. Stops on any broken rule. |
+| `node tools/test.js` | Browser tests (Playwright with Chromium): real taps and drags on the page, from moving and undoing to picking a boon, the save surviving a reload and the campaign's end. `--autoplay=0,4` also plays those battles through the real view with the bot, checking after every order that the table shows what the rules say. `--shots` keeps screenshots. |
+| `node tools/smoke.js` | A quick browser check: the game loads and reaches a hero's turn without errors. |
+
+GitHub Actions runs a check on every push and pull request (every script parses; the simulator plays 60 battles of each level) and deploys `index.html` and `js/` from `main` to GitHub Pages.
 
 ### Retuning
 
-Every number lives in four tables at the top of `js/rules.js`: `TUNE`, `UNITS`, `CARDS` and `LEVELS`. Change them, then check the difficulty curve:
+Every number lives in the tables at the top of `js/rules.js`: `TUNE`, `UNITS`, `CARDS`, `BOONS` and `LEVELS`. Change them, then check the difficulty curve:
 
 ```sh
 node tools/sim.js 500 all     # battles per level, all levels (or a level index)
 ```
 
-With 500 battles per level the bot wins 100%, 98%, 93% and 67% of the four battles, with 0.45, 1.6, 2.4 and 2.75 heroes downed per battle.
+On Normal, with 400 battles per level, the bot wins 100%, 98%, 96%, 89% and 76% of the five battles. The bot ignores foe intents and plays one action at a time, so people do better.
 
 ## Archive
 
-Earlier projects in this repository are kept in `archive/`: Rogue Tactics (`archive/rogue-tactics/`, the previous game at the root), Emberwatch v1, the pre-1e rulebook and the Tactics 48 prototype. Each has an `ARCHIVED.md` explaining how to bring it back.
+Earlier projects in this repository are kept in `archive/`: Rogue Tactics (`archive/rogue-tactics/`, the game that was at the root before), Emberwatch v1, the pre-1e rulebook and the Tactics 48 prototype. Each has an `ARCHIVED.md` explaining how to bring it back.

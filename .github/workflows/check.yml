@@ -1,0 +1,23 @@
+name: Check
+
+# Every push and pull request: each script parses, and the rules survive a few hundred simulated battles (the simulator
+# stops on any broken rule: a piece off the board, inside a wall, on top of another, or with impossible health).
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Every script parses
+        run: for f in js/*.js js/table/*.js tools/*.js; do node --check "$f"; done
+      - name: Simulated battles, every level
+        run: node tools/sim.js 60 all
