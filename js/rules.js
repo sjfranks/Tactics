@@ -1034,14 +1034,15 @@ function battle(S) {
   }
 
   // ---------------- rounds and turns ----------------
-  // every piece rolls initiative; the higher roll goes first, then the sides alternate, one piece at a time
+  // initiative is rolled once, when a piece first joins the fight (the first round, or the round after it wakes or is
+  // called in), and kept for the whole battle; the higher roll goes first, then the sides alternate, one piece at a time
   function buildOrder() {
-    const hs = heroes(), gs = gobs().filter(u => !u.asleep);
-    [...hs, ...gs].forEach(u => { u.init = 1 + Math.floor(rnd() * TUNE.init) + (u.initBonus ?? def(u).init ?? 0); });
+    const hs = heroes(), gs = gobs().filter(u => !u.asleep), fresh = [...hs, ...gs].filter(u => !u.rolled);
+    fresh.forEach(u => { u.init = 1 + Math.floor(rnd() * TUNE.init) + (u.initBonus ?? def(u).init ?? 0); u.rolled = true; });
     const by = (a, b) => b.init - a.init; hs.sort(by); gs.sort(by);
     const order = []; let side = (hs[0] ? hs[0].init : -99) >= (gs[0] ? gs[0].init : -99) ? 'hero' : 'gob';
     while (hs.length || gs.length) { const q = side === 'hero' ? (hs.length ? hs : gs) : (gs.length ? gs : hs); order.push(q.shift().id); side = side === 'hero' ? 'gob' : 'hero'; }
-    return order;
+    return { order, fresh };
   }
   function startRound(first) {
     if (!first) S.round++;
@@ -1049,9 +1050,10 @@ function battle(S) {
     for (const k of Object.keys(S.ice)) if (S.round - S.ice[k].born >= TUNE.ice.rounds) { removeIce(k, 'melt'); log('A block of ice melts', 'hdr'); }
     if (B.vents.length && S.round % TUNE.vents.every === 0) { B.vents.forEach(([c, r]) => setBurn(c, r, 1)); log('The vents erupt', 'hdr'); sfx('boom'); shake(.12); }
     wakeCheck();
-    S.order = buildOrder(); S.turn = -1;
+    const { order, fresh } = buildOrder(); S.order = order; S.turn = -1;
     log(first ? L.name : `Round ${S.round}`, 'hdr');
-    log('Initiative: ' + S.order.map(id => `${nm(U(id))} ${U(id).init}`).join(' · '), 'dice');
+    if (first) log('Initiative for the battle: ' + S.order.map(id => `${nm(U(id))} ${U(id).init}`).join(' · '), 'dice');
+    else if (fresh.length) log('Initiative: ' + fresh.map(u => `${nm(u)} ${u.init}`).join(' · '), 'dice');
     ev({ t: 'round', round: S.round, first: !!first, order: S.order.slice(), inits: Object.fromEntries(S.order.map(id => [id, U(id).init])) });
     nextTurn();
   }

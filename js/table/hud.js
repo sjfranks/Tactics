@@ -105,8 +105,8 @@ function renderDock() {
   measure();
 }
 // a tap on a hotbar button: choose it; a second tap uses a self ability; a blocked one shakes and says why
-// 30 slots: five hotbars of six, paged with the arrows beside the bar, a sideways swipe on it, or [ and ]
-const HB_SLOTS = 6, HB_PAGES = 5;
+// 25 slots: five hotbars of five, paged with the arrows beside the bar, a sideways swipe on it, or [ and ]
+const HB_SLOTS = 5, HB_PAGES = 5;
 let hbSwiped = false;
 const hbPageOf = h => Math.min(HB_PAGES - 1, UI.hbPage[h.kind] || 0);
 function hbPage(d) {
@@ -138,7 +138,7 @@ function hotTap(h, id) {
   if (UI.card === id && CARDS[id].target === 'self') { useCard(h, id, null); return; } // tap a chosen self ability again to use it
   UI.card = id; UI.aim = null; UI.fcFocus = null; sfx('pick'); refresh(); tipsNow();
 }
-window.addEventListener('keydown', e => { // 1–6 pick abilities, Escape puts the chosen one down
+window.addEventListener('keydown', e => { // 1–5 pick abilities, Escape puts the chosen one down
   const h = myHero(); if (e.ctrlKey || e.metaKey || e.altKey || !h) return;
   const k = +e.key, id = k >= 1 && k <= HB_SLOTS ? G.cardsOf(ru(h))[hbPageOf(h) * HB_SLOTS + k - 1] : null; if (id) { e.preventDefault(); hotTap(h, id); }
   else if (e.key === ']' || e.key === '[') { e.preventDefault(); hbPage(e.key === ']' ? 1 : -1); }

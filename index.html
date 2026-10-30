@@ -274,7 +274,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 #hbInfo .tx2 i{font-style:normal;color:#9fb4d4}
 #hbInfo .bl{font-style:normal;font-weight:800;color:#ff8a6c}
 #hbInfo b.dis{color:#ff8a6c}
-#dock{--tile:clamp(38px,calc((min(100vw,560px) - 86px) / 7),58px)} /* six slots and End across the dock */
+#dock{--tile:clamp(38px,calc((min(100vw,560px) - 80px) / 6),62px)} /* five slots and End across the dock */
 #hbRow{display:flex;align-items:stretch;gap:6px;touch-action:none}
 #hbPager{flex:none;width:24px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;border-radius:9px;background:linear-gradient(180deg,#323a46,#1f252d);box-shadow:inset 0 0 0 1px #12161c}
 #hbPager button{flex:1;width:100%;padding:0;border:none;background:none;display:grid;place-items:center;color:#eef1f5}
@@ -613,12 +613,12 @@ body{font-family:var(--body)}
         <li><b>Red arrows</b> show what each goblin means to do if it acted now: who it would strike, or where it would walk. The bold one acts next. They change as you play, so use them: step out of reach, hide, or Taunt and watch every arrow swing to Brakka.</li>
         <li><b>Undo</b> in the ☰ menu takes back moves and abilities that rolled no dice. Dice are final: once a roll is made it stands, and so does everything before it.</li>
         <li><b>Twist two fingers</b> to turn the board, pinch to zoom, and drag the floor to look around. On a computer, shift-drag or right-drag turns it. Tap during the goblins' turn to speed it up.</li>
-        <li>Each hero has five hotbars of six slots: page with the arrows beside the bar, a sideways swipe, or <b>[</b> and <b>]</b>.</li>
-        <li><b>Keys:</b> 1–6 pick an ability, <b>E</b> or <b>Enter</b> ends the turn, <b>Z</b> undoes, <b>Esc</b> puts the ability down. In a scene, Enter or a tap goes on and Esc skips.</li>
+        <li>Each hero has five hotbars of five slots: page with the arrows beside the bar, a sideways swipe, or <b>[</b> and <b>]</b>.</li>
+        <li><b>Keys:</b> 1–5 pick an ability, <b>E</b> or <b>Enter</b> ends the turn, <b>Z</b> undoes, <b>Esc</b> puts the ability down. In a scene, Enter or a tap goes on and Esc skips.</li>
       </ul>
       <h3>Turns</h3>
       <ul>
-        <li>Each round every piece rolls <b>initiative</b> (d10, plus 3 for Vex and wargs, 1 for Orlen, cutters and archers, −1 for Grubnash). The higher roll goes first, then heroes and goblins alternate, one piece at a time. The strip at the top shows who acts now and who comes next.</li>
+        <li>At the start of the battle every piece rolls <b>initiative</b> once (d10, plus 3 for Vex and wargs, 1 for Orlen, cutters and archers, −1 for Grubnash) and keeps it to the end; a goblin that wakes or is called in rolls when it joins. The higher roll goes first, then heroes and goblins alternate, one piece at a time. The strip at the top shows who acts now and who comes next.</li>
         <li><b>Disadvantage:</b> each attack after a piece's first in a turn throws one more die for every attack it has already made, and the highest are set aside.</li>
         <li>A hero at 0 HP is <b>down</b>, not dead: they lie where they fell, and goblins leave the body be. Sister Wenna's <b>Heal</b> raises them with whatever it rolls. If every hero is down, the battle is lost.</li>
         <li>A <b>Prone</b> hero spends an action to stand up.</li>

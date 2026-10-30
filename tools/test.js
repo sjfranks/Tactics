@@ -131,11 +131,13 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
   console.log('boons: a better blade, and a healing draught');
   await setup(0, 'fighter', "const w = S.units.find(u => u.kind === 'cleric'); w.hp = 3; w.c = 2; w.r = 7;", { boons: ['tempered', 'draughts'] });
   {
-    const bar = await p.evaluate(() => ({ dv: document.querySelector('.hk[data-id="f_attack"] .dv').textContent, pot: !!document.querySelector('.hk[data-id="potion"]'), uses: document.querySelector('.hk[data-id="potion"] .us')?.textContent }));
+    const bar = await p.evaluate(() => ({ dv: document.querySelector('.hk[data-id="f_attack"] .dv').textContent, n: document.querySelectorAll('#hotbar .hk').length, pot: !!document.querySelector('.hk[data-id="potion"]') }));
     ok(bar.dv === 'd10', 'Tempered Blade: the Longsword button reads d10');
-    ok(bar.pot && bar.uses === '×1', 'Healing Draughts: a draught on the bar, one use');
+    ok(bar.n === 5 && !bar.pot, 'the hotbar is five wide: the sixth ability, the draught, waits on the second bar');
     await p.click('.hk[data-id="f_attack"]'); await p.waitForTimeout(100);
     ok(/Deal d10/.test(await p.textContent('#hbInfo')), 'the card says Deal d10');
+    await p.click('#pgDn'); await p.waitForTimeout(250);
+    ok(await p.evaluate(() => document.querySelector('.hk[data-id="potion"] .us')?.textContent === '×1' && document.querySelector('#pgNum').textContent === '2'), 'Healing Draughts: a draught on bar 2, one use');
     const w0 = (await hero('cleric')).hp;
     await p.click('.hk[data-id="potion"]'); await p.waitForTimeout(150); await tapCell(2, 7); await idle();
     const w1 = (await hero('cleric')).hp;

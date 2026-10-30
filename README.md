@@ -8,7 +8,7 @@ A tabletop tactics game on a 3D board. Four heroes (Brakka the fighter, Sister W
 
 ## How it plays
 
-- **Turns:** every piece rolls initiative each round, and heroes and goblins alternate. Heroes have 3 actions, goblins 2; moving is an action and so is each ability.
+- **Turns:** every piece rolls initiative once at the start of the battle, and heroes and goblins alternate. Heroes have 3 actions, goblins 2; moving is an action and so is each ability.
 - **Dice:** real dice, thrown on the table. A 1 misses, a top face is a crit that explodes and cuts through armour, and the target's armour (the shield on its nameplate) takes a fixed amount off the rest. Each attack after the first in a turn rolls with disadvantage.
 - **Planning:** foe intent arrows show whom each goblin means to strike or where it would walk; the odds over each target show the damage to expect and the chance to finish it.
 - **Down, not dead:** a hero at 0 HP lies where they fell until Heal raises them. The battle is lost only when every hero is down.
@@ -16,7 +16,7 @@ A tabletop tactics game on a 3D board. Four heroes (Brakka the fighter, Sister W
 - **The campaign:** after each victory the party makes camp and picks one of three **boons** (a reforged blade, a shield, Healing Draughts for everyone, faster prayers...). Boons last the rest of the campaign. The campaign saves itself in the browser after every move, so you can close the page and come back to the same turn.
 - **Settings:** difficulty (goblins have 75%, 100% or 125% of their health), game speed, music, banter, model style, a new campaign.
 - **Dialogue:** the party and the goblins trade words before and after each battle, and figures call out in the fight.
-- **Keys:** 1–6 pick an ability, E or Enter ends the turn, Z undoes, Esc puts the ability down.
+- **Keys:** 1–5 pick an ability, E or Enter ends the turn, Z undoes, Esc puts the ability down.
 
 The in-game *How to play* sheet (☰ menu) has the full rules, and the first battle explains itself with tips as things come up.
 
@@ -50,7 +50,7 @@ Every number lives in the tables at the top of `js/rules.js`: `TUNE`, `UNITS`, `
 node tools/sim.js 500 all     # battles per level, all levels (or a level index)
 ```
 
-On Normal, with 400 battles per level, the bot wins 100%, 97%, 96%, 88% and 76% of the five battles. The bot ignores foe intents and plays one action at a time, so people do better.
+On Normal, with 400 battles per level, the bot wins 100%, 98%, 96%, 87% and 74% of the five battles. The bot ignores foe intents and plays one action at a time, so people do better.
 
 ## Archive
 
