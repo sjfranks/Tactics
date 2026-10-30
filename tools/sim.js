@@ -1,5 +1,8 @@
 // Headless balance simulator: plays whole battles with a greedy hero policy against the real goblin AI.
-// node sim.js [battles per level] [level|all] [rules file]
+// node tools/sim.js [battles per level] [level|all] [rules file]
+// Each battle is fought with the boons a party would have earned by then: one random pick of three after every earlier
+// battle (BOONS=0 to fight without). DIFF=easy|hard sets the difficulty. DMG=1 splits damage to heroes by source,
+// USES=1 counts the abilities the bot used.
 const path = require('path');
 const GC = require(path.resolve(process.argv[4] || path.join(__dirname, '../js/rules.js')));
 const N = +process.argv[2] || 200, ONLY = process.argv[3] && process.argv[3] !== 'all' ? +process.argv[3] : null;
@@ -32,7 +35,7 @@ const T = 300;
 function options(B, u) {
   const opts = [], S = B.S, foes = B.gobs();
   const allyLater = S.order.slice(S.turn + 1).map(B.U).filter(x => x.side === 'hero' && B.up(x));
-  for (const id of B.def(u).cards) {
+  for (const id of B.cardsOf(u)) {
     if (B.block(u, id)) continue;
     const card = B.CARDS[id], tg = B.targets(u, id);
     if (card.atk || (card.target === 'enemy' && id === 't_trick') || id === 'c_rebuke') {
@@ -57,8 +60,8 @@ function options(B, u) {
         for (const x of hit) { const f = B.forecast(u, id, x, u, T); v += x.side === 'gob' ? f.avg + f.kill * (x.hp + 5) + 1.5 : -(f.avg * 2 + 4); }
         if (v > 0) opts.push({ v, id, target: e.cell });
       }
-    } else if (id === 'c_heal') {
-      for (const [k, e] of tg) { const t = B.U(e.unit); if (e.path) continue; const need = t.down ? 99 : t.maxHp - t.hp; if (t.down) opts.push({ v: 20, id, target: t.id }); else if (need >= 4) opts.push({ v: Math.min(need, 4.5) * 1.1, id, target: t.id }); }
+    } else if (card.heal) { // Heal, or a draught (kept for someone badly hurt)
+      for (const [k, e] of tg) { const t = B.U(e.unit); if (e.path) continue; const need = t.down ? 99 : t.maxHp - t.hp, avg = B.cardN(u, id) * (B.cardDie(u, id) + 1) / 2; if (t.down) opts.push({ v: 20, id, target: t.id }); else if (need >= (id === 'potion' ? Math.max(5, t.maxHp * .5) : 4)) opts.push({ v: Math.min(need, avg) * 1.1, id, target: t.id }); }
     } else if (id === 'c_bless') {
       for (const [k, e] of tg) { const t = B.U(e.unit); if (e.path || t.st.blessed) continue; const later = t === u ? 0 : allyLater.includes(t) ? 1 : 0; if (later && ['fighter', 'thief'].includes(t.kind)) opts.push({ v: 1.8, id, target: t.id }); }
     } else if (id === 'c_haste') {
@@ -71,7 +74,7 @@ function options(B, u) {
     } else if (id === 'f_grab') {
       for (const g of B.grabbable(u)) {
         if (g.side !== 'gob') continue;
-        for (const [k, e] of B.grabCells(u, g)) if (B.obstAt(e.cell.c, e.cell.r) === 'chasm') opts.push({ v: g.hp + 8, id, target: { grab: g.id, cell: e.cell } });
+        for (const [k, e] of B.grabCells(u, g)) { const ob = B.obstAt(e.cell.c, e.cell.r); if (ob === 'chasm') opts.push({ v: g.hp + 8, id, target: { grab: g.id, cell: e.cell } }); else if (ob === 'lava') opts.push({ v: g.hp <= B.TUNE.lava ? g.hp + 8 : 6, id, target: { grab: g.id, cell: e.cell } }); }
       }
     }
   }
@@ -109,19 +112,36 @@ function heroTurn(B, stats) {
     else { const p = positionMove(B, u); if (!p) break; evs = B.move(u.id, p); }
     if (!evs.length) break;
     check(B, evs, `${S.level} r${S.round} ${u.name}`);
-    if (S.level === 3 && !S.kingDied && !S.units.find(x => x.kind === 'king').alive) S.kingDied = S.round;
+    if (GC.LEVELS[S.level].rout && !S.kingDied && !S.units.find(x => x.kind === 'king').alive) S.kingDied = S.round;
   }
   if (S.phase === 'player') { const evs = B.endTurn(); check(B, evs, `${S.level} r${S.round} end`); }
 }
 
+// the boons a party would carry into a battle: one random pick of three offered after each earlier one
+function boonsFor(level, seed) {
+  if (process.env.BOONS === '0') return [];
+  let x = seed * 2654435761 >>> 0; const rnd = () => ((x = (x * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const got = [];
+  for (let i = 0; i < level; i++) { const o = GC.offerBoons(got, rnd); got.push(o[Math.floor(rnd() * o.length)]); }
+  return got;
+}
 function play(level, seed, stats) {
-  const S = GC.newState(level, seed), B = GC.battle(S);
+  const S = GC.newState(level, seed, { boons: boonsFor(level, seed), diff: process.env.DIFF }), B = GC.battle(S);
   check(B, B.begin(), 'begin');
   for (let k = 0; k < 2000 && !S.result; k++) heroTurn(B, stats);
   const hs = S.units.filter(u => u.side === 'hero');
-  if (S.level === 3 && S.result === 'win') { stats.kingRound = (stats.kingRound || []); stats.kingRound.push(S.kingDied || S.round); }
+  if (GC.LEVELS[S.level].rout && S.result === 'win') { stats.kingRound = (stats.kingRound || []); stats.kingRound.push(S.kingDied || S.round); }
   return { win: S.result === 'win', rounds: S.round, downs: hs.filter(h => h.down).length, hpLeft: hs.reduce((a, h) => a + (h.down ? 0 : h.hp), 0) / hs.reduce((a, h) => a + h.maxHp, 0), horns: S.horns, totalDowns: Object.values(S.stats).reduce((a, s) => a + s.downs, 0) };
 }
+// run N battles of one level and sum them up (also used by other tools: require('./sim.js').batch)
+function batch(lv, n = N) {
+  const stats = { uses: {} }, res = [];
+  for (let i = 0; i < n; i++) res.push(play(lv, 1000 + i * 7919, stats));
+  const avg = f => (res.reduce((a, r) => a + f(r), 0) / res.length);
+  return { res, stats, win: avg(r => r.win), rounds: avg(r => r.rounds), hpLeft: avg(r => r.hpLeft), downs: avg(r => r.totalDowns) };
+}
+module.exports = { GC, play, batch, boonsFor };
+if (require.main !== module) return;
 const levels = ONLY != null ? [ONLY] : GC.LEVELS.map((_, i) => i);
 for (const lv of levels) {
   const stats = { uses: {} }, res = [];

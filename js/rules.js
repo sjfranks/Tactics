@@ -3,7 +3,7 @@
 // Everything that decides what happens lives here: stat blocks, cards, maps, dice, movement, sight and the goblins'
 // minds. It knows nothing of the screen. A battle is a plain JSON state; acting on it changes the state and returns
 // the story of what happened as a list of events, which the view plays back as animation, sound and text.
-// To retune the game, edit TUNE, UNITS, CARDS and LEVELS. To change how a rule works, edit the functions in battle().
+// To retune the game, edit TUNE, UNITS, CARDS, BOONS and LEVELS. To change how a rule works, edit the functions in battle().
 // =====================================================================================================================
 const GC = (() => {
 'use strict';
@@ -24,6 +24,7 @@ const TUNE = {
   horn: { every: 3, cutters: 2, range: 4, max: 2 }, // Grubnash's war horn: how often, how many, how near, how many times
   smash: { length: 8, die: 10, cooldown: 2 },       // Grubnash Smash: lane length, damage die, rounds between smashes
   init: 10,                       // initiative die
+  difficulty: { easy: { label: 'Easy', hp: .75 }, normal: { label: 'Normal', hp: 1 }, hard: { label: 'Hard', hp: 1.25 } }, // goblin health
   toughSteps: [0, 2, 4, 6, 8],    // toughness dice in steps: none, d2, d4, d6, d8
   forecastTrials: 1500
 };
@@ -44,28 +45,62 @@ const UNITS = {
 
 // ---------------- cards: each hero's abilities ----------------
 // target: enemy | ally | self | cell | grab · atk: a single attack (ranged, proj, die, bonus) · sweep: one roll against
-// every foe 'around' (8 squares) or 'beside' (4) · area: a 3×3 blast · close: usable with a foe beside a caster
+// every foe 'around' (8 squares) or 'beside' (4) · area: a 3×3 blast · close: usable with a foe beside a caster ·
+// weapon: rolls the hero's own weapon die (which a boon can raise) · n: dice thrown · uses: times a battle ·
+// {die} in the text is filled in with the hero's actual dice
 const CARDS = {
-  f_attack: { name: 'Longsword', die: 8, target: 'enemy', range: 1, atk: {}, cost: 'Action', text: 'Deal d8.', how: 'Tap a foe beside you.' },
-  f_charge: { name: 'Charge', die: 8, target: 'enemy', range: 1, move: 4, cd: 2, atk: { bonus: 2 }, cost: 'Move+Act', text: 'Rush up to 4, d8+2, push 1 and follow.', how: 'Tap a foe within 4.' },
+  f_attack: { name: 'Longsword', die: 8, weapon: true, target: 'enemy', range: 1, atk: {}, cost: 'Action', text: 'Deal {die}.', how: 'Tap a foe beside you.' },
+  f_charge: { name: 'Charge', die: 8, weapon: true, target: 'enemy', range: 1, move: 4, cd: 2, atk: { bonus: 2 }, cost: 'Move+Act', text: 'Rush up to 4, {die}+2, push 1 and follow.', how: 'Tap a foe within 4.' },
   f_taunt: { name: 'Taunt', target: 'self', cd: 3, cost: 'Action', text: 'Foes must attack you. Toughness +1 step.', how: 'Tap your hero.' },
-  f_cleave: { name: 'Cleave', die: 8, target: 'self', cd: 2, need: 'around', sweep: 'around', cost: 'Action', text: 'd8 to every foe around you.', how: 'Tap your hero.' },
+  f_cleave: { name: 'Cleave', die: 8, weapon: true, target: 'self', cd: 2, need: 'around', sweep: 'around', cost: 'Action', text: '{die} to every foe around you.', how: 'Tap your hero.' },
   f_grab: { name: 'Grapple', target: 'grab', range: 1, cd: 2, need: 'adj', cost: 'Action', text: 'Move a foe or friend beside you 1 square, any way.', how: 'Tap a figure beside you, then a square.' },
-  c_attack: { name: 'Mace', die: 6, target: 'enemy', range: 1, atk: {}, cost: 'Action', text: 'Deal d6.', how: 'Tap a foe beside you.' },
-  c_heal: { name: 'Heal', die: 6, target: 'ally', range: 3, heal: true, revive: true, cost: 'Action', text: 'Heal d6; dice explode. Raises a fallen hero.', how: 'Select a hero within 3.' },
+  c_attack: { name: 'Mace', die: 6, weapon: true, target: 'enemy', range: 1, atk: {}, cost: 'Action', text: 'Deal {die}.', how: 'Tap a foe beside you.' },
+  c_heal: { name: 'Heal', die: 6, target: 'ally', range: 3, heal: true, revive: true, cost: 'Action', text: 'Heal {die}; dice explode. Raises a fallen hero.', how: 'Select a hero within 3.' },
   c_bless: { name: 'Bless', target: 'ally', range: 3, cd: 2, cost: 'Action', text: 'Their next roll gets +1 die.', how: 'Select a hero within 3.' },
   c_haste: { name: 'Haste', target: 'ally', range: 3, cd: 3, cost: 'Action', text: '+1 action on their next turn.', how: 'Select a hero within 3.' },
   c_rebuke: { name: 'Rebuke', target: 'enemy', range: 3, cd: 2, cost: 'Action', text: 'Lay a foe bare: toughness −2 steps till your next turn.', how: 'Tap a foe within 3.' },
-  m_attack: { name: 'Arcane Bolt', die: 6, target: 'enemy', range: 4, atk: { ranged: true, proj: 'arcane' }, cost: 'Action', text: 'Deal d6 at range.', how: 'Tap a foe within 4.' },
-  m_fire: { name: 'Fireball', die: 6, target: 'cell', range: 4, cd: 3, area: 1, cost: 'Action', text: 'd6 to a 3×3; it burns 2 rounds. Hits allies.', how: 'Tap a square twice.' },
-  m_frost: { name: 'Frost Ray', die: 4, target: 'enemy', range: 4, cd: 2, atk: { ranged: true, proj: 'frost', die: 4 }, cost: 'Action', text: 'Deal d4 and Freeze: no toughness. Not in fire.', how: 'Tap a foe within 4.' },
+  m_attack: { name: 'Arcane Bolt', die: 6, weapon: true, target: 'enemy', range: 4, atk: { ranged: true, proj: 'arcane' }, cost: 'Action', text: 'Deal {die} at range.', how: 'Tap a foe within 4.' },
+  m_fire: { name: 'Fireball', die: 6, target: 'cell', range: 4, cd: 3, area: 1, cost: 'Action', text: '{die} to a 3×3; it burns 2 rounds. Hits allies.', how: 'Tap a square twice.' },
+  m_frost: { name: 'Frost Ray', die: 4, target: 'enemy', range: 4, cd: 2, atk: { ranged: true, proj: 'frost', die: 4 }, cost: 'Action', text: 'Deal {die} and Freeze: no toughness. Not in fire.', how: 'Tap a foe within 4.' },
   m_icewall: { name: 'Ice Wall', target: 'cell', range: 4, cd: 3, wall: true, cost: 'Action', text: 'Raise 3 ice blocks. Puts out fire.', how: 'Tap a square twice.' },
-  m_wave: { name: 'Thunderwave', die: 4, target: 'self', cd: 3, need: 'foe', sweep: 'beside', shove: true, close: true, cost: 'Action', text: 'd4 to foes beside you and shove them back.', how: 'Tap your hero.' },
-  t_attack: { name: 'Dagger', die: 4, target: 'enemy', range: 1, atk: {}, cost: 'Action', text: 'Deal d4. Flanked: +1 die.', how: 'Tap a foe beside you.' },
+  m_wave: { name: 'Thunderwave', die: 4, target: 'self', cd: 3, need: 'foe', sweep: 'beside', shove: true, close: true, cost: 'Action', text: '{die} to foes beside you and shove them back.', how: 'Tap your hero.' },
+  t_attack: { name: 'Dagger', die: 4, weapon: true, target: 'enemy', range: 1, atk: {}, cost: 'Action', text: 'Deal {die}. Flanked: +1 die.', how: 'Tap a foe beside you.' },
   t_hide: { name: 'Hide', target: 'self', cd: 3, cost: 'Action', text: 'Unseen till the end of your next turn. Next attack +2 dice.', how: 'Tap your hero.' },
   t_trick: { name: 'Dirty Trick', target: 'enemy', range: 1, cd: 2, cost: 'Action', text: 'Knock Prone: toughness −1 step. Stays hidden.', how: 'Tap a foe beside you.' },
-  t_hook: { name: 'Rope Hook', target: 'cell', range: 3, reach: 'move', cd: 2, spot: true, cost: 'Action', text: 'Swing as far as you move, over walls and up cliffs.', how: 'Tap a square twice.' }
+  t_hook: { name: 'Rope Hook', target: 'cell', range: 3, reach: 'move', cd: 2, spot: true, cost: 'Action', text: 'Swing as far as you move, over walls and up cliffs.', how: 'Tap a square twice.' },
+  potion: { name: 'Healing Draught', die: 4, n: 2, target: 'ally', range: 1, heal: true, uses: 1, cost: 'Action', text: 'Heal {die}; dice explode. One a battle.', how: 'Tap yourself or a hero beside you.' }
 };
+
+// ---------------- boons: what the party earns between battles ----------------
+// After each victory the party picks one of three. who: a hero's kind, or 'party' for all four. mod: die (the weapon
+// die), tough (steps up), hp, move, init · cards: changes to one hero's cards (die, n dice, cd added to the cooldown) ·
+// add: a card every hero gains · start: a status every hero starts each battle with
+const BOONS = {
+  tempered: { who: 'fighter', name: 'Tempered Blade', text: "Brakka's sword is reforged: his blows roll d10.", mod: { die: 10 } },
+  shieldwall: { who: 'fighter', name: 'Shield Wall', text: "A dwarf-made shield: Brakka's toughness rises to d6.", mod: { tough: 1 } },
+  bulwark: { who: 'fighter', name: 'Bulwark', text: 'Brakka trains through the night: +5 HP.', mod: { hp: 5 } },
+  hands: { who: 'cleric', name: 'Blessed Hands', text: "Sister Wenna's Heal rolls 2d6.", cards: { c_heal: { n: 2 } } },
+  litany: { who: 'cleric', name: 'Litany of Haste', text: 'Bless and Haste come back a round sooner.', cards: { c_bless: { cd: -1 }, c_haste: { cd: -1 } } },
+  zeal: { who: 'cleric', name: 'Holy Zeal', text: "Sister Wenna's mace rolls d8, and she gains +3 HP.", mod: { die: 8, hp: 3 } },
+  wildfire: { who: 'mage', name: 'Wildfire', text: "Orlen's Fireball rolls d8.", cards: { m_fire: { die: 8 } } },
+  deepfrost: { who: 'mage', name: 'Deep Frost', text: 'Frost Ray rolls d6 and comes back a round sooner.', cards: { m_frost: { die: 6, cd: -1 } } },
+  wards: { who: 'mage', name: 'Warding Robes', text: 'Orlen gains toughness d2 and +3 HP.', mod: { tough: 1, hp: 3 } },
+  serrated: { who: 'thief', name: 'Serrated Dagger', text: "Vex's dagger rolls d6.", mod: { die: 6 } },
+  fleet: { who: 'thief', name: 'Fleet Foot', text: 'Vex moves 4 squares, and her Rope Hook swings as far.', mod: { move: 1 } },
+  shadow: { who: 'thief', name: 'Shadow Cloak', text: 'Hide comes back a round sooner, and Vex gains +3 HP.', cards: { t_hide: { cd: -1 } }, mod: { hp: 3 } },
+  draughts: { who: 'party', name: 'Healing Draughts', text: 'Every hero carries a draught into each battle: drink it, or pour it for a friend beside you, to heal 2d4.', add: 'potion' },
+  hardened: { who: 'party', name: 'Battle-Hardened', text: 'Every hero gains +3 HP.', mod: { hp: 3 } },
+  banner: { who: 'party', name: 'War Banner', text: 'Every hero starts each battle Blessed.', start: 'blessed' },
+  scouts: { who: 'party', name: 'Scouting', text: 'Every hero rolls initiative with +2.', mod: { init: 2 } }
+};
+// three boons the party has not taken, for three different heroes (or the party) where it can
+function offerBoons(taken = [], rnd = Math.random, n = 3) {
+  const pool = Object.keys(BOONS).filter(id => !taken.includes(id)), out = [];
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  for (const id of pool) if (out.length < n && !out.some(o => BOONS[o].who === BOONS[id].who)) out.push(id);
+  for (const id of pool) if (out.length < n && !out.includes(id)) out.push(id);
+  return out;
+}
 
 // ---------------- the four battles ----------------
 // map rows: '.' ground, '1'–'4' ground raised that many steps, '#' wall or rock, '~' lava, '^' fire vent, ' ' gorge,
@@ -90,12 +125,17 @@ const LEVELS = [
     props: [['cage', 5, 0], ['barrels', 0, 4], ['pillar', 4, 5]],
     foes: [['warg', 0, 0], ['warg', 1, 1], ['warg', 0, 2], ['shaman', 1, 0], ['cutter', 3, 1], ['archer', 5, 2], ['cutter', 2, 4], ['archer', 4, 0]],
     art: { sky: [0x8e887e, 0x1e1812, 0xe2d6c4, 1.05, 0x16130f] } },
+  { name: 'The Forge Pits', theme: 'lava', text: "Under the hall the goblins work their forges over channels of molten rock. Three archers and a shaman hold the forge platforms beyond a lava channel; wargs and cutters wait on this side of it, and the one way up crosses a vent. Fire vents spit flame every second round, and anyone standing on one burns. Shove, charge or haul a goblin into the lava for +5.",
+    map: ['22..22', '22^.22', '~~..~~', '......', '.^..^.', '~....~', '......', '......'],
+    props: [['barrels', 0, 7], ['brazier', 5, 7]],
+    foes: [['archer', 0, 0], ['archer', 1, 1], ['archer', 5, 0], ['shaman', 3, 0], ['cutter', 2, 2], ['cutter', 0, 3], ['cutter', 5, 3], ['warg', 2, 3], ['warg', 3, 3]],
+    art: { sky: [0x8a5a48, 0x2a0c06, 0xffb27a, 1.0, 0x140806] } },
   { name: 'Throne of Grubnash', theme: 'throne', text: "The Goblin King's hall. Grubnash waits on his throne with his court, all wide awake. He fills a 2×2 block, cleaves every hero beside him, can't be shoved and kicks the fallen out of his way, and twice he will blow his war horn for more cutters. His hide is toughness d6: Rebuke and frost lay him bare. When he lines up a Grubnash Smash, its path glows red: get out of it before his next turn. Bring him down and his court will flee.",
     map: ['#..#2222#..#', '#..#2222#..#', '#...2222...#', '#..........#', '#..........#', '#..........#', '#..........#', '#..........#', '#..........#', '#..........#', '#..........#', '####....####', '............', '............'],
     heroes: [['fighter', 4, 12], ['cleric', 5, 13], ['mage', 6, 13], ['thief', 7, 12]],
     props: [['throne', 5, 0], ['brazier', 3, 2], ['brazier', 8, 2], ['pillar', 2, 4], ['pillar', 9, 4], ['pillar', 2, 8], ['pillar', 9, 8], ['barrels', 0, 12], ['barrels', 11, 13]],
     rout: true, // the court flees when its king falls
-    foes: [['king', 5, 1], ['shaman', 7, 0], ['archer', 1, 0], ['archer', 10, 0], ['cutter', 4, 6], ['cutter', 7, 6], ['warg', 5, 9]],
+    foes: [['king', 5, 1], ['shaman', 7, 0], ['archer', 1, 0], ['archer', 10, 0], ['cutter', 4, 6], ['cutter', 7, 6], ['warg', 5, 9], ['warg', 6, 9]],
     art: { sky: [0x9a8476, 0x1e140e, 0xeccdae, 1.05, 0x150e0b], carpet: [5, 3, 6, 12] } }
 ];
 
@@ -167,17 +207,37 @@ function slopeAt(B, fx, fz) {
 }
 
 // ---------------- a fresh battle ----------------
+// each unit carries its own die, toughness, move, initiative bonus and cards, so boons and difficulty can change them
 function makeUnit(S, kind, c, r, l = 0) {
-  const d = UNITS[kind], ap = d.ap || TUNE.ap[d.side];
-  const u = { id: S.units.length, kind, side: d.side, name: d.name, hp: d.hp, maxHp: d.hp, c, r, l, size: d.size || 1, ap, apMax: ap, atks: 0, cd: {}, st: {}, alive: true, down: false, asleep: false, init: 0 };
+  const d = UNITS[kind], ap = d.ap || TUNE.ap[d.side], k = d.side === 'gob' ? (TUNE.difficulty[S.diff] || TUNE.difficulty.normal).hp : 1, hp = Math.max(1, Math.round(d.hp * k));
+  const u = { id: S.units.length, kind, side: d.side, name: d.name, hp, maxHp: hp, c, r, l, size: d.size || 1, ap, apMax: ap, atks: 0, cd: {}, st: {}, alive: true, down: false, asleep: false, init: 0,
+    die: d.die, tough: d.tough || 0, move: d.move, initBonus: d.init || 0, cards: (d.cards || []).slice(), mods: {}, uses: {} };
   S.units.push(u); return u;
 }
-function newState(level, seed = (Math.random() * 4294967296) >>> 0) {
+// a fresh battle. opts.boons: the boons the party has earned; opts.diff: easy | normal | hard
+function newState(level, seed = (Math.random() * 4294967296) >>> 0, opts = {}) {
   const L = LEVELS[level];
-  const S = { v: 2, level, rng: seed >>> 0, round: 1, turn: -1, order: [], active: null, phase: 'intro', result: null, units: [], ice: {}, burn: {}, smash: null, horns: 0, stats: {} };
+  const S = { v: 3, level, rng: seed >>> 0, round: 1, turn: -1, order: [], active: null, phase: 'intro', result: null, units: [], ice: {}, burn: {}, smash: null, horns: 0, stats: {},
+    diff: TUNE.difficulty[opts.diff] ? opts.diff : 'normal', boons: (opts.boons || []).filter(id => BOONS[id]) };
   for (const [kind, c, r, l] of [...(L.heroes || HERO_START), ...L.foes]) makeUnit(S, kind, c, r, l || 0);
   S.units.forEach(u => { if (u.side === 'hero') S.stats[u.id] = { dealt: 0, kills: 0, crits: 0, healed: 0, taken: 0, downs: 0 }; else if (L.wake) u.asleep = true; });
+  S.boons.forEach(id => applyBoon(S, BOONS[id]));
   return S;
+}
+function applyBoon(S, b) {
+  const steps = TUNE.toughSteps;
+  for (const u of S.units) {
+    if (u.side !== 'hero' || (b.who !== 'party' && b.who !== u.kind)) continue;
+    const m = b.mod || {};
+    if (m.die) u.die = m.die;
+    if (m.tough) u.tough = steps[Math.min(steps.length - 1, Math.max(0, steps.indexOf(u.tough)) + m.tough)];
+    if (m.hp) { u.maxHp += m.hp; u.hp += m.hp; }
+    if (m.move) u.move += m.move;
+    if (m.init) u.initBonus += m.init;
+    for (const id in b.cards || {}) { const o = u.mods[id] || (u.mods[id] = {}), add = b.cards[id]; for (const k in add) o[k] = k === 'cd' ? (o.cd || 0) + add.cd : add[k]; }
+    if (b.add && !u.cards.includes(b.add)) { u.cards.push(b.add); if (CARDS[b.add].uses) u.uses[b.add] = CARDS[b.add].uses; }
+    if (b.start) u.st[b.start] = true;
+  }
 }
 
 // =====================================================================================================================
@@ -221,7 +281,17 @@ function battle(S) {
   const short = u => u.name.replace(/^Goblin /, '');
   const nm = u => `<b>${u.name}</b>`;
   const at = u => ({ c: u.c, r: u.r, l: u.l || 0 });
-  const moveOf = u => def(u).move;
+  const moveOf = u => u.move ?? def(u).move;
+  // a unit's own dice and cards (boons change them): the weapon die, a card's die, how many it throws, its cooldown
+  const dieOf = u => u.die || def(u).die;
+  const cardsOf = u => u.cards || def(u).cards;
+  const cardMod = (u, id) => (u.mods && u.mods[id]) || {};
+  const cardDie = (u, id) => cardMod(u, id).die || (CARDS[id].weapon ? dieOf(u) : CARDS[id].die);
+  const cardN = (u, id) => cardMod(u, id).n || CARDS[id].n || 1;
+  const cardCd = (u, id) => Math.max(0, (CARDS[id].cd || 0) + (cardMod(u, id).cd || 0));
+  const diceName = (u, id) => { const d = cardDie(u, id), n = cardN(u, id); return d ? (n > 1 ? n : '') + 'd' + d : ''; };
+  const cardText = (u, id) => CARDS[id].text.replace('{die}', diceName(u, id));
+  const atkOf = (u, id) => ({ ...CARDS[id].atk, ...(CARDS[id].weapon ? {} : { die: cardDie(u, id) }) }); // a card's single attack, with the hero's dice
   const isRanged = u => def(u).range > 1;
   const dieName = d => d ? 'd' + d : 'none';
   const hOf = (u, c, r, l) => sz(u) > 1 ? Math.max(...cellsOf(u, c, r).map(([x, z]) => hAt(x, z))) : hAt(c, r, l);
@@ -322,7 +392,7 @@ function battle(S) {
   // toughness in steps: Taunt raises one, Prone drops one, Rebuke drops two, and the frozen have none
   function toughDie(t) {
     if (t.st.frozen) return 0;
-    const steps = TUNE.toughSteps, i = steps.indexOf(def(t).tough || 0) + (t.st.taunt ? 1 : 0) - (t.st.prone ? 1 : 0) - (t.st.rebuked ? 2 : 0);
+    const steps = TUNE.toughSteps, i = steps.indexOf(t.tough ?? def(t).tough ?? 0) + (t.st.taunt ? 1 : 0) - (t.st.prone ? 1 : 0) - (t.st.rebuked ? 2 : 0);
     return steps[Math.max(0, Math.min(steps.length - 1, i))];
   }
   // Grapple: anyone beside the fighter but the Goblin King (too big to haul), and the squares around them they could go to
@@ -332,7 +402,7 @@ function battle(S) {
     for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
       const c = t.c + dc, r = t.r + dr; if ((!dc && !dr) || !inB(c, r)) continue;
       const ll = l && hasDeck(c, r) ? 1 : 0, ob = ll ? null : obstAt(c, r);
-      if (ob === 'chasm') { if (t.side !== u.side) res.set(key(c, r), { cell: { c, r, l: 0 } }); continue; } // a foe can be thrown into the gorge, a friend never
+      if (ob === 'chasm' || ob === 'lava') { if (t.side !== u.side) res.set(key(c, r), { cell: { c, r, l: 0 } }); continue; } // a foe can be thrown into the gorge or the lava, a friend never
       if (ob || occ(c, r, ll) || Math.abs(hAt(c, r, ll) - hAt(t.c, t.r, l)) > 2) continue;
       res.set(key(c, r, ll), { cell: { c, r, l: ll } });
     }
@@ -367,6 +437,7 @@ function battle(S) {
     if (!up(u)) return 'Fallen';
     if (u.ap <= 0) return 'No actions';
     if (u.cd[id] > 0) return `Ready in ${u.cd[id]}`;
+    if (card.uses != null && !(u.uses && u.uses[id] > 0)) return 'Used up';
     if (card.need === 'foe' && !besideFoes(u).length) return 'No foe beside';
     if (card.need === 'around' && !aroundFoes(u).length) return 'No foe near';
     if (card.need === 'adj' && !grabbable(u).length) return 'No one beside';
@@ -388,7 +459,7 @@ function battle(S) {
         for (const n of rch.values()) if (n.end && dist(n, t) <= card.range && sees(n) && !(isRanged(u) && card.target === 'enemy' && engagers(u, n).length) && (!best || n.cost < best.cost)) best = n;
         if (best) res.set(t.id, { unit: t.id, path: pathTo(rch, key(best.c, best.r, best.l)) });
       }
-      if (card.target === 'enemy' && id === def(u).cards[0]) for (const k in S.ice) { const v = S.ice[k], q = { c: v.c, r: v.r, l: 0 }; if (dist(u, q) <= card.range && (card.range < 2 || los(u, q))) res.set('ice:' + k, { ice: q, path: null }); }
+      if (card.target === 'enemy' && id === cardsOf(u)[0]) for (const k in S.ice) { const v = S.ice[k], q = { c: v.c, r: v.r, l: 0 }; if (dist(u, q) <= card.range && (card.range < 2 || los(u, q))) res.set('ice:' + k, { ice: q, path: null }); }
     } else if (card.target === 'grab') { // the figures beside the fighter; once one is held, the squares it can go to
       for (const t of grabbable(u)) res.set(t.id, { unit: t.id, path: null });
       const g = opt.grab != null ? U(opt.grab) : null;
@@ -418,7 +489,7 @@ function battle(S) {
     if (u.kind === 'thief' && flanked(t, u)) { n += 1; notes.push('Flanking +1 die'); }
     if (def(u).pack && S.units.some(x => x !== u && x.alive && x.kind === u.kind && dist(x, t) === 1)) { n += TUNE.pack; notes.push(`Pack +${TUNE.pack} die`); }
     if (ranged) notes.push('Ranged · no crits');
-    return { sides: o.die || def(u).die, n, dis, noCrit: ranged, bonus: o.bonus || 0, notes, tough: toughDie(t) };
+    return { sides: o.die || dieOf(u), n, dis, noCrit: ranged, bonus: o.bonus || 0, notes, tough: toughDie(t) };
   }
   // one roll against many: blessing and hiding count, the targets' states do not
   function sweepSpec(u, sides, noCrit = false) {
@@ -432,14 +503,14 @@ function battle(S) {
   function forecast(u, id, t, from = u, trials = TUNE.forecastTrials) {
     const card = CARDS[id]; if (!card || !t) return null;
     if (card.heal) {
-      const n = 1 + (u.st.blessed ? 1 : 0); let sum = 0;
-      for (let i = 0; i < trials; i++) sum += rollWith(Math.random, card.die, n).total;
+      const n = cardN(u, id) + (u.st.blessed ? 1 : 0), d = cardDie(u, id); let sum = 0;
+      for (let i = 0; i < trials; i++) sum += rollWith(Math.random, d, n).total;
       return { heal: sum / trials, need: t.down ? t.maxHp : t.maxHp - t.hp, revive: !!t.down };
     }
     let spec;
-    if (card.atk) spec = attackSpec(u, t, card.atk, from);
-    else if (card.sweep) spec = { ...sweepSpec(u, card.die), tough: toughDie(t) };
-    else if (card.area) spec = { ...sweepSpec(u, card.die, true), tough: toughDie(t) };
+    if (card.atk) spec = attackSpec(u, t, atkOf(u, id), from);
+    else if (card.sweep) spec = { ...sweepSpec(u, cardDie(u, id)), tough: toughDie(t) };
+    else if (card.area) spec = { ...sweepSpec(u, cardDie(u, id), true), tough: toughDie(t) };
     else return null;
     let miss = 0, sum = 0, kill = 0;
     for (let i = 0; i < trials; i++) {
@@ -488,7 +559,7 @@ function battle(S) {
   function toughness(t, atk, r, ctx) {
     if (r.crits) { if (!ctx.told) { ctx.told = true; note('Crit · ignores toughness', 'red'); } return { dmg: atk, soak: 0 }; }
     const d = toughDie(t);
-    if (!d) { if (t.st.frozen && def(t).tough) note(`${short(t)} frozen · no toughness`, 'blue'); return { dmg: atk, soak: 0 }; }
+    if (!d) { if (t.st.frozen && (t.tough ?? def(t).tough)) note(`${short(t)} frozen · no toughness`, 'blue'); return { dmg: atk, soak: 0 }; }
     const notes = [t.st.taunt && 'Taunting +1 step', t.st.prone && `${short(t)} prone −1 step`, t.st.rebuked && `${short(t)} rebuked −2 steps`].filter(Boolean);
     const tr = roll(t, d, 1, { noCrit: true, at: t.id, label: `${short(t)} toughness`, notes, append: `− ${short(t)}` });
     const soak = Math.min(atk, tr.total);
@@ -574,7 +645,7 @@ function battle(S) {
     if (!up(f) || !up(u)) return;
     combo('Attack of opportunity!', 'red'); log(`${nm(f)} strikes as ${nm(u)} disengages`, f.side === 'hero' ? 'hero' : 'foe');
     aim(f, u, 'enemy');
-    if (f.side === 'hero') EFFECTS[def(f).cards[0]](f, u); else strike(f, u, foeAttack(f));
+    if (f.side === 'hero') EFFECTS[cardsOf(f)[0]](f, u); else strike(f, u, foeAttack(f));
     wait(140); endAim(); ev({ t: 'clearDice' });
   }
   function disengage(u) { if (!isRanged(u)) return; for (const f of engagers(u)) { if (!up(u)) return; opportunity(f, u); } }
@@ -602,7 +673,7 @@ function battle(S) {
   }
 
   // ---------------- attacks ----------------
-  const foeAttack = g => ({ label: def(g).attack || def(g).name, ranged: isRanged(g), proj: def(g).proj || 'arrow', die: def(g).die });
+  const foeAttack = g => ({ label: def(g).attack || def(g).name, ranged: isRanged(g), proj: def(g).proj || 'arrow', die: dieOf(g) });
   // one attack: the attacker's dice, the target's toughness, then the blow; returns true when it lands
   function strike(u, t, o = {}) {
     const spec = attackSpec(u, t, o);
@@ -645,9 +716,9 @@ function battle(S) {
   // a 3×3 blast: one roll, everyone in it rolls toughness (heroes too), ice melts, the ground burns
   function fireball(u, cell) {
     face(u, cell);
-    const spec = sweepSpec(u, 6, true); u.atks = spec.dis + 1;
+    const sides = cardDie(u, 'm_fire'), spec = sweepSpec(u, sides, true); u.atks = spec.dis + 1;
     if (u.st.blessed) status(u, 'blessed', false);
-    const r = roll(u, 6, spec.n, { dis: spec.dis, noCrit: true, at: place(cell), label: 'Fireball', notes: spec.notes });
+    const r = roll(u, sides, spec.n, { dis: spec.dis, noCrit: true, at: place(cell), label: 'Fireball', notes: spec.notes });
     ev({ t: 'total', value: r.total });
     const hit = blastAt(cell), ctx = {}, miss = missed(r), lands = miss ? [] : hit.map(x => toughness(x, r.total, r, ctx));
     hit.forEach(x => verdict(x, miss, r));
@@ -667,7 +738,7 @@ function battle(S) {
     face(g, primary);
     const n = primary.st.prone ? 2 : 1, dis = g.atks || 0; g.atks = dis + 1;
     log(`${nm(g)} cleaves`, 'foe');
-    const r = roll(g, def(g).die, n, { dis, at: primary.id, label: 'Cleave', notes: primary.st.prone ? [`${short(primary)} prone +1 die`] : [] });
+    const r = roll(g, dieOf(g), n, { dis, at: primary.id, label: 'Cleave', notes: primary.st.prone ? [`${short(primary)} prone +1 die`] : [] });
     ev({ t: 'total', value: r.total });
     if (targets.length > 1) combo(`Cleave! ×${targets.length}`, 'red');
     const ctx = {}, miss = missed(r), hits = miss ? [] : targets.map(t => toughness(t, r.total, r, ctx));
@@ -685,11 +756,12 @@ function battle(S) {
   }
 
   // ---------------- powers ----------------
-  function heal(u, t, label = 'Heal') {
+  // o: label, sides and n (the dice), from the card or the shaman's own
+  function heal(u, t, o = {}) {
     face(u, t);
-    let n = 1; const notes = []; if (u.st.blessed) { n++; notes.push('Blessed +1 die'); status(u, 'blessed', false); }
+    let n = o.n || 1; const notes = [], label = o.label || 'Heal'; if (u.st.blessed) { n++; notes.push('Blessed +1 die'); status(u, 'blessed', false); }
     cast(u);
-    const r = roll(u, 6, n, { at: t.id, label, notes });
+    const r = roll(u, o.sides || 6, n, { at: t.id, label, notes });
     ev({ t: 'total', value: r.total, suffix: ' HP' });
     const revive = !!t.down, gain = revive ? Math.min(r.total, t.maxHp) : Math.min(r.total, t.maxHp - t.hp);
     if (revive) { t.down = false; t.hp = gain; t.st = { prone: true }; log(`${nm(u)} raises ${nm(t)}`, 'hero'); }
@@ -711,6 +783,12 @@ function battle(S) {
     ev({ t: 'strike', id: u.id, to: t.id, style: 'grab', amt: .3 });
     const foe = t.side !== u.side;
     if (!cell.l && obstAt(cell.c, cell.r) === 'chasm') { fallIn(t, cell.c, cell.r, u); return; }
+    if (!cell.l && obstAt(cell.c, cell.r) === 'lava') { // flung into the lava: it burns, scrambles back out where it stood, and goes down
+      combo(`Into the lava! +${TUNE.lava}`, 'red'); shake(.22); sfx('boom'); fx('lava', { c: cell.c, r: cell.r, l: 0 });
+      log(`${nm(u)} hurls ${nm(t)} into the lava`, 'hero'); hurt(t, TUNE.lava, u);
+      if (up(t) && !t.st.prone) status(t, 'prone', true);
+      wait(120); return;
+    }
     const was = at(t);
     ev({ t: 'push', id: t.id, to: { c: cell.c, r: cell.r, l: cell.l || 0 }, style: 'haul' });
     t.c = cell.c; t.r = cell.r; t.l = cell.l || 0;
@@ -747,10 +825,11 @@ function battle(S) {
       if (up(u) && (!t.alive || t.c !== was.c || t.r !== was.r) && !occ(was.c, was.r, was.l)) walk(u, [at(u), was], { speed: 1.4, style: 'follow' });
     },
     f_taunt: u => { status(u, 'taunt', true); sfx('taunt'); float(u, 'Taunt', 'draws attacks · toughness +1 step'); cast(u, true); wait(150); },
-    f_cleave: u => sweep(u, CARDS.f_cleave.die, 'Cleave', false, true),
+    f_cleave: u => sweep(u, cardDie(u, 'f_cleave'), 'Cleave', false, true),
     f_grab: (u, t, o) => haul(u, t, o.cell),
     c_attack: (u, t) => strike(u, t, { label: 'Mace' }),
-    c_heal: (u, t) => heal(u, t),
+    c_heal: (u, t) => heal(u, t, { sides: cardDie(u, 'c_heal'), n: cardN(u, 'c_heal') }),
+    potion: (u, t) => heal(u, t, { label: 'Healing Draught', sides: cardDie(u, 'potion'), n: cardN(u, 'potion') }),
     c_bless: (u, t) => { face(u, t); cast(u); sfx('heal'); fx('bless', t.id); status(t, 'blessed', true); float(t, 'Blessed', '+1 die next roll'); wait(260); },
     c_haste: (u, t) => { face(u, t); cast(u); sfx('heal'); fx('haste', t.id); status(t, 'hasted', true); float(t, 'Hasted', `+${TUNE.haste} action next turn`); wait(260); },
     c_rebuke: (u, t) => {
@@ -761,12 +840,12 @@ function battle(S) {
     m_attack: (u, t) => strike(u, t, { label: 'Arcane Bolt', ...CARDS.m_attack.atk }),
     m_fire: (u, cell) => fireball(u, cell),
     m_frost: (u, t) => {
-      if (!strike(u, t, { label: 'Frost Ray', ...CARDS.m_frost.atk }) || !up(t)) return;
+      if (!strike(u, t, { label: 'Frost Ray', ...atkOf(u, 'm_frost') }) || !up(t)) return;
       if (burning(t.c, t.r, t.l)) { fx('steam', t.id); combo('Steam: no freeze', ''); log(`${nm(t)} stands in fire: the frost boils away`, 'hero'); wait(160); return; }
       status(t, 'frozen', true); combo('Frozen', 'blue'); sfx('frost'); wait(160);
     },
     m_icewall: (u, cell, o) => iceWall(u, cell, o.dir),
-    m_wave: u => sweep(u, CARDS.m_wave.die, 'Thunderwave', true, false),
+    m_wave: u => sweep(u, cardDie(u, 'm_wave'), 'Thunderwave', true, false),
     t_attack: (u, t) => strike(u, t, { label: 'Dagger' }),
     t_hide: u => { status(u, 'hidden', true); float(u, 'Hidden', `next attack +${TUNE.sneak} dice`); wait(280); },
     t_trick: (u, t) => knockProne(u, t),
@@ -940,7 +1019,7 @@ function battle(S) {
       const d = decide(g, healed); if (!d) break;
       if (d.kind === 'ice') { g.ap--; smashIce(g, d.ice); continue; }
       if (!walkTo(g, d.e, d.rch, d.dash)) break;
-      if (d.kind === 'heal') { const w = U(d.w); if (w.alive) { aim(g, w, 'ally'); heal(g, w, 'Dark Mending'); endAim(); g.ap--; healed = true; } continue; }
+      if (d.kind === 'heal') { const w = U(d.w); if (w.alive) { aim(g, w, 'ally'); heal(g, w, { label: 'Dark Mending', sides: dieOf(g) }); endAim(); g.ap--; healed = true; } continue; }
       if (d.kind === 'attack') {
         const h = U(d.h); if (!up(h)) continue;
         g.ap--; aim(g, h, 'enemy');
@@ -961,7 +1040,7 @@ function battle(S) {
   // every piece rolls initiative; the higher roll goes first, then the sides alternate, one piece at a time
   function buildOrder() {
     const hs = heroes(), gs = gobs().filter(u => !u.asleep);
-    [...hs, ...gs].forEach(u => { u.init = 1 + Math.floor(rnd() * TUNE.init) + (def(u).init || 0); });
+    [...hs, ...gs].forEach(u => { u.init = 1 + Math.floor(rnd() * TUNE.init) + (u.initBonus ?? def(u).init ?? 0); });
     const by = (a, b) => b.init - a.init; hs.sort(by); gs.sort(by);
     const order = []; let side = (hs[0] ? hs[0].init : -99) >= (gs[0] ? gs[0].init : -99) ? 'hero' : 'gob';
     while (hs.length || gs.length) { const q = side === 'hero' ? (hs.length ? hs : gs) : (gs.length ? gs : hs); order.push(q.shift().id); side = side === 'hero' ? 'gob' : 'hero'; }
@@ -1053,7 +1132,7 @@ function battle(S) {
   function act(id, cardId, target, path, style) {
     return run(() => {
       const u = U(id), card = CARDS[cardId];
-      if (!myTurn(u) || !card || !def(u).cards.includes(cardId) || block(u, cardId)) return;
+      if (!myTurn(u) || !card || !cardsOf(u).includes(cardId) || block(u, cardId)) return;
       const tg = targets(u, cardId, { grab: target && target.grab });
       let entry = null, t = null, cell = null;
       if (card.target === 'self') { entry = { unit: u.id, path: null }; t = u; }
@@ -1072,7 +1151,8 @@ function battle(S) {
         u.ap -= 1; log(`${nm(u)} moves`, 'hero');
         if (!walk(u, p, { speed: cardId === 'f_charge' ? 1.7 : 1, style: style || (cardId === 'f_charge' ? 'charge' : 'walk'), arrow: null })) { checkEnd(); return; }
       }
-      u.ap -= 1; if (card.cd) u.cd[cardId] = card.cd;
+      u.ap -= 1; const cd = cardCd(u, cardId); if (cd) u.cd[cardId] = cd;
+      if (card.uses != null) u.uses[cardId] = (u.uses[cardId] || 0) - 1;
       if (t && !t.alive) { checkEnd(); return; }
       const g = target && target.grab != null ? t : null, aimAt = g || t || cell;
       if (aimAt && aimAt !== u) aim(u, aimAt, g ? (g.side === u.side ? 'ally' : 'enemy') : card.spot ? 'spot' : card.target);
@@ -1097,6 +1177,7 @@ function battle(S) {
     inB, hasDeck, hAt, baseH, covered, isWall, obstAt, levelOf, burning, floorsAt, slopeAt: (fx, fz) => slopeAt(B, fx, fz),
     // pieces
     U, def, up, heroes, gobs, occ, dist, cheb, sz, cellsOf, covers, hOf, moveOf, isRanged, short, toughDie, dieName,
+    dieOf, cardsOf, cardDie, cardN, cardCd, diceName, cardText,
     // what can happen
     reach, pathTo, los, targets, block, reachOf, rangeCells, threat, engagers, grabbable, grabCells, wallCells, canIce, blastAt, sweepTargets, inCover, flanked,
     attackSpec, forecast, intent,
@@ -1106,6 +1187,6 @@ function battle(S) {
   };
 }
 
-return { TUNE, UNITS, CARDS, LEVELS, HERO_START, key, parseKey, rollWith, buildBoard, slopeAt, newState, battle };
+return { TUNE, UNITS, CARDS, BOONS, LEVELS, HERO_START, key, parseKey, rollWith, buildBoard, slopeAt, newState, offerBoons, battle };
 })();
 if (typeof module !== 'undefined') module.exports = GC;
