@@ -12,10 +12,10 @@ function faceTex(style, shape, labels) {
     g.fillStyle = style.bg; g.fillRect(0, 0, w, h);
     const gr = g.createRadialGradient(w * .42, h * .4, 10, w * .5, h * .5, w * .8); gr.addColorStop(0, 'rgba(255,255,255,.2)'); gr.addColorStop(1, 'rgba(0,0,0,.35)'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
     g.lineWidth = 16; g.strokeStyle = 'rgba(0,0,0,.4)';
-    if (shape === 'sq') g.strokeRect(0, 0, w, h); else if (shape === 'kite') { g.beginPath(); g.moveTo(128, 5); g.lineTo(20, 97); g.lineTo(128, 251); g.lineTo(236, 97); g.closePath(); g.stroke(); } else { g.beginPath(); g.moveTo(0, 256); g.lineTo(256, 256); g.lineTo(128, 34); g.closePath(); g.stroke(); }
+    if (shape === 'sq') g.strokeRect(0, 0, w, h); else if (shape === 'kite') { g.beginPath(); g.moveTo(128, 5); g.lineTo(38, 204); g.lineTo(128, 251); g.lineTo(218, 204); g.closePath(); g.stroke(); } // a d10's face: its wide corners lie 81% of the way down else { g.beginPath(); g.moveTo(0, 256); g.lineTo(256, 256); g.lineTo(128, 34); g.closePath(); g.stroke(); }
     g.fillStyle = style.ink; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = 4; g.shadowOffsetY = 2;
     if (shape === 'sq') { g.font = 'bold 140px "Bricolage Grotesque",sans-serif'; g.fillText(labels[0], 128, 138); }
-    else if (shape === 'kite') { g.font = `bold ${String(labels[0]).length > 1 ? 74 : 92}px "Bricolage Grotesque",sans-serif`; g.fillText(labels[0], 128, 112); if (labels[0] === 6 || labels[0] === 9) g.fillRect(104, 158, 48, 8); }
+    else if (shape === 'kite') { g.font = `bold ${String(labels[0]).length > 1 ? 70 : 88}px "Bricolage Grotesque",sans-serif`; g.fillText(labels[0], 128, 146); if (labels[0] === 6 || labels[0] === 9) g.fillRect(108, 186, 40, 7); }
     else if (shape === 'tri') { g.font = 'bold 84px "Bricolage Grotesque",sans-serif'; g.fillText(labels[0], 128, 186); }
     else {
       const V = [[0, 256], [256, 256], [128, 34]], G = [128, 182]; g.font = 'bold 50px "Bricolage Grotesque",sans-serif';
@@ -47,7 +47,7 @@ function dieKit(sides, sname) {
     kites.forEach(([P, X, Q, Y], i) => {
       const n = new V3().subVectors(X, P).cross(new V3().subVectors(Q, P)), c = P.clone().add(X).add(Q).add(Y); if (n.dot(c) < 0) [X, Y] = [Y, X]; // wind each face anticlockwise seen from outside
       const N = new V3().subVectors(X, P).cross(new V3().subVectors(Q, P)).normalize();
-      [[P, [.5, .98]], [X, [.08, .62]], [Q, [.5, .02]], [P, [.5, .98]], [Q, [.5, .02]], [Y, [.92, .62]]].forEach(([v, t]) => { pos.push(v.x, v.y, v.z); uv.push(t[0], t[1]); });
+      [[P, [.5, .98]], [X, [.148, .203]], [Q, [.5, .02]], [P, [.5, .98]], [Q, [.5, .02]], [Y, [.852, .203]]].forEach(([v, t]) => { pos.push(v.x, v.y, v.z); uv.push(t[0], t[1]); });
       geo.addGroup(i * 6, 6, i); faces.push({ v: nums[i], n: N, d: N.dot(P) });
     });
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.computeVertexNormals();
