@@ -54,6 +54,20 @@ node tools/sim.js 500 all     # battles per level, all levels (or a level index)
 
 On Normal, with 400 battles per level, the bot wins about 100%, 98%, 96%, 86% and 76% of the five campaign battles, and 80% of the Reeve's House with its two boons (runs vary by a few points). The bot ignores foe intents and plays one action at a time, so people do better.
 
+## Goblin Cup
+
+`soccer/index.html` is a second game on the same table: turn-based four-a-side football on a 6×8 pitch, the Crypt Wardens against Goblin United. [Play it on GitHub Pages](https://sjfranks.github.io/Tactics/soccer/), or open the file in a browser. It is one self-contained page, with the rules in its `cup-rules` script.
+
+- **Blind orders:** both managers give each of their four (a keeper who is also the last defender, two midfielders, a striker) one order, then lock in. Everything resolves together: everyone moves a square at a time, then the ball moves, then tackles land.
+- **Positioning is defending:** anyone standing on the line of a pass or shot after the moves blocks it. Keepers dive to one side; chips beat a keeper off their line.
+- **Combos you lock in:** a cross from a wide channel to a square in the box, with a teammate on Header to the same square. Through balls to a square a runner reaches. One-twos.
+- **Reading the other side:** shield beats a tackle, a slide beats a shield, dribbling away beats both; a slide that hits the wrong player is a foul, a penalty in your own box. The goblins plan by playing out many guesses at your orders, and remember which way you shoot and dive.
+- Two halves of 8 turns (8, 16 or 24 in Settings); a draw goes to a shoot-out. Two players can pass one phone between them.
+
+```sh
+node soccer/sim.js 40 normal   # goblins against goblins; stops on any broken rule
+```
+
 ## Archive
 
 Earlier projects in this repository are kept in `archive/`: Rogue Tactics (`archive/rogue-tactics/`, the game that was at the root before), Emberwatch v1, the pre-1e rulebook and the Tactics 48 prototype. Each has an `ARCHIVED.md` explaining how to bring it back.
