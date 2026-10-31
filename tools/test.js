@@ -293,7 +293,7 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
       };
     });
     for (const lv of String(AUTO).split(',').map(Number)) {
-      await p.evaluate(lv => { document.querySelectorAll('.ov').forEach(o => o.hidden = true); hideTitle(); MODE = 'camp'; CAMP = { ...freshCamp(), level: lv, boons: GC.offerBoons([]).slice(0, lv) }; loadLevel(lv); }, lv);
+      await p.evaluate(lv => { document.querySelectorAll('.ov').forEach(o => o.hidden = true); hideTitle(); const ex = GC.LEVELS[lv].extra; MODE = ex ? 'free' : 'camp'; FREE = { boons: ex ? GC.partyBoons(lv) : [] }; CAMP = { ...freshCamp(), level: ex ? 0 : lv, boons: ex ? [] : GC.offerBoons([]).slice(0, lv) }; loadLevel(lv); }, lv);
       await p.click('#introGo'); const t0 = Date.now();
       for (;;) {
         await tapThrough();

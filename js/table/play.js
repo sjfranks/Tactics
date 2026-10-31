@@ -266,8 +266,9 @@ function gameOver(win) {
   UI.over = true; UI.phase = 'over'; UI.sel = null; UI.card = null; UI.active = null; UI.inspect = null; UI.intents = []; refresh();
   if (win) heroes().forEach((h, i) => wait(300 + i * 140).then(() => { faceViewer(h); playClip(h, 'cheer'); }));
   const last = level === GC.CAMPAIGN - 1, rounds = G.S.round, L = LEVELS[level], rep = report();
-  $('#endMenu').hidden = MODE !== 'free';
-  if (MODE === 'free') return freeOver(win, rounds, L, rep);
+  const free = MODE === 'free' || !!L.extra; // a battle past the campaign is always the level select's
+  $('#endMenu').hidden = !free;
+  if (free) return freeOver(win, rounds, L, rep);
   // the campaign moves on at once (closing the page during the closing scene keeps the result)
   addTally(); CAMP.state = null;
   const campRep = win && last ? campaignReport() : '';
