@@ -1,6 +1,6 @@
 # Goblin Crypt
 
-A tabletop tactics game on a 3D board. Four heroes (Brakka the fighter, Sister Wenna the cleric, Orlen the mage and Vex the thief) fight through five battles to the Goblin King: the Gorge Crossing, Goblin Ridge, the Warg Pens, the Forge Pits and the Throne of Grubnash.
+A tabletop tactics game on a 3D board. Four heroes (Brakka the fighter, Sister Wenna the cleric, Orlen the mage and Vex the thief) fight through five battles to the Goblin King: the Gorge Crossing, Goblin Ridge, the Warg Pens, the Forge Pits and the Throne of Grubnash. The level select also has the Reeve's House, a two-storey house fought on both floors.
 
 ## Play
 
@@ -8,6 +8,8 @@ A tabletop tactics game on a 3D board. Four heroes (Brakka the fighter, Sister W
 
 ## How it plays
 
+- **The title screen** begins or continues the campaign, or opens the **level select**: any battle on its own, with the boons a party would have earned by then, without touching the campaign's save. Settings has a way back to it (Main menu).
+- **The Reeve's House:** two 6×8 floors, one directly above the other, joined by a stair. A switch on the left edge of the screen (or F, Page Up, Page Down) shows the upper or the ground floor, XCOM style; the view also follows the piece whose turn it is.
 - **Turns:** every piece rolls initiative once at the start of the battle, and heroes and goblins alternate. Heroes have 3 actions, goblins 2; moving is an action and so is each ability.
 - **Dice:** real dice, thrown on the table. A 1 misses, a top face is a crit that explodes and cuts through armour, and the target's armour (the shield on its nameplate) takes a fixed amount off the rest. Each attack after the first in a turn rolls with disadvantage.
 - **Planning:** foe intent arrows show whom each goblin means to strike or where it would walk; the odds over each target show the damage to expect and the chance to finish it.
@@ -16,7 +18,7 @@ A tabletop tactics game on a 3D board. Four heroes (Brakka the fighter, Sister W
 - **The campaign:** after each victory the party makes camp and picks one of three **boons** (a reforged blade, a shield, Healing Draughts for everyone, faster prayers...). Boons last the rest of the campaign. The campaign saves itself in the browser after every move, so you can close the page and come back to the same turn.
 - **Settings:** difficulty (goblins have 75%, 100% or 125% of their health), game speed, music, banter, model style, a new campaign.
 - **Dialogue:** the party and the goblins trade words before and after each battle, and figures call out in the fight.
-- **Keys:** 1–5 pick an ability, E or Enter ends the turn, Z undoes, Esc puts the ability down.
+- **Keys:** 1–5 pick an ability, E or Enter ends the turn, Z undoes, Esc puts the ability down, F switches floors.
 
 The in-game *How to play* sheet (☰ menu) has the full rules, and the first battle explains itself with tips as things come up.
 
@@ -28,7 +30,7 @@ The rules decide everything and know nothing of the screen; the table (the view)
 | --- | --- |
 | `js/rules.js` | The rules (`GC`): stat blocks, abilities, boons, maps, dice, movement, sight and the goblins' minds. No graphics code. A battle is plain JSON; every order (`move`, `act`, `endTurn`) changes it and returns a list of events. Runs in Node too. |
 | `js/dialogue.js` | Everything the characters say: a scene before and after each battle, and the barks called out in the fight. Plain data; edit freely. |
-| `js/table/` | The table, in scripts that share one scope and load in order: `core` (geometry, UI state, the clock, sound and music, renderer, textures, particles), `board` (the diorama), `dice`, `minis` (the miniatures), `pieces` (the pieces on the board), `effects` (what each event looks like), `talk` (speech bubbles and scenes), `play` (the event player, orders, undo, the end of a battle), `hud` (hotbar, odds, foe intents, tips), `input` (pointer, keys, buttons), `campaign` (boons, the save, laying out a battle) and `main` (camera, frame loop, start-up). |
+| `js/table/` | The table, in scripts that share one scope and load in order: `core` (geometry, UI state, the clock, sound and music, renderer, textures, particles), `board` (the diorama), `dice`, `minis` (the miniatures), `pieces` (the pieces on the board), `effects` (what each event looks like), `talk` (speech bubbles and scenes), `play` (the event player, orders, undo, the end of a battle), `hud` (hotbar, odds, foe intents, tips), `input` (pointer, keys, buttons, the floor switch), `campaign` (boons, the save, laying out a battle, the title screen and level select) and `main` (camera, frame loop, start-up). |
 | `index.html` | Styles, markup and the help sheet. |
 | `js/vendor/three.min.js` | three.js r128. |
 
@@ -44,13 +46,13 @@ GitHub Actions runs a check on every push and pull request (every script parses;
 
 ### Retuning
 
-Every number lives in the tables at the top of `js/rules.js`: `TUNE`, `UNITS`, `CARDS`, `BOONS` and `LEVELS`. Change them, then check the difficulty curve:
+Every number lives in the tables at the top of `js/rules.js`: `TUNE`, `UNITS`, `CARDS`, `BOONS` and `LEVELS`. A level marked `extra` is played from the level select only; `deck` lays a second floor over the map, and a prop or foe with a fourth number stands on it. Change them, then check the difficulty curve:
 
 ```sh
 node tools/sim.js 500 all     # battles per level, all levels (or a level index)
 ```
 
-On Normal, with 400 battles per level, the bot wins 100%, 98%, 96%, 87% and 74% of the five battles. The bot ignores foe intents and plays one action at a time, so people do better.
+On Normal, with 400 battles per level, the bot wins about 100%, 98%, 96%, 86% and 76% of the five campaign battles, and 80% of the Reeve's House with its two boons (runs vary by a few points). The bot ignores foe intents and plays one action at a time, so people do better.
 
 ## Archive
 

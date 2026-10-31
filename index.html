@@ -146,7 +146,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .ap i{width:7px;height:7px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe9a0,#e3a21c);box-shadow:0 0 4px rgba(255,200,80,.7);transition:background .2s,box-shadow .2s}
 .ap i.off{background:#2a3044;box-shadow:none}.ap i.spend{animation:spend .7s ease-in-out infinite}
 .tag.done .ap{display:none}
-.tag.of{opacity:.55;flex-direction:row;gap:3px}.tag.of .ap{display:none}
+.tag.of{opacity:.42;flex-direction:row;gap:3px}.tag.of .ap{display:none}
 .tag.of::after{content:attr(data-floor);font:800 10px/1 var(--display);color:#efe1c0;text-shadow:0 1px 0 #000}
 @keyframes spend{50%{background:#ff8a5c;box-shadow:0 0 7px #ff6a3a}}
 .tag.zz::before{content:'z Z';font:800 12px/1 var(--display);letter-spacing:.06em;color:#cfe0f5;text-shadow:0 1px 0 #000,0 0 4px #000}
@@ -502,6 +502,35 @@ body{font-family:var(--body)}
 .tag .arm{position:absolute;right:100%;top:50%;margin-right:3px;transform:translateY(-50%);display:grid;place-items:center;width:13px;height:15px;font:800 9.5px/1 var(--body);color:#1a1410;background:linear-gradient(180deg,#e3dccd,#8f8677);clip-path:polygon(50% 0,100% 16%,100% 58%,50% 100%,0 58%,0 16%)}
 .tag .arm.low{background:linear-gradient(180deg,#ffa08c,#b02a1c);color:#fff}
 .tag .arm.up{background:linear-gradient(180deg,#ffe49a,#b8862a)}
+/* the title screen: the campaign, or the level select */
+#app.titled #top,#app.titled #dock,#app.titled #floorBtn,#app.titled #tags{visibility:hidden}
+#title{background:radial-gradient(ellipse at 50% 40%,rgba(10,8,6,.35),rgba(6,5,4,.88))}
+.sheet.ttl{text-align:center;max-width:400px}
+.ttl h1{font-family:var(--display);font-weight:400;font-size:52px;line-height:1;margin:2px 0 18px;color:var(--bone);text-shadow:0 2px 0 #000,0 0 26px rgba(232,135,58,.35)}
+.ttl h2{font-size:30px}
+.ttl .go{display:flex;flex-direction:column;align-items:center;justify-content:center;height:auto;min-height:56px;padding:8px 12px}
+.ttl .go small,.tb2 small{display:block;font:700 12px/1.3 var(--body);letter-spacing:0;text-shadow:none;opacity:.85;margin-top:2px}
+.tb2{display:block;width:100%;margin-top:10px;min-height:46px;padding:8px 12px;border-radius:3px;border:1px solid #4a3e33;background:linear-gradient(180deg,#2a231e,#171310);color:var(--bone);font-family:var(--display);font-size:20px;line-height:1.1}
+.tb2:active,.lvl:active{transform:translateY(1px)}
+.trow{display:flex;gap:10px;margin-top:14px}
+.trow button{flex:1;height:38px;border:none;background:none;color:var(--bone-dim);font:700 14px/1 var(--body);text-decoration:underline;text-underline-offset:3px}
+.lvls{display:flex;flex-direction:column;gap:6px;margin-top:12px;text-align:left}
+.lvl{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:10px;align-items:baseline;width:100%;padding:9px 12px;border-radius:3px;border:1px solid #4a3e33;background:linear-gradient(180deg,#2a231e,#171310);color:var(--bone);text-align:left}
+.lvl .ln{grid-row:1/3;align-self:center;min-width:58px;font:800 10px/1.2 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--tarnish)}
+.lvl b{font-family:var(--display);font-weight:400;font-size:19px;line-height:1.1}
+.lvl small{font:600 12px/1.3 var(--body);color:var(--bone-dim)}
+.lvl.extra{border-color:#7a5a2a;background:linear-gradient(180deg,#3a2a18,#1a130c)}.lvl.extra .ln{color:#f0c070}
+.lvl:focus-visible,.tb2:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* the floor switch for a two-storey map: on the left edge, up shows the upper floor, down the ground floor */
+#floorBtn{position:absolute;left:max(4px,env(safe-area-inset-left,0px));top:40%;transform:translateY(-50%);z-index:5;display:flex;flex-direction:column;align-items:center;width:38px;padding:3px 0;border-radius:3px;background:linear-gradient(180deg,#2a2420,#120f0d);box-shadow:inset 0 0 0 1px #4a3e33,0 0 0 1px #000,0 6px 16px rgba(0,0,0,.6)}
+#floorBtn[hidden]{display:none}
+#floorBtn button{width:38px;height:38px;padding:0;border:none;background:none;display:grid;place-items:center;color:var(--bone);touch-action:manipulation}
+#floorBtn button:active{background:rgba(255,255,255,.08)}
+#floorBtn button:disabled{color:#4a3e33}
+#floorBtn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+#floorBtn b{font:800 19px/1 var(--body);color:#f0c070;font-variant-numeric:tabular-nums}
+#floorBtn small{font:800 7.5px/1.4 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--tarnish)}
+#floorBtn button:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
 </style>
 
 <div id="app">
@@ -510,6 +539,7 @@ body{font-family:var(--body)}
   <svg id="intents" aria-hidden="true"><defs><marker id="ahR" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4.2" markerHeight="4.2" orient="auto"><path d="M0,0L10,5L0,10z" fill="#ff5b47"/></marker><marker id="ahG" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4.2" markerHeight="4.2" orient="auto"><path d="M0,0L10,5L0,10z" fill="#a8e08a"/></marker><marker id="ahO" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="3.6" markerHeight="3.6"><circle cx="5" cy="5" r="3.4" fill="none" stroke="#e0c0b0" stroke-width="2"/></marker></defs></svg>
   <div id="tags"></div>
   <div id="floats"></div>
+  <div id="floorBtn" role="group" aria-label="Upper floor shown" hidden><button id="floorUp" aria-label="Show the upper floor"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button><b id="floorNum">2</b><small>Floor</small><button id="floorDn" aria-label="Show the ground floor"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></div>
 
   <div id="top">
     <div class="ustrip">
@@ -551,6 +581,24 @@ body{font-family:var(--body)}
     </div>
   </div>
 
+  <div class="ov" id="title" hidden>
+    <div class="sheet ttl">
+      <p class="kick">A tabletop tactics game</p>
+      <h1>Goblin Crypt</h1>
+      <div id="titleMain">
+        <button class="go" id="tCont">Continue the campaign<small id="tContSub"></small></button>
+        <button class="tb2" id="tNew" hidden>New campaign</button>
+        <button class="tb2" id="tLevels">Level select<small>Any battle on its own, the house among them</small></button>
+        <div class="trow"><button id="tHelp">How to play</button><button id="tSettings">Settings</button></div>
+      </div>
+      <div id="titleLevels" hidden>
+        <h2>Level select</h2>
+        <p class="mnote">Fight any battle on its own, with the boons a party would have earned by then. Your campaign is left as it is.</p>
+        <div class="lvls" id="levelList"></div>
+        <button class="tb2" id="tBack">Back</button>
+      </div>
+    </div>
+  </div>
   <div class="ov" id="intro" hidden>
     <div class="sheet">
       <div class="steps" id="introSteps"></div>
@@ -560,6 +608,7 @@ body{font-family:var(--body)}
       <div class="foes" id="introFoes"></div>
       <div class="boonchips" id="introBoons" hidden></div>
       <button class="go" id="introGo">Set up the board</button>
+      <button class="tb2" id="introMenu">Main menu</button>
     </div>
   </div>
   <div class="ov" id="settings" hidden>
@@ -574,6 +623,7 @@ body{font-family:var(--body)}
         <button class="mi" id="diffBtn"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg><span>Difficulty</span><em id="diffLbl" class="sv">Normal</em></button>
         <button class="mi" id="restartBtn"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v5h5"/></svg><span>Restart battle</span></button>
         <button class="mi" id="tipsBtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.5" r=".6"/></svg><span>Show the tips again</span></button>
+        <button class="mi" id="menuMain"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-6h4v6"/></svg><span>Main menu</span></button>
         <button class="mi" id="newBtn"><svg viewBox="0 0 24 24"><path d="M5 21V4h9l1 2h4v9h-7l-1-2H5"/></svg><span>New campaign</span></button>
       </div>
       <p class="mnote" id="diffNote"></p>
@@ -614,7 +664,7 @@ body{font-family:var(--body)}
         <li><b>Undo</b> in the ☰ menu takes back moves and abilities that rolled no dice. Dice are final: once a roll is made it stands, and so does everything before it.</li>
         <li><b>Twist two fingers</b> to turn the board, pinch to zoom, and drag the floor to look around. On a computer, shift-drag or right-drag turns it. Tap during the goblins' turn to speed it up.</li>
         <li>Each hero has five hotbars of five slots: page with the arrows beside the bar, a sideways swipe, or <b>[</b> and <b>]</b>.</li>
-        <li><b>Keys:</b> 1–5 pick an ability, <b>E</b> or <b>Enter</b> ends the turn, <b>Z</b> undoes, <b>Esc</b> puts the ability down. In a scene, Enter or a tap goes on and Esc skips.</li>
+        <li><b>Keys:</b> 1–5 pick an ability, <b>E</b> or <b>Enter</b> ends the turn, <b>Z</b> undoes, <b>Esc</b> puts the ability down, <b>F</b> (or Page Up and Page Down) switches floors in a house. In a scene, Enter or a tap goes on and Esc skips.</li>
       </ul>
       <h3>Turns</h3>
       <ul>
@@ -653,6 +703,7 @@ body{font-family:var(--body)}
         <li><b>Ledges:</b> a foe shoved or grappled off high ground takes +2. <b>Gorges</b> can only be crossed on the bridges, and a goblin thrown in falls to its death.</li>
         <li><b>Lava</b> can't be entered. A goblin shoved, charged or grappled into it takes +5 and is knocked Prone. <b>Fire vents</b> erupt every second round and throb the round before: anyone standing on a vent then burns.</li>
         <li><b>Walls</b> block arrows, bolts and spells. Pillars and crates don't.</li>
+        <li><b>Two floors:</b> in the Reeve's House the upper floor lies right over the ground floor, joined by one stair. Nobody sees, shoots or strikes through a floor, but from upstairs you can shoot down the stairwell. The switch on the left (or <b>F</b>) shows the upper floor or the ground floor; pieces on the other floor show as faint nameplates marked ▲ or ▼.</li>
       </ul>
       <h3>Foes</h3>
       <ul>
@@ -673,6 +724,7 @@ body{font-family:var(--body)}
       <div id="endReport"></div>
       <div id="endBoons" hidden><h3>Choose a boon for the road</h3><div class="boons" id="boonList" role="group" aria-label="Boons"></div></div>
       <button class="go" id="againBtn">Next battle</button>
+      <button class="tb2" id="endMenu" hidden>Main menu</button>
     </div>
   </div>
 </div>

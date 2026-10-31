@@ -6,7 +6,7 @@
 // Edit freely: the rules never read this file.
 // =====================================================================================================================
 const DIALOGUE = {
-  // one entry per battle, in campaign order: before the first round, after a win, after a defeat
+  // one entry per battle, in the order of the levels: before the first round, after a win, after a defeat
   scenes: [
     { // The Gorge Crossing
       before: [
@@ -92,6 +92,22 @@ const DIALOGUE = {
       lose: [
         ['king', 'Run, little heroes! Run home and tell them: Grubnash is KING!'],
         ['fighter', 'This is not finished, goblin.']
+      ]
+    },
+    { // The Reeve's House (level select only)
+      before: [
+        ['thief', "The reeve's house. Goblins in the parlour, goblins in the bedrooms. Someone has been at the pantry."],
+        ['cutter', "Nobody's home! Wipe your feet or we wipe 'em for you!"],
+        ['mage', 'One stair, and they hold the top of it. Archers up there will shoot down the well.'],
+        ['fighter', 'Then we clear the ground floor first, and go up together.']
+      ],
+      win: [
+        ['cleric', 'The house is clear. The reeve can have it back.'],
+        ['thief', "Minus a few spoons. Goblins, you know."]
+      ],
+      lose: [
+        ['shaman', 'Ours now! Ours, and the pantry too!'],
+        ['fighter', 'Out the door! We come back with more of us.']
       ]
     }
   ],

@@ -30,8 +30,8 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
   // a battle laid out for a test: round 1, the chosen hero on turn, nobody having acted; tweak edits the state first
   async function setup(level, first, tweak, opts = {}) {
     await p.evaluate(([lv, first, tweak, opts]) => {
-      document.querySelectorAll('.ov').forEach(o => o.hidden = true);
-      CAMP = { ...freshCamp(opts.diff || 'normal'), level: lv, boons: opts.boons || [] };
+      document.querySelectorAll('.ov').forEach(o => o.hidden = true); hideTitle(); MODE = opts.free ? 'free' : 'camp';
+      CAMP = { ...freshCamp(opts.diff || 'normal'), level: opts.free ? 0 : lv, boons: opts.free ? [] : opts.boons || [] }; FREE = { boons: opts.free ? opts.boons || [] : [] };
       const S = GC.newState(lv, opts.seed || 4242, { boons: CAMP.boons, diff: CAMP.diff });
       if (tweak) new Function('S', tweak)(S);
       const h = S.units.find(u => u.kind === first);
@@ -50,6 +50,25 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     }
     return null;
   }, [level, tweak]);
+
+  console.log('the title: the campaign, or the level select');
+  {
+    const t = await p.evaluate(() => ({ open: !$('#title').hidden, cont: $('#tCont').textContent, nw: $('#tNew').hidden, hud: getComputedStyle($('#top')).visibility }));
+    ok(t.open && /Begin the campaign/.test(t.cont) && t.nw, 'a first visit opens on the title, offering to begin the campaign');
+    ok(t.hud === 'hidden', 'the battle HUD stays hidden behind it');
+    await p.click('#tLevels'); await p.waitForTimeout(150);
+    const lv = await p.evaluate(() => [...document.querySelectorAll('#levelList .lvl')].map(b => b.querySelector('b').textContent));
+    ok(lv.length === GC.LEVELS.length && lv[lv.length - 1] === "The Reeve's House", `the level select lists all ${lv.length} battles, the house last`);
+    await p.click('.lvl[data-i="5"]'); await p.waitForTimeout(200);
+    const fr = await p.evaluate(() => ({ mode: MODE, level, kick: $('#introKick').textContent, chips: $('#introBoons').querySelectorAll('span').length, save: localStorage.getItem(SAVE_KEY) }));
+    ok(fr.mode === 'free' && fr.level === 5 && /Level select · Extra battle/.test(fr.kick), `the house's briefing: ${fr.kick}`);
+    ok(fr.chips === 2, 'it comes with two boons, shown on the briefing');
+    ok(fr.save === null, 'and the campaign has no save yet: the level select left it alone');
+    await p.click('#introMenu'); await p.waitForTimeout(200);
+    ok(await p.evaluate(() => !$('#title').hidden && MODE === 'camp' && localStorage.getItem(SAVE_KEY) === null), 'Main menu on the briefing goes back to the title');
+    await p.click('#tCont'); await p.waitForTimeout(200);
+    ok(await p.evaluate(() => !$('#intro').hidden && level === 0 && /Battle 1 of 5/.test($('#introKick').textContent)), 'Begin the campaign: the Gorge Crossing briefing');
+  }
 
   console.log('tap to move, then undo');
   await setup(0, 'fighter');
@@ -192,7 +211,9 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
   await p.click('#introGo'); await tapThrough(); await idle();
   {
     const before = await p.evaluate(() => ({ level, round: G.S.round, active: UI.active && UI.active.kind, at: G.S.units.map(u => [u.c, u.r, u.hp].join()).join(' ') }));
-    await p.reload(); await p.waitForFunction(() => typeof G !== 'undefined' && G && UI.phase === 'player' && !UI.busy, null, { timeout: 60000 });
+    await p.reload(); await p.waitForSelector('#title', { state: 'visible', timeout: 60000 });
+    ok(/Continue the campaign/.test(await p.textContent('#tCont')) && /Battle 2 of 5: Goblin Ridge/.test(await p.textContent('#tContSub')), 'the title offers to continue: ' + await p.textContent('#tContSub'));
+    await p.click('#tCont'); await p.waitForFunction(() => typeof G !== 'undefined' && G && UI.phase === 'player' && !UI.busy, null, { timeout: 60000 });
     await p.evaluate(() => { TIME_SCALE = 6; });
     const after = await p.evaluate(() => ({ level, round: G.S.round, active: UI.active && UI.active.kind, at: G.S.units.map(u => [u.c, u.r, u.hp].join()).join(' ') }));
     ok(JSON.stringify(after) === JSON.stringify(before), `back on the same turn: ${GC.LEVELS[after.level].name}, round ${after.round}, ${after.active} to move`);
@@ -209,6 +230,31 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
   ok(await p.isVisible('#coach') && /3 actions/.test(await p.textContent('#coachText')), 'the first tip explains actions');
   await p.click('#coachOk');
   await p.evaluate(() => { tipsSeen = { move: 1, odds: 1, intents: 1, down: 1, vents: 1, undo: 1 }; });
+
+  console.log("the reeve's house: two floors and a stair, and a floor switch on the left");
+  await setup(5, 'fighter', "const f = S.units.find(u => u.kind === 'fighter'); f.c = 5; f.r = 5; S.units.filter(u => u.side === 'gob' && u.l === 1).forEach(u => { u.alive = false; });", { free: true });
+  {
+    const fb = await p.evaluate(() => { const r = $('#floorBtn').getBoundingClientRect(); return { shown: !$('#floorBtn').hidden, left: r.left, mid: r.top + r.height / 2, view: UI.view, num: $('#floorNum').textContent }; });
+    ok(fb.shown && fb.left < 20 && fb.mid > H * .25 && fb.mid < H * .6, `the floor switch sits on the left edge (x ${fb.left.toFixed(0)}, y ${fb.mid.toFixed(0)})`);
+    ok(fb.view === 'lower' && fb.num === '1', 'Brakka is on the ground floor, and the ground floor is shown');
+    await p.click('#floorUp'); await p.waitForTimeout(150);
+    const up = await p.evaluate(() => ({ view: UI.view, num: $('#floorNum').textContent, deck: deckGrp.visible, hid: viewHides(UI.active), upOff: $('#floorUp').disabled }));
+    ok(up.view === 'upper' && up.num === '2' && up.deck && up.upOff, 'up: the upper floor is laid over the ground floor');
+    ok(up.hid, 'and Brakka, under it, is hidden');
+    await p.keyboard.press('f'); await p.waitForTimeout(150);
+    ok(await p.evaluate(() => UI.view === 'lower' && !deckGrp.visible), 'F goes back down');
+    await tapCell(5, 3); await idle();
+    let fr = await hero('fighter');
+    ok(fr.c === 5 && fr.r === 3, `two squares up the stair to its top (${fr.c},${fr.r})`);
+    await tapCell(5, 2, 1); await idle();
+    const top = await p.evaluate(() => { const r = G.U(UI.active.id); return { l: r.l, c: r.c, r: r.r, view: UI.view, piece: vu(r.id).piece.visible }; });
+    ok(top.l === 1 && top.c === 5 && top.r === 2, 'one more onto the landing of the upper floor');
+    ok(top.view === 'upper' && top.piece, 'the view follows him upstairs');
+    ok(await p.evaluate(() => { const B = G; const w = G.S.units.find(u => u.kind === 'cutter' && u.alive && !u.l); return !B.los(G.U(UI.active.id), w); }), 'from the upper floor he cannot see the goblins below');
+    await shot('house');
+    await p.evaluate(() => { document.querySelector('#settingsBtn').click(); }); await p.click('#menuMain'); await p.waitForTimeout(300);
+    ok(await p.evaluate(() => !$('#title').hidden && MODE === 'camp' && $('#floorBtn').hidden), 'Settings › Main menu leaves the house for the title');
+  }
 
   console.log('the king falls and his court flees: the campaign is won');
   {
@@ -247,7 +293,7 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
       };
     });
     for (const lv of String(AUTO).split(',').map(Number)) {
-      await p.evaluate(lv => { document.querySelectorAll('.ov').forEach(o => o.hidden = true); CAMP = { ...freshCamp(), level: lv, boons: GC.offerBoons([]).slice(0, lv) }; loadLevel(lv); }, lv);
+      await p.evaluate(lv => { document.querySelectorAll('.ov').forEach(o => o.hidden = true); hideTitle(); MODE = 'camp'; CAMP = { ...freshCamp(), level: lv, boons: GC.offerBoons([]).slice(0, lv) }; loadLevel(lv); }, lv);
       await p.click('#introGo'); const t0 = Date.now();
       for (;;) {
         await tapThrough();

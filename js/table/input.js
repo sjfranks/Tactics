@@ -261,6 +261,8 @@ window.addEventListener('keydown', e => {
   if ([...document.querySelectorAll('.ov')].some(o => !o.hidden)) return;
   if (k === 'z' && (mod || !e.shiftKey)) { e.preventDefault(); undoMove(); }
   else if ((k === 'e' || k === 'enter') && !mod && myHero()) { e.preventDefault(); askEndTurn(); }
+  else if (k === 'f' && !mod) showFloor(UI.view === 'lower' ? 'upper' : 'lower');
+  else if (k === 'pageup' || k === 'pagedown') { e.preventDefault(); showFloor(k === 'pageup' ? 'upper' : 'lower'); }
 });
 $('#rotBtn').onclick = () => { ac(); UI.wallDir = UI.wallDir === 'v' ? 'h' : 'v'; sfx('pick'); refresh(); }; // turn the ice wall across or down
 $('#helpBtn').onclick = () => { setMenu(false); $('#help').hidden = false; };
@@ -269,6 +271,10 @@ $('#settingsClose').onclick = () => { $('#settings').hidden = true; };
 $('#settings').onclick = e => { if (e.target.id === 'settings') $('#settings').hidden = true; };
 $('#menuUndo').onclick = () => { setMenu(false); ac(); undoMove(); };
 $('#menuFloor').onclick = () => { setMenu(false); ac(); sfx('select'); setView(UI.view === 'lower' ? 'upper' : 'lower'); };
+// the floor switch on the left: up to the upper floor, down to the ground floor
+function showFloor(v) { if (UI.view === v || $('#floorBtn').hidden) return; ac(); sfx('select'); setView(v); }
+$('#floorUp').onclick = () => showFloor('upper');
+$('#floorDn').onclick = () => showFloor('lower');
 $('#menuView').onclick = () => {
   setMenu(false); ac(); sfx('select'); follow = null;
   camAzT = camAz - angDiff(camAz, baseAz()); zoomT = 1;

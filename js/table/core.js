@@ -163,7 +163,7 @@ const SCORE = { // root: MIDI note · mode: the scale · chords: the scale degre
 };
 let musicTheme = null, musicBus = null, musicNext = 0, musicStep = 0;
 const midiHz = n => 440 * Math.pow(2, (n - 69) / 12);
-function setMusic(theme) { musicTheme = SCORE[theme] ? theme : 'crypt'; musicStep = 0; }
+function setMusic(theme) { if (theme === 'house') theme = 'outdoor'; musicTheme = SCORE[theme] ? theme : 'crypt'; musicStep = 0; }
 function musicVoice(t, type, f, peak, att, dur, cut) {
   const o = AC.createOscillator(), g = AC.createGain(), fl = AC.createBiquadFilter();
   o.type = type; o.frequency.setValueAtTime(f, t); fl.type = 'lowpass'; fl.frequency.value = cut; fl.Q.value = .5;

@@ -25,7 +25,7 @@ function check(B, evs, where) {
       const k = B.key(c, r, u.l);
       if (seen.has(k)) throw new Error(`${where}: ${u.name} on top of ${seen.get(k)} at ${k}`);
       seen.set(k, u.name);
-      const ob = B.obstAt(c, r); if (!u.l && ob && ob !== 'ice') throw new Error(`${where}: ${u.name} inside ${ob} at ${k}`);
+      const ob = B.obstOn(c, r, u.l); if (ob && ob !== 'ice') throw new Error(`${where}: ${u.name} inside ${ob} at ${k}`);
     }
   }
 }
@@ -121,9 +121,7 @@ function heroTurn(B, stats) {
 function boonsFor(level, seed) {
   if (process.env.BOONS === '0') return [];
   let x = seed * 2654435761 >>> 0; const rnd = () => ((x = (x * 1664525 + 1013904223) >>> 0) / 4294967296);
-  const got = [];
-  for (let i = 0; i < level; i++) { const o = GC.offerBoons(got, rnd); got.push(o[Math.floor(rnd() * o.length)]); }
-  return got;
+  return GC.partyBoons(level, rnd);
 }
 function play(level, seed, stats) {
   const S = GC.newState(level, seed, { boons: boonsFor(level, seed), diff: process.env.DIFF }), B = GC.battle(S);

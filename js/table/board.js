@@ -91,8 +91,18 @@ const keepTex = canvasTex(256, 256, (g, w, h) => {
   [64, 192].forEach(x => { g.fillStyle = '#c9a24a'; g.fillRect(x - 17, 132, 34, 52); g.beginPath(); g.arc(x, 132, 17, Math.PI, 0); g.fill(); g.fillStyle = '#140e0a'; g.fillRect(x - 13, 134, 26, 48); g.beginPath(); g.arc(x, 134, 13, Math.PI, 0); g.fill(); g.fillStyle = 'rgba(255,170,80,.35)'; g.fillRect(x - 11, 160, 22, 20); });
   speckle(g, w, h, 500, .1, 2);
 });
+// floorboards: long planks in staggered rows, nail heads at the joints
+const plankTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#3a2614'; g.fillRect(0, 0, w, h);
+  for (let y = 0; y < h; y += 32) { const off = (y / 32 * 97) % 160; for (let x = -off; x < w; x += 160) {
+    const v = 92 + Math.random() * 30 | 0; g.fillStyle = `rgb(${v + 22},${v - 4},${v - 40})`; g.fillRect(x + 2, y + 2, 156, 28);
+    for (let k = 0; k < 6; k++) { g.strokeStyle = `rgba(${Math.random() > .5 ? '40,20,8' : '170,120,70'},.25)`; g.lineWidth = 1; const yy = y + 4 + Math.random() * 24; g.beginPath(); g.moveTo(x + 2, yy); g.bezierCurveTo(x + 50, yy + rand(-3, 3), x + 110, yy + rand(-3, 3), x + 158, yy); g.stroke(); }
+    g.fillStyle = 'rgba(20,12,6,.8)'; [[x + 8, y + 9], [x + 8, y + 23], [x + 150, y + 9], [x + 150, y + 23]].forEach(([a, b]) => g.fillRect(a, b, 2, 2));
+  } }
+  speckle(g, w, h, 300, .08, 2);
+});
 const flagTex = flagTexture('#5c574d', 64, 56, 150, true), hallTex = flagTexture('#666056', 128, 128, 256, false), basaltTex = basaltTexture('#4a4440', .3), basaltDark = basaltTexture('#26201c', .45);
-[keepTex, grassTex, earthTex, lavaTex, carpetTex, flagTex, hallTex, basaltTex, basaltDark].forEach(t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; });
+[plankTex, keepTex, grassTex, earthTex, lavaTex, carpetTex, flagTex, hallTex, basaltTex, basaltDark].forEach(t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; });
 
 const groundMat = new THREE.MeshStandardMaterial({ roughness: .94, envMapIntensity: .35 });
 // the ground is a frame round the board (the board's own squares cover the middle), so ravines can drop below it
@@ -178,7 +188,8 @@ const THEMES = {
   outdoor: { ground: grassTex, tint: 0x8a8a82, floor: grassTex, cliff: earthTex, wall: 'rock', grid: .2, hemi: .62 },
   crypt: { ground: floorTex, tint: 0xffffff, floor: flagTex, cliff: brickTex, wall: 'brick', grid: .24, hemi: .34 },
   lava: { ground: basaltDark, tint: 0xffffff, floor: basaltTex, cliff: basaltDark, wall: 'basalt', grid: .2, hemi: .3 },
-  throne: { ground: floorTex, tint: 0xffffff, floor: hallTex, cliff: brickTex, wall: 'brick', grid: .16, hemi: .36 }
+  throne: { ground: floorTex, tint: 0xffffff, floor: hallTex, cliff: brickTex, wall: 'brick', grid: .16, hemi: .36 },
+  house: { ground: grassTex, tint: 0x7a7a70, floor: plankTex, cliff: brickTex, wall: 'brick', grid: .2, hemi: .42 }
 };
 let THEME = THEMES.crypt;
 const boardGrp = new THREE.Group(); scene.add(boardGrp);
@@ -225,6 +236,26 @@ function ropeBridge(g, c, r0, r1) {
     [zN, zS].forEach(z => mesh(new THREE.CylinderGeometry(.05, .06, .75, 7), woodMat, x + dx, y + .3, z, g));
   });
 }
+// a stair square: two treads of floorboard climbing away from the lower square beside it
+function stairCell(g, c, r, p) {
+  const h = baseH(c, r), d = DIRS.find(([dc, dr]) => inB(c + dc, r + dr) && hAt(c + dc, r + dr) < h && TERR[r + dr][c + dc] !== 'wall') || [0, 1];
+  const y0 = TOP + (h - 1) * STEP;
+  block(g, plankMat, p.x, y0 / 2, p.z, 1, y0, 1); // the lower tread, the whole square
+  block(g, plankMat, p.x - d[0] * .25, (y0 + p.y) / 2, p.z - d[1] * .25, d[0] ? .5 : 1, p.y - y0, d[1] ? .5 : 1); // the upper, the far half
+}
+// the house's outer walls: full height with windows from outside, cut down while the ground floor is shown; a door to the south
+function houseWalls(tall, cut, top) {
+  const hx = COLS / 2, hz = ROWS / 2, T = .3, door = x => Math.abs(x) < 1, wh = top + .45;
+  const run = (horiz, at, n, fn) => { for (let i = 0; i < n; i++) fn((horiz ? -hx : -hz) + i + .5); };
+  [[true, -hz - T / 2, COLS], [true, hz + T / 2, COLS], [false, -hx - T / 2, ROWS], [false, hx + T / 2, ROWS]].forEach(([horiz, at, n], side) => run(horiz, at, n, u => {
+    const x = horiz ? u : at, z = horiz ? at : u, sx = horiz ? 1 : T, sz = horiz ? T : 1, gap = side === 1 && door(u);
+    if (gap) block(tall, keepSideMat, x, (1.15 + wh) / 2, z, sx, wh - 1.15, sz); else block(tall, keepSideMat, x, wh / 2, z, sx, wh, sz);
+    block(tall, wallTopMat, x, wh + .03, z, sx + .04, .06, sz + .04);
+    if (!gap) { block(cut, keepSideMat, x, CUTH / 2, z, sx, CUTH, sz); block(cut, cutCapMat, x, CUTH + .02, z, sx + .01, .04, sz + .01); }
+  }));
+  [[-hx - T / 2, -hz - T / 2], [hx + T / 2, -hz - T / 2], [-hx - T / 2, hz + T / 2], [hx + T / 2, hz + T / 2]].forEach(([x, z]) => { block(tall, keepSideMat, x, wh / 2, z, T, wh, T); block(cut, keepSideMat, x, CUTH / 2, z, T, CUTH, T); });
+  [tall, cut].forEach(g => block(g, stoneMat, 0, .04, hz + .55, 2, .08, .5)); // the doorstep, in either view
+}
 // the view: 'upper' shows the upper floor solid; 'lower' makes it see-through so the hall below can be played
 function setView(v, force) {
   if (!DECK.some(row => row.some(h => h >= 0))) v = 'upper';
@@ -233,12 +264,20 @@ function setView(v, force) {
   if (deckGrp) deckGrp.visible = v !== 'lower'; // the upper floor is removed outright, not ghosted
   if (wallsTall) wallsTall.visible = v !== 'lower';
   if (wallsCut) wallsCut.visible = v === 'lower';
+  propUp.visible = v !== 'lower';
   const two = DECK.some(row => row.some(h => h >= 0)); ['#floorBtn', '#menuFloor'].forEach(q => { const b = document.querySelector(q); if (b) { b.hidden = !two; b.classList.toggle('on', v === 'lower'); } });
   const lb = document.querySelector('#floorLbl'); if (lb) lb.textContent = v === 'lower' ? 'Ground floor' : 'Upper floor';
+  $('#floorNum').textContent = v === 'lower' ? '1' : '2'; $('#floorUp').disabled = v !== 'lower'; $('#floorDn').disabled = v === 'lower';
+  $('#floorBtn').setAttribute('aria-label', v === 'lower' ? 'Ground floor shown' : 'Upper floor shown');
   if (G && units.length) refreshHL();
 }
-// which floor a piece is best seen from
-const viewFor = u => (u && covered(u.c, u.r, u.l) ? 'lower' : 'upper');
+// which floor a piece is best seen from: under a ceiling the ground floor, upstairs the upper floor; on an open square
+// (the stair) the upper floor once it could step straight onto it, else whichever is shown
+const viewFor = u => {
+  if (!u) return 'upper'; if (u.l === 1) return 'upper'; if (covered(u.c, u.r, u.l)) return 'lower';
+  if (!DECK.some(row => row.some(h => h >= 0))) return 'upper';
+  return DIRS.some(([dc, dr]) => inB(u.c + dc, u.r + dr) && hasDeck(u.c + dc, u.r + dr) && Math.abs(hAt(u.c + dc, u.r + dr, 1) - hAt(u.c, u.r)) <= GC.TUNE.walkSteps) ? 'upper' : UI.view;
+};
 // a piece is hidden by the view when it's on the see-through upper floor, or under the solid one
 const viewHides = u => (UI.view === 'lower' && u.l === 1) || (UI.view === 'upper' && covered(u.c, u.r, u.l));
 function buildBoard(L) {
@@ -248,7 +287,7 @@ function buildBoard(L) {
   groundMat.map = THEME.ground; groundMat.color.setHex(THEME.tint).convertSRGBToLinear(); groundMat.needsUpdate = true;
   floorMats.forEach(m => { m.map = THEME.floor; m.vertexColors = L.theme === 'outdoor'; m.needsUpdate = true; }); cliffMat.map = THEME.cliff; cliffMat.needsUpdate = true;
   gridMat.opacity = THEME.grid; hemi.intensity = THEME.hemi;
-  keepFloorMats.forEach(m => { m.map = L.theme === 'outdoor' ? flagTex : hallTex; m.needsUpdate = true; });
+  keepFloorMats.forEach(m => { m.map = L.theme === 'outdoor' ? flagTex : L.theme === 'house' ? plankTex : hallTex; m.needsUpdate = true; });
   const tops = new THREE.Group(), sides = new THREE.Group(), walls = new THREE.Group(), lava = new THREE.Group(), vents = new THREE.Group(), grid = new THREE.Group(), deco = new THREE.Group(), lavaPts = [];
   const stone = (c, r) => (L.stone || []).some(([c0, r0, c1, r1]) => c >= c0 && c <= c1 && r >= r0 && r <= r1);
   const PIT = TERR.some(row => row.includes('chasm')) ? 1.5 : 0, bridgeCells = []; // ravines drop this far below the ground
@@ -277,6 +316,7 @@ function buildBoard(L) {
       continue;
     }
     if (t === 'bridge') { bridgeCells.push({ c, r }); quad(grid, gridMat, p.x, p.y + .012, p.z); continue; }
+    if (st && baseH(c, r) > 0 && !hasDeck(c, r) && L.theme === 'house') { stairCell(sides, c, r, p); continue; }
     const topMat = t === 'vent' ? ventMat : (st ? keepFloorMats : floorMats)[Math.min(3, baseH(c, r))];
     if (SLOPE && t === 'floor') { (t === 'vent' ? vents : tops).add(new THREE.Mesh(slopeQuadGeo(c, r), topMat)); grid.add(new THREE.Mesh(slopeQuadGeo(c, r, .012), gridMat)); p.y = TOP + baseH(c, r) * STEP; }
     else { quad(t === 'vent' ? vents : tops, topMat, p.x, p.y, p.z); quad(grid, gridMat, p.x, p.y + .012, p.z); }
@@ -313,7 +353,7 @@ function buildBoard(L) {
     quad(dTop, deckMats[0], p.x, p.y, p.z); block(dSide, deckMats[1], p.x, p.y - .1, p.z, 1, .18, 1); // slab top sits just under the flagstones, so the two never fight quad(dGrid, deckMats[2], p.x, p.y + .012, p.z);
     for (const [dc, dr] of DIRS) {
       const nc = c + dc, nr = r + dr;
-      if (inB(nc, nr) && (hasDeck(nc, nr) || TERR[nr][nc] === 'wall' || hAt(nc, nr) > hAt(c, r, 1) - 2)) continue;
+      if (inB(nc, nr) ? hasDeck(nc, nr) || TERR[nr][nc] === 'wall' || hAt(nc, nr) > hAt(c, r, 1) - 2 : L.theme === 'house') continue;
       [-.27, .27].forEach(o => block(dTrim, deckMats[3], p.x + dc * .43 + (dr ? o : 0), p.y + .1, p.z + dr * .43 + (dc ? o : 0), dc ? .12 : .22, .2, dr ? .12 : .22));
     }
   }
@@ -321,9 +361,10 @@ function buildBoard(L) {
   [[dTop, .25, .5, false], [dSide, .25, .5, true], [dGrid, 0, 0, false], [dTrim, 0, 0, true]].forEach(([g, kt, ks, cast]) => { mergeFig(g); if (kt) worldUV(g, kt, ks); g.children.forEach(m => { if (m.isMesh) m.castShadow = cast; }); deckGrp.add(g); });
   dGrid.children.forEach(m => { m.receiveShadow = false; m.renderOrder = 1; });
   boardGrp.add(deckGrp);
+  if (L.theme === 'house') houseWalls(tallW, cutW, DECKTOP);
   bridgeCells.forEach(b => { if (!bridgeCells.some(o => o.c === b.c && o.r === b.r - 1)) { let r1 = b.r; while (bridgeCells.some(o => o.c === b.c && o.r === r1 + 1)) r1++; ropeBridge(deco, b.c, b.r, r1); } });
   const hx = COLS / 2, hz = ROWS / 2;
-  ({ outdoor: dressOutdoor, crypt: dressCrypt, lava: dressLava, throne: dressThrone })[L.theme || 'crypt'](walls, deco, hx, hz);
+  ({ outdoor: dressOutdoor, crypt: dressCrypt, lava: dressLava, throne: dressThrone, house: dressHouse })[L.theme || 'crypt'](walls, deco, hx, hz);
   if (lavaPts.length) [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => { // glow from each quarter's lava
     const q = lavaPts.filter(p => Math.sign(p.x || 1) === sx && Math.sign(p.z || 1) === sz); if (!q.length) return;
     const Lt = takeLight(0xff6a20, 1.8); if (Lt) Lt.position.set(q.reduce((s, p) => s + p.x, 0) / q.length, 1.1, q.reduce((s, p) => s + p.z, 0) / q.length);
@@ -372,6 +413,14 @@ function dressOutdoor(solid, deco, hx, hz) {
   for (let i = 0; i < 14; i++) { const [x, z] = offSpot(hx, hz, .8); const k = mesh(new THREE.DodecahedronGeometry(rand(.15, .45), 1), rockMat, x, .1, z, deco); k.scale.y = .65; k.rotation.y = rand(0, 3); }
   for (let i = 0; i < 50; i++) { const [x, z] = offSpot(hx, hz, .6); for (let k = 0; k < 3; k++) { const t = mesh(new THREE.ConeGeometry(.035, rand(.12, .2), 4), leafMats[k], x + rand(-.06, .06), .07, z + rand(-.06, .06), deco, false); t.rotation.set(rand(-.3, .3), 0, rand(-.3, .3)); } }
 }
+// the house stands in a yard: trees, a woodpile, rocks and long grass, lanterns either side of the door
+function dressHouse(solid, deco, hx, hz) {
+  for (let i = 0; i < 22; i++) { const [x, z] = offSpot(hx, hz, 2, 3), s = rand(.85, 1.3); (Math.random() < .5 ? pine : oak)(deco, x, 0, z, s); }
+  for (let i = 0; i < 10; i++) { const [x, z] = offSpot(hx, hz, 1.2); const k = mesh(new THREE.DodecahedronGeometry(rand(.12, .32), 1), rockMat, x, .08, z, deco); k.scale.y = .6; }
+  for (let i = 0; i < 40; i++) { const [x, z] = offSpot(hx, hz, .9); for (let k = 0; k < 3; k++) { const t = mesh(new THREE.ConeGeometry(.035, rand(.12, .2), 4), leafMats[k], x + rand(-.06, .06), .07, z + rand(-.06, .06), deco, false); t.rotation.set(rand(-.3, .3), 0, rand(-.3, .3)); } }
+  for (let i = 0; i < 8; i++) { const l = mesh(new THREE.CylinderGeometry(.09, .09, .9, 8), woodMat, -hx - 1 + (i % 4) * .2, .1 + (i >> 2) * .17, -1, deco); l.rotation.x = Math.PI / 2; }
+  [-1.25, 1.25].forEach(x => torch(deco, x, hz + .55, 1.2, true));
+}
 // a volcanic cavern: basalt columns and pools of lava beyond the board, sparks drifting up
 function dressLava(solid, deco, hx, hz) {
   for (let i = 0; i < 5; i++) {
@@ -389,7 +438,9 @@ function dressLava(solid, deco, hx, hz) {
 const propGroup = new THREE.Group(); scene.add(propGroup);
 const levelEmit = [];
 function lvEmit(e) { emitters.push(e); levelEmit.push(e); }
-function propRoot(c, r) { const g = new THREE.Group(); g.position.copy(cellPos(c, r)); propGroup.add(g); return g; }
+const propUp = new THREE.Group(); scene.add(propUp); // props on the upper floor, hidden while the ground floor is shown
+let PROP_L = 0; // the floor the prop being built stands on
+function propRoot(c, r) { const g = new THREE.Group(); g.position.copy(cellPos(c, r, PROP_L)); (PROP_L ? propUp : propGroup).add(g); return g; }
 const PROPS = {
   pillar(c, r) {
     const g = propRoot(c, r);
@@ -408,6 +459,24 @@ const PROPS = {
     lvLight.color.setHex(0xc6e04a); lvLight.position.set(p.x, 1.1, p.z); lvLight.userData.base = 1.4;
     lvEmit({ pos: new V3(p.x, p.y + .66, p.z), rate: 7, acc: 0, size: .16, spread: .2, rise: .5, colors: [0xb8d84a, 0xd8ec6a] });
     lvEmit({ pos: new V3(p.x, p.y + .12, p.z), rate: 10, acc: 0, size: .22, spread: .1, rise: .5, colors: [0xff7a22, 0xffa43a] });
+  },
+  table(c, r) { // a trestle table, a stool, a jug and a loaf
+    const g = propRoot(c, r); g.rotation.y = rand(-.2, .2);
+    mesh(new THREE.BoxGeometry(.86, .07, .56), woodMat, 0, .52, 0, g);
+    [[-.34, -.2], [.34, -.2], [-.34, .2], [.34, .2]].forEach(([x, z]) => mesh(new THREE.BoxGeometry(.07, .5, .07), woodMat, x, .25, z, g));
+    mesh(new THREE.CylinderGeometry(.14, .14, .05, 10), woodMat, .3, .3, .38, g); mesh(new THREE.CylinderGeometry(.03, .03, .28, 6), woodMat, .3, .14, .38, g);
+    mesh(new THREE.CylinderGeometry(.06, .08, .16, 10), stoneMat, -.2, .64, .05, g); mesh(new THREE.SphereGeometry(.09, 10, 8), sRGB(0x9a6a34), .18, .6, -.08, g).scale.set(1.4, .8, 1);
+  },
+  crates(c, r) { // stacked crates
+    const g = propRoot(c, r);
+    mesh(new THREE.BoxGeometry(.5, .5, .5), woodMat, -.13, .25, .1, g).rotation.y = .2; mesh(new THREE.BoxGeometry(.42, .42, .42), woodMat, .2, .21, -.18, g).rotation.y = -.3;
+    mesh(new THREE.BoxGeometry(.36, .36, .36), woodMat, -.1, .68, .08, g).rotation.y = .7;
+  },
+  bed(c, r) { // a wooden bed with a straw mattress and a blanket
+    const g = propRoot(c, r);
+    mesh(new THREE.BoxGeometry(.6, .22, .9), woodMat, 0, .17, 0, g); mesh(new THREE.BoxGeometry(.56, .1, .86), sRGB(0xb8a070), 0, .33, 0, g);
+    mesh(new THREE.BoxGeometry(.58, .06, .52), sRGB(0x7a2a24), 0, .4, .16, g); mesh(new THREE.BoxGeometry(.3, .08, .18), sRGB(0xd8ccb0), 0, .42, -.3, g);
+    mesh(new THREE.BoxGeometry(.64, .5, .06), woodMat, 0, .25, -.45, g);
   },
   barrels(c, r) {
     const g = propRoot(c, r);

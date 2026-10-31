@@ -101,8 +101,15 @@ function offerBoons(taken = [], rnd = Math.random, n = 3) {
   for (const id of pool) if (out.length < n && !out.includes(id)) out.push(id);
   return out;
 }
+// the boons a party would carry into a battle without playing the campaign up to it: one pick of three offered after
+// each earlier battle (or as many as the battle asks for)
+function partyBoons(level, rnd = Math.random) {
+  const got = [], n = LEVELS[level].boons ?? Math.min(level, CAMPAIGN);
+  for (let i = 0; i < n; i++) { const o = offerBoons(got, rnd); got.push(o[Math.floor(rnd() * o.length)]); }
+  return got;
+}
 
-// ---------------- the four battles ----------------
+// ---------------- the battles ----------------
 // map rows: '.' ground, '1'–'4' ground raised that many steps, '#' wall or rock, '~' lava, '^' fire vent, ' ' gorge,
 // '=' bridge. hills: [ax, az, bx, bz, flat radius, foot radius, height in squares], a ridge along a→b in square corners.
 // props stand on squares and block them. art: what only the view needs (light, the carpet).
@@ -136,13 +143,24 @@ const LEVELS = [
     props: [['throne', 5, 0], ['brazier', 3, 2], ['brazier', 8, 2], ['pillar', 2, 4], ['pillar', 9, 4], ['pillar', 2, 8], ['pillar', 9, 8], ['barrels', 0, 12], ['barrels', 11, 13]],
     rout: true, // the court flees when its king falls
     foes: [['king', 5, 1], ['shaman', 7, 0], ['archer', 1, 0], ['archer', 10, 0], ['cutter', 4, 6], ['cutter', 7, 6], ['warg', 5, 9], ['warg', 6, 9]],
-    art: { sky: [0x9a8476, 0x1e140e, 0xeccdae, 1.05, 0x150e0b], carpet: [5, 3, 6, 12] } }
+    art: { sky: [0x9a8476, 0x1e140e, 0xeccdae, 1.05, 0x150e0b], carpet: [5, 3, 6, 12] } },
+  // battles past the campaign are played from the level select only
+  { name: 'The Reeve\'s House', extra: true, theme: 'house', text: "Goblins have taken the reeve's house: two floors, one above the other, and a single stair between them. You come in by the front door. Cutters, wargs and a shaman hold the rooms downstairs; archers and a second shaman wait on the upper floor and can shoot down the stairwell. Walls block sight downstairs, and no one sees through a floor. Use the floor button on the left to look at the ground floor or the upper floor.",
+    // ground floor: '2' and '4' are the stair, climbing north to the landing at the upper floor's height (5)
+    map: ['...#..', '...#..', '#..#.#', '.....4', '..#.#2', '..#...', '......', '......'],
+    deck: ['555555', '555555', '555555', '55555.', '55555.', '555555', '555555', '555555'],
+    stone: [[0, 0, 5, 7]],
+    props: [['table', 0, 4], ['barrels', 5, 0], ['crates', 0, 7], ['bed', 5, 6, 1], ['crates', 2, 2, 1], ['table', 3, 4, 1], ['barrels', 0, 0, 1]],
+    boons: 2, // a party fighting it from the level select carries this many boons
+    foes: [['cutter', 1, 0], ['cutter', 4, 1], ['warg', 3, 3], ['warg', 1, 3], ['shaman', 4, 0], ['shaman', 4, 0, 1], ['archer', 4, 3, 1], ['archer', 1, 5, 1], ['archer', 3, 0, 1], ['cutter', 2, 1, 1], ['cutter', 4, 7, 1]],
+    art: { sky: [0x9a8a7a, 0x1e160f, 0xf0d2a8, 1.1, 0x17110c] } }
 ];
+const CAMPAIGN = LEVELS.filter(L => !L.extra).length; // the campaign is the battles before the extras
 
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const key = (c, r, l) => l ? c + ',' + r + ',' + l : c + ',' + r;
 const parseKey = k => { const [c, r, l = 0] = k.split(',').map(Number); return { c, r, l }; };
-const COVER = new Set(['ice', 'wall', 'pillar', 'barrels', 'cage', 'tree', 'idol', 'throne', 'brazier', 'cauldron']);
+const COVER = new Set(['ice', 'wall', 'pillar', 'barrels', 'cage', 'tree', 'idol', 'throne', 'brazier', 'cauldron', 'crates', 'table', 'bed']);
 
 // ---------------- dice ----------------
 // count dice (plus dis more on the first throw, the highest dis set aside); every top face on a kept die is a crit that
@@ -176,7 +194,7 @@ function buildBoard(L) {
   const vents = []; terr.forEach((row, r) => row.forEach((t, c) => { if (t === 'vent') vents.push([c, r]); }));
   const deck = (L.deck || []).map(s => [...s].map(ch => ch === '.' ? -1 : +ch + lift));
   const base = map.map(row => row.slice());
-  const B = { cols: C, rows: R, map, base, deck, terr, vents, obst: {}, slope: null, outdoor: L.theme === 'outdoor' };
+  const B = { cols: C, rows: R, map, base, deck, terr, vents, obst: {}, obst1: {}, slope: null, outdoor: L.theme === 'outdoor' };
   const inB = (c, r) => c >= 0 && c < C && r >= 0 && r < R, baseH = (c, r) => (base[r][c] > 0 ? base[r][c] : 0);
   if (B.outdoor) {
     // outdoor ground rolls in hills: a height at every square corner, level wherever ground meets a ledge, wall, gorge or the edge
@@ -195,7 +213,7 @@ function buildBoard(L) {
     for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) if (terr[r][c] === 'floor') map[r][c] = baseH(c, r) + Math.round(slopeAt(B, c + .5, r + .5) / TUNE.stepH);
   }
   for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) if (['wall', 'lava', 'chasm'].includes(terr[r][c])) B.obst[key(c, r)] = terr[r][c];
-  (L.props || []).forEach(([type, c, r]) => { B.obst[key(c, r)] = type; if (type === 'throne') B.obst[key(c + 1, r)] = type; });
+  (L.props || []).forEach(([type, c, r, l]) => { const o = l ? B.obst1 : B.obst; o[key(c, r)] = type; if (type === 'throne') o[key(c + 1, r)] = type; }); // a fourth number puts it on the upper floor
   B.maxh = Math.max(0, ...map.flat(), ...deck.flat());
   return B;
 }
@@ -258,9 +276,12 @@ function battle(S) {
   const covered = (c, r, l) => !l && hasDeck(c, r); // on the ground floor under a roof
   const isWall = (c, r) => inB(c, r) && B.map[r][c] < 0;
   const obstAt = (c, r) => S.ice[key(c, r)] ? 'ice' : B.obst[key(c, r)];
+  const obstOn = (c, r, l) => l ? B.obst1[key(c, r)] : obstAt(c, r); // what stands on a square of either floor
   const levelOf = q => q.l ? hAt(q.c, q.r, 1) : baseH(q.c, q.r); // raised ground only: ledges, not hills
   const burning = (c, r, l) => !!S.burn[key(c, r, l)];
-  const floorsAt = (c, r) => [...(obstAt(c, r) ? [] : [0]), ...(hasDeck(c, r) ? [1] : [])];
+  const floorsAt = (c, r) => [...(obstAt(c, r) ? [] : [0]), ...(hasDeck(c, r) && !B.obst1[key(c, r)] ? [1] : [])];
+  // from one floor to the other only where nothing is overhead: off the open stair, never through a ceiling
+  const between = (fc, fr, fl, c, r, l) => (fl || 0) === (l || 0) || !hasDeck(l ? fc : c, l ? fr : r);
   const climbCost = dh => dh <= TUNE.walkSteps ? 0 : dh * TUNE.stepH <= TUNE.maxClimb ? Math.max(1, Math.round(dh * TUNE.stepH)) : Infinity;
 
   // ---------------- pieces ----------------
@@ -313,7 +334,7 @@ function battle(S) {
       for (const [dc, dr] of DIRS) {
         const c = n.c + dc, r = n.r + dr; if (!inB(c, r)) continue;
         for (const l of sz(u) > 1 ? (fits(u, c, r, true) ? [0] : []) : floorsAt(c, r)) {
-          const kk = key(c, r, l), cl = climbCost(Math.abs(hOf(u, c, r, l) - hOf(u, n.c, n.r, n.l))); if (cl === Infinity) continue;
+          const kk = key(c, r, l), cl = climbCost(Math.abs(hOf(u, c, r, l) - hOf(u, n.c, n.r, n.l))); if (cl === Infinity || !between(n.c, n.r, n.l, c, r, l)) continue;
           const o = sz(u) > 1 ? null : occ(c, r, l); if (o && o.side !== u.side && !o.down) continue;
           const nn = { c, r, l, cost: n.cost + 1 + cl, cl: (n.cl || 0) + (cl ? 1 : 0), prev: k }, old = res.get(kk);
           if (nn.cost > mv || (old && old.cost <= nn.cost)) continue;
@@ -344,7 +365,7 @@ function battle(S) {
         const c = n.c + dc, r = n.r + dr; if (!inB(c, r)) continue;
         for (const l of [0, 1]) {
           const k = key(c, r, l), ob = B.obst[key(c, r)];
-          if (f.has(k) || (l ? !hasDeck(c, r) : ob === 'wall' || ob === 'lava' || ob === 'chasm') || climbCost(Math.abs(hAt(c, r, l) - hAt(n.c, n.r, n.l))) === Infinity) continue;
+          if (f.has(k) || (l ? !hasDeck(c, r) || B.obst1[key(c, r)] : ob === 'wall' || ob === 'lava' || ob === 'chasm') || climbCost(Math.abs(hAt(c, r, l) - hAt(n.c, n.r, n.l))) === Infinity || !between(n.c, n.r, n.l, c, r, l)) continue;
           f.set(k, d + 1); q.push({ c, r, l });
         }
       }
@@ -368,7 +389,7 @@ function battle(S) {
         const c = n.c + dc, r = n.r + dr; if (!inB(c, r)) continue;
         for (const l of spots(c, r)) {
           if (blocked(c, r, l)) continue;
-          const cl = climbCost(Math.abs(hOf(g, c, r, l) - hOf(g, n.c, n.r, n.l))); if (cl === Infinity) continue;
+          const cl = climbCost(Math.abs(hOf(g, c, r, l) - hOf(g, n.c, n.r, n.l))); if (cl === Infinity || !between(n.c, n.r, n.l, c, r, l)) continue;
           const k = key(c, r, l), nd = d + 1 + cl; if (f.has(k) && f.get(k) <= nd) continue;
           f.set(k, nd); q.push({ c, r, l });
         }
@@ -380,7 +401,7 @@ function battle(S) {
   function inCover(t, from) {
     if (!from || dist(from, t) < 2) return false;
     const dc = Math.sign(from.c - t.c), dr = Math.sign(from.r - t.r);
-    return [[dc, 0], [0, dr]].some(([x, z]) => (x || z) && inB(t.c + x, t.r + z) && COVER.has(obstAt(t.c + x, t.r + z)));
+    return [[dc, 0], [0, dr]].some(([x, z]) => (x || z) && inB(t.c + x, t.r + z) && COVER.has(obstOn(t.c + x, t.r + z, t.l || 0)));
   }
   // a foe right beside a shooter or caster engages them, unless they stand at least a step above it
   const engagers = (u, pos = u) => S.units.filter(f => up(f) && !f.asleep && f.side !== u.side && dist(pos, f) === 1 && hAt(pos.c, pos.r, pos.l) - hAt(f.c, f.r, f.l) < 1);
@@ -400,14 +421,14 @@ function battle(S) {
     const res = new Map(), l = t.l || 0;
     for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
       const c = t.c + dc, r = t.r + dr; if ((!dc && !dr) || !inB(c, r)) continue;
-      const ll = l && hasDeck(c, r) ? 1 : 0, ob = ll ? null : obstAt(c, r);
+      const ll = l && hasDeck(c, r) ? 1 : 0, ob = obstOn(c, r, ll);
       if (ob === 'chasm' || ob === 'lava') { if (t.side !== u.side) res.set(key(c, r), { cell: { c, r, l: 0 } }); continue; } // a foe can be thrown into the gorge or the lava, a friend never
       if (ob || occ(c, r, ll) || Math.abs(hAt(c, r, ll) - hAt(t.c, t.r, l)) > 2) continue;
       res.set(key(c, r, ll), { cell: { c, r, l: ll } });
     }
     return res;
   }
-  const canIce = (c, r) => inB(c, r) && ['floor', 'vent'].includes(B.terr[r][c]) && !obstAt(c, r) && !occ(c, r, 0) && !hasDeck(c, r);
+  const canIce = (c, r) => inB(c, r) && ['floor', 'vent'].includes(B.terr[r][c]) && !obstAt(c, r) && !occ(c, r, 0);
   const wallCells = (c, r, dir) => (dir === 'v' ? [[c, r - 1], [c, r], [c, r + 1]] : [[c - 1, r], [c, r], [c + 1, r]]).filter(([x, z]) => canIce(x, z));
   const reachOf = (u, card) => card.reach === 'move' ? moveOf(u) : card.range; // the rope hook swings as far as the thief can walk
   // every square a ranged power can reach from where the hero stands: in range, in sight, not inside a wall
@@ -655,7 +676,7 @@ function battle(S) {
     const brink = inB(nc, nr) && !nl ? obstAt(nc, nr) : null;
     if (!boss && brink === 'chasm') { fallIn(t, nc, nr, src); return; }
     if (!boss && brink === 'lava') { combo(`Into the lava! +${TUNE.lava}`, 'red'); shake(.22); sfx('boom'); fx('lava', { c: nc, r: nr, l: 0 }); hurt(t, TUNE.lava, src); }
-    else if (boss || !inB(nc, nr) || (!nl && obstAt(nc, nr)) || blocker || dh > 1) {
+    else if (boss || !inB(nc, nr) || obstOn(nc, nr, nl) || blocker || dh > 1) {
       combo(boss ? `Immovable! +${TUNE.slam}` : `Slam! +${TUNE.slam}`, 'red'); shake(.18);
       hurt(t, TUNE.slam, src);
       if (!boss && blocker && blocker.alive) { combo('Bowled over!', 'red'); hurt(blocker, TUNE.slam, t); }
@@ -965,13 +986,14 @@ function battle(S) {
     const dHere = af.get(key(g.c, g.r, g.l));
     let best2 = null;
     for (const e of all) { const d = af.get(key(e.c, e.r, e.l)); if (d == null) continue; const sc = d * 10 - e.cost * .5 + (burning(e.c, e.r, e.l) ? 25 : 0); if (!best2 || sc < best2.sc) best2 = { e, sc, d }; }
-    if (best2 && best2.e.cost > 0 && (dHere == null || best2.d < dHere || (best2.d === dHere && dHere > 0))) return { kind: 'approach', e: best2.e, rch };
+    if (best2 && best2.e.cost > 0 && (dHere == null || best2.d < dHere)) return { kind: 'approach', e: best2.e, rch };
     if (best2) { // penned in behind the fallen: spend both actions on one long dash, if that gets it closer
       if (g.ap >= 2 && dHere > 0) {
         const far2 = reach(g, moveOf(g) * 2); let b3 = null;
         for (const e of far2.values()) { if (!e.end) continue; const d = af.get(key(e.c, e.r, e.l)); if (d == null) continue; const sc = d * 10 - e.cost * .5 + (burning(e.c, e.r, e.l) ? 25 : 0); if (!b3 || sc < b3.sc) b3 = { e, sc, d }; }
         if (b3 && b3.d < dHere) return { kind: 'approach', e: b3.e, rch: far2, dash: true };
       }
+      if (best2.e.cost > 0 && best2.d === dHere && dHere > 0) return { kind: 'approach', e: best2.e, rch }; // or a step round, no nearer
       return null;
     }
     // no route at all: walk the rough way (as if through ice), breaking any block that stands in it
@@ -1173,7 +1195,7 @@ function battle(S) {
   return {
     S, B, L, TUNE, UNITS, CARDS, key, parseKey,
     // the board
-    inB, hasDeck, hAt, baseH, covered, isWall, obstAt, levelOf, burning, floorsAt, slopeAt: (fx, fz) => slopeAt(B, fx, fz),
+    inB, hasDeck, hAt, baseH, covered, isWall, obstAt, obstOn, levelOf, burning, floorsAt, slopeAt: (fx, fz) => slopeAt(B, fx, fz),
     // pieces
     U, def, up, heroes, gobs, occ, dist, cheb, sz, cellsOf, covers, hOf, moveOf, isRanged, short, armourOf, dieName,
     dieOf, cardsOf, cardDie, cardN, cardCd, diceName, cardText,
@@ -1186,6 +1208,6 @@ function battle(S) {
   };
 }
 
-return { TUNE, UNITS, CARDS, BOONS, LEVELS, HERO_START, key, parseKey, rollWith, buildBoard, slopeAt, newState, offerBoons, battle };
+return { TUNE, UNITS, CARDS, BOONS, LEVELS, CAMPAIGN, HERO_START, key, parseKey, rollWith, buildBoard, slopeAt, newState, offerBoons, partyBoons, battle };
 })();
 if (typeof module !== 'undefined') module.exports = GC;

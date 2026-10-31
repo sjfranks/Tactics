@@ -9,15 +9,18 @@
 const SAVE_KEY = 'goblin-crypt-campaign-1';
 const freshCamp = (diff = 'normal') => ({ v: 1, level: 0, boons: [], diff, tally: {}, battles: 0, offer: null, state: null });
 let CAMP = freshCamp();
+// MODE 'camp' plays the campaign; 'free' a battle chosen from the level select, which never touches the campaign's save.
+// FREE holds the free battle's boons, so a restart keeps them
+let MODE = 'camp', FREE = { boons: [] };
 function saveCamp() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(CAMP)); } catch (e) { } }
 function readCamp(c) {
-  if (!c || c.v !== 1 || !Number.isInteger(c.level) || !LEVELS[c.level]) return null;
+  if (!c || c.v !== 1 || !Number.isInteger(c.level) || c.level < 0 || c.level >= GC.CAMPAIGN) return null;
   const offer = Array.isArray(c.offer) ? c.offer.filter(id => GC.BOONS[id] && !(c.boons || []).includes(id)) : [];
   return { ...freshCamp(), ...c, boons: (c.boons || []).filter(id => GC.BOONS[id]), offer: offer.length ? offer : null, diff: GC.TUNE.difficulty[c.diff] ? c.diff : 'normal', tally: c.tally && typeof c.tally === 'object' ? c.tally : {} };
 }
 function loadCamp() { try { return readCamp(JSON.parse(localStorage.getItem(SAVE_KEY))); } catch (e) { return null; } }
 // the battle in progress, kept whenever it is the player's move
-function saveTurn() { if (G && UI.phase === 'player' && !UI.busy && !UI.over && G.S.phase === 'player') { CAMP.state = G.snapshot(); saveCamp(); } }
+function saveTurn() { if (MODE === 'camp' && G && UI.phase === 'player' && !UI.busy && !UI.over && G.S.phase === 'player') { CAMP.state = G.snapshot(); saveCamp(); } }
 // a finished battle goes into the campaign's running tally
 function addTally() {
   const st = G.S.stats;
@@ -28,7 +31,16 @@ function addTally() {
   }
   CAMP.battles++;
 }
-function newCampaign() { CAMP = freshCamp(CAMP.diff); saveCamp(); $('#end').hidden = true; loadLevel(0); }
+function newCampaign() { MODE = 'camp'; CAMP = freshCamp(CAMP.diff); saveCamp(); $('#end').hidden = true; hideTitle(); loadLevel(0); }
+// back into the campaign where it was left: the saved turn, the camp with a boon to choose, or the next briefing
+function enterCampaign() {
+  MODE = 'camp'; hideTitle();
+  let saved = null;
+  if (CAMP.state) { try { saved = JSON.parse(CAMP.state); if (saved.v !== 3 || saved.level !== CAMP.level || saved.phase !== 'player') saved = null; } catch (e) { saved = null; } }
+  loadLevel(CAMP.level, saved);
+}
+// a battle from the level select, fought with the boons a party would have earned by then
+function freeBattle(i) { MODE = 'free'; FREE = { boons: GC.partyBoons(i) }; hideTitle(); loadLevel(i); }
 const boonWho = b => b.who === 'party' ? 'The party' : GC.UNITS[b.who].name;
 const boonFace = b => b.who === 'party' ? '<svg viewBox="0 0 24 24"><path d="M6 21V4M6 4h11l-2.5 4L17 12H6"/></svg>' : face(b.who);
 // the boons on offer, as cards to choose from; done(id) when one is picked
@@ -62,7 +74,8 @@ function offerBoons(go, label) {
   renderBoons(box, CAMP.offer, id => { pick = id; btn.disabled = false; });
   endAction = () => { takeBoon(pick); go(); };
 }
-const boonNames = (who) => CAMP.boons.map(id => GC.BOONS[id]).filter(b => !who || b.who === who || b.who === 'party').map(b => b.name);
+const partyBoonIds = () => MODE === 'free' ? FREE.boons : CAMP.boons;
+const boonNames = (who) => partyBoonIds().map(id => GC.BOONS[id]).filter(b => !who || b.who === who || b.who === 'party').map(b => b.name);
 
 // ---------------- laying out a battle ----------------
 function clearBoard() {
@@ -71,7 +84,7 @@ function clearBoard() {
   [...burnFx.keys()].forEach(clearBurnFx);
   floats.splice(0).forEach(f => f.el.remove()); bubbles.splice(0).forEach(b => b.el.remove());
   liveDice.splice(0).forEach(d => scene.remove(d));
-  while (propGroup.children.length) propGroup.remove(propGroup.children[0]);
+  [propGroup, propUp].forEach(g => { while (g.children.length) g.remove(g.children[0]); });
   levelEmit.splice(0).forEach(e => { const i = emitters.indexOf(e); if (i >= 0) emitters.splice(i, 1); });
   lvLight.userData.base = 0; lvLight.intensity = 0;
   [...ICE.keys()].forEach(k => removeIceFx(k)); hideArrow(); hideRoll(); tweens.length = 0; clearSmashFx();
@@ -92,14 +105,15 @@ function defaultView(now) {
   if (now) { camX = camTX; camZ = camTZ; zoom = zoomT; }
 }
 // lay out a battle: the rules make a fresh state with the party's boons (or take a saved one), the table builds the
-// diorama and the pieces. Then the briefing, the camp (a boon still to choose), or straight back into a saved turn
-function loadLevel(i, saved) {
+// diorama and the pieces. Then the briefing, the camp (a boon still to choose), or straight back into a saved turn.
+// backdrop: only lay the board out, behind the title screen, leaving the campaign and its save alone
+function loadLevel(i, saved, backdrop) {
   level = i; const L = LEVELS[i];
   clearBoard();
-  G = GC.battle(saved || GC.newState(i, undefined, { boons: CAMP.boons, diff: CAMP.diff }));
-  if (CAMP.level !== i || !saved) { CAMP.level = i; CAMP.state = null; saveCamp(); }
+  G = GC.battle(saved || GC.newState(i, undefined, { boons: partyBoonIds(), diff: CAMP.diff }));
+  if (MODE === 'camp' && !backdrop && (CAMP.level !== i || !saved)) { CAMP.level = i; CAMP.state = null; saveCamp(); }
   boardFromRules(G.B); buildBoard(L); buildHL();
-  (L.props || []).forEach(([type, c, r]) => PROPS[type](c, r));
+  (L.props || []).forEach(([type, c, r, l]) => { PROP_L = l || 0; try { PROPS[type](c, r); } finally { PROP_L = 0; } });
   const [hs, hg, sc, si, bg] = L.art.sky;
   hemi.color.setHex(hs); hemi.groundColor.setHex(hg); sun.color.setHex(sc); sun.intensity = si; scene.fog.color.setHex(bg); scene.background.setHex(bg);
   G.S.units.forEach(r => { if (r.alive) makeUnit(r); });
@@ -111,6 +125,7 @@ function loadLevel(i, saved) {
   setMusic(L.theme);
   QUIET = true; try { sync(); } finally { QUIET = false; } // marks a battle starts with (War Banner's blessing) show from the first moment
   updateHud(); measure(); renderDock();
+  if (backdrop) return;
   if (saved && G.S.phase === 'player') { // back from a reload: straight to the hero whose turn it was
     try {
       liveUnits().forEach(showNow);
@@ -123,33 +138,70 @@ function loadLevel(i, saved) {
       return;
     } catch (e) { console.error(e); return loadLevel(i); }
   }
-  if (CAMP.offer) showCamp(); else showIntro();
+  if (MODE === 'camp' && CAMP.offer) showCamp(); else showIntro();
 }
 function showIntro() {
   const L = LEVELS[level], diff = GC.TUNE.difficulty[CAMP.diff];
   steps('#introSteps');
-  $('#introKick').textContent = `Battle ${level + 1} of ${LEVELS.length}${level === LEVELS.length - 1 ? ' · Boss' : ''}${CAMP.diff !== 'normal' ? ' · ' + diff.label : ''}`;
+  const boss = LEVELS[level].foes.some(([k]) => GC.UNITS[k].boss) ? ' · Boss' : '';
+  $('#introKick').textContent = (MODE === 'free' ? `Level select · ${L.extra ? 'Extra battle' : 'Battle ' + (level + 1)}` : `Battle ${level + 1} of ${GC.CAMPAIGN}`) + boss + (CAMP.diff !== 'normal' ? ' · ' + diff.label : '');
   $('#introTitle').textContent = L.name; $('#introText').textContent = L.text;
   const counts = {}; L.foes.forEach(([k]) => counts[k] = (counts[k] || 0) + 1);
   $('#introFoes').innerHTML = Object.entries(counts).map(([k, n]) => { const d = GC.UNITS[k]; return `<span class="${d.boss ? 'boss' : ''}">${n > 1 ? n + '× ' : ''}${d.name}${d.title ? ' ' + d.title : ''}</span>`; }).join('');
   const bn = boonNames();
   $('#introBoons').innerHTML = bn.length ? `<b>Boons</b>${bn.map(n => `<span>${n}</span>`).join('')}` : '';
   $('#introBoons').hidden = !bn.length;
-  $('#introGo').textContent = level === 0 && !CAMP.battles ? 'Set up the board' : 'To battle';
+  $('#introGo').textContent = MODE === 'camp' && level === 0 && !CAMP.battles ? 'Set up the board' : 'To battle';
   $('#intro').hidden = false;
 }
 // a hot reload keeps the whole campaign, and the battle too if it is the player's move
 function snapshot() {
   saveTurn();
-  return { v: 3, camp: { ...CAMP, state: G && UI.phase === 'player' && !UI.busy && !UI.over ? G.snapshot() : null } };
+  return { v: 3, camp: { ...CAMP, state: MODE === 'camp' && G && UI.phase === 'player' && !UI.busy && !UI.over ? G.snapshot() : CAMP.state } };
 }
+
+// ---------------- the title screen: the campaign, or any battle from the level select ----------------
+const campStarted = () => CAMP.level > 0 || CAMP.battles > 0 || !!CAMP.state || !!CAMP.offer;
+function showTitle() {
+  ['#intro', '#end', '#settings', '#help', '#logv', '#csheet'].forEach(q => { $(q).hidden = true; });
+  setMenu(false);
+  const go = campStarted();
+  $('#tCont').firstChild.textContent = go ? 'Continue the campaign' : 'Begin the campaign';
+  $('#tContSub').textContent = go ? `Battle ${CAMP.level + 1} of ${GC.CAMPAIGN}: ${LEVELS[CAMP.level].name}${CAMP.boons.length ? ` · ${CAMP.boons.length} boon${CAMP.boons.length > 1 ? 's' : ''}` : ''}` : `${GC.CAMPAIGN} battles to the Goblin King`;
+  $('#tNew').hidden = !go;
+  $('#titleMain').hidden = false; $('#titleLevels').hidden = true;
+  $('#title').hidden = false; $('#app').classList.add('titled'); UI.busy = true;
+}
+function hideTitle() { $('#title').hidden = true; $('#app').classList.remove('titled'); }
+function showLevels() {
+  $('#levelList').innerHTML = LEVELS.map((L, i) => {
+    const n = L.foes.length, boss = L.foes.some(([k]) => GC.UNITS[k].boss), two = !!(L.deck && L.deck.length);
+    const tag = L.extra ? 'Extra' : `Battle ${i + 1}`, notes = [`${n} foes`, boss ? 'Boss' : '', two ? 'Two floors' : '', `${L.boons ?? i} boon${(L.boons ?? i) === 1 ? '' : 's'}`].filter(Boolean).join(' · ');
+    return `<button class="lvl${L.extra ? ' extra' : ''}" data-i="${i}"><span class="ln">${tag}</span><b>${L.name}</b><small>${notes}</small></button>`;
+  }).join('');
+  $('#levelList').querySelectorAll('.lvl').forEach(b => b.onclick = () => { ac(); sfx('pick'); freeBattle(+b.dataset.i); });
+  $('#titleMain').hidden = true; $('#titleLevels').hidden = false; sfx('select');
+}
+$('#tCont').onclick = () => { ac(); sfx('pick'); enterCampaign(); };
+$('#tNew').onclick = async () => {
+  ac();
+  if (await ask('Start a new campaign?', `The party goes back to the Gorge Crossing and gives up its ${CAMP.boons.length} boon${CAMP.boons.length === 1 ? '' : 's'}.`, 'New campaign', 'Keep this one')) newCampaign();
+};
+$('#tLevels').onclick = () => { ac(); showLevels(); };
+$('#tBack').onclick = () => { ac(); sfx('pick'); $('#titleMain').hidden = false; $('#titleLevels').hidden = true; };
+$('#tHelp').onclick = () => { ac(); $('#help').hidden = false; };
+$('#tSettings').onclick = () => { ac(); renderSettings(); $('#settings').hidden = false; sfx('select'); };
+// to the title from a battle: a campaign turn is already saved; a free battle is let go
+$('#menuMain').onclick = () => { ac(); $('#settings').hidden = true; toTitle(); };
+$('#endMenu').onclick = () => { ac(); toTitle(); };
+$('#introMenu').onclick = () => { ac(); sfx('pick'); toTitle(); };
+function toTitle() { saveTurn(); MODE = 'camp'; loadLevel(CAMP.level, null, true); showTitle(); }
 function start(data) {
   resize();
   applyEnvStyle(); $('#styleLbl').textContent = STYLE_NAME[STYLE]; $('#intentBtn').classList.toggle('on', showIntents); $('#barkBtn').classList.toggle('on', showBarks);
   makePortraits();
   CAMP = (data && data.v === 3 && readCamp(data.camp)) || loadCamp() || freshCamp(); renderSettings();
-  let saved = null;
-  if (CAMP.state) { try { saved = JSON.parse(CAMP.state); if (saved.v !== 3 || saved.level !== CAMP.level || saved.phase !== 'player') saved = null; } catch (e) { saved = null; } }
-  loadLevel(CAMP.level, saved);
+  if (data && data.v === 3) enterCampaign(); // the viewer's hot reload goes straight back to the table
+  else { loadLevel(CAMP.level, null, true); showTitle(); } // a fresh visit opens on the title, the board laid out behind it
   requestAnimationFrame(frame);
 }

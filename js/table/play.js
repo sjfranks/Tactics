@@ -177,7 +177,7 @@ function faceViewer(u) { // idle pieces turn back toward the player, like Fire E
 function afterAction() {
   const u = UI.active, r = u && G.U(u.id), mine = UI.phase === 'player' && !UI.over && !!r;
   if (mine) {
-    faceViewer(u);
+    faceViewer(u); setView(viewFor(u)); // the view goes with the hero, up the stair or down it
     if (r.ap <= 0 || !G.up(r)) UI.card = null;
     else if (UI.card && G.block(r, UI.card)) UI.card = G.cardsOf(r)[0];
   }
@@ -246,7 +246,7 @@ function undoMove() {
 
 // ---------------- the end of a battle ----------------
 let endAction = null;
-function steps(el) { $(el).innerHTML = LEVELS.map((_, i) => `<i class="${i < level ? 'done' : i === level ? 'now' : ''}"></i>`).join(''); }
+function steps(el) { $(el).innerHTML = MODE === 'free' ? '' : LEVELS.slice(0, GC.CAMPAIGN).map((_, i) => `<i class="${i < level ? 'done' : i === level ? 'now' : ''}"></i>`).join(''); }
 const listOf = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
 // a tally: what each hero dealt, finished, healed and took; the best of them is starred
 function tallyTable(rows, note) {
@@ -265,7 +265,9 @@ function campaignReport() {
 function gameOver(win) {
   UI.over = true; UI.phase = 'over'; UI.sel = null; UI.card = null; UI.active = null; UI.inspect = null; UI.intents = []; refresh();
   if (win) heroes().forEach((h, i) => wait(300 + i * 140).then(() => { faceViewer(h); playClip(h, 'cheer'); }));
-  const last = level === LEVELS.length - 1, rounds = G.S.round, L = LEVELS[level], rep = report();
+  const last = level === GC.CAMPAIGN - 1, rounds = G.S.round, L = LEVELS[level], rep = report();
+  $('#endMenu').hidden = MODE !== 'free';
+  if (MODE === 'free') return freeOver(win, rounds, L, rep);
   // the campaign moves on at once (closing the page during the closing scene keeps the result)
   addTally(); CAMP.state = null;
   const campRep = win && last ? campaignReport() : '';
@@ -296,6 +298,20 @@ function gameOver(win) {
       $('#endReport').innerHTML = rep;
       btn.textContent = 'Retry battle'; endAction = () => loadLevel(level); sfx('taunt');
     }
+    $('#end').hidden = false;
+  }, win ? 1500 : 1100);
+}
+
+// a battle from the level select is over: the tally, then play it again or go back to the title
+function freeOver(win, rounds, L, rep) {
+  setTimeout(async () => {
+    const sc = DLG.scenes[level]; await talk(sc && (win ? sc.win : sc.lose));
+    const t = $('#endTitle'), btn = $('#againBtn'), n = units.filter(u => u && u.alive && u.side === 'gob').length;
+    $('#endBoons').hidden = true; btn.disabled = false; steps('#endSteps');
+    t.textContent = win ? 'Victory' : 'The Party Has Fallen'; t.className = win ? 'win' : 'lose';
+    $('#endText').textContent = win ? `${L.name} is cleared in ${rounds} round${rounds > 1 ? 's' : ''}.` : `The goblins hold ${L.name}. ${n} foe${n === 1 ? '' : 's'} still stand${n === 1 ? 's' : ''}.`;
+    $('#endReport').innerHTML = rep;
+    btn.textContent = win ? 'Play it again' : 'Try again'; endAction = () => loadLevel(level); sfx(win ? 'crit' : 'taunt');
     $('#end').hidden = false;
   }, win ? 1500 : 1100);
 }
