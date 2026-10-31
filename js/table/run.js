@@ -43,13 +43,13 @@ function overview(now) {
   zoomT = Math.max(1, Math.min(COLS / VIEWC, 3) * 1.04, (ROWS / VIEWR) * 1.04);
   if (now) { camAz = camAzT; camX = camTX; camZ = camTZ; zoom = zoomT; }
 }
-// play view: default distance, framed on the party with a little room toward the foes
+// play view: close in, framed on the party and a third of the way toward the foes
 function defaultView(now) {
-  const hs0 = units.filter(u => u && u.side === 'hero' && u.alive); if (!hs0.length) return;
-  follow = null; zoomT = 1;
-  camTX = hs0.reduce((a, u) => a + u.root.position.x, 0) / hs0.length; camTZ = hs0.reduce((a, u) => a + u.root.position.z, 0) / hs0.length - 1.5; clampCam();
-  if (!bigMap()) { camTX = 0; camTZ = 0; }
-  if (now) { camX = camTX; camZ = camTZ; zoom = zoomT; }
+  const hs0 = units.filter(u => u && u.side === 'hero' && u.alive), gs0 = units.filter(u => u && u.side === 'gob' && u.alive); if (!hs0.length) return;
+  follow = null; zoomT = PLAY_ZOOM; camAzT = camAz - angDiff(camAz, baseAz());
+  const mid = list => list.reduce((a, u) => a.add(u.root.position), new V3()).multiplyScalar(1 / list.length), h = mid(hs0), g = gs0.length ? mid(gs0) : h.clone().setZ(h.z - 4);
+  camTX = h.x + (g.x - h.x) * .35; camTZ = h.z + (g.z - h.z) * .35; clampCam();
+  if (now) { camAz = camAzT; camX = camTX; camZ = camTZ; zoom = zoomT; }
 }
 // lay out a battle: the rules make a fresh state (in a run, from the room's encounter and the party as it stands), or
 // take a saved one; the table builds the diorama and the pieces, then the briefing, or straight back into a saved turn.

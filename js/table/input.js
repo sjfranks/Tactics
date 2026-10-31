@@ -29,7 +29,11 @@ function pick(x, y, exclude) {
     const me = myHero(), self = me && UI.card && CARDS[UI.card].target === 'self';
     const cand = us.filter(x => x !== me || self || !g.cell);
     const tg = me && UI.card && !UI.busy ? G.targets(ru(me), UI.card, { grab: grabbedId() }) : null;
-    unit = (tg && cand.find(x => tg.has(x.id))) || cand[0] || null;
+    // choosing a square (where to haul a held figure, where to cast or swing): an open target square wins over a figure
+    // standing in front of it, which the low camera often puts there
+    const ck = g.cell && GC.key(g.cell.c, g.cell.r, g.cell.l), sq = tg && ck && tg.get(ck);
+    const squares = UI.card && (CARDS[UI.card].target === 'cell' || (CARDS[UI.card].target === 'grab' && grabbedId() != null));
+    unit = squares && sq && sq.cell ? null : (tg && cand.find(x => tg.has(x.id))) || cand[0] || null;
   }
   return { unit, raw: us[0] || null, cell: g.cell, point: g.point };
 }
@@ -90,7 +94,7 @@ canvas.addEventListener('pointermove', e => {
   if (gest && ptrs.size >= 2) {
     const [a, b] = [...ptrs.values()]; const ang = Math.atan2(b.y - a.y, b.x - a.x), d = Math.hypot(b.x - a.x, b.y - a.y);
     let da = ang - gest.ang; if (da > Math.PI) da -= Math.PI * 2; if (da < -Math.PI) da += Math.PI * 2;
-    camAzT += da; camAz += da; zoom = zoomT = Math.max(.6, Math.min(zoomMax(), zoom * gest.d / Math.max(20, d)));
+    camAzT += da; camAz += da; zoom = zoomT = Math.max(.4, Math.min(zoomMax(), zoom * gest.d / Math.max(20, d)));
     // two fingers moving together slide the map
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, p0 = floorAt(gest.mx, gest.my), p1 = floorAt(mx, my);
     if (p0 && p1) { camTX += p0.x - p1.x; camTZ += p0.z - p1.z; clampCam(); camX = camTX; camZ = camTZ; }
@@ -110,7 +114,7 @@ canvas.addEventListener('pointermove', e => {
   if (e.pointerType === 'mouse') hover(e.clientX, e.clientY);
 });
 function floorAt(x, y) { ray.setFromCamera(new THREE.Vector2(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1), camera); plane.constant = -TOP; const p = new V3(); return ray.ray.intersectPlane(plane, p) ? p : null; }
-const zoomMax = () => bigMap() ? 2 : 1.4;
+const zoomMax = () => bigMap() ? 2 : 1.3; // pinch out as far as the whole board (and a bit)
 function endPtr(e) {
   ptrs.delete(e.pointerId);
   if (gest) { if (ptrs.size < 2) gest = null; down = null; return; }
@@ -121,7 +125,7 @@ function endPtr(e) {
 canvas.addEventListener('pointerup', endPtr);
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('pointercancel', e => { ptrs.delete(e.pointerId); cancelDrag(); down = null; if (ptrs.size < 2) gest = null; });
-canvas.addEventListener('wheel', e => { e.preventDefault(); zoom = zoomT = Math.max(.6, Math.min(zoomMax(), zoom * (1 + e.deltaY * .001))); }, { passive: false });
+canvas.addEventListener('wheel', e => { e.preventDefault(); zoom = zoomT = Math.max(.4, Math.min(zoomMax(), zoom * (1 + e.deltaY * .001))); }, { passive: false });
 
 // a mouse over the board previews: the walk to a square, or the path, reticle and odds for a target
 let hoverKey = null;
@@ -285,8 +289,8 @@ $('#floorUp').onclick = () => showFloor('upper');
 $('#floorDn').onclick = () => showFloor('lower');
 $('#menuView').onclick = () => {
   setMenu(false); ac(); sfx('select'); follow = null;
-  camAzT = camAz - angDiff(camAz, baseAz()); zoomT = 1;
-  const u = bigMap() ? (UI.sel || UI.active || heroes()[0]) : null; camTX = u ? u.root.position.x : 0; camTZ = u ? u.root.position.z : 0; zoom = Math.max(zoom, .999); clampCam();
+  camAzT = camAz - angDiff(camAz, baseAz()); zoomT = PLAY_ZOOM;
+  const u = UI.sel || UI.active || heroes()[0]; camTX = u ? u.root.position.x : 0; camTZ = u ? u.root.position.z : 0; clampCam();
 };
 $('#menuLog').onclick = () => { setMenu(false); ac(); renderLog(); $('#logv').hidden = false; $('#logList').scrollTop = 1e6; };
 $('#logClose').onclick = () => { $('#logv').hidden = true; };

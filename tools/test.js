@@ -22,8 +22,10 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
   await p.evaluate(() => { TIME_SCALE = 6; });
   const shot = name => SHOTS ? p.screenshot({ path: path.join(SHOT, `${name}-${W}.png`) }) : null;
   const idle = () => p.waitForFunction(() => (UI.phase === 'player' && !UI.busy) || UI.over, null, { timeout: 120000 });
-  const scr = (c, r, l = 0) => p.evaluate(([c, r, l]) => project(cellPos(c, r, l)).slice(0, 2), [c, r, l]);
-  const tapCell = async (c, r, l = 0) => { const [x, y] = await scr(c, r, l); await p.touchscreen.tap(x, y); await p.waitForTimeout(150); };
+  // a square's middle on screen; d moves the point that far toward its far corner (the camera sees down into a pit
+  // only at its far side)
+  const scr = (c, r, l = 0, d = 0) => p.evaluate(([c, r, l, d]) => project(cellPos(c, r, l).addScaledVector(camToward(), -d)).slice(0, 2), [c, r, l, d]);
+  const tapCell = async (c, r, l = 0, d = 0) => { const [x, y] = await scr(c, r, l, d); await p.touchscreen.tap(x, y); await p.waitForTimeout(150); };
   const hero = kind => p.evaluate(k => { const r = G.S.units.find(u => u.kind === k); return { id: r.id, c: r.c, r: r.r, ap: r.ap, hp: r.hp, maxHp: r.maxHp, down: r.down }; }, kind);
   // tap through any scene until a hero is on turn, or a briefing or the end of the battle shows
   const tapThrough = async () => { for (let t = Date.now(); Date.now() - t < 120000;) { if (await p.isVisible('#talk')) { await p.click('#talk .tk'); await p.waitForTimeout(200); continue; } if (await p.isVisible('#end') || await p.isVisible('#intro') || await p.isVisible('#room') || await p.isVisible('#runmap') || await p.evaluate(() => UI.phase === 'player' && !UI.busy)) return; await p.waitForTimeout(250); } };
@@ -134,7 +136,7 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
   {
     const g0 = await p.evaluate(() => { const g = G.S.units.find(u => u.kind === 'cutter' && u.r === 5); return { id: g.id, hp: g.hp }; });
     await p.click('.hk[data-id="f_grab"]'); await p.waitForTimeout(150);
-    await tapCell(1, 5); await tapCell(0, 5); await idle(); // (0,5) is a lava pit in the Forge Pits
+    await tapCell(1, 5); await tapCell(0, 5, 0, .45); await idle(); // (0,5) is a lava pit in the Forge Pits: tap the part of it in view
     const g1 = await p.evaluate(id => { const g = G.U(id); return { hp: g.hp, prone: !!g.st.prone, alive: g.alive, at: [g.c, g.r].join(), lava: GC.TUNE.lava }; }, g0.id);
     ok(!g1.alive || (g1.hp === g0.hp - g1.lava && g1.prone && g1.at === '1,5'), `hurled into the lava: hp ${g0.hp} → ${g1.hp}, prone ${g1.prone}, back at ${g1.at}`);
   }
