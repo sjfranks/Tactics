@@ -53,7 +53,7 @@ function newRun(seed = (Math.random() * 4294967296) >>> 0, opts = {}) {
   const party = {};
   for (const k of HEROES) { const d = UNITS[k]; party[k] = { hp: d.hp, maxHp: d.hp, die: d.die, armour: d.armour || 0, move: d.move, initBonus: d.init || 0, cards: d.cards.slice(), mods: {}, potions: 0 }; }
   const run = { v: 1, seed: seed >>> 0, rng: seed >>> 0, diff: opts.diff || 'normal', act: 0, node: null, map: null, gold: GOLD.start, relics: [], party,
-    phase: 'map', room: null, battle: null, fights: 0, seen: [], log: [], stats: { floors: 0, fights: 0, elites: 0, bosses: 0, gold: 0, kills: 0 } };
+    phase: 'map', room: null, battle: null, fights: 0, seen: [], visited: [], stats: { floors: 0, fights: 0, elites: 0, bosses: 0, gold: 0, kills: 0 } };
   gainRelic(run, 'bandages');
   run.map = genMap(run);
   return run;
@@ -110,7 +110,7 @@ function choices(run) {
 // ---------------- entering a room ----------------
 function enter(run, nodeId) {
   if (run.phase !== 'map' || !choices(run).includes(nodeId)) return false;
-  const n = run.map.nodes[nodeId]; run.node = nodeId; run.stats.floors++;
+  const n = run.map.nodes[nodeId]; run.node = nodeId; run.stats.floors++; (run.visited = run.visited || []).push(nodeId);
   let type = n.type;
   if (type === '?') { // most unknown rooms hold an event; some an ambush, a peddler or a forgotten chest
     const r = rand(run);
@@ -353,7 +353,7 @@ function apply(run, e, out) {
 // ---------------- the next act ----------------
 function nextAct(run) {
   if (run.act >= ACTS.length - 1) { run.phase = 'won'; run.result = 'win'; run.room = null; return true; }
-  run.act++; run.node = null; run.fights = 0; run.map = genMap(run);
+  run.act++; run.node = null; run.fights = 0; run.visited = []; run.map = genMap(run);
   for (const k of HEROES) run.party[k].hp = run.party[k].maxHp; // a full heal between acts
   run.phase = 'map'; run.room = null; return true;
 }
@@ -366,7 +366,7 @@ function check(r) {
   return r;
 }
 
-return { ACTS, FLOORS, COLS, GOLD, PRICES, HEAL, LIMITS, EVENTS, HEROES, newRun, genMap, choices, enter, battleOpts, afterBattle, offer, grant, describe, takeReward, leave, gainRelic, drawRelics,
+return { ACTS, FLOORS, COLS, GOLD, PRICES, HEAL, LIMITS, EVENTS, HEROES, diceOf, newRun, genMap, choices, enter, battleOpts, afterBattle, offer, grant, describe, takeReward, leave, gainRelic, drawRelics,
   rest, train, upgradable, learnable, stock, buy, openChest, choose, canChoose, nextAct, check, rand };
 })();
 if (typeof module !== 'undefined') module.exports = RUN;
