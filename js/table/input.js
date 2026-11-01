@@ -200,25 +200,17 @@ $('#muteBtn').onclick = () => { ac(); muted = !muted; $('#muteBtn').classList.to
 $('#musicBtn').onclick = () => { ac(); musicOn = !musicOn; try { localStorage.setItem('gc-music', musicOn ? '1' : '0'); } catch (e) { } renderSettings(); sfx('select'); };
 $('#speedBtn').onclick = () => { ac(); FAST = !FAST; try { localStorage.setItem('gc-fast', FAST ? '1' : '0'); } catch (e) { } renderSettings(); sfx('select'); };
 // difficulty: how tough the goblins are, from the next battle on
-$('#diffBtn').onclick = () => {
-  ac(); const ks = Object.keys(GC.TUNE.difficulty); PREF_DIFF = ks[(ks.indexOf(curDiff()) + 1) % ks.length];
-  try { localStorage.setItem('gc-diff', PREF_DIFF); } catch (e) { }
-  if (RS) { RS.diff = PREF_DIFF; saveRun(); }
-  renderSettings(); sfx('select');
-};
+$('#diffBtn').onclick = () => { ac(); const ks = Object.keys(GC.TUNE.difficulty); CAMP.diff = ks[(ks.indexOf(CAMP.diff) + 1) % ks.length]; saveCamp(); renderSettings(); sfx('select'); };
 $('#tipsBtn').onclick = () => { ac(); tipsSeen = {}; try { localStorage.removeItem('gc-tips'); } catch (e) { } $('#settings').hidden = true; sfx('select'); tipsNow(); };
 $('#newBtn').onclick = async () => {
   ac(); $('#settings').hidden = true;
-  if (!RS) return;
-  if (await ask('Give up this run?', `The party is in act ${RS.act + 1} with ${RS.gold} gold and ${RS.relics.length} relic${RS.relics.length > 1 ? 's' : ''}. All of it is lost.`, 'Give it up', 'Keep going')) { RS = null; saveRun(); $('#intro').hidden = true; toTitle(); }
+  if (await ask('Start a new campaign?', `The party goes back to the Gorge Crossing and gives up its ${CAMP.boons.length} boon${CAMP.boons.length === 1 ? '' : 's'}.`, 'New campaign', 'Keep this one')) { $('#intro').hidden = true; newCampaign(); }
 };
 // the settings that show a value
 function renderSettings() {
   $('#muteBtn').classList.toggle('on', !muted); $('#musicBtn').classList.toggle('on', musicOn);
-  const d = GC.TUNE.difficulty[curDiff()];
-  $('#speedLbl').textContent = FAST ? 'Fast' : 'Normal'; $('#diffLbl').textContent = d.label;
-  $('#diffNote').textContent = `${d.label}: goblins have ${Math.round(d.hp * 100)}% of their health. A change counts from the next battle.`;
-  $('#restartBtn').hidden = MODE === 'run'; $('#newBtn').hidden = !RS; // a run's battles can't be fought again
+  $('#speedLbl').textContent = FAST ? 'Fast' : 'Normal'; $('#diffLbl').textContent = GC.TUNE.difficulty[CAMP.diff].label;
+  $('#diffNote').textContent = `${GC.TUNE.difficulty[CAMP.diff].label}: goblins have ${Math.round(GC.TUNE.difficulty[CAMP.diff].hp * 100)}% of their health. A change counts from the next battle.`;
 }
 function swapPiece(u) { // rebuild a unit's miniature in the current style, keeping its pose and effects
   const old = u.piece, np = buildPiece(u.kind);
@@ -299,7 +291,7 @@ $('#introGo').onclick = async () => {
   await Promise.all(order0.map((u, i) => deploy(u, i * 110)));
   await wait(450);
   defaultView(); await wait(650); // ease in from the set-up shot
-  await talk(sceneFor('before'));
+  await talk(DLG.scenes[level] && DLG.scenes[level].before);
   UI.busy = false; order(() => G.begin(), true);
 };
 

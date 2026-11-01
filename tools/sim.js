@@ -69,17 +69,6 @@ function options(B, u) {
     } else if (id === 'f_taunt') {
       const near = foes.filter(g => B.dist(g, u) <= 4).length, soft = B.heroes().filter(h => h !== u && h.hp < h.maxHp * .5).length;
       if (near >= 2 && soft) opts.push({ v: 1.5 + soft, id, target: u.id });
-    } else if (id === 'f_cry') { // learned in a run: bless the heroes about to act
-      const n = allyLater.filter(h => B.dist(h, u) <= 3 && !h.st.blessed).length; if (n >= 2) opts.push({ v: 1.2 + n * .6, id, target: u.id });
-    } else if (id === 'c_prayer') {
-      const avg = B.cardN(u, id) * (B.cardDie(u, id) + 1) / 2; let v = 0; for (const h of B.heroes()) if (B.dist(h, u) <= 2) v += Math.min(avg, h.maxHp - h.hp);
-      if (v >= 4) opts.push({ v: v * 1.1, id, target: u.id });
-    } else if (id === 'c_ward') {
-      for (const [k, e] of tg) { const t = B.U(e.unit); if (e.path || t.st.warded) continue; const near = foes.filter(g => B.dist(g, t) <= 2).length; if (near) opts.push({ v: 1 + near * .7, id, target: t.id }); }
-    } else if (id === 'm_shield') {
-      const near = foes.filter(g => B.dist(g, u) <= 2).length; if (near && !u.st.warded) opts.push({ v: 1 + near * .8, id, target: u.id });
-    } else if (id === 't_smoke') {
-      const n = B.heroes().filter(h => (h === u || B.dist(h, u) === 1) && !h.st.hidden).length; if (n >= 2) opts.push({ v: 1 + n * .6, id, target: u.id });
     } else if (id === 't_hide') {
       if (!u.st.hidden && u.ap >= 2) opts.push({ v: 1.2, id, target: u.id });
     } else if (id === 'f_grab') {
@@ -134,16 +123,10 @@ function boonsFor(level, seed) {
   let x = seed * 2654435761 >>> 0; const rnd = () => ((x = (x * 1664525 + 1013904223) >>> 0) / 4294967296);
   return GC.partyBoons(level, rnd);
 }
-// play a battle state through to its end with the bot (a run's battles too)
-function fight(S, stats = { uses: {} }) {
-  const B = GC.battle(S);
+function play(level, seed, stats) {
+  const S = GC.newState(level, seed, { boons: boonsFor(level, seed), diff: process.env.DIFF }), B = GC.battle(S);
   check(B, B.begin(), 'begin');
   for (let k = 0; k < 2000 && !S.result; k++) heroTurn(B, stats);
-  return B;
-}
-function play(level, seed, stats) {
-  const S = GC.newState(level, seed, { boons: boonsFor(level, seed), diff: process.env.DIFF });
-  fight(S, stats);
   const hs = S.units.filter(u => u.side === 'hero');
   if (GC.LEVELS[S.level].rout && S.result === 'win') { stats.kingRound = (stats.kingRound || []); stats.kingRound.push(S.kingDied || S.round); }
   return { win: S.result === 'win', rounds: S.round, downs: hs.filter(h => h.down).length, hpLeft: hs.reduce((a, h) => a + (h.down ? 0 : h.hp), 0) / hs.reduce((a, h) => a + h.maxHp, 0), horns: S.horns, totalDowns: Object.values(S.stats).reduce((a, s) => a + s.downs, 0) };
@@ -155,9 +138,9 @@ function batch(lv, n = N) {
   const avg = f => (res.reduce((a, r) => a + f(r), 0) / res.length);
   return { res, stats, win: avg(r => r.win), rounds: avg(r => r.rounds), hpLeft: avg(r => r.hpLeft), downs: avg(r => r.totalDowns) };
 }
-module.exports = { GC, play, fight, batch, boonsFor };
+module.exports = { GC, play, batch, boonsFor };
 if (require.main !== module) return;
-const levels = ONLY != null ? [ONLY] : GC.LEVELS.map((_, i) => i).filter(i => !GC.LEVELS[i].run);
+const levels = ONLY != null ? [ONLY] : GC.LEVELS.map((_, i) => i);
 for (const lv of levels) {
   const stats = { uses: {} }, res = [];
   const t0 = Date.now();

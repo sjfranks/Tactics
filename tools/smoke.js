@@ -7,9 +7,7 @@ const path = require('path');
   p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   await p.route('**fonts.g**', r => r.fulfill({ body: '', contentType: 'text/css' })); // play offline: the system fonts stand in
   await p.goto('file://' + path.join(__dirname, '..', 'index.html'));
-  await p.click('#tNew', { timeout: 30000 }); // the title: begin a run, past its opening words, into the first room
-  for (let t = Date.now(); Date.now() - t < 30000 && !(await p.isVisible('#runmap'));) { if (await p.isVisible('#talk')) await p.keyboard.press('Escape'); await p.waitForTimeout(200); }
-  await p.click('#rmMap .nd.can', { timeout: 30000 });
+  await p.click('#tCont', { timeout: 30000 }); // the title: begin the campaign
   await p.click('#introGo', { timeout: 30000 });
   // tap through the opening scene, then wait for a hero's turn
   for (let t = Date.now(); Date.now() - t < 240000 && !(await p.$('#hotbar .hk'));) { if (await p.isVisible('#talk')) await p.click('#talk .tk'); await p.waitForTimeout(300); }

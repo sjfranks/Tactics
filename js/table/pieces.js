@@ -39,13 +39,13 @@ function renderTokens() {
     box.appendChild(b);
   });
 }
-const ST_DESC = { warded: 'Warded: armour +2 till the caster\'s next turn', poisoned: 'Poisoned: loses 2 at the start of its turn', hidden: 'Hidden: cannot be targeted; next attack +2 dice', blessed: 'Blessed: next roll +1 die', hasted: 'Hasted: +1 action next turn', prone: 'Prone: standing up costs an action; hits against it +1 die; armour −1', frozen: 'Frozen: cannot move; no armour; next hit +1 die', taunt: 'Taunting: goblins must attack; armour +1', rebuked: 'Rebuked: armour −2' };
+const ST_DESC = { hidden: 'Hidden: cannot be targeted; next attack +2 dice', blessed: 'Blessed: next roll +1 die', hasted: 'Hasted: +1 action next turn', prone: 'Prone: standing up costs an action; hits against it +1 die; armour −1', frozen: 'Frozen: cannot move; no armour; next hit +1 die', taunt: 'Taunting: goblins must attack; armour +1', rebuked: 'Rebuked: armour −2' };
 function openSheet() {
   const u = UI.inspect || UI.sel || UI.active, L = lvl(), foesLeft = units.filter(x => x.alive && x.side === 'gob').length;
   let html;
   if (u && u.alive && G) {
     const r = ru(u), foe = u.side === 'gob', sts = statusList(u);
-    const cards = foe ? '' : `<div class="cs-cards">${G.cardsOf(r).map(id => { const c = CARDS[id], blk = G.block(r, id), [hue, art] = ART[id], cd = G.cardCd(r, id); return `<div class="cs-card" style="--hue:${hue}"><svg viewBox="0 0 24 24">${art}</svg><div><b>${G.cardName(r, id)}</b><p>${G.cardText(r, id)}</p></div><em>${blk && UI.phase === 'player' ? blk : cd ? '↻ ' + cd : c.cost}</em></div>`; }).join('')}</div>`;
+    const cards = foe ? '' : `<div class="cs-cards">${G.cardsOf(r).map(id => { const c = CARDS[id], blk = G.block(r, id), [hue, art] = ART[id], cd = G.cardCd(r, id); return `<div class="cs-card" style="--hue:${hue}"><svg viewBox="0 0 24 24">${art}</svg><div><b>${c.name}</b><p>${G.cardText(r, id)}</p></div><em>${blk && UI.phase === 'player' ? blk : cd ? '↻ ' + cd : c.cost}</em></div>`; }).join('')}</div>`;
     const bn = foe ? [] : boonNames(u.kind), boons = bn.length ? `<div class="cs-tags cs-boons">${bn.map(n => `<span>★ ${n}</span>`).join('')}</div>` : '';
     const note = u.down ? 'Down: Heal raises them. Goblins leave the fallen be.' : foe ? u.def.note : u === UI.active && UI.phase === 'player' ? `${r.ap} action${r.ap === 1 ? '' : 's'} left this turn` : '';
     html = `<div class="cs-head ${foe ? 'gob' : ''}">${PORTRAIT[u.kind] ? `<img class="cs-fig" alt="" src="${PORTRAIT[u.kind].body}">` : `<span class="ubadge ${foe ? 'gob' : ''}"><span>${ICONS[u.kind]}</span></span>`}<div><h2>${u.name}</h2><small>${foe ? (u.def.boss ? 'Goblin King' : 'Foe') : u.def.role}</small></div></div>
@@ -78,20 +78,7 @@ const ART = {
   c_haste: [138, '<path d="M13 3L6 13h5l-1 8 8-11h-5z"/><path d="M2 9h3M1 13h4M3 17h3"/>'],
   t_hook: [205, '<path d="M14 3v8a4 4 0 0 1-8 0V9"/><path d="M4 11l2-2 2 2"/><path d="M14 3c2 0 4 1 5 3M14 3l6 0"/><path d="M14 15v6"/>'],
   t_trick: [356, '<path d="M5 4v10h6l6 3h3v3H5z"/><path d="M14 8l3-3M17 11l3-2"/>'],
-  potion: [138, '<path d="M9.5 3h5M10.5 3v5.2L5.6 16.4A2.6 2.6 0 0 0 7.9 20.5h8.2a2.6 2.6 0 0 0 2.3-4.1L13.5 8.2V3"/><path d="M7.4 14.5h9.2"/>'],
-  // learned in a run
-  f_bash: [28, '<path d="M5 4h9v7c0 4-2.5 7-4.5 8C7.5 18 5 15 5 11z"/><path d="M17 8l4-2M17 12h4M17 16l4 2"/>'],
-  f_cry: [44, '<path d="M4 9v6h3l6 4V5L7 9z"/><path d="M16 8a5 5 0 0 1 0 8M18.5 5.5a8.5 8.5 0 0 1 0 13"/>'],
-  f_execute: [356, '<path d="M14 3l7 7-4 1-4-4z"/><path d="M13 7L3 21M8 11l3 3"/>'],
-  c_smite: [44, '<path d="M12 2l1.8 5.5H19l-4.4 3.3 1.7 5.4L12 13l-4.3 3.2 1.7-5.4L5 7.5h5.2z"/><path d="M12 16v6"/>'],
-  c_prayer: [138, '<path d="M8 21V12a4 4 0 0 1 8 0v9"/><path d="M12 3v5M9.5 5.5h5"/><path d="M5 21h14"/>'],
-  c_ward: [205, '<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M12 8v7M8.5 11.5h7"/>'],
-  m_chain: [262, '<path d="M14 2L7 12h5l-3 10 9-13h-5l3-7z"/><path d="M4 7l3 2M20 15l-3-1"/>'],
-  m_blink: [280, '<circle cx="7" cy="12" r="3" stroke-dasharray="2 2"/><circle cx="17" cy="12" r="3"/><path d="M10 12h4M12.5 10.5L14 12l-1.5 1.5"/>'],
-  m_shield: [205, '<circle cx="12" cy="12" r="8"/><path d="M12 6l4 2v4c0 3-2 4.5-4 5.5-2-1-4-2.5-4-5.5V8z"/>'],
-  t_knives: [356, '<path d="M4 20L14 10M14 10l2-6 4-1-1 4-6 2"/><path d="M9 21l7-7"/>'],
-  t_poison: [100, '<path d="M12 2l2 4v8h-4V6z"/><path d="M8 14h8M12 14v3"/><path d="M12 18.5c-1 1.3-1.5 2-1.5 2.7a1.5 1.5 0 0 0 3 0c0-.7-.5-1.4-1.5-2.7z"/>'],
-  t_smoke: [262, '<path d="M7 18h10a4 4 0 0 0 0-8 5 5 0 0 0-9.6-1.5A3.8 3.8 0 0 0 7 18z"/><path d="M5 21h4M14 21h5"/>']
+  potion: [138, '<path d="M9.5 3h5M10.5 3v5.2L5.6 16.4A2.6 2.6 0 0 0 7.9 20.5h8.2a2.6 2.6 0 0 0 2.3-4.1L13.5 8.2V3"/><path d="M7.4 14.5h9.2"/>']
 };
 
 let units = [], level = 0; // units[id] is the piece for the rules' unit with that id
@@ -125,8 +112,7 @@ function makeUnit(r) {
   tag.innerHTML = `<div class="fc"></div><div class="hpr"><b class="arm" hidden></b><div class="hp"><i class="trail"></i><i class="fill"></i></div></div>` + (side === 'hero' ? '<div class="ap"></div>' : '');
   if (def.boss) tag.classList.add('boss');
   $('#tags').appendChild(tag);
-  if (r.champ) { piece.scale.multiplyScalar(1.15); const crest = glowSprite(0xffc040, .5); crest.position.y = h * 1.12; piece.add(crest); tag.classList.add('champ'); } // an elite pack's champion
-  const u = { id: r.id, kind: r.kind, def, side, name: r.name || def.name, champ: !!r.champ, hp: r.hp, maxHp: r.maxHp, c: r.c, r: r.r, l: r.l || 0, st: {}, alive: true, down: false, asleep: !!r.asleep, init: 0, deployed: false, root, piece, fig, stand, h, rig, ring, hit, tag, blob, size: r.size || 1, fx: {} };
+  const u = { id: r.id, kind: r.kind, def, side, name: def.name, hp: r.hp, maxHp: r.maxHp, c: r.c, r: r.r, l: r.l || 0, st: {}, alive: true, down: false, asleep: !!r.asleep, init: 0, deployed: false, root, piece, fig, stand, h, rig, ring, hit, tag, blob, size: r.size || 1, fx: {} };
   root.position.copy(posOf(u));
   if (u.size > 1) { hit.scale.set(2.5, 2, 2.5); hit.position.y = 1.1; blob.scale.setScalar(2.1); }
   if (u.asleep) tag.classList.add('zz');
@@ -169,10 +155,9 @@ function setArmour(u, a) {
 function updateBoss() {
   const k = units.find(u => u && u.def.boss && u.alive);
   $('#boss').hidden = !k || !k.deployed;
-  if (k) $('#boss .bn').textContent = k.def.name;
   if (k) $('#bossBar').style.width = (k.hp / k.maxHp * 100) + '%';
 }
-const STATUSES = ['hidden', 'blessed', 'hasted', 'prone', 'frozen', 'taunt', 'rebuked', 'warded', 'poisoned'];
+const STATUSES = ['hidden', 'blessed', 'hasted', 'prone', 'frozen', 'taunt', 'rebuked'];
 const statusList = u => STATUSES.filter(s => u.st[s]);
 
 // ---------------- status visuals ----------------
@@ -193,13 +178,6 @@ function setRebuked(u, v) {
   u.st.rebuked = v || 0;
   if (v && !u.fx.rebuke) { u.fx.rebuke = glowSprite(0xd8b0ff, .55); u.fx.rebuke.position.y = u.h + .1; u.piece.add(u.fx.rebuke); }
   if (!v && u.fx.rebuke) { u.piece.remove(u.fx.rebuke); u.fx.rebuke = null; }
-  updateTag(u);
-}
-// Ward and Poison: a glow on the figure, blue for a ward, green for poison
-function setGlow(u, k, on, hex, y) {
-  u.st[k] = on || 0;
-  if (on && !u.fx[k]) { u.fx[k] = glowSprite(hex, .7); u.fx[k].position.y = y * u.h; u.piece.add(u.fx[k]); }
-  if (!on && u.fx[k]) { u.piece.remove(u.fx[k]); u.fx[k] = null; }
   updateTag(u);
 }
 function setTaunt(u, on) {

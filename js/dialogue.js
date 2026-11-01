@@ -111,43 +111,6 @@ const DIALOGUE = {
       ]
     }
   ],
-  // a run: words as it begins, and before and after each boss (by map id)
-  run: {
-    start: [
-      ['cleric', 'Three days down into the dark, and Grubnash at the bottom of it.'],
-      ['thief', 'Three days of goblins. I hope you all brought snacks.'],
-      ['fighter', 'Keep together. Pick your fights. We go home when the king is dead.']
-    ],
-    bosses: {
-      den: {
-        before: [
-          ['warg', '*Something huge stirs in the dark of the den, and the bones on the floor shift.*'],
-          ['thief', "That's not a warg. That's a warg's mother."],
-          ['fighter', 'Then she knows what happens to her pups. Shields up.']
-        ],
-        win: [['mage', 'The pack is broken. The way down to the crypt is open.'], ['cleric', 'Rest while you can. It only gets darker from here.']],
-        lose: [['warg', '*The den fills with howling.*']]
-      },
-      barrow: {
-        before: [
-          ['shaman', 'Visitors! How lovely. The dead have been so lonely, little meats.'],
-          ['mage', "A bone witch. Whatever you put down, she'll stand back up."],
-          ['cleric', 'Then we put her down first.']
-        ],
-        win: [['cleric', 'Let them sleep now, all of them.'], ['fighter', 'Down again. There is fire below us; I can feel it through my boots.']],
-        lose: [['shaman', 'More bones for the barrow. Rise, rise!']]
-      },
-      throne: {
-        before: [
-          ['king', 'WHO DARES? Grubnash sees you, little heroes. Grubnash is not impressed.'],
-          ['fighter', 'You will be.'],
-          ['king', 'COURT! KILL THEM!']
-        ],
-        win: [['fighter', "Crown's yours if you want it, Vex."], ['thief', "Bit greasy. I'll sell it."], ['cleric', "It's over. Let's go home."]],
-        lose: [['king', 'Run, little heroes! Grubnash is KING!']]
-      }
-    }
-  },
   // short lines called out in the fight; a hero's own lines are keyed by kind, '*' is anyone's
   barks: {
     crit: {
@@ -192,13 +155,10 @@ const DIALOGUE = {
       archer: ['Hold still, meat!', 'Ha! Pincushion!'],
       shaman: ['The bones say you die.', 'Hexes for the hexless!'],
       warg: ['*snarls*', '*growls low*'],
-      brute: ['SMASH!', 'Brute hungry.', 'Small ones crunch.'],
-      matriarch: ['*a howl that shakes the den*', '*bares her yellow fangs*'],
-      witch: ['Up, my darlings, up!', 'Such pretty bones you have.'],
       king: ['Grubnash is hungry!', 'Bring me that one!', 'Who wants a squeeze?']
     },
     smash: { king: ['Stand still, little heroes...', 'Grubnash sees a path!'] },
-    horn: { king: ['Wake up, you lazy maggots!', 'More! Send more!'], matriarch: ['*the howl is answered from the hills*'], witch: ['Rise! Rise and serve!', 'The barrow gives back!'] },
+    horn: { king: ['Wake up, you lazy maggots!', 'More! Send more!'] },
     wake: { '*': ['Huh? Wha...? Intruders!', 'Oi! Get up! They\'re here!'] },
     rout: { '*': ["The king's dead! RUN!", 'Every goblin for himself!'] }
   }

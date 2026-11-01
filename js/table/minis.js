@@ -624,42 +624,32 @@ function rigFig(fig, defs) {
   });
   return bones;
 }
-// kinds dressed as another kind's miniature, at their own size
-const LOOK = { brute: 'cutter', witch: 'shaman', matriarch: 'warg' };
-const SCALE = { king: 2.3, warg: 1.12, matriarch: 2.15, brute: 1.5, witch: 1.45 };
 function buildPiece(kind) {
-  const look = LOOK[kind] || kind;
   const piece = new THREE.Group(); piece.rotation.order = 'YXZ';
   // no base: the figure stands on the board itself, on a pivot that leans it a touch toward the viewer
   const stand = new THREE.Group(); piece.add(stand);
   const fig = new THREE.Group(); stand.add(fig);
-  const build = { fighter: buildFighter, cleric: buildCleric, mage: buildMage, thief: buildThief, warg: buildWarg }[look];
-  const sc = SCALE[kind] || 1.18;
+  const build = { fighter: buildFighter, cleric: buildCleric, mage: buildMage, thief: buildThief, warg: buildWarg }[kind];
+  const sc = kind === 'king' ? 2.3 : kind === 'warg' ? 1.12 : 1.18;
   PMC = new Map(); FIGJ = null;
-  let h; try { h = (build ? build(fig) : buildGoblin(fig, look)) * sc; } finally { PMC = null; }
+  let h; try { h = (build ? build(fig) : buildGoblin(fig, kind)) * sc; } finally { PMC = null; }
   fig.updateMatrixWorld(true);
   fig.userData.head = fig.worldToLocal(lastHead.getWorldPosition(new V3())); fig.userData.hs = lastHead.userData.s || 1; fig.userData.turn = lastHead.userData.turn || 0;
-  const quad = look === 'warg';
-  const bones = rigFig(fig, quad ? WARG_BONES : humBones(JOINTS[look] || FIGJ));
+  const quad = kind === 'warg';
+  const bones = rigFig(fig, quad ? WARG_BONES : humBones(JOINTS[kind] || FIGJ));
   if (ST) fig.scale.set(sc * 1.1, sc * .9, sc * 1.1); else fig.scale.setScalar(sc);
-  if (kind !== look) tintFig(fig, { brute: 0x8a8070, witch: 0xb090d8, matriarch: 0x9a9aa0 }[kind]);
   const rig = { bones, fig, type: quad ? 'quad' : 'hum', gob: isFoe(kind) && !quad, base: { c: 'idle', t: rand(0, 3), spd: 1 }, prev: null, act: null, ikDy: 0, ikL: 0, ikR: 0, ikP: 0 };
   if (!quad) { // each ankle as seen from its shin bone, and the leg's length, for planting feet on slopes
-    const J = JOINTS[look] || FIGJ, v = a => new V3(...a);
+    const J = JOINTS[kind] || FIGJ, v = a => new V3(...a);
     rig.foot = { L: v(J.aL).sub(v(J.kL)), R: v(J.aR).sub(v(J.kR)) };
     rig.sole = { L: J.aL[1] * .85, R: J.aR[1] * .85 }; // ankle height above the sole
     // the lowest edge of a robe or cape, [radius, height, from angle, to angle] (0 = front): it must clear the ground too
-    const H = { fighter: [.3, .15, Math.PI - 1.2, Math.PI + 1.2], cleric: [.22, .05, .6, Math.PI * 2], mage: [.23, .04, 0, Math.PI * 2], thief: [.3, .19, Math.PI - 1.1, Math.PI + 1.1], shaman: [.16, .16, 0, Math.PI * 2], king: [.28, .09, Math.PI - 1.3, Math.PI + 1.3] }[look];
-    rig.tilt = ['mage', 'cleric', 'shaman'].includes(look) ? .45 : .15; // robes lean further into a slope, so the hem lies closer to it
+    const H = { fighter: [.3, .15, Math.PI - 1.2, Math.PI + 1.2], cleric: [.22, .05, .6, Math.PI * 2], mage: [.23, .04, 0, Math.PI * 2], thief: [.3, .19, Math.PI - 1.1, Math.PI + 1.1], shaman: [.16, .16, 0, Math.PI * 2], king: [.28, .09, Math.PI - 1.3, Math.PI + 1.3] }[kind];
+    rig.tilt = ['mage', 'cleric', 'shaman'].includes(kind) ? .45 : .15; // robes lean further into a slope, so the hem lies closer to it
     if (H) { rig.hem = []; for (let i = 0; i <= 8; i++) { const a = H[2] + (H[3] - H[2]) * i / 8; rig.hem.push(new V3(Math.sin(a) * H[0], H[1], Math.cos(a) * H[0])); } }
     rig.leg = { L: (v(J.hL).distanceTo(v(J.kL)) + v(J.kL).distanceTo(v(J.aL))) / 2, R: (v(J.hR).distanceTo(v(J.kR)) + v(J.kR).distanceTo(v(J.aR))) / 2 };
   }
   return { piece, fig, stand, h: ST ? h * .95 + .06 : h, rig };
-}
-// a new kind in an old kind's paint: every material shaded toward one colour
-function tintFig(fig, hex) {
-  if (!hex) return; const k = new THREE.Color(hex), seen = new Set();
-  fig.traverse(o => { if (o.isMesh && o.material && o.material.color && !seen.has(o.material)) { seen.add(o.material); o.material.color.multiply(k); } });
 }
 // ---------------- animation clips ----------------
 // Keyframed clips: each key is [time in s, pose]; a pose gives bones a turn [x, y, z] in radians from the sculpted rest pose,

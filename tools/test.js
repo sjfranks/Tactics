@@ -26,31 +26,18 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
   const tapCell = async (c, r, l = 0) => { const [x, y] = await scr(c, r, l); await p.touchscreen.tap(x, y); await p.waitForTimeout(150); };
   const hero = kind => p.evaluate(k => { const r = G.S.units.find(u => u.kind === k); return { id: r.id, c: r.c, r: r.r, ap: r.ap, hp: r.hp, maxHp: r.maxHp, down: r.down }; }, kind);
   // tap through any scene until a hero is on turn, or a briefing or the end of the battle shows
-  const tapThrough = async () => { for (let t = Date.now(); Date.now() - t < 120000;) { if (await p.isVisible('#talk')) { await p.click('#talk .tk'); await p.waitForTimeout(200); continue; } if (await p.isVisible('#end') || await p.isVisible('#intro') || await p.isVisible('#room') || await p.isVisible('#runmap') || await p.evaluate(() => UI.phase === 'player' && !UI.busy)) return; await p.waitForTimeout(250); } };
+  const tapThrough = async () => { for (let t = Date.now(); Date.now() - t < 120000;) { if (await p.isVisible('#talk')) { await p.click('#talk .tk'); await p.waitForTimeout(200); continue; } if (await p.isVisible('#end') || await p.isVisible('#intro') || await p.evaluate(() => UI.phase === 'player' && !UI.busy)) return; await p.waitForTimeout(250); } };
   // a battle laid out for a test: round 1, the chosen hero on turn, nobody having acted; tweak edits the state first
   async function setup(level, first, tweak, opts = {}) {
     await p.evaluate(([lv, first, tweak, opts]) => {
-      document.querySelectorAll('.ov').forEach(o => o.hidden = true); hideTitle(); MODE = 'free'; PREF_DIFF = opts.diff || 'normal'; FREE = { boons: opts.boons || [] };
-      const S = GC.newState(lv, opts.seed || 4242, { boons: FREE.boons, diff: PREF_DIFF });
+      document.querySelectorAll('.ov').forEach(o => o.hidden = true); hideTitle(); MODE = opts.free ? 'free' : 'camp';
+      CAMP = { ...freshCamp(opts.diff || 'normal'), level: opts.free ? 0 : lv, boons: opts.free ? [] : opts.boons || [] }; FREE = { boons: opts.free ? opts.boons || [] : [] };
+      const S = GC.newState(lv, opts.seed || 4242, { boons: CAMP.boons, diff: CAMP.diff });
       if (tweak) new Function('S', tweak)(S);
       const h = S.units.find(u => u.kind === first);
       S.order = [h.id, ...S.units.filter(u => u !== h && u.alive).map(u => u.id)]; S.turn = 0; S.active = h.id; S.phase = 'player'; S.units.forEach(u => { u.init = 5; });
       loadLevel(lv, JSON.parse(JSON.stringify(S)));
     }, [level, first, tweak || '', opts]);
-    await idle();
-  }
-  // a run with its party in a battle on the given map, the fighter on turn (tweak edits the state first); run edits the run
-  async function runBattle(level, type, act, tweak, seed, runTweak) {
-    await p.evaluate(([lv, type, act, tweak, seed, runTweak]) => {
-      document.querySelectorAll('.ov').forEach(o => o.hidden = true);
-      RS = RUN.newRun(99); RS.act = act; MODE = 'run'; if (runTweak) new Function('RS', runTweak)(RS);
-      RS.node = Object.values(RS.map.nodes).find(n => n.y === 0).id; RS.phase = 'battle';
-      RS.room = { type, node: RS.node, enc: { type, level: lv, foes: null, seed, tier: act, rout: type === 'B' } };
-      const S = GC.newState(lv, seed, RUN.battleOpts(RS)); if (tweak) new Function('S', tweak)(S);
-      const h = S.units.find(u => u.kind === 'fighter');
-      S.order = [h.id, ...S.units.filter(u => u !== h && u.alive).map(u => u.id)]; S.turn = 0; S.active = h.id; S.phase = 'player'; S.units.forEach(u => { u.init = 5; });
-      RS.battle = JSON.stringify(S); saveRun(); hideTitle(); route();
-    }, [level, type, act, tweak || '', seed || 4242, runTweak || '']);
     await idle();
   }
   // a seed where one Longsword blow from Brakka at (sc, sr) finishes the foe at (tc, tr) with hp left
@@ -64,32 +51,23 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     return null;
   }, [level, tweak]);
 
-  console.log('the title: a run, or the level select');
+  console.log('the title: the campaign, or the level select');
   {
-    const t = await p.evaluate(() => ({ open: !$('#title').hidden, cont: $('#tCont').hidden, nw: $('#tNew').textContent, hud: getComputedStyle($('#top')).visibility }));
-    ok(t.open && t.cont && /Begin a run/.test(t.nw), 'a first visit opens on the title, offering to begin a run');
+    const t = await p.evaluate(() => ({ open: !$('#title').hidden, cont: $('#tCont').textContent, nw: $('#tNew').hidden, hud: getComputedStyle($('#top')).visibility }));
+    ok(t.open && /Begin the campaign/.test(t.cont) && t.nw, 'a first visit opens on the title, offering to begin the campaign');
     ok(t.hud === 'hidden', 'the battle HUD stays hidden behind it');
     await p.click('#tLevels'); await p.waitForTimeout(150);
     const lv = await p.evaluate(() => [...document.querySelectorAll('#levelList .lvl')].map(b => b.querySelector('b').textContent));
-    ok(lv.length === 6 && lv[lv.length - 1] === "The Reeve's House", `the level select lists the ${lv.length} set battles, the house last`);
+    ok(lv.length === GC.LEVELS.length && lv[lv.length - 1] === "The Reeve's House", `the level select lists all ${lv.length} battles, the house last`);
     await p.click('.lvl[data-i="5"]'); await p.waitForTimeout(200);
     const fr = await p.evaluate(() => ({ mode: MODE, level, kick: $('#introKick').textContent, chips: $('#introBoons').querySelectorAll('span').length, save: localStorage.getItem(SAVE_KEY) }));
     ok(fr.mode === 'free' && fr.level === 5 && /Level select · Extra battle/.test(fr.kick), `the house's briefing: ${fr.kick}`);
     ok(fr.chips === 2, 'it comes with two boons, shown on the briefing');
-    ok(fr.save === null, 'and there is no run saved: the level select leaves runs alone');
+    ok(fr.save === null, 'and the campaign has no save yet: the level select left it alone');
     await p.click('#introMenu'); await p.waitForTimeout(200);
-    ok(await p.evaluate(() => !$('#title').hidden && localStorage.getItem(SAVE_KEY) === null), 'Main menu on the briefing goes back to the title');
-    await p.click('#tNew'); await p.waitForTimeout(200);
-    for (let k = 0; k < 20 && await p.isVisible('#talk'); k++) { await p.keyboard.press('Escape'); await p.waitForTimeout(150); }
-    await p.waitForSelector('#runmap', { state: 'visible' });
-    const m = await p.evaluate(() => ({ can: [...document.querySelectorAll('#rmMap .nd.can')].map(g => RS.map.nodes[g.dataset.id].y), act: $('#rmHead h2').textContent, relics: RS.relics, gold: RS.gold, floors: Math.max(...Object.values(RS.map.nodes).map(n => n.y)) }));
-    ok(m.act === 'The Marches' && m.can.length >= 2 && m.can.every(y => y === 0), `a run begins on the map of ${m.act}: ${m.can.length} rooms open on the first floor`);
-    ok(m.floors === 12 && m.relics.join() === 'bandages' && m.gold === 80, 'twelve floors and the boss; the party carries Field Bandages and 80 gold');
-    await shot('map');
-    await p.click('#rmMap .nd.can');
-    await p.waitForSelector('#intro', { state: 'visible' });
-    ok(/Act 1 · Floor 1 · Fight/.test(await p.textContent('#introKick')) && /Brakka 18\/18/.test(await p.textContent('#introBoons')), 'the first room is a fight; the briefing shows the party\'s health');
-    ok(await p.evaluate(() => JSON.parse(localStorage.getItem(SAVE_KEY)).phase === 'battle'), 'the run is saved, in the battle');
+    ok(await p.evaluate(() => !$('#title').hidden && MODE === 'camp' && localStorage.getItem(SAVE_KEY) === null), 'Main menu on the briefing goes back to the title');
+    await p.click('#tCont'); await p.waitForTimeout(200);
+    ok(await p.evaluate(() => !$('#intro').hidden && level === 0 && /Battle 1 of 5/.test($('#introKick').textContent)), 'Begin the campaign: the Gorge Crossing briefing');
   }
 
   console.log('tap to move, then undo');
@@ -206,74 +184,39 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
   ok(await p.evaluate(() => G.S.units.filter(u => u.side === 'gob').every(u => u.maxHp === Math.round(GC.UNITS[u.kind].hp * 1.25))), 'Hard: every goblin has 125% health');
   await p.evaluate(() => { document.querySelector('#settingsBtn').click(); });
   await p.click('#diffBtn'); // hard → easy
-  ok(await p.evaluate(() => PREF_DIFF === 'easy' && /Easy/.test(document.querySelector('#diffLbl').textContent)), 'Settings turns it to Easy');
-  await p.evaluate(() => { PREF_DIFF = 'normal'; localStorage.removeItem('gc-diff'); });
+  ok(await p.evaluate(() => CAMP.diff === 'easy' && /Easy/.test(document.querySelector('#diffLbl').textContent)), 'Settings turns it to Easy');
   await p.click('#settingsClose');
 
-  console.log('a run: win a fight, take the gold and a reward, back to the map');
+  console.log('a victory, a boon, and the march on');
   {
     const tweak = "S.units.filter(u => u.side === 'gob').forEach((g, i) => { if (i) g.alive = false; else { g.c = 2; g.r = 5; g.hp = 2; } });";
     const seed = await finisher(0, tweak);
     ok(seed != null, 'found a seed where the last blow lands');
-    await runBattle(0, 'M', 0, tweak, seed);
-    const gold0 = await p.evaluate(() => RS.gold);
+    await setup(0, 'fighter', tweak, { seed });
     await tapCell(2, 5);
     await tapThrough();
-    await p.waitForSelector('#room', { state: 'visible', timeout: 60000 });
-    const rw = await p.evaluate(() => ({ title: $('#roomBody h2').textContent, picks: document.querySelectorAll('#roomBody .pk').length, gold: RS.gold, phase: RS.phase, saved: JSON.parse(localStorage.getItem(SAVE_KEY)).phase }));
-    ok(rw.title === 'Victory' && rw.picks === 3, 'Victory: pick one of three rewards');
-    ok(rw.gold - gold0 >= 12 && rw.gold - gold0 <= 18, `the gold is in the purse: +${rw.gold - gold0}`);
-    ok(rw.phase === 'reward' && rw.saved === 'reward', 'the save has moved on to the reward');
-    await shot('reward');
-    const before = await p.evaluate(() => JSON.stringify(RS.party));
-    await p.click('#roomBody .pk');
-    await p.waitForSelector('#runmap', { state: 'visible' });
-    ok(await p.evaluate(b => RS.phase === 'map' && JSON.stringify(RS.party) !== b, before), 'the reward joins the party, and it is back to the map');
+    await p.waitForSelector('#end', { state: 'visible', timeout: 60000 });
+    const end = await p.evaluate(() => ({ title: document.querySelector('#endTitle').textContent, boons: document.querySelectorAll('#boonList .boon').length, disabled: document.querySelector('#againBtn').disabled, saved: JSON.parse(localStorage.getItem(SAVE_KEY)) }));
+    ok(end.title === 'Victory' && end.boons === 3 && end.disabled, 'Victory offers three boons, and the march waits for a pick');
+    ok(end.saved && end.saved.level === 1 && end.saved.offer && end.saved.offer.length === 3, 'the save has moved on to the next battle, with the offer');
+    await shot('victory');
+    const pick = await p.evaluate(() => document.querySelector('#boonList .boon').dataset.id);
+    await p.click('#boonList .boon'); await p.click('#againBtn');
+    await p.waitForSelector('#intro', { state: 'visible' });
+    const intro = await p.evaluate(() => ({ title: document.querySelector('#introTitle').textContent, chips: document.querySelector('#introBoons').textContent, boons: CAMP.boons }));
+    ok(intro.title === GC.LEVELS[1].name && intro.boons.includes(pick) && intro.chips.includes(GC.BOONS[pick].name), `on to ${intro.title}, carrying ${GC.BOONS[pick].name}`);
   }
 
-  console.log('rooms: a campsite, a shop, an event, a chest');
-  {
-    await p.evaluate(() => { for (const k of RUN.HEROES) RS.party[k].hp = Math.ceil(RS.party[k].maxHp / 2); RS.phase = 'camp'; RS.room = { type: 'R' }; route(); });
-    await p.click('#cRest'); await p.waitForTimeout(150);
-    ok(await p.evaluate(() => RS.phase === 'map' && RUN.HEROES.every(k => RS.party[k].hp === Math.min(RS.party[k].maxHp, Math.ceil(RS.party[k].maxHp / 2) + Math.ceil(RS.party[k].maxHp * .3)))), 'Rest heals every hero 30% of max HP');
-    await p.evaluate(() => { RS.phase = 'camp'; RS.room = { type: 'R' }; route(); });
-    await p.click('#cTrain'); await p.waitForTimeout(150); await p.click('#roomBody .pk'); await p.waitForTimeout(150);
-    ok(await p.evaluate(() => RS.phase === 'map' && RUN.HEROES.some(k => Object.values(RS.party[k].mods).some(m => m.up))), 'Train upgrades an action');
-    await p.evaluate(() => { RS.gold = 500; RS.phase = 'shop'; RS.room = { type: '$', shop: RUN.stock(RS) }; route(); });
-    const w = await p.evaluate(() => { const i = RS.room.shop.wares.findIndex(w => w.type === 'relic'); return { i, price: RS.room.shop.wares[i].price, id: RS.room.shop.wares[i].id }; });
-    await p.click(`#roomBody .ware[data-i="${w.i}"]`); await p.waitForTimeout(150);
-    ok(await p.evaluate(w => RS.gold === 500 - w.price && RS.relics.includes(w.id) && document.querySelector(`#roomBody .ware[data-i="${w.i}"]`).disabled, w), `a relic bought for ${w.price} gold`);
-    await p.click('#shopOut');
-    await p.evaluate(() => { RS.phase = 'event'; RS.room = { type: '?', event: { id: 'shrine', done: null } }; for (const k of RUN.HEROES) RS.party[k].hp = 1; route(); });
-    await p.click('#roomBody .pk[data-i="0"]'); await p.waitForTimeout(150);
-    ok(await p.evaluate(() => RS.party.fighter.hp === 1 + Math.ceil(RS.party.fighter.maxHp * .25) && /heals 25%/.test($('#roomBody').textContent)), 'an event: praying at the shrine heals every hero 25%');
-    await p.click('#evOn');
-    await p.evaluate(() => { RS.phase = 'treasure'; RS.room = { type: 'T', chest: { relic: 'phoenix', gold: 25, open: false } }; route(); });
-    await p.click('#chGo'); await p.waitForTimeout(100);
-    ok(await p.evaluate(() => RS.relics.includes('phoenix')), 'a chest holds a relic');
-    await p.click('#chGo');
-  }
-
-  console.log('the run saves itself: close the page mid-turn and come back');
-  await runBattle(1, 'M', 0);
+  console.log('the campaign saves itself: close the page mid-turn and come back');
+  await p.click('#introGo'); await tapThrough(); await idle();
   {
     const before = await p.evaluate(() => ({ level, round: G.S.round, active: UI.active && UI.active.kind, at: G.S.units.map(u => [u.c, u.r, u.hp].join()).join(' ') }));
     await p.reload(); await p.waitForSelector('#title', { state: 'visible', timeout: 60000 });
-    ok(/Continue the run/.test(await p.textContent('#tCont')) && /Act 1/.test(await p.textContent('#tContSub')), 'the title offers to continue: ' + await p.textContent('#tContSub'));
+    ok(/Continue the campaign/.test(await p.textContent('#tCont')) && /Battle 2 of 5: Goblin Ridge/.test(await p.textContent('#tContSub')), 'the title offers to continue: ' + await p.textContent('#tContSub'));
     await p.click('#tCont'); await p.waitForFunction(() => typeof G !== 'undefined' && G && UI.phase === 'player' && !UI.busy, null, { timeout: 60000 });
     await p.evaluate(() => { TIME_SCALE = 6; });
     const after = await p.evaluate(() => ({ level, round: G.S.round, active: UI.active && UI.active.kind, at: G.S.units.map(u => [u.c, u.r, u.hp].join()).join(' ') }));
     ok(JSON.stringify(after) === JSON.stringify(before), `back on the same turn: ${GC.LEVELS[after.level].name}, round ${after.round}, ${after.active} to move`);
-  }
-
-  console.log('learned actions and relics in battle');
-  {
-    await runBattle(0, 'M', 0, "const g = S.units.find(u => u.side === 'gob' && u.alive); g.c = 2; g.r = 5; g.hp = 30; g.maxHp = 30;", 4242, "RS.party.fighter.cards.push('f_bash', 'f_cry');");
-    await p.keyboard.press(']'); await p.waitForTimeout(150); // learned actions go after the five he starts with: the second bar
-    const bar = await p.evaluate(() => [...document.querySelectorAll('#hotbar .hk')].map(b => b.dataset.id));
-    ok(bar.includes('f_bash') && bar.includes('f_cry'), 'the learned actions (Shield Bash, War Cry) are on the second bar');
-    await p.click('.hk[data-id="f_cry"]'); await p.waitForTimeout(100); await p.click('.hk[data-id="f_cry"]'); await idle(); // a self action: tap twice
-    ok(await p.evaluate(() => G.S.units.filter(u => u.side === 'hero' && u.st.blessed).length >= 2), 'War Cry blesses the heroes near Brakka');
   }
 
   console.log('keys and tips');
@@ -310,23 +253,21 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     ok(await p.evaluate(() => { const B = G; const w = G.S.units.find(u => u.kind === 'cutter' && u.alive && !u.l); return !B.los(G.U(UI.active.id), w); }), 'from the upper floor he cannot see the goblins below');
     await shot('house');
     await p.evaluate(() => { document.querySelector('#settingsBtn').click(); }); await p.click('#menuMain'); await p.waitForTimeout(300);
-    ok(await p.evaluate(() => !$('#title').hidden && $('#floorBtn').hidden), 'Settings › Main menu leaves the house for the title');
+    ok(await p.evaluate(() => !$('#title').hidden && MODE === 'camp' && $('#floorBtn').hidden), 'Settings › Main menu leaves the house for the title');
   }
 
-  console.log('the king falls and his court flees: the run is won');
+  console.log('the king falls and his court flees: the campaign is won');
   {
     const tweak = "const k = S.units.find(u => u.kind === 'king'), f = S.units.find(u => u.kind === 'fighter'); k.hp = 2; f.c = 5; f.r = 3;";
     const seed = await finisher(4, tweak);
-    await runBattle(4, 'B', 2, tweak, seed);
+    await setup(4, 'fighter', tweak, { seed });
     await tapCell(5, 2);
     await tapThrough();
-    await p.waitForSelector('#room', { state: 'visible', timeout: 60000 });
-    const rw = await p.evaluate(() => ({ title: $('#roomBody h2').textContent, picks: document.querySelectorAll('#roomBody .pk').length, gobs: units.filter(u => u && u.alive && u.side === 'gob').length }));
-    ok(rw.title === 'The boss falls' && rw.picks === 3 && rw.gobs === 0, 'the court flees; the boss offers three of its treasures');
-    await p.click('#roomBody .pk'); await p.waitForTimeout(200);
-    const end = await p.evaluate(() => ({ title: $('#roomBody h2').textContent, save: localStorage.getItem(SAVE_KEY) }));
-    ok(end.title === 'The Goblin King Falls' && end.save === null, 'the run is won, and the next visit starts a new one');
-    await shot('won');
+    await p.waitForSelector('#end', { state: 'visible', timeout: 60000 });
+    const end = await p.evaluate(() => ({ title: document.querySelector('#endTitle').textContent, camp: /The whole campaign/.test(document.querySelector('#endReport').textContent), gobs: units.filter(u => u && u.alive && u.side === 'gob').length }));
+    ok(end.title === 'The Goblin King Falls' && end.gobs === 0, 'the campaign ends with the court fled');
+    ok(end.camp, 'the tally covers the whole campaign');
+    await shot('king');
   }
 
   // ---------------- autoplay: whole battles with the simulator's bot, through the real view ----------------
@@ -352,7 +293,7 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
       };
     });
     for (const lv of String(AUTO).split(',').map(Number)) {
-      await p.evaluate(lv => { document.querySelectorAll('.ov').forEach(o => o.hidden = true); hideTitle(); MODE = 'free'; FREE = { boons: GC.partyBoons(lv) }; loadLevel(lv); }, lv);
+      await p.evaluate(lv => { document.querySelectorAll('.ov').forEach(o => o.hidden = true); hideTitle(); const ex = GC.LEVELS[lv].extra; MODE = ex ? 'free' : 'camp'; FREE = { boons: ex ? GC.partyBoons(lv) : [] }; CAMP = { ...freshCamp(), level: ex ? 0 : lv, boons: ex ? [] : GC.offerBoons([]).slice(0, lv) }; loadLevel(lv); }, lv);
       await p.click('#introGo'); const t0 = Date.now();
       for (;;) {
         await tapThrough();

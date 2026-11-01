@@ -91,7 +91,7 @@ function renderDock() {
     if (!id) { const e = document.createElement('div'); e.className = 'hk empty'; e.setAttribute('aria-hidden', 'true'); e.innerHTML = `<span class="key">${i + 1}</span>`; bar.appendChild(e); continue; }
     const c = CARDS[id], block = G.block(hr, id), [hue, art] = ART[id], cd = hr.cd[id] > 0 ? hr.cd[id] : 0, dn = G.diceName(hr, id);
     const b = document.createElement('button'); b.className = 'hk' + (UI.card === id ? ' sel' : '') + (block ? ' off' : ''); b.style.setProperty('--hue', hue); b.dataset.id = id;
-    b.setAttribute('aria-label', `${i + 1}: ${G.cardName(hr, id)}. ${G.cardText(hr, id)}${block ? ' (' + block + ')' : ''}`); b.setAttribute('aria-pressed', UI.card === id ? 'true' : 'false');
+    b.setAttribute('aria-label', `${i + 1}: ${c.name}. ${G.cardText(hr, id)}${block ? ' (' + block + ')' : ''}`); b.setAttribute('aria-pressed', UI.card === id ? 'true' : 'false');
     b.innerHTML = `<span class="ic"><svg viewBox="0 0 24 24">${art}</svg></span><span class="key">${i + 1}</span>${dn ? `<span class="dv">${dn}</span>` : ''}${c.uses != null ? `<span class="us">×${hr.uses[id] || 0}</span>` : ''}${cd ? `<span class="cd">${cd}</span>` : ''}`;
     b.onclick = () => { if (!hbSwiped) hotTap(h, id); };
     bar.appendChild(b);
@@ -100,7 +100,7 @@ function renderDock() {
   if (show) {
     const c = CARDS[show], blk = G.block(hr, show);
     const cdn = G.cardCd(hr, show), meta = [c.cost, c.target === 'self' ? 'Self' : c.range > 1 || c.reach ? `Range ${G.reachOf(hr, c)}` : 'Melee', cdn ? `Cooldown ${cdn}` : '', c.uses != null ? `${hr.uses[show] || 0} left` : ''].filter(Boolean).join(' · ');
-    box.innerHTML = `<span class="tx"><b>${G.cardName(hr, show)}</b><span class="mt">${meta}</span></span><span class="tx2">${focus ? `<span class="odds">${focus}</span>` : `${blk ? `<em class="bl">${blk}.</em> ` : ''}${G.cardText(hr, show)}${!blk && hint ? ` <i>${hint}</i>` : ''}`}</span>`;
+    box.innerHTML = `<span class="tx"><b>${c.name}</b><span class="mt">${meta}</span></span><span class="tx2">${focus ? `<span class="odds">${focus}</span>` : `${blk ? `<em class="bl">${blk}.</em> ` : ''}${G.cardText(hr, show)}${!blk && hint ? ` <i>${hint}</i>` : ''}`}</span>`;
   } else box.innerHTML = `<span class="tx2">${hint || ''}</span>`;
   measure();
 }
