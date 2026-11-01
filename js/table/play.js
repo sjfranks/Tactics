@@ -19,7 +19,6 @@ function showReticle(t, kind, op = 1) { reticleOn = t; reticle.material.color.se
 function hideReticle() { reticle.visible = false; reticleOn = null; }
 // pan to the midpoint and pull back until both pieces fit the frame, with room around them
 function frameTwo(a, b) {
-  if (!bigMap()) return; // the whole board is already in view
   const dx = b.x - a.x, dz = b.z - a.z, ca = Math.cos(camAz), sa = Math.sin(camAz);
   const w = Math.abs(dx * ca - dz * sa) + 2.4, h = Math.abs(dx * sa + dz * ca) + 3.2;
   if (aimZoom === null) aimZoom = zoomT;

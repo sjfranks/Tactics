@@ -4,9 +4,10 @@
 // ---------------- camera & loop ----------------
 let topH = 80, dockH = 220;
 function measure() { topH = $('#top').getBoundingClientRect().bottom + 16; dockH = $('#dock').offsetHeight + 34; document.documentElement.style.setProperty('--dk', ($('#dock').offsetHeight + 4) + 'px'); }
-// on a wide screen the camera looks across the board from the east, so the party (south) is on the left and the goblins (north) on the right
+// the camera looks along the board's diagonal from the south-east corner: the party (south) sits bottom left, the
+// goblins (north) top right, on a tall screen or a wide one
 let baseAzLast = null;
-const baseAz = () => innerWidth > innerHeight * 1.1 ? Math.PI / 2 : 0;
+const baseAz = () => Math.PI / 4;
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
   const b = baseAz(); if (baseAzLast === null) { camAz = camAzT = b; } else if (b !== baseAzLast) camAzT += angDiff(b, baseAzLast); baseAzLast = b;
@@ -16,9 +17,13 @@ window.addEventListener('resize', resize);
 if (window.ResizeObserver) new ResizeObserver(measure).observe($('#dock'));
 const bigMap = () => COLS > VIEWC || ROWS > VIEWR;
 // any square can be brought to the middle of the frame
-function clampCam() { if (!bigMap()) { camTX = camTZ = 0; return; } // a 6 × 8 board always sits whole in the frame
-  const mx = (COLS - 1) / 2, mz = (ROWS - 1) / 2; camTX = Math.max(-mx, Math.min(mx, camTX)); camTZ = Math.max(-mz, Math.min(mz, camTZ)); }
-function focusOn(p) { if (!bigMap() || (Math.abs(p.x - camTX) < 1.6 && Math.abs(p.z - camTZ) < 2.4)) return; camTX = p.x; camTZ = p.z; clampCam(); }
+function clampCam() { const mx = (COLS - 1) / 2, mz = (ROWS - 1) / 2; camTX = Math.max(-mx, Math.min(mx, camTX)); camTZ = Math.max(-mz, Math.min(mz, camTZ)); }
+// bring a point to the middle when it is near the edge of the view (between the top bar and the dock)
+function focusOn(p) {
+  const [x, y] = project(p), top = topH, bot = innerHeight - dockH, mh = (bot - top) * .18;
+  if (x > innerWidth * .2 && x < innerWidth * .8 && y > top + mh && y < bot - mh) return;
+  camTX = p.x; camTZ = p.z; clampCam();
+}
 function updateCamera() {
   const W = innerWidth, H = innerHeight;
   const avail = Math.max(140, H - topH - dockH);
@@ -54,8 +59,7 @@ function frame(t) {
   if (t > 3000) adaptPerf(dt);
   const v0 = vnow; runTweens(raw); const dv = (vnow - v0) / 1000;
   camAz += (camAzT - camAz) * Math.min(1, dt * 7);
-  if (follow && bigMap()) { camTX = follow.root.position.x; camTZ = follow.root.position.z; clampCam(); } // keep a moving piece in the middle
-  if (!bigMap()) { camTX = camTZ = 0; zoomT = Math.max(1, zoomT); } // small boards: no panning, and never zoomed in past the whole board
+  if (follow) { camTX = follow.root.position.x; camTZ = follow.root.position.z; clampCam(); } // keep a moving piece in the middle
   camX += (camTX - camX) * Math.min(1, dt * 6); camZ += (camTZ - camZ) * Math.min(1, dt * 6);
   zoom += (zoomT - zoom) * Math.min(1, dt * 6); kick += (0 - kick) * Math.min(1, dt * 4);
   updateCamera();
