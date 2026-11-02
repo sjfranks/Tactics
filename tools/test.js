@@ -253,17 +253,12 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     ok(await p.evaluate(p0 => !cine && camPitchT === p0, pitch0), 'and goes back to the play view after');
   }
 
-  console.log('keys and tips');
+  console.log('keys');
   await setup(0, 'fighter');
   await p.keyboard.press('e'); await p.waitForTimeout(150);
   ok(await p.isVisible('#confirm'), 'E with actions left asks first');
   await p.keyboard.press('Escape'); await p.waitForTimeout(150);
   ok(!(await p.isVisible('#confirm')), 'Escape keeps playing');
-  await p.evaluate(() => { localStorage.removeItem('gc-tips'); tipsSeen = {}; });
-  await setup(0, 'fighter'); await p.evaluate(() => tipsNow()); await p.waitForTimeout(200);
-  ok(await p.isVisible('#coach') && /3 actions/.test(await p.textContent('#coachText')), 'the first tip explains actions');
-  await p.click('#coachOk');
-  await p.evaluate(() => { tipsSeen = { move: 1, odds: 1, intents: 1, down: 1, vents: 1, undo: 1 }; });
 
   console.log("the reeve's house: two floors and a stair, and a floor switch on the left");
   await setup(5, 'fighter', "const f = S.units.find(u => u.kind === 'fighter'); f.c = 5; f.r = 5; S.units.filter(u => u.side === 'gob' && u.l === 1).forEach(u => { u.alive = false; });", { free: true });

@@ -110,6 +110,7 @@ function defaultView(now) {
   follow = null; zoomT = playZoom(); camAzT = camAz - angDiff(camAz, baseAz());
   const mid = list => list.reduce((a, u) => a.add(u.root.position), new V3()).multiplyScalar(1 / list.length), h = mid(hs0), g = gs0.length ? mid(gs0) : h.clone().setZ(h.z - 4);
   camTX = h.x + (g.x - h.x) * .35; camTZ = h.z + (g.z - h.z) * .35; clampCam();
+  if (zoomT >= 1 && !bigMap()) camTX = camTZ = 0; // the whole board fits: keep it in the middle
   if (now) { camAz = camAzT; camX = camTX; camZ = camTZ; zoom = zoomT; }
 }
 // lay out a battle: the rules make a fresh state with the party's boons (or take a saved one), the table builds the
@@ -141,7 +142,7 @@ function loadLevel(i, saved, backdrop) {
       UI.round = G.S.round; UI.order = G.S.order.slice(); UI.turn = G.S.turn;
       G.S.units.forEach(r => { const u = vu(r.id); if (u) u.init = r.init; });
       UI.active = vu(G.S.active); UI.phase = 'player'; UI.busy = false;
-      defaultView(true); { const a = UI.active.root.position; camX = camTX = a.x; camZ = camTZ = a.z; clampCam(); camX = camTX; camZ = camTZ; } // on the hero whose turn it is
+      defaultView(true); if (zoomT < 1 || bigMap()) { const a = UI.active.root.position; camX = camTX = a.x; camZ = camTZ = a.z; clampCam(); camX = camTX; camZ = camTZ; } // on the hero whose turn it is
       updateBoss(); updateHud(); renderTokens(); setSel(UI.active, true); computeIntents(); refresh();
       logEvent(`${L.name} · round ${G.S.round}: the battle goes on`, 'hdr');
       return;

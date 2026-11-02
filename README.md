@@ -22,7 +22,7 @@ A tabletop tactics game on a 3D board. Four heroes (Brakka the fighter, Sister W
 - **Dialogue:** the party and the goblins trade words before and after each battle, and figures call out in the fight.
 - **Keys:** 1–5 pick an ability, E or Enter ends the turn, Z undoes, Esc puts the ability down, F switches floors.
 
-The in-game *How to play* sheet (☰ menu) has the full rules, and the first battle explains itself with tips as things come up.
+The in-game *How to play* sheet (☰ menu) has the full rules.
 
 ## Code
 
@@ -32,7 +32,7 @@ The rules decide everything and know nothing of the screen; the table (the view)
 | --- | --- |
 | `js/rules.js` | The rules (`GC`): stat blocks, abilities, boons, maps, dice, movement, sight and the goblins' minds. No graphics code. A battle is plain JSON; every order (`move`, `act`, `endTurn`) changes it and returns a list of events. Runs in Node too. |
 | `js/dialogue.js` | Everything the characters say: a scene before and after each battle, and the barks called out in the fight. Plain data; edit freely. |
-| `js/table/` | The table, in scripts that share one scope and load in order: `core` (geometry, UI state, the clock, sound and music, renderer, textures, particles), `board` (the diorama), `dice`, `minis` (the miniatures), `pieces` (the pieces on the board), `effects` (what each event looks like), `talk` (speech bubbles and scenes), `play` (the event player, orders, undo, the end of a battle), `hud` (hotbar, odds, foe intents, tips), `input` (pointer, keys, buttons, the floor switch), `campaign` (boons, the save, laying out a battle, the title screen and level select) and `main` (camera, frame loop, start-up). |
+| `js/table/` | The table, in scripts that share one scope and load in order: `core` (geometry, UI state, the clock, sound and music, renderer, textures, particles), `board` (the diorama), `dice`, `minis` (the miniatures), `pieces` (the pieces on the board), `effects` (what each event looks like), `talk` (speech bubbles and scenes), `play` (the event player, orders, undo, the end of a battle), `hud` (hotbar, odds, foe intents), `input` (pointer, keys, buttons, the floor switch), `campaign` (boons, the save, laying out a battle, the title screen and level select) and `main` (camera, frame loop, start-up). |
 | `index.html` | Styles, markup and the help sheet. |
 | `js/vendor/three.min.js` | three.js r128. |
 

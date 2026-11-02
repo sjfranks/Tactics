@@ -213,7 +213,7 @@ function afterAction() {
     if (r.ap <= 0 || !G.up(r)) UI.card = null;
     else if (UI.card && G.block(r, UI.card)) UI.card = G.cardsOf(r)[0];
   }
-  computeIntents(); refresh(); renderTools(); saveTurn(); tipsNow();
+  computeIntents(); refresh(); renderTools(); saveTurn();
   // the turn passes on by itself once the hero has no actions left (or has fallen)
   if (mine && (r.ap <= 0 || !G.up(r))) setTimeout(() => { const r2 = G.U(u.id); if (UI.phase === 'player' && !UI.busy && !UI.over && UI.active === u && (r2.ap <= 0 || !G.up(r2))) endTurn(); }, 450);
 }

@@ -216,7 +216,7 @@ const VIEWC = 6, VIEWR = 8; // the camera frames this many squares; bigger maps 
 const PITCH = 1, CLOSE_PITCH = .5;
 let camPitch = PITCH, camPitchT = PITCH, camY = .1, camYT = .1;
 // the play view's distance, as a share of the one that fits a whole 6 × 8 board
-const playZoom = () => innerHeight > innerWidth ? .82 : .52;
+const playZoom = () => innerHeight > innerWidth ? 1 : .52; // on a tall screen the whole 6 × 8 board stays in view
 
 // environment map: a dim crypt with warm torch panels, so metal, gems and dice catch reflections
 {

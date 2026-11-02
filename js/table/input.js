@@ -206,7 +206,6 @@ $('#musicBtn').onclick = () => { ac(); musicOn = !musicOn; try { localStorage.se
 $('#speedBtn').onclick = () => { ac(); FAST = !FAST; try { localStorage.setItem('gc-fast', FAST ? '1' : '0'); } catch (e) { } renderSettings(); sfx('select'); };
 // difficulty: how tough the goblins are, from the next battle on
 $('#diffBtn').onclick = () => { ac(); const ks = Object.keys(GC.TUNE.difficulty); CAMP.diff = ks[(ks.indexOf(CAMP.diff) + 1) % ks.length]; saveCamp(); renderSettings(); sfx('select'); };
-$('#tipsBtn').onclick = () => { ac(); tipsSeen = {}; try { localStorage.removeItem('gc-tips'); } catch (e) { } $('#settings').hidden = true; sfx('select'); tipsNow(); };
 $('#newBtn').onclick = async () => {
   ac(); $('#settings').hidden = true;
   if (await ask('Start a new campaign?', `The party goes back to the Gorge Crossing and gives up its ${CAMP.boons.length} boon${CAMP.boons.length === 1 ? '' : 's'}.`, 'New campaign', 'Keep this one')) { $('#intro').hidden = true; newCampaign(); }

@@ -136,7 +136,7 @@ function hotTap(h, id) {
   if (block) { UI.peek = id; sfx('select'); renderDock(); const el = document.querySelector(`.hk[data-id="${id}"]`); if (el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); } return; }
   UI.peek = null;
   if (UI.card === id && CARDS[id].target === 'self') { useCard(h, id, null); return; } // tap a chosen self ability again to use it
-  UI.card = id; UI.aim = null; UI.fcFocus = null; sfx('pick'); refresh(); tipsNow();
+  UI.card = id; UI.aim = null; UI.fcFocus = null; sfx('pick'); refresh();
 }
 window.addEventListener('keydown', e => { // 1–5 pick abilities, Escape puts the chosen one down
   const h = myHero(); if (e.ctrlKey || e.metaKey || e.altKey || !h) return;
@@ -154,34 +154,6 @@ function previewCost(u, cost) {
   units.forEach(x => { if (x && x.tag) delete x.tag.dataset.cost; });
   if (u && cost) u.tag.dataset.cost = Math.min(cost, ru(u).ap);
 }
-// ---------------- tips: a word of advice the first time something comes up ----------------
-const TIPS = {
-  move: 'Each hero has 3 actions a turn: the orange pips over their head. Tap a blue square to walk there for 1 action, or pick an ability on the bar below.',
-  odds: 'The numbers over a foe are your odds with the chosen ability: the damage to expect, and the chance to finish it (KO).',
-  intents: 'The red arrows show what each goblin means to do next; the bold one acts next. Step out of reach, hide or Taunt, and watch them change.',
-  down: "A hero at 0 HP is down, not dead. Sister Wenna's Heal raises them, and the goblins leave the fallen alone.",
-  vents: 'Fire vents erupt every second round, and they pulse the round before. Step off them, or leave a goblin standing on one.',
-  undo: 'Changed your mind? Undo, in the ☰ menu (or Z), takes back a move or an ability that threw no dice.'
-};
-let tipsSeen = {};
-try { tipsSeen = JSON.parse(localStorage.getItem('gc-tips') || '{}') || {}; } catch (e) { }
-function tip(id) {
-  if (tipsSeen[id] || !TIPS[id] || QUIET || !$('#coach').hidden || UI.phase !== 'player') return;
-  tipsSeen[id] = 1; try { localStorage.setItem('gc-tips', JSON.stringify(tipsSeen)); } catch (e) { }
-  $('#coachText').textContent = TIPS[id]; $('#coach').hidden = false;
-  clearTimeout(tip.t); tip.t = setTimeout(() => { $('#coach').hidden = true; }, 14000);
-}
-$('#coachOk').onclick = () => { $('#coach').hidden = true; clearTimeout(tip.t); sfx('pick'); };
-// the tips that fit the moment, once the table is still
-function tipsNow() {
-  if (UI.phase !== 'player' || UI.busy || UI.over) return;
-  if (!tipsSeen.move) return tip('move');
-  if (UI.fc.size && [...UI.fc.values()].some(f => f.heal == null)) return tip('odds');
-  if (UI.intents.some(i => i.it.kind === 'attack')) tip('intents');
-  if (tipsSeen.intents && G.B.vents.length) tip('vents');
-  if (tipsSeen.intents && undoStack.length) tip('undo');
-}
-
 // ---------------- foe intents ----------------
 // a curved arrow from each goblin to the hero it means to strike (red) or the goblin it means to mend (green), and a
 // dotted line to where it would walk; the next goblin to act draws bold

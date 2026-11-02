@@ -493,9 +493,6 @@ body{font-family:var(--body)}
 #end h3{margin:16px 0 6px}
 #musicBtn.on .sw,#muteBtn.on .sw{background:#a8843e}
 /* a tip: a short word of advice above the hotbar, the first time something comes up */
-#coach{position:absolute;left:50%;bottom:calc(var(--dk,92px) + 10px);z-index:7;transform:translateX(-50%);width:min(440px,calc(100% - 24px));box-sizing:border-box;display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:3px;background:#e8dcc0;color:#231a12;box-shadow:0 0 0 1px #000,0 10px 26px rgba(0,0,0,.6);animation:pop .2s ease-out}
-#coach p{flex:1;min-width:0;margin:0;font:600 13.5px/1.35 var(--body)}
-#coachOk{flex:none;padding:6px 12px;border:none;border-radius:2px;background:#3a2c20;color:#f0e4c8;font:800 12px var(--body);letter-spacing:.04em}
 #bootErr{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:16px;background:var(--soot)}#bootErr p{word-break:break-word}
 /* armour: a small shield beside the health bar, red while stripped, gold while raised */
 .hpr{position:relative}
@@ -577,7 +574,6 @@ body{font-family:var(--body)}
 
   <div id="roll" hidden><div class="rl" id="rollLbl"></div><div class="notes" id="rollNotes"></div><div class="chips" id="rollChips"></div><div class="res" id="rollRes"></div></div>
   <div id="combos"></div>
-  <div id="coach" hidden role="status"><p id="coachText"></p><button id="coachOk">Got it</button></div>
   <div id="banner"><span id="bannerTxt"></span></div>
   <div id="talk" hidden role="dialog" aria-live="polite"><div class="tk"><span id="talkFace" class="ubadge"></span><div class="tb"><b id="talkName"></b><p id="talkText"></p></div><button id="talkSkip">Skip</button></div><i class="tnext">Tap to go on</i></div>
 
@@ -635,7 +631,6 @@ body{font-family:var(--body)}
         <button class="mi" id="speedBtn"><svg viewBox="0 0 24 24"><path d="M4 6l7 6-7 6zM13 6l7 6-7 6z"/></svg><span>Game speed</span><em id="speedLbl" class="sv">Normal</em></button>
         <button class="mi" id="diffBtn"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg><span>Difficulty</span><em id="diffLbl" class="sv">Normal</em></button>
         <button class="mi" id="restartBtn"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v5h5"/></svg><span>Restart battle</span></button>
-        <button class="mi" id="tipsBtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.5" r=".6"/></svg><span>Show the tips again</span></button>
         <button class="mi" id="menuMain"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-6h4v6"/></svg><span>Main menu</span></button>
         <button class="mi" id="newBtn"><svg viewBox="0 0 24 24"><path d="M5 21V4h9l1 2h4v9h-7l-1-2H5"/></svg><span>New campaign</span></button>
       </div>
