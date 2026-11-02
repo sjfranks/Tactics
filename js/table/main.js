@@ -16,7 +16,9 @@ window.addEventListener('resize', resize);
 if (window.ResizeObserver) new ResizeObserver(measure).observe($('#dock'));
 const bigMap = () => COLS > VIEWC || ROWS > VIEWR;
 // any square can be brought to the middle of the frame
-function clampCam() { const mx = (COLS - 1) / 2, mz = (ROWS - 1) / 2; camTX = Math.max(-mx, Math.min(mx, camTX)); camTZ = Math.max(-mz, Math.min(mz, camTZ)); }
+function clampCam() {
+  if (!bigMap() && zoomT >= .999 && !cine) { camTX = camTZ = 0; return; } // the whole 6 × 8 board fits: it stays centred, whoever moves
+  const mx = (COLS - 1) / 2, mz = (ROWS - 1) / 2; camTX = Math.max(-mx, Math.min(mx, camTX)); camTZ = Math.max(-mz, Math.min(mz, camTZ)); }
 // bring a point to the middle when it is near the edge of the view (between the top bar and the dock)
 function focusOn(p) {
   const [x, y] = project(p), top = topH, bot = innerHeight - dockH, mh = (bot - top) * .18;
