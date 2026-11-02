@@ -26,6 +26,11 @@ const TUNE = {
   init: 10,                       // initiative die
   difficulty: { easy: { label: 'Easy', hp: .75 }, normal: { label: 'Normal', hp: 1 }, hard: { label: 'Hard', hp: 1.25 } }, // goblin health
   armourMax: 4,                   // armour: what each blow loses (Taunt +1, Prone −1, Rebuke −2, Frozen none), at most this
+  ward: 2,                        // Ward and Mana Shield: armour added till the caster's next turn
+  poison: { damage: 2, rounds: 2 }, // Poisoned Blade: damage at the start of each of the foe's next turns
+  // experience: per action that hits, slays (each foe), heals or helps; to every hero standing at a victory; a level's
+  // worth, and the max HP each level adds. Levels 2, 3 and 4 each teach a new power (GROWTH)
+  xp: { hit: 6, kill: 14, heal: 6, help: 4, win: 20, level: 100, hp: 2, max: 6 },
   forecastTrials: 1500
 };
 
@@ -40,7 +45,7 @@ const UNITS = {
   archer: { side: 'gob', name: 'Goblin Archer', hp: 6, move: 2, die: 4, range: 4, init: 1, brain: 'shooter', attack: 'Shortbow', proj: 'arrow', note: 'Keeps its distance and shoots from up to 4 squares.' },
   warg: { side: 'gob', name: 'Warg', hp: 12, move: 3, die: 6, range: 1, armour: 2, init: 3, brain: 'brute', attack: 'Bite', speed: 1.4, pack: true, note: 'Runs 3 squares. Hunts in packs: +1 die on a hero another warg stands beside. Thick hide: armour 2.' },
   shaman: { side: 'gob', name: 'Goblin Shaman', hp: 8, move: 2, die: 6, range: 3, armour: 1, init: 0, brain: 'healer', attack: 'Hex', proj: 'hex', note: 'Heals hurt goblins; otherwise hexes from range 3.' },
-  king: { side: 'gob', name: 'Grubnash', title: 'the Goblin King', ap: 2, hp: 30, move: 2, die: 8, range: 1, armour: 3, init: -1, boss: true, size: 2, brain: 'king', attack: 'Cleave', trample: true, note: "Fills a 2×2 block and kicks the fallen out of his way. Cleaves every hero beside him, can't be shoved, and blows his war horn every third round. Grubnash Smash: marks a path, then charges down it at the start of his next turn." }
+  king: { side: 'gob', name: 'Grubnash', title: 'the Goblin King', ap: 2, hp: 40, move: 2, die: 8, range: 1, armour: 3, init: -1, boss: true, size: 2, brain: 'king', attack: 'Cleave', trample: true, note: "Fills a 2×2 block and kicks the fallen out of his way. Cleaves every hero beside him, can't be shoved, and blows his war horn every third round. Grubnash Smash: marks a path, then charges down it at the start of his next turn." }
 };
 
 // ---------------- cards: each hero's abilities ----------------
@@ -68,8 +73,39 @@ const CARDS = {
   t_hide: { name: 'Hide', target: 'self', cd: 3, cost: 'Action', text: 'Unseen till the end of your next turn. Next attack +2 dice.', how: 'Tap your hero.' },
   t_trick: { name: 'Dirty Trick', target: 'enemy', range: 1, cd: 2, cost: 'Action', text: 'Knock Prone: armour −1. Stays hidden.', how: 'Tap a foe beside you.' },
   t_hook: { name: 'Rope Hook', target: 'cell', range: 3, reach: 'move', cd: 2, spot: true, cost: 'Action', text: 'Swing as far as you move, over walls and up cliffs.', how: 'Tap a square twice.' },
+  // powers a hero learns by levelling up (GROWTH says which, in what order)
+  f_bash: { name: 'Shield Bash', die: 6, target: 'enemy', range: 1, cd: 2, atk: { die: 6 }, cost: 'Action', text: 'Deal {die} and knock the foe Prone.', how: 'Tap a foe beside you.' },
+  f_cry: { name: 'War Cry', target: 'self', cd: 3, cost: 'Action', text: 'Every hero within 3 is Blessed: +1 die on their next roll.', how: 'Tap your hero.' },
+  f_execute: { name: 'Execute', die: 8, weapon: true, target: 'enemy', range: 1, cd: 2, atk: { execute: 4 }, cost: 'Action', text: 'Deal {die}, and +4 to a foe at half health or less.', how: 'Tap a foe beside you.' },
+  c_smite: { name: 'Smite', die: 6, target: 'enemy', range: 3, cd: 1, atk: { ranged: true, proj: 'holy', die: 6 }, cost: 'Action', text: 'Deal {die} at range 3.', how: 'Tap a foe within 3.' },
+  c_prayer: { name: 'Prayer of Mending', die: 4, target: 'self', cd: 3, cost: 'Action', text: 'One roll of {die} heals every hero on their feet within 2.', how: 'Tap your hero.' },
+  c_ward: { name: 'Ward', target: 'ally', range: 3, cd: 2, cost: 'Action', text: 'Armour +2 till your next turn.', how: 'Select a hero within 3.' },
+  m_chain: { name: 'Chain Lightning', die: 6, target: 'enemy', range: 4, cd: 3, atk: { ranged: true, proj: 'arcane', die: 6 }, cost: 'Action', text: 'Deal {die}, then d4 to up to two more foes within 2 of it.', how: 'Tap a foe within 4.' },
+  m_blink: { name: 'Blink', target: 'cell', range: 3, reach: 'blink', spot: true, cd: 2, cost: 'Action', text: 'Vanish and appear on an open square within 3, walls or no walls.', how: 'Tap a square twice.' },
+  m_shield: { name: 'Mana Shield', target: 'self', cd: 3, close: true, cost: 'Action', text: 'Armour +2 till your next turn.', how: 'Tap your hero.' },
+  t_knives: { name: 'Throwing Knives', die: 4, n: 2, target: 'enemy', range: 4, cd: 1, atk: { ranged: true, proj: 'arrow', die: 4, extra: 1 }, cost: 'Action', text: 'Throw {die} at range 4.', how: 'Tap a foe within 4.' },
+  t_poison: { name: 'Poisoned Blade', die: 4, weapon: true, target: 'enemy', range: 1, cd: 2, atk: {}, cost: 'Action', text: 'Deal {die} and Poison: 2 at the start of its next 2 turns.', how: 'Tap a foe beside you.' },
+  t_smoke: { name: 'Smoke Bomb', target: 'self', cd: 4, cost: 'Action', text: 'Vex and every hero beside her are Hidden.', how: 'Tap your hero.' },
   potion: { name: 'Healing Draught', die: 4, n: 2, target: 'ally', range: 1, heal: true, uses: 1, cost: 'Action', text: 'Heal {die}; dice explode. One a battle.', how: 'Tap yourself or a hero beside you.' }
 };
+
+// ---------------- growth: the powers each hero learns at levels 2, 3 and 4 ----------------
+const GROWTH = {
+  fighter: ['f_bash', 'f_execute', 'f_cry'],
+  cleric: ['c_smite', 'c_ward', 'c_prayer'],
+  mage: ['m_chain', 'm_shield', 'm_blink'],
+  thief: ['t_knives', 't_poison', 't_smoke']
+};
+const powersAt = (kind, lv) => (GROWTH[kind] || []).slice(0, Math.max(0, lv - 1));
+// experience joins a hero's growth ({ lv, xp }); what each level gained brings, in order: [{ lv, power }]
+function gainXp(g, kind, n) {
+  const ups = []; g.xp += n;
+  while (g.xp >= TUNE.xp.level && g.lv < TUNE.xp.max) { g.xp -= TUNE.xp.level; g.lv++; ups.push({ lv: g.lv, power: GROWTH[kind][g.lv - 2] || null }); }
+  if (g.lv >= TUNE.xp.max) g.xp = 0;
+  return ups;
+}
+// the level a party would have reached by a battle (for the level select): about 55 to 95 XP a battle, more for the later ones
+const partyGrowth = level => { const lv = [1, 1, 2, 2, 3][Math.min(4, LEVELS[level].boons ?? level)], o = {}; for (const k of Object.keys(GROWTH)) o[k] = { lv, xp: 0 }; return o; };
 
 // ---------------- boons: what the party earns between battles ----------------
 // After each victory the party picks one of three. who: a hero's kind, or 'party' for all four. mod: die (the weapon
@@ -135,14 +171,14 @@ const LEVELS = [
   { name: 'The Forge Pits', theme: 'lava', text: "Under the hall the goblins work their forges over channels of molten rock. Three archers and a shaman hold the forge platforms beyond a lava channel; wargs and cutters wait on this side of it, and the one way up crosses a vent. Fire vents spit flame every second round, and anyone standing on one burns. Shove, charge or haul a goblin into the lava for +5.",
     map: ['22..22', '22^.22', '~~..~~', '......', '.^..^.', '~....~', '......', '......'],
     props: [['barrels', 0, 7], ['brazier', 5, 7]],
-    foes: [['archer', 0, 0], ['archer', 1, 1], ['archer', 5, 0], ['shaman', 3, 0], ['cutter', 2, 2], ['cutter', 0, 3], ['cutter', 5, 3], ['warg', 2, 3], ['warg', 3, 3]],
+    foes: [['archer', 0, 0], ['archer', 1, 1], ['archer', 5, 0], ['shaman', 3, 0], ['cutter', 2, 2], ['cutter', 0, 3], ['cutter', 5, 3], ['warg', 2, 3], ['warg', 3, 3], ['warg', 4, 3]],
     art: { sky: [0x8a5a48, 0x2a0c06, 0xffb27a, 1.0, 0x140806] } },
   { name: 'Throne of Grubnash', theme: 'throne', text: "The Goblin King's hall. Grubnash waits on his throne with his court, all wide awake. He fills a 2×2 block, cleaves every hero beside him, can't be shoved and kicks the fallen out of his way, and twice he will blow his war horn for more cutters. His hide is armour 3: Rebuke and frost lay him bare. When he lines up a Grubnash Smash, its path glows red: get out of it before his next turn. Bring him down and his court will flee.",
     map: ['#..#2222#..#', '#..#2222#..#', '#...2222...#', '#..........#', '#..........#', '#..........#', '#..........#', '#..........#', '#..........#', '#..........#', '#..........#', '####....####', '............', '............'],
     heroes: [['fighter', 4, 12], ['cleric', 5, 13], ['mage', 6, 13], ['thief', 7, 12]],
     props: [['throne', 5, 0], ['brazier', 3, 2], ['brazier', 8, 2], ['pillar', 2, 4], ['pillar', 9, 4], ['pillar', 2, 8], ['pillar', 9, 8], ['barrels', 0, 12], ['barrels', 11, 13]],
     rout: true, // the court flees when its king falls
-    foes: [['king', 5, 1], ['shaman', 7, 0], ['archer', 1, 0], ['archer', 10, 0], ['cutter', 4, 6], ['cutter', 7, 6], ['warg', 5, 9], ['warg', 6, 9]],
+    foes: [['king', 5, 1], ['shaman', 7, 0], ['archer', 1, 0], ['archer', 10, 0], ['cutter', 4, 6], ['cutter', 7, 6], ['cutter', 2, 7], ['archer', 10, 4], ['warg', 5, 9], ['warg', 6, 9]],
     art: { sky: [0x9a8476, 0x1e140e, 0xeccdae, 1.05, 0x150e0b], carpet: [5, 3, 6, 12] } },
   // battles past the campaign are played from the level select only
   { name: 'The Reeve\'s House', extra: true, theme: 'house', text: "Goblins have taken the reeve's house: two floors, one above the other, and a single stair between them. You come in by the front door. Cutters, wargs and a shaman hold the rooms downstairs; archers and a second shaman wait on the upper floor and can shoot down the stairwell. Walls block sight downstairs, and no one sees through a floor. Use the floor button on the left to look at the ground floor or the upper floor.",
@@ -238,7 +274,10 @@ function newState(level, seed = (Math.random() * 4294967296) >>> 0, opts = {}) {
   const S = { v: 3, level, rng: seed >>> 0, round: 1, turn: -1, order: [], active: null, phase: 'intro', result: null, units: [], ice: {}, burn: {}, smash: null, horns: 0, stats: {},
     diff: TUNE.difficulty[opts.diff] ? opts.diff : 'normal', boons: (opts.boons || []).filter(id => BOONS[id]) };
   for (const [kind, c, r, l] of [...(L.heroes || HERO_START), ...L.foes]) makeUnit(S, kind, c, r, l || 0);
-  S.units.forEach(u => { if (u.side === 'hero') S.stats[u.id] = { dealt: 0, kills: 0, crits: 0, healed: 0, taken: 0, downs: 0 }; else if (L.wake) u.asleep = true; });
+  // growth: each hero's level brings its powers and its health; xp: whether this battle counts experience
+  S.xp = !!opts.xp;
+  if (opts.growth) for (const u of S.units) { const g = u.side === 'hero' && opts.growth[u.kind]; if (!g) continue; u.lv = g.lv; for (const id of powersAt(u.kind, g.lv)) if (!u.cards.includes(id)) u.cards.push(id); const add = (g.lv - 1) * TUNE.xp.hp; u.maxHp += add; u.hp += add; }
+  S.units.forEach(u => { if (u.side === 'hero') S.stats[u.id] = { dealt: 0, kills: 0, crits: 0, healed: 0, taken: 0, downs: 0, xp: 0 }; else if (L.wake) u.asleep = true; });
   S.boons.forEach(id => applyBoon(S, BOONS[id]));
   return S;
 }
@@ -412,7 +451,7 @@ function battle(S) {
   // armour: what each blow loses. Taunt adds one, Prone takes one off, Rebuke two, and the frozen have none
   function armourOf(t) {
     if (t.st.frozen) return 0;
-    const a = (t.armour ?? def(t).armour ?? 0) + (t.st.taunt ? 1 : 0) - (t.st.prone ? 1 : 0) - (t.st.rebuked ? 2 : 0);
+    const a = (t.armour ?? def(t).armour ?? 0) + (t.st.taunt ? 1 : 0) + (t.st.warded ? TUNE.ward : 0) - (t.st.prone ? 1 : 0) - (t.st.rebuked ? 2 : 0);
     return Math.max(0, Math.min(TUNE.armourMax, a));
   }
   // Grapple: anyone beside the fighter but the Goblin King (too big to haul), and the squares around them they could go to
@@ -508,8 +547,10 @@ function battle(S) {
     if (ranged && hAt(from.c, from.r, from.l) - hAt(t.c, t.r, t.l) >= 1) { n += 1; notes.push('High ground +1 die'); } // shooting down: melee gets no height bonus
     if (u.kind === 'thief' && flanked(t, u)) { n += 1; notes.push('Flanking +1 die'); }
     if (def(u).pack && S.units.some(x => x !== u && x.alive && x.kind === u.kind && dist(x, t) === 1)) { n += TUNE.pack; notes.push(`Pack +${TUNE.pack} die`); }
+    let bonus = o.bonus || 0;
+    if (o.execute && t.hp * 2 <= t.maxHp) { bonus += o.execute; notes.push(`Execute +${o.execute}`); }
     if (ranged) notes.push('Ranged · no crits');
-    return { sides: o.die || dieOf(u), n, dis, noCrit: ranged, bonus: o.bonus || 0, notes, armour: armourOf(t) };
+    return { sides: o.die || dieOf(u), n, dis, noCrit: ranged, bonus, notes, armour: armourOf(t) };
   }
   // one roll against many: blessing and hiding count, the targets' states do not
   function sweepSpec(u, sides, noCrit = false) {
@@ -817,11 +858,11 @@ function battle(S) {
     wait(120);
   }
   // the rope hook: an arc over whatever lies between
-  function swing(u, cell) {
+  function swing(u, cell, style) {
     face(u, cell); cast(u);
-    ev({ t: 'swing', id: u.id, to: { c: cell.c, r: cell.r, l: cell.l || 0 } });
+    ev({ t: 'swing', id: u.id, to: { c: cell.c, r: cell.r, l: cell.l || 0 }, style });
     u.c = cell.c; u.r = cell.r; u.l = cell.l || 0;
-    log(`${nm(u)} swings across`, 'hero');
+    log(style === 'blink' ? `${nm(u)} blinks across` : `${nm(u)} swings across`, 'hero');
     if (burning(u.c, u.r, u.l)) { combo('Burned!', 'red'); hurt(u, TUNE.burn.damage); }
   }
   function iceWall(u, cell, dir) {
@@ -867,7 +908,32 @@ function battle(S) {
     t_attack: (u, t) => strike(u, t, { label: 'Dagger' }),
     t_hide: u => { status(u, 'hidden', true); float(u, 'Hidden', `next attack +${TUNE.sneak} dice`); wait(280); },
     t_trick: (u, t) => knockProne(u, t),
-    t_hook: (u, cell) => swing(u, cell)
+    t_hook: (u, cell) => swing(u, cell),
+    // powers learned by levelling up
+    f_bash: (u, t) => { if (strike(u, t, { label: 'Shield Bash', ...atkOf(u, 'f_bash') }) && up(t) && !t.st.prone && !def(t).boss) { combo('Prone', ''); status(t, 'prone', true); } },
+    f_cry: u => { cast(u, true); sfx('taunt'); combo('War Cry!', 'gold'); heroes().filter(h => dist(h, u) <= 3 && !h.st.blessed).forEach(h => { fx('bless', h.id); status(h, 'blessed', true); }); float(u, 'War Cry', 'heroes within 3 Blessed'); wait(260); },
+    f_execute: (u, t) => strike(u, t, { label: 'Execute', ...atkOf(u, 'f_execute') }),
+    c_smite: (u, t) => strike(u, t, { label: 'Smite', ...atkOf(u, 'c_smite') }),
+    c_prayer: u => {
+      let n = cardN(u, 'c_prayer'); const notes = []; if (u.st.blessed) { n++; notes.push('Blessed +1 die'); status(u, 'blessed', false); }
+      cast(u, true);
+      const r = roll(u, cardDie(u, 'c_prayer'), n, { at: u.id, label: 'Prayer of Mending', notes }); ev({ t: 'total', value: r.total, suffix: ' HP' });
+      heroes().filter(h => dist(h, u) <= 2).forEach(h => { const g = Math.min(r.total, h.maxHp - h.hp); h.hp += g; stat(u, 'healed', g); ev({ t: 'heal', id: h.id, amount: g, hp: h.hp, full: g < r.total }); });
+      log(`${nm(u)} prays: every hero near her heals up to <b>${r.total}</b>`, 'hero'); wait(240);
+    },
+    c_ward: (u, t) => { face(u, t); cast(u); sfx('heal'); fx('bless', t.id); status(t, 'warded', true, u.id + 1); float(t, 'Warded', `armour ${armourOf(t)}`); wait(240); },
+    m_chain: (u, t) => { // the bolt leaps on to the nearest foes beside its mark
+      const was = at(t), a0 = u.atks || 0;
+      strike(u, t, { label: 'Chain Lightning', ...atkOf(u, 'm_chain') });
+      const more = gobs().filter(x => x !== t && up(x) && dist(x, was) <= 2).sort((a, b) => dist(a, was) - dist(b, was)).slice(0, 2);
+      for (const x of more) { if (!up(u)) break; u.atks = a0; strike(u, x, { label: 'Chain', ranged: true, proj: 'arcane', die: 4 }); }
+      u.atks = a0 + 1;
+    },
+    m_blink: (u, cell) => swing(u, cell, 'blink'),
+    m_shield: u => { cast(u); sfx('frost'); status(u, 'warded', true, u.id + 1); float(u, 'Mana Shield', `armour ${armourOf(u)}`); wait(240); },
+    t_knives: (u, t) => strike(u, t, { label: 'Throwing Knives', ...atkOf(u, 't_knives') }),
+    t_poison: (u, t) => { if (strike(u, t, { label: 'Poisoned Blade', ...atkOf(u, 't_poison') }) && up(t)) { status(t, 'poisoned', true, TUNE.poison.rounds); combo('Poisoned', ''); } },
+    t_smoke: u => { cast(u, true); sfx('smoke'); fx('steam', u.id); heroes().filter(h => h === u || dist(h, u) === 1).forEach(h => status(h, 'hidden', true)); float(u, 'Smoke Bomb', 'hidden'); wait(280); }
   };
 
   // ---------------- Grubnash ----------------
@@ -1096,10 +1162,15 @@ function battle(S) {
         for (const k in u.cd) if (u.cd[k] > 0) u.cd[k]--;
         if (u.st.taunt) status(u, 'taunt', false);
         if (u.st.hidden) u.st.hidden = 2; // hiding lasts through this turn, then fades unless the thief strikes
-        S.units.forEach(x => { if (x.st.rebuked === u.id + 1) status(x, 'rebuked', false); }); // her rebukes last until her next turn
+        S.units.forEach(x => { if (x.st.rebuked === u.id + 1) status(x, 'rebuked', false); if (x.st.warded === u.id + 1) status(x, 'warded', false); }); // rebukes and wards last until the caster's next turn
       }
       ev({ t: 'turn', id: u.id });
       if (burning(u.c, u.r, u.l)) { combo('Burning!', 'red'); hurt(u, TUNE.burn.damage); if (checkEnd()) return; if (!up(u)) continue; }
+      if (u.st.poisoned) {
+        const left = u.st.poisoned - 1; combo('Poison!', ''); hurt(u, TUNE.poison.damage);
+        if (up(u)) { if (left > 0) u.st.poisoned = left; else status(u, 'poisoned', false); }
+        if (checkEnd()) return; if (!up(u)) continue;
+      }
       if (u.side === 'hero' && u.st.prone) { float(u, 'Stands up', 'costs 1 action'); status(u, 'prone', false); u.ap--; }
       if (u.side === 'hero') { S.phase = 'player'; log(`${nm(u)}'s turn`, 'hero'); ev({ t: 'player', id: u.id }); return; }
       S.phase = 'gob';
@@ -1109,6 +1180,7 @@ function battle(S) {
       wakeCheck(); wait(160);
     }
   }
+  function giveXp(u, n) { if (!S.xp || !n || !S.stats[u.id]) return; S.stats[u.id].xp += n; ev({ t: 'xp', id: u.id, amount: n }); }
   function checkEnd() {
     if (S.result) return true;
     // when the boss falls the rest lose heart and run
@@ -1119,6 +1191,7 @@ function battle(S) {
     const win = !gobs().length, lose = !heroes().length;
     if (!win && !lose) return false;
     S.result = win ? 'win' : 'lose'; S.phase = 'over'; S.active = null;
+    if (win) heroes().forEach(h => giveXp(h, TUNE.xp.win)); // every hero still standing
     ev({ t: 'end', win });
     return true;
   }
@@ -1177,8 +1250,14 @@ function battle(S) {
       if (t && !t.alive) { checkEnd(); return; }
       const g = target && target.grab != null ? t : null, aimAt = g || t || cell;
       if (aimAt && aimAt !== u) aim(u, aimAt, g ? (g.side === u.side ? 'ally' : 'enemy') : card.spot ? 'spot' : card.target);
+      const s0 = { ...S.stats[u.id] };
       EFFECTS[cardId](u, cell && !g ? cell : t, { cell: target && target.cell, dir: target && target.dir });
       endAim(); ev({ t: 'clearDice' });
+      if (S.xp) { // experience: what the action did
+        const s1 = S.stats[u.id], X = TUNE.xp, kills = s1.kills - s0.kills;
+        const n = kills ? X.hit + kills * X.kill : s1.dealt > s0.dealt ? X.hit : s1.healed > s0.healed ? X.heal : X.help;
+        giveXp(u, n);
+      }
       checkEnd();
     });
   }
@@ -1208,6 +1287,6 @@ function battle(S) {
   };
 }
 
-return { TUNE, UNITS, CARDS, BOONS, LEVELS, CAMPAIGN, HERO_START, key, parseKey, rollWith, buildBoard, slopeAt, newState, offerBoons, partyBoons, battle };
+return { TUNE, UNITS, CARDS, BOONS, GROWTH, LEVELS, CAMPAIGN, HERO_START, powersAt, gainXp, partyGrowth, key, parseKey, rollWith, buildBoard, slopeAt, newState, offerBoons, partyBoons, battle };
 })();
 if (typeof module !== 'undefined') module.exports = GC;

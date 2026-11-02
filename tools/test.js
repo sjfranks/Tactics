@@ -33,8 +33,10 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
   async function setup(level, first, tweak, opts = {}) {
     await p.evaluate(([lv, first, tweak, opts]) => {
       document.querySelectorAll('.ov').forEach(o => o.hidden = true); hideTitle(); MODE = opts.free ? 'free' : 'camp';
+      const keep = opts.camp ? CAMP.growth : null; // a test of growth keeps the campaign's
       CAMP = { ...freshCamp(opts.diff || 'normal'), level: opts.free ? 0 : lv, boons: opts.free ? [] : opts.boons || [] }; FREE = { boons: opts.free ? opts.boons || [] : [] };
-      const S = GC.newState(lv, opts.seed || 4242, { boons: CAMP.boons, diff: CAMP.diff });
+      if (keep) CAMP.growth = keep;
+      const S = GC.newState(lv, opts.seed || 4242, { boons: CAMP.boons, diff: CAMP.diff, growth: CAMP.growth, xp: MODE === 'camp' });
       if (tweak) new Function('S', tweak)(S);
       const h = S.units.find(u => u.kind === first);
       S.order = [h.id, ...S.units.filter(u => u !== h && u.alive).map(u => u.id)]; S.turn = 0; S.active = h.id; S.phase = 'player'; S.units.forEach(u => { u.init = 5; });
@@ -201,6 +203,8 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     const end = await p.evaluate(() => ({ title: document.querySelector('#endTitle').textContent, boons: document.querySelectorAll('#boonList .boon').length, disabled: document.querySelector('#againBtn').disabled, saved: JSON.parse(localStorage.getItem(SAVE_KEY)) }));
     ok(end.title === 'Victory' && end.boons === 3 && end.disabled, 'Victory offers three boons, and the march waits for a pick');
     ok(end.saved && end.saved.level === 1 && end.saved.offer && end.saved.offer.length === 3, 'the save has moved on to the next battle, with the offer');
+    const xp = await p.evaluate(() => ({ rows: document.querySelectorAll('#endReport .xpr').length, f: CAMP.growth.fighter, saved: JSON.parse(localStorage.getItem(SAVE_KEY)).growth.fighter }));
+    ok(xp.rows === 4 && xp.f.xp === GC.TUNE.xp.hit + GC.TUNE.xp.kill + GC.TUNE.xp.win && xp.saved.xp === xp.f.xp, `experience: Brakka's blow and the win earn him ${xp.f.xp} XP, saved with the campaign`);
     await shot('victory');
     const pick = await p.evaluate(() => document.querySelector('#boonList .boon').dataset.id);
     await p.click('#boonList .boon'); await p.click('#againBtn');
@@ -219,6 +223,34 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     await p.evaluate(() => { TIME_SCALE = 6; });
     const after = await p.evaluate(() => ({ level, round: G.S.round, active: UI.active && UI.active.kind, at: G.S.units.map(u => [u.c, u.r, u.hp].join()).join(' ') }));
     ok(JSON.stringify(after) === JSON.stringify(before), `back on the same turn: ${GC.LEVELS[after.level].name}, round ${after.round}, ${after.active} to move`);
+  }
+
+  console.log('a level gained teaches a power');
+  {
+    const tweak = "S.units.filter(u => u.side === 'gob').forEach((g, i) => { if (i) g.alive = false; else { g.c = 2; g.r = 5; g.hp = 2; } });";
+    const seed = await finisher(0, tweak);
+    await p.evaluate(() => { CAMP = freshCamp(); CAMP.growth.fighter.xp = 90; saveCamp(); });
+    await setup(0, 'fighter', tweak, { seed, camp: true });
+    await tapCell(2, 5); await tapThrough();
+    await p.waitForSelector('#end', { state: 'visible', timeout: 60000 });
+    const up = await p.evaluate(() => ({ lv: CAMP.growth.fighter.lv, text: document.querySelector('#endReport .lvup') && document.querySelector('#endReport .lvup').textContent }));
+    ok(up.lv === 2 && /Level 2! \+2 max HP · learns Shield Bash/.test(up.text || ''), 'Brakka reaches level 2 and learns Shield Bash');
+    await p.click('#boonList .boon'); await p.click('#againBtn'); await p.waitForSelector('#intro', { state: 'visible' });
+    const next = await p.evaluate(() => { const f = G.S.units.find(u => u.kind === 'fighter'); return { cards: f.cards, hp: f.maxHp }; });
+    ok(next.cards.includes('f_bash') && next.hp === GC.UNITS.fighter.hp + GC.TUNE.xp.hp, `he carries it into the next battle, with ${next.hp} HP`);
+    await p.evaluate(() => { CAMP = freshCamp(); saveCamp(); });
+  }
+
+  console.log('a close-up when the blow is locked in');
+  {
+    await setup(0, 'fighter', "const g = S.units.find(u => u.kind === 'cutter'); g.c = 2; g.r = 5; g.hp = 30; g.maxHp = 30;");
+    const pitch0 = await p.evaluate(() => camPitchT);
+    await tapCell(2, 5);
+    await p.waitForFunction(() => cine !== null, null, { timeout: 5000 }).catch(() => {});
+    const mid = await p.evaluate(() => ({ cine: !!cine, pitch: camPitchT, zoom: zoomT }));
+    ok(mid.cine && mid.pitch < pitch0 && mid.zoom < .6, `the camera drops low and close (pitch ${mid.pitch.toFixed(2)}, zoom ${mid.zoom.toFixed(2)})`);
+    await idle();
+    ok(await p.evaluate(p0 => !cine && camPitchT === p0, pitch0), 'and goes back to the play view after');
   }
 
   console.log('keys and tips');

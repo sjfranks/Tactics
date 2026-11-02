@@ -7,7 +7,9 @@
 // choose, and (on the player's turn) the battle itself. It is saved in this browser after every change, so closing the
 // page loses nothing; the viewer's hot reload carries it too.
 const SAVE_KEY = 'goblin-crypt-campaign-1';
-const freshCamp = (diff = 'normal') => ({ v: 1, level: 0, boons: [], diff, tally: {}, battles: 0, offer: null, state: null });
+// growth: each hero's level and the experience toward the next
+const freshGrowth = () => ({ fighter: { lv: 1, xp: 0 }, cleric: { lv: 1, xp: 0 }, mage: { lv: 1, xp: 0 }, thief: { lv: 1, xp: 0 } });
+const freshCamp = (diff = 'normal') => ({ v: 1, level: 0, boons: [], diff, tally: {}, battles: 0, offer: null, state: null, growth: freshGrowth() });
 let CAMP = freshCamp();
 // MODE 'camp' plays the campaign; 'free' a battle chosen from the level select, which never touches the campaign's save.
 // FREE holds the free battle's boons, so a restart keeps them
@@ -16,7 +18,8 @@ function saveCamp() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(CAMP))
 function readCamp(c) {
   if (!c || c.v !== 1 || !Number.isInteger(c.level) || c.level < 0 || c.level >= GC.CAMPAIGN) return null;
   const offer = Array.isArray(c.offer) ? c.offer.filter(id => GC.BOONS[id] && !(c.boons || []).includes(id)) : [];
-  return { ...freshCamp(), ...c, boons: (c.boons || []).filter(id => GC.BOONS[id]), offer: offer.length ? offer : null, diff: GC.TUNE.difficulty[c.diff] ? c.diff : 'normal', tally: c.tally && typeof c.tally === 'object' ? c.tally : {} };
+  return { ...freshCamp(), ...c, boons: (c.boons || []).filter(id => GC.BOONS[id]), offer: offer.length ? offer : null, diff: GC.TUNE.difficulty[c.diff] ? c.diff : 'normal', tally: c.tally && typeof c.tally === 'object' ? c.tally : {},
+    growth: Object.fromEntries(Object.entries(freshGrowth()).map(([k, g]) => { const o = c.growth && c.growth[k]; return [k, o && Number.isInteger(o.lv) && o.lv >= 1 ? { lv: Math.min(GC.TUNE.xp.max, o.lv), xp: Math.max(0, +o.xp || 0) } : g]; })) };
 }
 function loadCamp() { try { return readCamp(JSON.parse(localStorage.getItem(SAVE_KEY))); } catch (e) { return null; } }
 // the battle in progress, kept whenever it is the player's move
@@ -40,7 +43,12 @@ function enterCampaign() {
   loadLevel(CAMP.level, saved);
 }
 // a battle from the level select, fought with the boons a party would have earned by then
-function freeBattle(i) { MODE = 'free'; FREE = { boons: GC.partyBoons(i) }; hideTitle(); loadLevel(i); }
+function freeBattle(i) { MODE = 'free'; FREE = { boons: GC.partyBoons(i), growth: GC.partyGrowth(i) }; hideTitle(); loadLevel(i); }
+// a hero's level and experience, with what this battle has earned so far
+function growthOf(kind) {
+  const g = (MODE === 'free' ? FREE.growth : CAMP.growth) || {}, h = g[kind] || { lv: 1, xp: 0 }, u = G && G.S.units.find(x => x.kind === kind && x.side === 'hero');
+  return { lv: h.lv, xp: h.xp, gained: u && G.S.stats[u.id] ? G.S.stats[u.id].xp : 0 };
+}
 const boonWho = b => b.who === 'party' ? 'The party' : GC.UNITS[b.who].name;
 const boonFace = b => b.who === 'party' ? '<svg viewBox="0 0 24 24"><path d="M6 21V4M6 4h11l-2.5 4L17 12H6"/></svg>' : face(b.who);
 // the boons on offer, as cards to choose from; done(id) when one is picked
@@ -110,7 +118,7 @@ function defaultView(now) {
 function loadLevel(i, saved, backdrop) {
   level = i; const L = LEVELS[i];
   clearBoard();
-  G = GC.battle(saved || GC.newState(i, undefined, { boons: partyBoonIds(), diff: CAMP.diff }));
+  G = GC.battle(saved || GC.newState(i, undefined, { boons: partyBoonIds(), diff: CAMP.diff, growth: MODE === 'free' ? FREE.growth : CAMP.growth, xp: MODE !== 'free' }));
   if (MODE === 'camp' && !backdrop && (CAMP.level !== i || !saved)) { CAMP.level = i; CAMP.state = null; saveCamp(); }
   boardFromRules(G.B); buildBoard(L); buildHL();
   (L.props || []).forEach(([type, c, r, l]) => { PROP_L = l || 0; try { PROPS[type](c, r); } finally { PROP_L = 0; } });

@@ -208,14 +208,15 @@ renderer.toneMappingExposure = .98;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x15121a);
 scene.fog = new THREE.Fog(0x15121a, 20, 40);
-const camera = new THREE.PerspectiveCamera(26, 1, .1, 160);
+const camera = new THREE.PerspectiveCamera(34, 1, .1, 160);
 let camAz = 0, camAzT = 0, zoom = 1, zoomT = 1, follow = null, shakeAmt = 0, camX = 0, camZ = 0, camTX = 0, camTZ = 0;
 const VIEWC = 6, VIEWR = 8; // the camera frames this many squares; bigger maps pan
-// the tactics-RPG view: 38° above the board, turned 45° so the squares read as diamonds, close in on the fight
-const PITCH = .66;
-// the play view's distance, as a share of the one that fits a whole 6 × 8 board: closer on a tall screen, where the
-// board's diagonal is wider than the screen anyway
-const playZoom = () => innerHeight > innerWidth ? .5 : .62;
+// the play view: straight up the board from the party's side, 57° above it, close in on the fight. A close-up drops
+// lower and swings side-on (camPitch, camY: the height the camera looks at)
+const PITCH = 1, CLOSE_PITCH = .5;
+let camPitch = PITCH, camPitchT = PITCH, camY = .1, camYT = .1;
+// the play view's distance, as a share of the one that fits a whole 6 × 8 board
+const playZoom = () => innerHeight > innerWidth ? .82 : .52;
 
 // environment map: a dim crypt with warm torch panels, so metal, gems and dice catch reflections
 {

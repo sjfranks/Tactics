@@ -531,6 +531,18 @@ body{font-family:var(--body)}
 #floorBtn b{font:800 19px/1 var(--body);color:#f0c070;font-variant-numeric:tabular-nums}
 #floorBtn small{font:800 7.5px/1.4 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--tarnish)}
 #floorBtn button:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+/* experience: the +XP that floats off a hero, the level bars after a victory and on a hero's sheet */
+.float.xp{font-family:var(--body);font-size:14px;font-weight:800;letter-spacing:.04em;color:#d4b4ff;text-shadow:0 1px 0 #000,0 0 8px rgba(120,60,200,.8)}
+.xpl{display:flex;flex-direction:column;gap:8px;margin:6px 0 12px}
+.xpr{display:flex;gap:9px;align-items:flex-start}
+.xpr .rf{flex:none;width:30px;height:30px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 1px var(--tarnish)}.xpr .rf img{width:100%;height:100%;object-fit:cover}
+.xpr.up .rf{box-shadow:0 0 0 2px #c8a0ff,0 0 10px rgba(180,120,255,.7)}
+.xpb{flex:1;min-width:0}
+.xpt{display:flex;align-items:baseline;gap:8px;font:800 13px/1.2 var(--body);color:var(--bone)}.xpt span{color:var(--tarnish)}.xpt em{margin-left:auto;font-style:normal;color:#d4b4ff}
+.xpb .bar,.cs-lv .bar{display:block;height:5px;margin-top:4px;border-radius:3px;background:#2a221c;overflow:hidden}
+.xpb .bar i,.cs-lv .bar i{display:block;height:100%;background:linear-gradient(90deg,#7a4ad0,#c8a0ff)}
+.lvup{margin:5px 0 0!important;font:600 12.5px/1.35 var(--body);color:#e8dcff!important}.lvup b{color:#fff}
+.cs-lv{margin:8px 0 4px}.cs-lv b{font:800 13px/1 var(--body);color:#d4b4ff}.cs-lv small{display:block;margin-top:3px;font:600 11.5px/1.3 var(--body);color:var(--bone-dim)}
 </style>
 
 <div id="app">
@@ -617,6 +629,7 @@ body{font-family:var(--body)}
       <div class="setl">
         <button class="mi on" id="muteBtn"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg><span>Sound</span><i class="sw"></i></button>
         <button class="mi on" id="musicBtn"><svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg><span>Music</span><i class="sw"></i></button>
+        <button class="mi on" id="cineBtn"><svg viewBox="0 0 24 24"><path d="M3 7h13v10H3z"/><path d="M16 10l5-3v10l-5-3"/></svg><span>Battle close-ups</span><i class="sw"></i></button>
         <button class="mi on" id="barkBtn"><svg viewBox="0 0 24 24"><path d="M4 5h16v10H9l-5 4z"/></svg><span>Banter</span><i class="sw"></i></button>
         <button class="mi" id="styleBtn"><svg viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 22V12M3 7l9 5 9-5"/></svg><span>Model style</span><em id="styleLbl" class="sv">Painted</em></button>
         <button class="mi" id="speedBtn"><svg viewBox="0 0 24 24"><path d="M4 6l7 6-7 6zM13 6l7 6-7 6z"/></svg><span>Game speed</span><em id="speedLbl" class="sv">Normal</em></button>
@@ -652,6 +665,8 @@ body{font-family:var(--body)}
       <h3>The campaign</h3>
       <ul>
         <li>After each victory the party makes camp and picks one of three <b>boons</b>: a better weapon, tougher armour, more health, a faster cooldown, Healing Draughts for everyone. Boons last the rest of the campaign; each hero's sheet lists theirs.</li>
+        <li><b>Experience:</b> in the campaign each hero earns a little XP for every action: 6 for a hit, 14 more for each foe slain, 6 for a heal, 4 for a helping spell, and 20 for still standing at a victory. 100 XP is a level, and each level adds 2 max HP. Levels 2, 3 and 4 each teach a new power: Brakka learns Shield Bash, Execute and War Cry; Sister Wenna Smite, Ward and Prayer of Mending; Orlen Chain Lightning, Mana Shield and Blink; Vex Throwing Knives, Poisoned Blade and Smoke Bomb. The hero's sheet shows how close the next level is.</li>
+        <li><b>Battle close-ups:</b> when an attack, a spell or a heal is locked in, the camera swings in to watch it land, then goes back. Settings turns them off; tapping during the goblins' turn skips them.</li>
         <li><b>Healing Draught</b>: one a battle. Drink it, or pour it for a friend beside you, to heal 2d4.</li>
         <li>The campaign saves itself in this browser after every move. Close the page and come back to the same turn.</li>
         <li><b>Settings</b> has the difficulty (goblins have 75%, 100% or 125% of their health; it counts from the next battle), game speed, music, banter, and a new campaign.</li>

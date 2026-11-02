@@ -19,6 +19,8 @@ function applyStatus(u, k, on, instant) {
     u.st.prone = on; if (on) proneNow(u); else standNow(u); updateTag(u); return null;
   }
   if (k === 'rebuked') return setRebuked(u, on ? 1 : 0);
+  if (k === 'warded') return setGlow(u, k, on, 0x6ab8ff, .55);
+  if (k === 'poisoned') return setGlow(u, k, on, 0x8ae04a, .3);
   const f = { hidden: setHidden, blessed: setBlessed, hasted: setHasted, frozen: setFrozen, taunt: setTaunt }[k];
   return f ? f(u, on) : null;
 }
@@ -134,6 +136,14 @@ async function pushFx(e) {
 // the rope hook: a line to the square, and a swing over whatever lies between
 async function swingFx(e) {
   const u = vu(e.id); if (!u) return; const cell = e.to;
+  if (e.style === 'blink') { // Blink: a flash where the mage stood, and another where she appears
+    const a = u.root.position.clone(), b = cellPos(cell.c, cell.r, cell.l);
+    sfx('frost'); burst(a.clone().setY(a.y + .5), [0xc8a0ff, 0xffffff, 0x8a6aff], 26, 1.4, .2, .6, { up: .4 });
+    u.piece.visible = false; await wait(200);
+    u.root.position.copy(b); u.c = cell.c; u.r = cell.r; u.l = cell.l || 0;
+    u.piece.visible = !viewHides(u); burst(b.clone().setY(b.y + .5), [0xc8a0ff, 0xffffff, 0x8a6aff], 26, 1.4, .2, .6, { up: .4 });
+    setView(viewFor(u)); return;
+  }
   sfx('whoosh');
   const a = u.root.position.clone(), b = cellPos(cell.c, cell.r, cell.l), lift = .6 + Math.abs(b.y - a.y) * .3;
   const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a.clone().setY(a.y + .6), b.clone().setY(b.y + .05)]), new THREE.LineBasicMaterial({ color: 0xd8c8a0 }));
@@ -225,7 +235,7 @@ async function showDice(e) {
   (e.bonus || []).forEach(b => addChip(b, 'bonus'));
   for (let row = 0; row < R.rows.length; row++) {
     const { vals, drops } = R.rows[row], hold = dis && row === 0, outs = vals.map(() => ({})), chips = [];
-    const spots = diceSpots(vals.length, center.clone().addScaledVector(camToward(), .9));
+    const spots = diceSpots(vals.length, cine && cine.away ? center.clone().addScaledVector(cine.away, 1.1) : center.clone().addScaledVector(camToward(), .9)); // in a close-up, beside the target
     if (row === 0) rollAt = spots.reduce((a, v) => a.add(v), new V3()).multiplyScalar(1 / spots.length);
     await Promise.all(vals.map((v, i) => wait(i * 50).then(() => throwDie(sides, sname, spots[i], outs[i], hold || noCrit, v)).then(() => { chips[i] = addChip(v, (!hold && !noCrit && v === sides ? 'crit' : '') + (dis ? ' bad' : '')); })));
     if (hold) await wait(120);

@@ -27,13 +27,45 @@ function frameTwo(a, b) {
 }
 async function aimAt(u, target, kind) {
   if (!target || target === u) return;
-  const tp = target.root ? target.root.position : cellPos(target.c, target.r);
+  const tp = target.root ? target.root.position : cellPos(target.c, target.r, target.l);
   showReticle(target.root ? target : { root: { position: tp }, def: {} }, kind);
+  if (closeUp(u.root.position, tp)) { await wait(520); return; } // the camera swings in before the blow
   const z0 = zoomT, x0 = camTX, z0c = camTZ; frameTwo(u.root.position, tp);
   const moved = Math.abs(zoomT - z0) > .05 || Math.hypot(camTX - x0, camTZ - z0c) > .6;
   await wait(moved ? 420 : 140);
 }
-function endAim() { hideReticle(); if (aimZoom !== null) { zoomT = aimZoom; aimZoom = null; } }
+function endAim() {
+  hideReticle(); if (aimZoom !== null) { zoomT = aimZoom; aimZoom = null; }
+  if (cine) return wait(380).then(endCloseUp); // hold on the blow a moment, then pull back
+}
+// ---------------- battle close-ups ----------------
+// when an attack, a spell or a heal is locked in, the camera drops low and swings side-on to the two figures, close
+// enough to see the blow land, then goes back to where it was. Settings turns it off; fast-forward skips it
+let closeUps = true, cine = null; // cine: the camera before the close-up
+try { closeUps = localStorage.getItem('gc-closeups') !== '0'; } catch (e) { }
+function closeUp(a, b) {
+  if (!closeUps || ffwd || QUIET || REDUCED) return false;
+  if (!cine) cine = { x: camTX, z: camTZ, az: camAzT, zoom: zoomT, pitch: camPitchT, y: camYT };
+  follow = null;
+  const dx = b.x - a.x, dz = b.z - a.z, span = Math.hypot(dx, dz), line = Math.atan2(dx, dz);
+  // side-on to the line between them: from the side with fewer figures in the way, else the one nearer the way the
+  // camera already looks
+  const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+  const inWay = az => liveUnits().filter(u => { const p = u.root.position, vx = p.x - mx, vz = p.z - mz, along = vx * Math.sin(az) + vz * Math.cos(az), across = Math.abs(vx * Math.cos(az) - vz * Math.sin(az)); return along > .5 && along < 3.5 && across < Math.max(1.2, span / 2 + .3); }).length;
+  const side = [line + Math.PI / 2, line - Math.PI / 2].sort((p, q) => (inWay(p) - inWay(q)) || (Math.abs(angDiff(camAz, p)) - Math.abs(angDiff(camAz, q))))[0];
+  cine.away = new V3(dx, 0, dz).normalize(); // the dice land on the far side of the target
+  camAzT = camAz - angDiff(camAz, span > .1 ? side : camAz);
+  camPitchT = CLOSE_PITCH; camYT = (a.y + b.y) / 2 + .45;
+  camTX = (a.x + b.x) / 2; camTZ = (a.z + b.z) / 2;
+  const { W, vH } = frameGeom(), hf = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * W / vH);
+  const want = (Math.max(span, 1) + 2.6) / 2 / Math.tan(hf / 2); // both figures and a square either side
+  zoomT = Math.max(.22, want / boardDist(camAzT, camPitchT));
+  return true;
+}
+function endCloseUp() {
+  if (!cine) return; const c = cine; cine = null;
+  camTX = c.x; camTZ = c.z; camAzT = c.az; zoomT = c.zoom; camPitchT = c.pitch; camYT = c.y; clampCam();
+}
 // ---------------- the event player ----------------
 // The rules settle an order in an instant and return the story of what happened, a list of events. The table plays
 // them back one after another, each as animation, dice, sound and text; a handler that returns a promise holds the
@@ -43,6 +75,7 @@ const PLAY = {
   note: e => roNote(e.text, e.cls),
   combo: e => combo(e.text, e.cls),
   float: e => { const u = vu(e.id); if (u) floatOn(u, e.text, e.cls, e.sub); },
+  xp: e => { const u = vu(e.id); if (u && !QUIET) floatAt(u.root.position.clone().setY(u.root.position.y + u.h + .45), `+${e.amount} XP`, 'xp'); },
   wait: e => wait(e.ms),
   sfx: e => sfx(e.name),
   shake: e => shake(e.amt),
@@ -261,6 +294,21 @@ function campaignReport() {
   const rows = ['fighter', 'cleric', 'mage', 'thief'].filter(k => CAMP.tally[k]).map(k => ({ kind: k, name: GC.UNITS[k].name, s: CAMP.tally[k] }));
   return rows.length ? `<h3>The whole campaign · ${CAMP.battles} battle${CAMP.battles === 1 ? '' : 's'} fought</h3>` + tallyTable(rows, '★ Hero of the campaign') : '';
 }
+// a won battle's experience joins each hero's growth: [{ kind, name, gained, lv, xp, ups: [{ lv, power }] }]
+function applyXp() {
+  return G.S.units.filter(u => u.side === 'hero' && G.S.stats[u.id]).map(u => {
+    const g = CAMP.growth[u.kind] || (CAMP.growth[u.kind] = { lv: 1, xp: 0 }), gained = G.S.stats[u.id].xp, ups = GC.gainXp(g, u.kind, gained);
+    return { kind: u.kind, name: u.name, gained, lv: g.lv, xp: g.xp, ups };
+  });
+}
+// the experience each hero earned: a bar toward the next level, and any level gained with the power it brings
+function xpReport(rows) {
+  if (!rows.length) return '';
+  const X = GC.TUNE.xp, any = rows.some(r => r.ups.length);
+  if (any) setTimeout(() => sfx('win'), 900);
+  return `<h3>Experience</h3><div class="xpl">${rows.map(r => `<div class="xpr${r.ups.length ? ' up' : ''}"><span class="rf">${face(r.kind)}</span><div class="xpb"><div class="xpt"><b>${r.name.replace('Sister ', '')}</b><span>Lv ${r.lv}</span><em>+${r.gained} XP</em></div><span class="bar"><i style="width:${r.lv >= X.max ? 100 : r.xp / X.level * 100}%"></i></span>${r.ups.map(u => `<p class="lvup">Level ${u.lv}! +${X.hp} max HP${u.power ? ` · learns <b>${CARDS[u.power].name}</b>: ${CARDS[u.power].text.replace('{die}', diceText(u.power))}` : ''}</p>`).join('')}</div></div>`).join('')}</div>`;
+}
+const diceText = id => { const c = CARDS[id], n = c.n || 1; return c.weapon ? 'its weapon die' : c.die ? (n > 1 ? n : '') + 'd' + c.die : ''; };
 function gameOver(win) {
   UI.over = true; UI.phase = 'over'; UI.sel = null; UI.card = null; UI.active = null; UI.inspect = null; UI.intents = []; refresh();
   if (win) heroes().forEach((h, i) => wait(300 + i * 140).then(() => { faceViewer(h); playClip(h, 'cheer'); }));
@@ -270,6 +318,7 @@ function gameOver(win) {
   if (free) return freeOver(win, rounds, L, rep);
   // the campaign moves on at once (closing the page during the closing scene keeps the result)
   addTally(); CAMP.state = null;
+  const xpRep = win ? xpReport(applyXp()) : '';
   const campRep = win && last ? campaignReport() : '';
   if (win && !last) { CAMP.level = level + 1; CAMP.offer = GC.offerBoons(CAMP.boons); }
   if (win && last) CAMP = freshCamp(CAMP.diff); // the campaign is won: the next visit starts a new one
@@ -284,12 +333,12 @@ function gameOver(win) {
     if (win && last) {
       t.textContent = 'The Goblin King Falls'; t.className = 'win';
       $('#endText').textContent = `Grubnash's crown rolls across the flagstones and the crypt is yours. ${listOf(up)} walk${up.length === 1 ? 's' : ''} out into the daylight${down.length ? `, carrying ${listOf(down)}` : ''}.`;
-      $('#endReport').innerHTML = rep + campRep;
+      $('#endReport').innerHTML = xpRep + rep + campRep;
       btn.textContent = 'New campaign'; endAction = newCampaign; sfx('win');
     } else if (win) {
       t.textContent = 'Victory'; t.className = 'win';
       $('#endText').textContent = `${L.name} is cleared in ${rounds} round${rounds > 1 ? 's' : ''}. ${down.length ? `${listOf(down)} ${down.length > 1 ? 'are' : 'is'} carried from the field and back on their feet by nightfall. ` : ''}The party makes camp before ${LEVELS[level].name}.`;
-      $('#endReport').innerHTML = rep;
+      $('#endReport').innerHTML = xpRep + rep;
       offerBoons(() => loadLevel(level), 'March on'); sfx('crit');
     } else {
       const n = units.filter(u => u && u.alive && u.side === 'gob').length;

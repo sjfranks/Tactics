@@ -6,7 +6,7 @@
 const path = require('path');
 const GC = require(path.resolve(process.argv[4] || path.join(__dirname, '../js/rules.js')));
 const N = +process.argv[2] || 200, ONLY = process.argv[3] && process.argv[3] !== 'all' ? +process.argv[3] : null;
-const KNOWN = new Set(['rout', 'log', 'note', 'combo', 'float', 'wait', 'sfx', 'shake', 'fx', 'face', 'faceDir', 'cast', 'aim', 'endAim', 'status', 'par', 'roll', 'total', 'verdict', 'strike', 'miss', 'damage', 'kill', 'down', 'wake', 'fall', 'burn', 'ice', 'move', 'push', 'swing', 'shot', 'sweep', 'heal', 'smashMark', 'smashClear', 'smash', 'flinch', 'banner', 'spawn', 'turn', 'idle', 'clearDice', 'round', 'player', 'end']);
+const KNOWN = new Set(['rout', 'log', 'note', 'combo', 'float', 'wait', 'sfx', 'shake', 'fx', 'face', 'faceDir', 'cast', 'aim', 'endAim', 'status', 'par', 'roll', 'total', 'verdict', 'strike', 'miss', 'damage', 'kill', 'down', 'wake', 'fall', 'burn', 'ice', 'move', 'push', 'swing', 'shot', 'sweep', 'heal', 'smashMark', 'smashClear', 'smash', 'flinch', 'banner', 'spawn', 'turn', 'idle', 'clearDice', 'round', 'player', 'end', 'xp']);
 
 const DMG = {};
 let lastLabel = '';
@@ -69,6 +69,17 @@ function options(B, u) {
     } else if (id === 'f_taunt') {
       const near = foes.filter(g => B.dist(g, u) <= 4).length, soft = B.heroes().filter(h => h !== u && h.hp < h.maxHp * .5).length;
       if (near >= 2 && soft) opts.push({ v: 1.5 + soft, id, target: u.id });
+    } else if (id === 'f_cry') { // powers learned by levelling up: bless the heroes about to act
+      const n = allyLater.filter(h => B.dist(h, u) <= 3 && !h.st.blessed).length; if (n >= 2) opts.push({ v: 1.2 + n * .6, id, target: u.id });
+    } else if (id === 'c_prayer') {
+      const avg = B.cardN(u, id) * (B.cardDie(u, id) + 1) / 2; let v = 0; for (const h of B.heroes()) if (B.dist(h, u) <= 2) v += Math.min(avg, h.maxHp - h.hp);
+      if (v >= 4) opts.push({ v: v * 1.1, id, target: u.id });
+    } else if (id === 'c_ward') {
+      for (const [k, e] of tg) { const t = B.U(e.unit); if (e.path || t.st.warded) continue; const near = foes.filter(g => B.dist(g, t) <= 2).length; if (near) opts.push({ v: 1 + near * .7, id, target: t.id }); }
+    } else if (id === 'm_shield') {
+      const near = foes.filter(g => B.dist(g, u) <= 2).length; if (near && !u.st.warded) opts.push({ v: 1 + near * .8, id, target: u.id });
+    } else if (id === 't_smoke') {
+      const n = B.heroes().filter(h => (h === u || B.dist(h, u) === 1) && !h.st.hidden).length; if (n >= 2) opts.push({ v: 1 + n * .6, id, target: u.id });
     } else if (id === 't_hide') {
       if (!u.st.hidden && u.ap >= 2) opts.push({ v: 1.2, id, target: u.id });
     } else if (id === 'f_grab') {
@@ -124,11 +135,12 @@ function boonsFor(level, seed) {
   return GC.partyBoons(level, rnd);
 }
 function play(level, seed, stats) {
-  const S = GC.newState(level, seed, { boons: boonsFor(level, seed), diff: process.env.DIFF }), B = GC.battle(S);
+  const S = GC.newState(level, seed, { boons: boonsFor(level, seed), diff: process.env.DIFF, growth: process.env.LV0 ? null : GC.partyGrowth(level), xp: true }), B = GC.battle(S);
   check(B, B.begin(), 'begin');
   for (let k = 0; k < 2000 && !S.result; k++) heroTurn(B, stats);
   const hs = S.units.filter(u => u.side === 'hero');
   if (GC.LEVELS[S.level].rout && S.result === 'win') { stats.kingRound = (stats.kingRound || []); stats.kingRound.push(S.kingDied || S.round); }
+  stats.xp = (stats.xp || []); for (const u of S.units) if (u.side === 'hero') stats.xp.push(S.stats[u.id].xp);
   return { win: S.result === 'win', rounds: S.round, downs: hs.filter(h => h.down).length, hpLeft: hs.reduce((a, h) => a + (h.down ? 0 : h.hp), 0) / hs.reduce((a, h) => a + h.maxHp, 0), horns: S.horns, totalDowns: Object.values(S.stats).reduce((a, s) => a + s.downs, 0) };
 }
 // run N battles of one level and sum them up (also used by other tools: require('./sim.js').batch)
@@ -150,6 +162,7 @@ for (const lv of levels) {
   console.log(`    rounds: wins median ${med(wr)}, losses median ${med(lr)}, capped ${res.filter(r => r.rounds >= 99).length}`);
   console.log(`L${lv + 1} ${GC.LEVELS[lv].name.padEnd(20)} win ${(avg(r => r.win) * 100).toFixed(0).padStart(3)}%  rounds ${avg(r => r.rounds).toFixed(1)}  hp left ${(avg(r => r.hpLeft) * 100).toFixed(0)}%  downs ${avg(r => r.totalDowns).toFixed(2)}  ${((Date.now() - t0) / N).toFixed(0)}ms/battle`);
   if (process.env.DMG) { console.log('    damage to heroes per battle:', Object.entries(DMG).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${(v / N).toFixed(1)}`).join(' · ')); for (const k in DMG) delete DMG[k]; }
+  if (stats.xp) { const x = stats.xp; console.log('    xp per hero per battle: mean', (x.reduce((a, b) => a + b, 0) / x.length).toFixed(0), ' (a level is', GC.TUNE.xp.level + ')'); }
   if (stats.kingRound) { const k = stats.kingRound.sort((a, b) => a - b); console.log('    king falls in round: median', k[k.length >> 1], ' p25', k[k.length >> 2], ' p75', k[(k.length * 3) >> 2]); }
   if (process.env.USES) console.log('   ', Object.entries(stats.uses).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${(v / N).toFixed(1)}`).join(' · '));
 }

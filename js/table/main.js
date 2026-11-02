@@ -4,10 +4,9 @@
 // ---------------- camera & loop ----------------
 let topH = 80, dockH = 220;
 function measure() { topH = $('#top').getBoundingClientRect().bottom + 16; dockH = $('#dock').offsetHeight + 34; document.documentElement.style.setProperty('--dk', ($('#dock').offsetHeight + 4) + 'px'); }
-// the camera looks along the board's diagonal from the south-east corner: the party (south) sits bottom left, the
-// goblins (north) top right, on a tall screen or a wide one
+// the camera looks up the board from the south: the party at the bottom, the goblins at the top, on any screen
 let baseAzLast = null;
-const baseAz = () => Math.PI / 4;
+const baseAz = () => 0;
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
   const b = baseAz(); if (baseAzLast === null) { camAz = camAzT = b; } else if (b !== baseAzLast) camAzT += angDiff(b, baseAzLast); baseAzLast = b;
@@ -24,21 +23,30 @@ function focusOn(p) {
   if (x > innerWidth * .2 && x < innerWidth * .8 && y > top + mh && y < bot - mh) return;
   camTX = p.x; camTZ = p.z; clampCam();
 }
-function updateCamera() {
-  const W = innerWidth, H = innerHeight;
-  const avail = Math.max(140, H - topH - dockH);
+// the frame between the top bar and the dock, as the camera sees it
+function frameGeom() {
+  const W = innerWidth, H = innerHeight, avail = Math.max(140, H - topH - dockH);
   const yc = topH + avail / 2, s = H / 2 - yc, vH = H + 2 * Math.abs(s), y0 = vH / 2 - yc;
-  camera.aspect = W / vH; camera.setViewOffset(W, vH, 0, y0, W, H);
-  const ppt = vH / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
-  const ca = Math.abs(Math.cos(camAz)), sa = Math.abs(Math.sin(camAz)), VC = Math.min(COLS, VIEWC), VR = Math.min(ROWS, VIEWR);
-  const ex = VC * ca + VR * sa + .08, ez = VC * sa + VR * ca + .08, cp = Math.cos(PITCH), sp = Math.sin(PITCH);
+  return { W, H, avail, vH, y0, ppt: vH / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) };
+}
+// how far back the camera stands to fit a whole 6 × 8 board (a bigger map pans), looking from az at pitch
+function boardDist(az = camAz, pitch = camPitch) {
+  const { W, avail, ppt } = frameGeom();
+  const ca = Math.abs(Math.cos(az)), sa = Math.abs(Math.sin(az)), VC = Math.min(COLS, VIEWC), VR = Math.min(ROWS, VIEWR);
+  const ex = VC * ca + VR * sa + .08, ez = VC * sa + VR * ca + .08, cp = Math.cos(pitch), sp = Math.sin(pitch);
   const dW = (ex / 2) * ppt / (W / 2) + (ez / 2) * cp;
   const dH = ((ez / 2) * sp + .25) * ppt / (avail / 2) + (ez / 2) * cp * .45;
-  const d = Math.max(dW, dH) * zoom * (1 - (REDUCED ? 0 : kick)); // a crit or a king's fall leans the camera in
-  camera.position.set(camX + Math.sin(camAz) * cp * d, sp * d, camZ + Math.cos(camAz) * cp * d);
+  return Math.max(dW, dH);
+}
+function updateCamera() {
+  const { W, H, vH, y0 } = frameGeom();
+  camera.aspect = W / vH; camera.setViewOffset(W, vH, 0, y0, W, H);
+  const cp = Math.cos(camPitch), sp = Math.sin(camPitch);
+  const d = boardDist() * zoom * (1 - (REDUCED ? 0 : kick)); // a crit or a king's fall leans the camera in
+  camera.position.set(camX + Math.sin(camAz) * cp * d, camY + sp * d, camZ + Math.cos(camAz) * cp * d);
   if (shakeAmt > .002) { camera.position.add(new V3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(shakeAmt)); shakeAmt *= .84; }
   camera.near = Math.max(.5, d * .3); camera.far = d + 40; // a near plane close to the board keeps depth precise on phones
-  camera.lookAt(camX, .1, camZ); camera.updateProjectionMatrix();
+  camera.lookAt(camX, camY, camZ); camera.updateProjectionMatrix();
   scene.fog.near = d + 3; scene.fog.far = d + 16;
 }
 const tmpV = new V3();
@@ -59,6 +67,7 @@ function frame(t) {
   if (t > 3000) adaptPerf(dt);
   const v0 = vnow; runTweens(raw); const dv = (vnow - v0) / 1000;
   camAz += (camAzT - camAz) * Math.min(1, dt * 7);
+  camPitch += (camPitchT - camPitch) * Math.min(1, dt * 6); camY += (camYT - camY) * Math.min(1, dt * 6);
   if (follow) { camTX = follow.root.position.x; camTZ = follow.root.position.z; clampCam(); } // keep a moving piece in the middle
   camX += (camTX - camX) * Math.min(1, dt * 6); camZ += (camTZ - camZ) * Math.min(1, dt * 6);
   zoom += (zoomT - zoom) * Math.min(1, dt * 6); kick += (0 - kick) * Math.min(1, dt * 4);

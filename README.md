@@ -15,6 +15,8 @@ A tabletop tactics game on a 3D board. Four heroes (Brakka the fighter, Sister W
 - **Planning:** foe intent arrows show whom each goblin means to strike or where it would walk; the odds over each target show the damage to expect and the chance to finish it.
 - **Down, not dead:** a hero at 0 HP lies where they fell until Heal raises them. The battle is lost only when every hero is down.
 - **Undo** takes back moves and abilities that rolled no dice. Dice are final.
+- **Experience:** in the campaign, heroes earn a little XP for every action (a hit, a kill, a heal, a helping spell) and for standing at a victory. Each 100 XP is a level (+2 max HP), and levels 2, 3 and 4 each teach a hero a new power: twelve in all, three each, such as Shield Bash, Smite, Chain Lightning and Throwing Knives. A hero's sheet shows how close the next level is.
+- **The camera** looks up the board from the party's side, close in, and pans; when an attack, spell or heal is locked in it swings in low for a close-up of the blow, then goes back (Settings turns close-ups off).
 - **The campaign:** after each victory the party makes camp and picks one of three **boons** (a reforged blade, a shield, Healing Draughts for everyone, faster prayers...). Boons last the rest of the campaign. The campaign saves itself in the browser after every move, so you can close the page and come back to the same turn.
 - **Settings:** difficulty (goblins have 75%, 100% or 125% of their health), game speed, music, banter, model style, a new campaign.
 - **Dialogue:** the party and the goblins trade words before and after each battle, and figures call out in the fight.
@@ -52,7 +54,7 @@ Every number lives in the tables at the top of `js/rules.js`: `TUNE`, `UNITS`, `
 node tools/sim.js 500 all     # battles per level, all levels (or a level index)
 ```
 
-On Normal, with 400 battles per level, the bot wins about 100%, 98%, 96%, 86% and 76% of the five campaign battles, and 80% of the Reeve's House with its two boons (runs vary by a few points). The bot ignores foe intents and plays one action at a time, so people do better.
+On Normal, with 400 battles per level and the levels a party would have reached by then, the bot wins about 100%, 98%, 98%, 89% and 80% of the five campaign battles, and 90% of the Reeve's House (runs vary by a few points). `LV0=1` fights without the levels. The bot ignores foe intents and plays one action at a time, so people do better.
 
 ## Archive
 
