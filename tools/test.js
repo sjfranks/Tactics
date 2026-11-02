@@ -247,8 +247,8 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     const pitch0 = await p.evaluate(() => camPitchT);
     await tapCell(2, 5);
     await p.waitForFunction(() => cine !== null, null, { timeout: 5000 }).catch(() => {});
-    const mid = await p.evaluate(() => ({ cine: !!cine, pitch: camPitchT, zoom: zoomT }));
-    ok(mid.cine && mid.pitch < pitch0 && mid.zoom < .6, `the camera drops low and close (pitch ${mid.pitch.toFixed(2)}, zoom ${mid.zoom.toFixed(2)})`);
+    const mid = await p.evaluate(() => ({ cine: !!cine, pitch: camPitchT, zoom: zoomT, az: angDiff(camAzT, 0) }));
+    ok(mid.cine && mid.pitch < pitch0 && mid.zoom < 1 && Math.abs(mid.az) < .01, `the camera cuts in low behind Brakka (pitch ${mid.pitch.toFixed(2)}, zoom ${mid.zoom.toFixed(2)})`);
     await idle();
     ok(await p.evaluate(p0 => !cine && camPitchT === p0, pitch0), 'and goes back to the play view after');
   }

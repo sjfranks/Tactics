@@ -39,35 +39,45 @@ function endAim() {
   if (cine) return wait(380).then(endCloseUp); // hold on the blow a moment, then pull back
 }
 // ---------------- battle close-ups ----------------
-// when an attack, a spell or a heal is locked in, its dice are thrown first; then the camera drops low and swings side-on to the two figures, close
-// enough to see the blow land, then goes back to where it was. Settings turns it off; fast-forward skips it
+// when an attack, a spell or a heal is locked in, its dice are thrown first; then the camera cuts in low over the
+// attacker's shoulder to watch the blow land, and cuts back. Settings turns it off; fast-forward skips it
 let closeUps = true, cine = null, pendingClose = null; // cine: the camera before the close-up; pendingClose: the two it will frame
-// the dice have been thrown and the result called: swing in, then play the blow (fn) as it fell
-const afterRoll = fn => e => { const p = pendingClose; pendingClose = null; if (!p || !closeUp(p[0], p[1])) return fn(e); clearDice(); return wait(520).then(() => fn(e)); }; // the readout keeps the numbers
+// the dice have been thrown and the result called: cut in, then play the blow (fn) as it fell
+const afterRoll = fn => e => { const p = pendingClose; pendingClose = null; if (!p || !closeUp(p[0], p[1])) return fn(e); clearDice(); return wait(60).then(() => fn(e)); }; // the readout keeps the numbers
 try { closeUps = localStorage.getItem('gc-closeups') !== '0'; } catch (e) { }
 function closeUp(a, b) {
   if (!closeUps || ffwd || QUIET || REDUCED) return false;
   if (!cine) cine = { x: camTX, z: camTZ, az: camAzT, zoom: zoomT, pitch: camPitchT, y: camYT };
   follow = null;
-  const dx = b.x - a.x, dz = b.z - a.z, span = Math.hypot(dx, dz), line = Math.atan2(dx, dz);
-  // side-on to the line between them: from the side with fewer figures in the way, else the one nearer the way the
-  // camera already looks
-  const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
-  const inWay = az => liveUnits().filter(u => { const p = u.root.position, vx = p.x - mx, vz = p.z - mz, along = vx * Math.sin(az) + vz * Math.cos(az), across = Math.abs(vx * Math.cos(az) - vz * Math.sin(az)); return along > .5 && along < 3.5 && across < Math.max(1.2, span / 2 + .3); }).length;
-  const side = [line + Math.PI / 2, line - Math.PI / 2].sort((p, q) => (inWay(p) - inWay(q)) || (Math.abs(angDiff(camAz, p)) - Math.abs(angDiff(camAz, q))))[0];
-  cine.away = new V3(dx, 0, dz).normalize(); // the dice land on the far side of the target
-  camAzT = camAz - angDiff(camAz, span > .1 ? side : camAz);
-  camPitchT = CLOSE_PITCH; camYT = (a.y + b.y) / 2 + .45;
-  camTX = (a.x + b.x) / 2; camTZ = (a.z + b.z) / 2;
+  const dx = b.x - a.x, dz = b.z - a.z, span = Math.hypot(dx, dz);
+  // over the attacker's shoulder: behind them on the line from the target, looking past them at it (like Fire Emblem)
+  const az = span > .1 ? Math.atan2(-dx, -dz) : camAz, rx = Math.cos(az), rz = -Math.sin(az);
+  camAzT = camAz - angDiff(camAz, az); camPitchT = CLOSE_PITCH; camYT = (a.y + b.y) / 2 + .5;
+  const k = Math.min(.62, .5 + .03 * span), tall = innerHeight > innerWidth, off = tall ? .6 : .45; // the look-point sits between them, nearer the target
+  camTX = a.x + dx * k + rx * off; camTZ = a.z + dz * k + rz * off; // to one side, so the attacker doesn't hide the target
+  cine.away = new V3(rx, 0, rz); // anything set down lands beside the target, not in front of the lens
+  if (tall) camPitchT = CLOSE_PITCH + .25; // a narrow frame looks down over the shoulder, so the target stays clear
+  // near enough to feel the blow, far enough that the frame is at least three squares wide
   const { W, vH } = frameGeom(), hf = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * W / vH);
-  const want = (Math.max(span, 1) + 2.6) / 2 / Math.tan(hf / 2); // both figures and a square either side
-  zoomT = Math.max(.22, want / boardDist(camAzT, camPitchT));
+  zoomT = Math.max(.2, Math.max(span * .9 + 3.2, 1.5 / Math.tan(hf / 2)) / boardDist(camAzT, camPitchT));
+  // bystanders between the lens and the attacker step out of the shot until it ends
+  cine.hid = liveUnits().filter(u => {
+    const p = u.root.position; if (p.distanceTo(a) < .1 || p.distanceTo(b) < .1 || !u.piece.visible) return false;
+    const vx = p.x - a.x, vz = p.z - a.z, along = vx * Math.sin(az) + vz * Math.cos(az), across = Math.abs(vx * rx + vz * rz);
+    return along > -.4 && across < 2.2;
+  });
+  cine.hid.forEach(u => { u.piece.visible = false; u.tag.style.visibility = 'hidden'; });
+  snapCam(); // a cut, not a swing
   return true;
 }
 function endCloseUp() {
   if (!cine) return; const c = cine; cine = null;
+  (c.hid || []).forEach(u => { if (u.alive) u.piece.visible = !viewHides(u); u.tag.style.visibility = ''; });
   camTX = c.x; camTZ = c.z; camAzT = c.az; zoomT = c.zoom; camPitchT = c.pitch; camYT = c.y; clampCam();
+  snapCam(); // and a cut back
 }
+// jump the camera to where it is heading, with no glide
+function snapCam() { camAz = camAzT; camPitch = camPitchT; camY = camYT; camX = camTX; camZ = camTZ; zoom = zoomT; }
 // ---------------- the event player ----------------
 // The rules settle an order in an instant and return the story of what happened, a list of events. The table plays
 // them back one after another, each as animation, dice, sound and text; a handler that returns a promise holds the
