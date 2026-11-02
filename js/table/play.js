@@ -29,19 +29,21 @@ async function aimAt(u, target, kind) {
   if (!target || target === u) return;
   const tp = target.root ? target.root.position : cellPos(target.c, target.r, target.l);
   showReticle(target.root ? target : { root: { position: tp }, def: {} }, kind);
-  if (closeUp(u.root.position, tp)) { await wait(520); return; } // the camera swings in before the blow
+  if (closeUps && !ffwd && !QUIET && !REDUCED) { pendingClose = [u.root.position.clone(), tp.clone()]; await wait(140); return; } // the dice first; the close-up waits for the blow
   const z0 = zoomT, x0 = camTX, z0c = camTZ; frameTwo(u.root.position, tp);
   const moved = Math.abs(zoomT - z0) > .05 || Math.hypot(camTX - x0, camTZ - z0c) > .6;
   await wait(moved ? 420 : 140);
 }
 function endAim() {
-  hideReticle(); if (aimZoom !== null) { zoomT = aimZoom; aimZoom = null; }
+  hideReticle(); pendingClose = null; if (aimZoom !== null) { zoomT = aimZoom; aimZoom = null; }
   if (cine) return wait(380).then(endCloseUp); // hold on the blow a moment, then pull back
 }
 // ---------------- battle close-ups ----------------
-// when an attack, a spell or a heal is locked in, the camera drops low and swings side-on to the two figures, close
+// when an attack, a spell or a heal is locked in, its dice are thrown first; then the camera drops low and swings side-on to the two figures, close
 // enough to see the blow land, then goes back to where it was. Settings turns it off; fast-forward skips it
-let closeUps = true, cine = null; // cine: the camera before the close-up
+let closeUps = true, cine = null, pendingClose = null; // cine: the camera before the close-up; pendingClose: the two it will frame
+// the dice have been thrown and the result called: swing in, then play the blow (fn) as it fell
+const afterRoll = fn => e => { const p = pendingClose; pendingClose = null; if (!p || !closeUp(p[0], p[1])) return fn(e); clearDice(); return wait(520).then(() => fn(e)); }; // the readout keeps the numbers
 try { closeUps = localStorage.getItem('gc-closeups') !== '0'; } catch (e) { }
 function closeUp(a, b) {
   if (!closeUps || ffwd || QUIET || REDUCED) return false;
@@ -90,7 +92,7 @@ const PLAY = {
   roll: e => showDice(e),
   total: e => showTotal(e.value, e.suffix || ''),
   verdict: e => verdictFx(vu(e.id), e.kind),
-  strike: e => strikeFx(e),
+  strike: afterRoll(e => strikeFx(e)),
   miss: e => missFx(vu(e.id)),
   damage: e => damageFx(e),
   kill: e => killFx(e),
@@ -107,9 +109,9 @@ const PLAY = {
   },
   push: e => pushFx(e),
   swing: e => swingFx(e),
-  shot: e => shotFx(e),
-  sweep: e => sweepFx(e),
-  heal: e => healFx(e),
+  shot: afterRoll(e => shotFx(e)),
+  sweep: afterRoll(e => sweepFx(e)),
+  heal: afterRoll(e => healFx(e)),
   smashMark: e => showSmash(e),
   smashClear: () => clearSmashFx(),
   smash: e => smashFx(e),
