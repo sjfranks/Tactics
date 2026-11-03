@@ -81,51 +81,56 @@ function renderDock() {
   else if (UI.sel && UI.sel.down) hint = `${UI.sel.name} is down`;
   else hint = 'Tap a hero to use their abilities';
   // the hotbar: one button per ability, numbered; the line above it explains the chosen (or last tapped) one
-  const bar = $('#hotbar'), box = $('#hbInfo');
+  const bar = $('#hotbar'), box = $('#hbInfo'), keep = $('#hbWrap').scrollLeft; // emptying the bar would scroll it home
   bar.innerHTML = '';
-  if (!h) { box.innerHTML = `<span class="tx2">${hint || (UI.phase === 'player' ? 'Tap a hero' : '')}</span>`; measure(); return; }
-  const pg = hbPageOf(h), ids = G.cardsOf(hr);
-  $('#pgNum').textContent = pg + 1; $('#hbPager').setAttribute('aria-label', `Hotbar ${pg + 1} of ${HB_PAGES}`);
-  for (let i = 0; i < HB_SLOTS; i++) {
-    const id = ids[pg * HB_SLOTS + i];
+  if (!h) { box.innerHTML = `<span class="tx2">${hint || (UI.phase === 'player' ? 'Tap a hero' : '')}</span>`; hbFades(); measure(); return; }
+  const ids = G.cardsOf(hr), wrap = $('#hbWrap');
+  const same = hbKind === h.kind; hbKind = h.kind; // each hero keeps where their bar was
+  for (let i = 0; i < Math.max(HB_SLOTS, ids.length); i++) {
+    const id = ids[i];
     if (!id) { const e = document.createElement('div'); e.className = 'hk empty'; e.setAttribute('aria-hidden', 'true'); e.innerHTML = `<span class="key">${i + 1}</span>`; bar.appendChild(e); continue; }
     const c = CARDS[id], block = G.block(hr, id), [hue, art] = ART[id], cd = hr.cd[id] > 0 ? hr.cd[id] : 0, dn = G.diceName(hr, id);
     const b = document.createElement('button'); b.className = 'hk' + (UI.card === id ? ' sel' : '') + (block ? ' off' : ''); b.style.setProperty('--hue', hue); b.dataset.id = id;
     b.setAttribute('aria-label', `${i + 1}: ${c.name}. ${G.cardText(hr, id)}${block ? ' (' + block + ')' : ''}`); b.setAttribute('aria-pressed', UI.card === id ? 'true' : 'false');
-    b.innerHTML = `<span class="ic"><svg viewBox="0 0 24 24">${art}</svg></span><span class="key">${i + 1}</span>${dn ? `<span class="dv">${dn}</span>` : ''}${c.uses != null ? `<span class="us">×${hr.uses[id] || 0}</span>` : ''}${cd ? `<span class="cd">${cd}</span>` : ''}`;
+    b.innerHTML = `<span class="ic"><svg viewBox="0 0 24 24">${art}</svg></span>${i < 9 ? `<span class="key">${i + 1}</span>` : ''}${dn ? `<span class="dv">${dn}</span>` : ''}${c.uses != null ? `<span class="us">×${hr.uses[id] || 0}</span>` : ''}${cd ? `<span class="cd">${cd}</span>` : ''}`;
     b.onclick = () => { if (!hbSwiped) hotTap(h, id); };
     bar.appendChild(b);
   }
+  wrap.scrollLeft = same ? keep : UI.hbScroll[h.kind] || 0;
   const show = UI.peek && ids.includes(UI.peek) ? UI.peek : UI.card, focus = UI.fcFocus != null && UI.fc.has(UI.fcFocus) ? fcLine(UI.fcFocus) : '';
   if (show) {
     const c = CARDS[show], blk = G.block(hr, show);
     const cdn = G.cardCd(hr, show), meta = [c.cost, c.target === 'self' ? 'Self' : c.range > 1 || c.reach ? `Range ${G.reachOf(hr, c)}` : 'Melee', cdn ? `Cooldown ${cdn}` : '', c.uses != null ? `${hr.uses[show] || 0} left` : ''].filter(Boolean).join(' · ');
     box.innerHTML = `<span class="tx"><b>${c.name}</b><span class="mt">${meta}</span></span><span class="tx2">${focus ? `<span class="odds">${focus}</span>` : `${blk ? `<em class="bl">${blk}.</em> ` : ''}${G.cardText(hr, show)}${!blk && hint ? ` <i>${hint}</i>` : ''}`}</span>`;
   } else box.innerHTML = `<span class="tx2">${hint || ''}</span>`;
-  measure();
+  hbFades(); measure();
 }
 // a tap on a hotbar button: choose it; a second tap uses a self ability; a blocked one shakes and says why
-// 25 slots: five hotbars of five, paged with the arrows beside the bar, a sideways swipe on it, or [ and ]
-const HB_SLOTS = 5, HB_PAGES = 5;
-let hbSwiped = false;
-const hbPageOf = h => Math.min(HB_PAGES - 1, UI.hbPage[h.kind] || 0);
-function hbPage(d) {
-  const h = UI.sel; if (!h || h.side !== 'hero') return;
-  UI.hbPage[h.kind] = (hbPageOf(h) + d + HB_PAGES) % HB_PAGES; UI.peek = null; sfx('pick'); renderDock();
-  const bar = $('#hotbar'); bar.classList.remove('in-l', 'in-r'); void bar.offsetWidth; bar.classList.add(d > 0 ? 'in-r' : 'in-l');
+// one row of every ability, five slots in view; drag it sideways (a finger scrolls it, a mouse drags it), or step to
+// the next five with the › button or [ and ]. An edge fades while abilities lie past it
+const HB_SLOTS = 5;
+let hbSwiped = false, hbKind = null;
+const hbStep = () => { const t = $('#hotbar .hk'); return t ? (t.offsetWidth + 6) * HB_SLOTS : 0; };
+function hbFades() {
+  const w = $('#hbWrap'), max = w.scrollWidth - w.clientWidth;
+  w.classList.toggle('fl', w.scrollLeft > 2); w.classList.toggle('fr', w.scrollLeft < max - 2);
+  $('#hbNext').hidden = max <= 2;
+  if (hbKind) UI.hbScroll[hbKind] = w.scrollLeft;
 }
-$('#pgUp').onclick = () => { ac(); hbPage(-1); };
-$('#pgDn').onclick = () => { ac(); hbPage(1); };
-(() => { // drag sideways on the bar to page through it; the bar follows the finger a little, then snaps to the next page
-  const row = $('#hbRow'), bar = $('#hotbar'); let g = null;
-  row.addEventListener('pointerdown', e => { if (e.target.closest('#hbPager')) return; g = { x: e.clientX, done: false }; hbSwiped = false; bar.style.transition = 'none'; });
-  window.addEventListener('pointermove', e => {
-    if (!g || g.done) return; const dx = e.clientX - g.x;
-    if (Math.abs(dx) > 8) hbSwiped = true;
-    bar.style.transform = `translateX(${Math.max(-40, Math.min(40, dx * .5))}px)`;
-    if (Math.abs(dx) > 44) { g.done = true; bar.style.transition = ''; bar.style.transform = ''; hbPage(dx < 0 ? 1 : -1); }
-  });
-  const up = () => { if (!g) return; g = null; bar.style.transition = ''; bar.style.transform = ''; setTimeout(() => { hbSwiped = false; }, 0); };
+function hbPage(d) { // the next (or the previous) five, round to the start after the last
+  const w = $('#hbWrap'), max = w.scrollWidth - w.clientWidth; if (max <= 2) return;
+  const at = w.scrollLeft; let x;
+  if (d > 0) x = at >= max - 2 ? 0 : Math.min(max, at + hbStep()); // at the end: round to the start
+  else x = at <= 2 ? max : Math.max(0, at - hbStep());
+  w.scrollTo({ left: x, behavior: REDUCED ? 'auto' : 'smooth' }); sfx('pick');
+}
+$('#hbNext').onclick = () => { ac(); hbPage(1); };
+$('#hbWrap').addEventListener('scroll', hbFades, { passive: true });
+(() => { // a mouse drags the bar like a finger would
+  const w = $('#hbWrap'); let g = null;
+  w.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') return; g = { x: e.clientX, s: w.scrollLeft }; hbSwiped = false; });
+  window.addEventListener('pointermove', e => { if (!g) return; const dx = e.clientX - g.x; if (Math.abs(dx) > 6) { hbSwiped = true; w.style.scrollSnapType = 'none'; } if (hbSwiped) w.scrollLeft = g.s - dx; });
+  const up = () => { if (!g) return; g = null; w.style.scrollSnapType = ''; setTimeout(() => { hbSwiped = false; }, 0); };
   window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
 })();
 function hotTap(h, id) {
@@ -138,9 +143,10 @@ function hotTap(h, id) {
   if (UI.card === id && CARDS[id].target === 'self') { useCard(h, id, null); return; } // tap a chosen self ability again to use it
   UI.card = id; UI.aim = null; UI.fcFocus = null; sfx('pick'); refresh();
 }
-window.addEventListener('keydown', e => { // 1–5 pick abilities, Escape puts the chosen one down
+window.addEventListener('keydown', e => { // 1–9 pick abilities, Escape puts the chosen one down
   const h = myHero(); if (e.ctrlKey || e.metaKey || e.altKey || !h) return;
-  const k = +e.key, id = k >= 1 && k <= HB_SLOTS ? G.cardsOf(ru(h))[hbPageOf(h) * HB_SLOTS + k - 1] : null; if (id) { e.preventDefault(); hotTap(h, id); }
+  const k = +e.key, id = k >= 1 && k <= 9 ? G.cardsOf(ru(h))[k - 1] : null;
+  if (id) { e.preventDefault(); hotTap(h, id); const b = document.querySelector(`.hk[data-id="${id}"]`); if (b) b.scrollIntoView({ inline: 'nearest', block: 'nearest' }); }
   else if (e.key === ']' || e.key === '[') { e.preventDefault(); hbPage(e.key === ']' ? 1 : -1); }
   else if (e.key === 'Escape' && UI.card) { UI.card = null; UI.aim = null; UI.peek = null; refresh(); }
 });

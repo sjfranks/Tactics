@@ -274,16 +274,21 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 #hbInfo .tx2 i{font-style:normal;color:#9fb4d4}
 #hbInfo .bl{font-style:normal;font-weight:800;color:#ff8a6c}
 #hbInfo b.dis{color:#ff8a6c}
-#dock{--tile:clamp(38px,calc((min(100vw,560px) - 80px) / 6),62px)} /* five slots and End across the dock */
-#hbRow{display:flex;align-items:stretch;gap:6px;touch-action:none}
-#hbPager{flex:none;width:24px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;border-radius:9px;background:linear-gradient(180deg,#323a46,#1f252d);box-shadow:inset 0 0 0 1px #12161c}
-#hbPager button{flex:1;width:100%;padding:0;border:none;background:none;display:grid;place-items:center;color:#eef1f5}
-#hbPager button:active{background:rgba(255,255,255,.08)}
-#hbPager svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
-#hbPager b{font:800 12px/1 var(--display);color:#f3cf72;font-variant-numeric:tabular-nums}
-#hotbar{display:flex;gap:6px;transition:transform .18s ease-out}
-#hotbar.in-l{animation:hbInL .18s ease-out}#hotbar.in-r{animation:hbInR .18s ease-out}
-@keyframes hbInL{from{transform:translateX(-24px);opacity:.3}}@keyframes hbInR{from{transform:translateX(24px);opacity:.3}}
+#dock{--tile:clamp(38px,calc((min(100vw,560px) - 92px) / 6),62px)} /* five slots, the › button and End across the dock */
+#hbRow{display:flex;align-items:stretch;gap:6px}
+/* the hotbar: five slots wide, every ability in one row that scrolls; an edge fades while abilities lie past it */
+#hbWrap{flex:none;width:calc(var(--tile) * 5 + 24px);overflow-x:auto;overflow-y:visible;padding-top:5px;margin-top:-5px;scroll-snap-type:x mandatory;scrollbar-width:none;touch-action:pan-x;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+#hbWrap::-webkit-scrollbar{display:none}
+#hbWrap.fl{-webkit-mask-image:linear-gradient(90deg,transparent,#000 34px);mask-image:linear-gradient(90deg,transparent,#000 34px)}
+#hbWrap.fr{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 34px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 34px),transparent)}
+#hbWrap.fl.fr{-webkit-mask-image:linear-gradient(90deg,transparent,#000 34px,#000 calc(100% - 34px),transparent);mask-image:linear-gradient(90deg,transparent,#000 34px,#000 calc(100% - 34px),transparent)}
+#hbWrap .hk{scroll-snap-align:start}
+#hbNext{flex:none;width:24px;padding:0;border:none;border-radius:9px;display:grid;place-items:center;background:linear-gradient(180deg,#323a46,#1f252d);box-shadow:inset 0 0 0 1px #12161c;color:#eef1f5}
+#hbNext[hidden]{display:none}
+#hbNext svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+#hbNext:active{background:rgba(255,255,255,.08)}
+#hbNext:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#hotbar{display:flex;gap:6px;width:max-content}
 .hk{position:relative;flex:none;width:var(--tile);height:var(--tile);padding:0;border:none;border-radius:11px;background:linear-gradient(180deg,#6b7584,#2b323d);box-shadow:inset 0 0 0 2px #12161c,0 3px 0 #0b0e12;transition:transform .12s,box-shadow .15s;touch-action:manipulation}
 .hk .ic{position:absolute;inset:4px;border-radius:8px;display:grid;place-items:center;background:radial-gradient(circle at 50% 38%,hsl(var(--hue) 68% 48%),hsl(var(--hue) 62% 20%));box-shadow:inset 0 2px 6px rgba(0,0,0,.5)}
 .hk svg{width:56%;height:56%;stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 4px hsl(var(--hue) 100% 75% / .75))}
@@ -306,7 +311,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 @media (orientation:landscape) and (max-height:540px){
   .dk{max-width:none}
   #hb{flex-direction:row;align-items:flex-end;gap:8px}
-  #hotbar{flex:none;min-height:0}
+  #hbWrap{min-height:0}
   #dock{--tile:50px}
   #hbInfo{flex:1;min-width:0;min-height:50px;box-sizing:border-box}
   #hbInfo .tx2{-webkit-line-clamp:2}
@@ -372,8 +377,7 @@ body{font-family:var(--body)}
 .hk.off .ic{filter:grayscale(1) brightness(.38)}
 .hk.sel{transform:translateY(-3px);box-shadow:inset 0 0 0 1px #000,0 0 0 2px var(--ember),0 0 18px rgba(232,135,58,.55),0 2px 0 #000}
 .hk.empty{background:linear-gradient(180deg,#221d19,#0f0c0b)}.hk.empty::after{inset:5px;border-radius:1px;border:1px solid rgba(140,115,85,.16);background:repeating-linear-gradient(135deg,rgba(255,255,255,.015) 0 4px,transparent 4px 8px)}
-#hbPager{border-radius:2px;background:linear-gradient(180deg,#2a2420,#120f0d);box-shadow:inset 0 0 0 1px #4a3e33,0 0 0 1px #000}
-#hbPager b{font-family:var(--display);font-weight:400;font-size:14px;color:var(--tarnish)}#hbPager button{color:var(--bone-dim)}
+#hbNext{border-radius:2px;background:linear-gradient(180deg,#2a2420,#120f0d);box-shadow:inset 0 0 0 1px #4a3e33,0 0 0 1px #000;color:var(--bone-dim)}
 /* End: a blood-red seal in a brass rim */
 #bar #endBtn{background:linear-gradient(180deg,#c9a46a,#4a3416)}
 #bar #endBtn::before{background:radial-gradient(circle at 50% 32%,#b8281e,#6a0e09 60%,#2a0504)}
@@ -401,7 +405,7 @@ body{font-family:var(--body)}
 #logList .le{color:var(--bone-dim)}#logList .le b{color:var(--bone)}#logList .le.hero{border-left-color:#7a8a9a}#logList .le.foe{border-left-color:var(--blood-hi)}#logList .le.dice{color:#d6b68a;border-left-color:var(--tarnish)}#logList .le.hdr{font-family:var(--display);font-weight:400;color:var(--tarnish)}
 .combo{font-family:var(--display);font-weight:400}
 /* numbers stay in the plain face: the engraved one draws 1 like a Roman I */
-.chip.tot,#roll .res b,.hk .cd,#hbPager b,.cs-hp i,.cs-stats b,.rnd{font-family:var(--body)!important;font-weight:800!important}
+.chip.tot,#roll .res b,.hk .cd,.cs-hp i,.cs-stats b,.rnd{font-family:var(--body)!important;font-weight:800!important}
 #banner span{font-family:var(--display);font-weight:400;letter-spacing:.04em;color:var(--bone);background:linear-gradient(90deg,transparent,rgba(0,0,0,.88) 20%,rgba(0,0,0,.88) 80%,transparent);text-shadow:0 2px 0 #000,0 0 30px rgba(200,55,43,.55)}
 .sheet,#menu{border-radius:3px;background:linear-gradient(180deg,#231e1b,#110e0c);border:1px solid #4a3e33;border-top:2px solid var(--tarnish);box-shadow:0 0 0 1px #000,0 24px 60px rgba(0,0,0,.8)}
 .sheet h2{font-family:var(--display);font-weight:400;color:var(--bone)}.sheet .kick,.sheet h3{color:var(--tarnish)}.sheet p,.sheet li{color:var(--bone-dim)}
@@ -583,7 +587,7 @@ body{font-family:var(--body)}
       <button id="rotBtn" hidden aria-label="Turn the wall">⟲ <span>Across</span></button>
       <div id="hbInfo" aria-live="polite"></div>
       <div id="bar">
-        <div id="hb"><div id="hbRow"><div id="hbPager"><button id="pgUp" aria-label="Previous hotbar"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button><b id="pgNum">1</b><button id="pgDn" aria-label="Next hotbar"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></div><div id="hotbar" role="toolbar" aria-label="Abilities"></div></div></div>
+        <div id="hb"><div id="hbRow"><div id="hbWrap"><div id="hotbar" role="toolbar" aria-label="Abilities"></div></div><button id="hbNext" aria-label="Next abilities" hidden><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button></div></div>
         <button id="endBtn" aria-label="End turn"><svg viewBox="0 0 24 24"><path d="M7 4.5l11 7.5-11 7.5z"/></svg><span>End</span></button>
       </div>
     </div>
@@ -673,8 +677,8 @@ body{font-family:var(--body)}
         <li><b>Red arrows</b> show what each goblin means to do if it acted now: who it would strike, or where it would walk. The bold one acts next. They change as you play, so use them: step out of reach, hide, or Taunt and watch every arrow swing to Brakka.</li>
         <li><b>Undo</b> in the ☰ menu takes back moves and abilities that rolled no dice. Dice are final: once a roll is made it stands, and so does everything before it.</li>
         <li><b>Twist two fingers</b> to turn the board, pinch to zoom, and drag the floor to look around. On a computer, shift-drag or right-drag turns it. Tap during the goblins' turn to speed it up.</li>
-        <li>Each hero has five hotbars of five slots: page with the arrows beside the bar, a sideways swipe, or <b>[</b> and <b>]</b>.</li>
-        <li><b>Keys:</b> 1–5 pick an ability, <b>E</b> or <b>Enter</b> ends the turn, <b>Z</b> undoes, <b>Esc</b> puts the ability down, <b>F</b> (or Page Up and Page Down) switches floors in a house. In a scene, Enter or a tap goes on and Esc skips.</li>
+        <li>A hero's abilities sit in one hotbar five slots wide. When an edge of it fades, there are more past it: drag the bar sideways, or tap <b>›</b> beside it (or press <b>[</b> and <b>]</b>) for the next set.</li>
+        <li><b>Keys:</b> 1–9 pick an ability, <b>E</b> or <b>Enter</b> ends the turn, <b>Z</b> undoes, <b>Esc</b> puts the ability down, <b>F</b> (or Page Up and Page Down) switches floors in a house. In a scene, Enter or a tap goes on and Esc skips.</li>
       </ul>
       <h3>Turns</h3>
       <ul>

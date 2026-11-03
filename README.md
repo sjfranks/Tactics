@@ -20,7 +20,7 @@ A tabletop tactics game on a 3D board. Four heroes (Brakka the fighter, Sister W
 - **The campaign:** after each victory the party makes camp and picks one of three **boons** (a reforged blade, a shield, Healing Draughts for everyone, faster prayers...). Boons last the rest of the campaign. The campaign saves itself in the browser after every move, so you can close the page and come back to the same turn.
 - **Settings:** difficulty (goblins have 75%, 100% or 125% of their health), game speed, music, banter, model style, a new campaign.
 - **Dialogue:** the party and the goblins trade words before and after each battle, and figures call out in the fight.
-- **Keys:** 1–5 pick an ability, E or Enter ends the turn, Z undoes, Esc puts the ability down, F switches floors.
+- **Keys:** 1–9 pick an ability, E or Enter ends the turn, Z undoes, Esc puts the ability down, F switches floors.
 
 The in-game *How to play* sheet (☰ menu) has the full rules.
 

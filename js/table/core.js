@@ -80,7 +80,7 @@ const ease = {
   back: t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); }
 };
 // what the player is doing at the table: who is selected, the chosen ability, the camera floor. The battle itself is in G.S
-const UI = { hbPage: {}, peek: null, wallDir: 'h', view: 'upper', phase: 'intro', busy: true, sel: null, card: null, aim: null, round: 1, over: false, inspect: null, active: null, order: [], turn: -1, confirm: null, intents: [], fc: new Map() };
+const UI = { hbScroll: {}, peek: null, wallDir: 'h', view: 'upper', phase: 'intro', busy: true, sel: null, card: null, aim: null, round: 1, over: false, inspect: null, active: null, order: [], turn: -1, confirm: null, intents: [], fc: new Map() };
 
 // ---------------- tweening ----------------
 let now = performance.now();
