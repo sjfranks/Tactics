@@ -286,7 +286,7 @@ function buildBoard(L) {
   THEME = THEMES[L.theme || 'crypt'];
   groundMat.map = THEME.ground; groundMat.color.setHex(THEME.tint).convertSRGBToLinear(); groundMat.needsUpdate = true;
   floorMats.forEach(m => { m.map = THEME.floor; m.vertexColors = L.theme === 'outdoor'; m.needsUpdate = true; }); cliffMat.map = THEME.cliff; cliffMat.needsUpdate = true;
-  gridMat.opacity = THEME.grid; hemi.intensity = THEME.hemi;
+  gridMat.opacity = THEME.grid; gridK = 1; hemi.intensity = THEME.hemi;
   keepFloorMats.forEach(m => { m.map = L.theme === 'outdoor' ? flagTex : L.theme === 'house' ? plankTex : hallTex; m.needsUpdate = true; });
   const tops = new THREE.Group(), sides = new THREE.Group(), walls = new THREE.Group(), lava = new THREE.Group(), vents = new THREE.Group(), grid = new THREE.Group(), deco = new THREE.Group(), lavaPts = [];
   const stone = (c, r) => (L.stone || []).some(([c0, r0, c1, r1]) => c >= c0 && c <= c1 && r >= r0 && r <= r1);

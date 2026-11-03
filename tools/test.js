@@ -247,8 +247,10 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     const pitch0 = await p.evaluate(() => camPitchT);
     await tapCell(2, 5);
     await p.waitForFunction(() => cine !== null, null, { timeout: 5000 }).catch(() => {});
-    const mid = await p.evaluate(() => ({ cine: !!cine, pitch: camPitchT, zoom: zoomT, az: angDiff(camAzT, 0) }));
-    ok(mid.cine && mid.pitch < pitch0 && mid.zoom < 1 && Math.abs(mid.az) < .01, `the camera cuts in low behind Brakka (pitch ${mid.pitch.toFixed(2)}, zoom ${mid.zoom.toFixed(2)})`);
+    await p.waitForTimeout(700);
+    const mid = await p.evaluate(() => { const f = G.S.units.find(u => u.kind === 'fighter'), g = G.S.units.find(u => u.kind === 'cutter' && u.c === 2 && u.r === 5); return { cine: !!cine, pitch: camPitchT, zoom: zoomT, grid: gridK, left: project(vu(f.id).root.position)[0] < project(vu(g.id).root.position)[0] }; });
+    ok(mid.cine && mid.pitch < pitch0 && mid.zoom < 1 && mid.grid < .5, `the grid fades and the camera closes in low (pitch ${mid.pitch.toFixed(2)}, zoom ${mid.zoom.toFixed(2)})`);
+    ok(mid.left, 'Brakka on the left of the shot, the cutter on the right');
     await idle();
     ok(await p.evaluate(p0 => !cine && camPitchT === p0, pitch0), 'and goes back to the play view after');
   }
