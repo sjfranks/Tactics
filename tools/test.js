@@ -236,8 +236,8 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     const up = await p.evaluate(() => ({ lv: CAMP.growth.fighter.lv, text: document.querySelector('#endReport .lvup') && document.querySelector('#endReport .lvup').textContent }));
     ok(up.lv === 2 && /Level 2! \+2 max HP · learns Shield Bash/.test(up.text || ''), 'Brakka reaches level 2 and learns Shield Bash');
     await p.click('#boonList .boon'); await p.click('#againBtn'); await p.waitForSelector('#intro', { state: 'visible' });
-    const next = await p.evaluate(() => { const f = G.S.units.find(u => u.kind === 'fighter'); return { cards: f.cards, hp: f.maxHp }; });
-    ok(next.cards.includes('f_bash') && next.hp === GC.UNITS.fighter.hp + GC.TUNE.xp.hp, `he carries it into the next battle, with ${next.hp} HP`);
+    const next = await p.evaluate(() => { const f = G.S.units.find(u => u.kind === 'fighter'); return { cards: f.cards, hp: f.maxHp, boonHp: CAMP.boons.reduce((n, id) => { const b = GC.BOONS[id]; return n + ((b.who === 'fighter' || b.who === 'party') && b.mod && b.mod.hp || 0); }, 0) }; });
+    ok(next.cards.includes('f_bash') && next.hp === GC.UNITS.fighter.hp + GC.TUNE.xp.hp + next.boonHp, `he carries it into the next battle, with ${next.hp} HP`);
     await p.evaluate(() => { CAMP = freshCamp(); saveCamp(); });
   }
 
@@ -249,7 +249,7 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     await p.waitForFunction(() => cine !== null, null, { timeout: 5000 }).catch(() => {});
     await p.waitForTimeout(700);
     const mid = await p.evaluate(() => { const f = G.S.units.find(u => u.kind === 'fighter'), g = G.S.units.find(u => u.kind === 'cutter' && u.c === 2 && u.r === 5); return { cine: !!cine, pitch: camPitchT, zoom: zoomT, grid: gridK, left: project(vu(f.id).root.position)[0] < project(vu(g.id).root.position)[0] }; });
-    ok(mid.cine && mid.pitch < pitch0 && mid.zoom < 1 && mid.grid < .5, `the grid fades and the camera closes in low (pitch ${mid.pitch.toFixed(2)}, zoom ${mid.zoom.toFixed(2)})`);
+    ok(mid.cine && mid.pitch < pitch0 && mid.zoom < 1 && mid.grid < .5, `the grid fades and the camera closes in low behind Brakka (pitch ${mid.pitch.toFixed(2)}, zoom ${mid.zoom.toFixed(2)})`);
     ok(mid.left, 'Brakka on the left of the shot, the cutter on the right');
     await idle();
     ok(await p.evaluate(p0 => !cine && camPitchT === p0, pitch0), 'and goes back to the play view after');

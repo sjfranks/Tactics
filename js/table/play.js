@@ -40,13 +40,13 @@ function endAim() {
 }
 // ---------------- battle close-ups ----------------
 // when an attack, a spell or a heal is locked in, its dice are thrown first; then the grid fades and the camera glides in
-// low and side-on, attacker on the left and target on the right, to watch the blow land, and back. Settings turns it
+// low behind the attacker, attacker on the left and target on the right, to watch the blow land, and back. Settings turns it
 // off; fast-forward skips it
 let closeUps = true, cine = null, pendingClose = null; // cine: the camera before the close-up; pendingClose: the two it will frame
 // the dice have been thrown and the result called: close in, then play the blow (fn) as it fell
 const afterRoll = fn => e => { const p = pendingClose; pendingClose = null; const ms = p ? closeUp(p[0], p[1]) : 0; if (!ms) return fn(e); clearDice(); return wait(ms).then(() => fn(e)); }; // the readout keeps the numbers
 try { closeUps = localStorage.getItem('gc-closeups') !== '0'; } catch (e) { }
-// the grid fades away, then the camera glides down to a low side-on shot: the attacker on the left of the screen, the
+// the grid fades away, then the camera glides down behind the attacker: the attacker on the left of the screen, the
 // target on the right. Returns how long to wait before the blow plays (0: no close-up)
 function closeUp(a, b) {
   if (!closeUps || ffwd || QUIET || REDUCED) return 0;
@@ -54,14 +54,16 @@ function closeUp(a, b) {
   follow = null;
   let dx = b.x - a.x, dz = b.z - a.z, span = Math.hypot(dx, dz);
   if (span < .1) { dx = Math.cos(camAz); dz = -Math.sin(camAz); span = 0; } // on oneself: whatever is screen-right now
-  // the screen's right runs from attacker to target: camRight = (cos az, -sin az) along (dx, dz)
-  const az = Math.atan2(-dz, dx);
+  // from behind the attacker, turned a little so the attacker sits on the left of the screen and the target on the
+  // right: of the two turns, the one that puts the target on the right (camRight = (cos az, -sin az))
+  const back = Math.atan2(-dx, -dz), turn = .5;
+  const az = [back + turn, back - turn].find(t => Math.cos(t) * dx - Math.sin(t) * dz > 0);
   camAzT = camAz - angDiff(camAz, az); camPitchT = CLOSE_PITCH; camYT = (a.y + b.y) / 2 + .55;
-  camTX = (a.x + b.x) / 2; camTZ = (a.z + b.z) / 2;
+  camTX = a.x + dx * .55; camTZ = a.z + dz * .55;
   cine.away = new V3(dx, 0, dz).normalize(); // anything set down lands beyond the target
   // wide enough for both figures and a square past each
   const { W, vH } = frameGeom(), hf = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * W / vH);
-  zoomT = Math.max(.2, ((span + 2.4) / 2 / Math.tan(hf / 2)) / boardDist(camAzT, camPitchT));
+  zoomT = Math.max(.2, ((span * Math.sin(turn) + 2.6) / 2 / Math.tan(hf / 2) + span * .5) / boardDist(camAzT, camPitchT));
   // bystanders between the lens and the pair step out of the shot until it ends
   const fx = Math.sin(az), fz = Math.cos(az), mx = camTX, mz = camTZ;
   cine.hid = liveUnits().filter(u => {
@@ -69,7 +71,7 @@ function closeUp(a, b) {
     const vx = p.x - mx, vz = p.z - mz, along = vx * fx + vz * fz, across = Math.abs(vx * fz - vz * fx);
     return along > .3 && across < span / 2 + 1.4;
   });
-  cine.hid.forEach(u => { u.piece.visible = false; u.tag.style.visibility = 'hidden'; });
+  cine.hid.forEach(u => { u.piece.visible = u.ring.visible = u.blob.visible = false; u.tag.style.visibility = 'hidden'; });
   // the grid and the squares lit for the order fade first; the glide starts as they go
   [...HL, ...HLM].forEach(m => { m.visible = false; }); hideReticle();
   fadeGrid(0, 220);
@@ -77,7 +79,7 @@ function closeUp(a, b) {
 }
 function endCloseUp() {
   if (!cine) return; const c = cine; cine = null;
-  (c.hid || []).forEach(u => { if (u.alive) u.piece.visible = !viewHides(u); u.tag.style.visibility = ''; });
+  (c.hid || []).forEach(u => { if (u.alive) u.piece.visible = u.ring.visible = u.blob.visible = !viewHides(u); u.tag.style.visibility = ''; });
   camTX = c.x; camTZ = c.z; camAzT = c.az; zoomT = c.zoom; camPitchT = c.pitch; camYT = c.y; clampCam();
   fadeGrid(1, 450);
 }
