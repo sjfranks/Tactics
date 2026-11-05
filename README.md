@@ -15,7 +15,8 @@ A tabletop tactics game on a 3D board. Four heroes (Brakka the fighter, Sister W
 - **Planning:** foe intent arrows show whom each goblin means to strike or where it would walk; the odds over each target show the damage to expect and the chance to finish it.
 - **Down, not dead:** a hero at 0 HP lies where they fell until Heal raises them. Sister Wenna can cast Heal once a turn. The battle is lost only when every hero is down.
 - **Undo** takes back moves and abilities that rolled no dice. Dice are final.
-- **Experience:** in the campaign, heroes earn a little XP for every action (a hit, a kill, a heal, a helping spell) and for standing at a victory. Each 100 XP is a level (+2 max HP), and levels 2, 3 and 4 each teach a hero a new power: twelve in all, three each, such as Shield Bash, Smite, Chain Lightning and Throwing Knives. A hero's sheet shows how close the next level is.
+- **Experience:** in the campaign, heroes earn a little XP for every action (a hit, a kill, a heal, a helping spell) and for standing at a victory. Each 100 XP is a level (+2 max HP). A hero's sheet shows how close the next level is.
+- **Upgrades:** every hero keeps one set of five abilities all campaign, a basic attack and four powers (Vex's include Throwing Knives). Each level from 2 upgrades one of them instead, picked at camp from the hero's cards: Charge+ drives a foe back two squares, Cleave+ knocks everyone it hits Prone, Heal+ spills over to the heroes beside, Mace+ smites from three squares off, Fireball+ spares your heroes, Frost Ray+ freezes the foes beside its mark, Throwing Knives+ throws at a second foe, Hide+ hides the heroes beside Vex too. Every card has one upgrade; an upgraded one wears a gold +. The level select gives the party the levels it would have by then, with upgrades picked at random.
 - **The camera** looks up the board from the party's side and keeps the whole 6 × 8 board in view on any screen, phone or desktop, upright or on its side (the throne room is bigger, and pans); when an attack, spell or heal is locked in, the dice are thrown first, then the grid fades and it closes in low behind the attacker (attacker left, target right) to watch the blow, and pulls back (Settings turns close-ups off).
 - **The campaign:** after each victory the party makes camp and picks one of three **boons** (a reforged blade, a shield, Healing Draughts for everyone, faster prayers...). Boons last the rest of the campaign. The campaign saves itself in the browser after every move, so you can close the page and come back to the same turn.
 - **Settings:** difficulty (goblins have 75%, 100% or 125% of their health), game speed, music, banter, model style, a new campaign.
@@ -48,7 +49,7 @@ GitHub Actions runs a check on every push and pull request (every script parses;
 
 ### Retuning
 
-Every number lives in the tables at the top of `js/rules.js`: `TUNE`, `UNITS`, `CARDS`, `BOONS` and `LEVELS`. A level marked `extra` is played from the level select only; `deck` lays a second floor over the map, and a prop or foe with a fourth number stands on it. Change them, then check the difficulty curve:
+Every number lives in the tables at the top of `js/rules.js`: `TUNE`, `UNITS`, `CARDS`, `BOONS` and `LEVELS`. A card's `up` is its upgrade: the new text, anything it changes, and the flag its effect reads. A level marked `extra` is played from the level select only; `deck` lays a second floor over the map, and a prop or foe with a fourth number stands on it. Change them, then check the difficulty curve:
 
 ```sh
 node tools/sim.js 500 all     # battles per level, all levels (or a level index)

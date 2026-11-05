@@ -166,7 +166,7 @@ function updateDrag(x, y) {
   if (ck === d.cellKey) return; d.cellKey = ck;
   d.target = null; UI.fcFocus = null;
   if (t && t.side === 'gob' && d.tg.has(t.id)) {
-    const R = CARDS[UI.card].range, last = d.path[d.path.length - 1], lastN = d.reach.get(key(last.c, last.r, last.l));
+    const R = G.cardOf(ru(d.u), UI.card).range, last = d.path[d.path.length - 1], lastN = d.reach.get(key(last.c, last.r, last.l));
     if (!(lastN && lastN.end && dist(last, t) <= R)) { const e = d.tg.get(t.id); d.path = e.path ? e.path.slice() : [here(u)]; }
     d.target = t; UI.fcFocus = UI.fc.has(t.id) ? t.id : null; showArrow(d.path.length > 1 ? d.path : null, 'red'); previewCost(u, d.path.length > 1 ? 2 : 1); sfx('select'); renderDock(); return;
   }

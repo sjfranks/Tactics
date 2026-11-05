@@ -16,7 +16,7 @@ function refreshHL() {
   if (UI.phase !== 'player' || UI.over || UI.busy || !G) return;
   if (showThreat) for (const k of G.threat()) { const q = GC.parseKey(k); setHL(q.c, q.r, 'threat', q.l); }
   const u = myHero(); if (!u) return;
-  const r = ru(u), card = UI.card && CARDS[UI.card], blk = card ? G.block(r, UI.card) : '';
+  const r = ru(u), card = UI.card && G.cardOf(r, UI.card), blk = card ? G.block(r, UI.card) : '';
   const zone = card && card.range > 1 && !blk ? G.rangeCells(r, G.reachOf(r, card), !!card.reach) : null;
   if (zone) { for (const k of zone) { const q = GC.parseKey(k); setHL(q.c, q.r, 'range', q.l); } outline(zone, rangeEdgeMat, .44); }
   UI.climbShown = false;
@@ -28,7 +28,7 @@ function refreshHL() {
   if (!card || blk) return;
   const tg = G.targets(r, UI.card, { grab: grabbedId() });
   if (card.target === 'cell') {
-    if (card.wall) { if (UI.aim) { const q = GC.parseKey(UI.aim); G.wallCells(q.c, q.r, UI.wallDir).forEach(([c, rr]) => setHL(c, rr, 'area')); } }
+    if (card.wall) { if (UI.aim) { const q = GC.parseKey(UI.aim); G.wallCells(q.c, q.r, UI.wallDir, card.len).forEach(([c, rr]) => setHL(c, rr, 'area')); } }
     else if (card.spot) { for (const e of tg.values()) setHL(e.cell.c, e.cell.r, UI.aim === key(e.cell.c, e.cell.r, e.cell.l) ? 'area' : 'ally', e.cell.l); }
     else if (UI.aim) { const q = GC.parseKey(UI.aim); for (let rr = q.r - 1; rr <= q.r + 1; rr++) for (let c = q.c - 1; c <= q.c + 1; c++) if (inB(c, rr) && (q.l ? hasDeck(c, rr) : !G.obstAt(c, rr))) setHL(c, rr, 'area', q.l); }
   } else if (card.target === 'self') setHL(u.c, u.r, 'self', u.l);
@@ -41,12 +41,12 @@ function refreshHL() {
 const fcCache = new Map(); // the odds hold still until the board changes: cleared after every order
 function computeForecast() {
   UI.fc.clear();
-  const u = myHero(), id = UI.card, card = id && CARDS[id]; if (!u || !card || UI.busy) return;
-  const r = ru(u); if (G.block(r, id)) return;
+  const u = myHero(), id = UI.card; if (!u || !id || UI.busy) return;
+  const r = ru(u), card = G.cardOf(r, id); if (!card || G.block(r, id)) return;
   const put = (t, from) => { const k = `${id}|${t.id}|${key(from.c, from.r, from.l)}`; let f = fcCache.get(k); if (f === undefined) { f = G.forecast(r, id, t, from, 900); fcCache.set(k, f); } if (f) UI.fc.set(t.id, f); };
   if (card.atk || card.heal) { for (const e of G.targets(r, id).values()) if (e.unit != null) put(G.U(e.unit), e.path ? e.path[e.path.length - 1] : r); }
   else if (card.sweep) G.sweepTargets(r, id).forEach(tid => put(G.U(tid), r));
-  else if (card.area && UI.aim) G.blastAt(GC.parseKey(UI.aim)).forEach(t => put(t, r));
+  else if (card.area && UI.aim) G.blastHits(r, GC.parseKey(UI.aim)).forEach(t => put(t, r)); // an upgraded Fireball spares the heroes
 }
 const pct = x => x >= .995 ? '100%' : x < .01 ? '<1%' : Math.round(x * 100) + '%';
 function renderFc() {
@@ -89,17 +89,17 @@ function renderDock() {
   for (let i = 0; i < Math.max(HB_SLOTS, ids.length); i++) {
     const id = ids[i];
     if (!id) { const e = document.createElement('div'); e.className = 'hk empty'; e.setAttribute('aria-hidden', 'true'); e.innerHTML = `<span class="key">${i + 1}</span>`; bar.appendChild(e); continue; }
-    const c = CARDS[id], block = G.block(hr, id), [hue, art] = ART[id], cd = hr.cd[id] > 0 ? hr.cd[id] : 0, dn = G.diceName(hr, id);
-    const b = document.createElement('button'); b.className = 'hk' + (UI.card === id ? ' sel' : '') + (block ? ' off' : ''); b.style.setProperty('--hue', hue); b.dataset.id = id;
+    const c = G.cardOf(hr, id), block = G.block(hr, id), [hue, art] = ART[id], cd = hr.cd[id] > 0 ? hr.cd[id] : 0, dn = G.diceName(hr, id);
+    const b = document.createElement('button'); b.className = 'hk' + (UI.card === id ? ' sel' : '') + (block ? ' off' : '') + (c.upgraded ? ' up' : ''); b.style.setProperty('--hue', hue); b.dataset.id = id;
     b.setAttribute('aria-label', `${i + 1}: ${c.name}. ${G.cardText(hr, id)}${block ? ' (' + block + ')' : ''}`); b.setAttribute('aria-pressed', UI.card === id ? 'true' : 'false');
-    b.innerHTML = `<span class="ic"><svg viewBox="0 0 24 24">${art}</svg></span>${i < 9 ? `<span class="key">${i + 1}</span>` : ''}${dn ? `<span class="dv">${dn}</span>` : ''}${c.uses != null ? `<span class="us">×${hr.uses[id] || 0}</span>` : ''}${cd ? `<span class="cd">${cd}</span>` : ''}`;
+    b.innerHTML = `<span class="ic"><svg viewBox="0 0 24 24">${art}</svg></span>${i < 9 ? `<span class="key">${i + 1}</span>` : ''}${dn ? `<span class="dv">${dn}</span>` : ''}${c.uses != null ? `<span class="us">×${hr.uses[id] || 0}</span>` : ''}${c.upgraded ? '<span class="pl" aria-hidden="true">+</span>' : ''}${cd ? `<span class="cd">${cd}</span>` : ''}`;
     b.onclick = () => { if (!hbSwiped) hotTap(h, id); };
     bar.appendChild(b);
   }
   wrap.scrollLeft = same ? keep : UI.hbScroll[h.kind] || 0;
   const show = UI.peek && ids.includes(UI.peek) ? UI.peek : UI.card, focus = UI.fcFocus != null && UI.fc.has(UI.fcFocus) ? fcLine(UI.fcFocus) : '';
   if (show) {
-    const c = CARDS[show], blk = G.block(hr, show);
+    const c = G.cardOf(hr, show), blk = G.block(hr, show);
     const cdn = G.cardCd(hr, show), meta = [c.cost, c.target === 'self' ? 'Self' : c.range > 1 || c.reach ? `Range ${G.reachOf(hr, c)}` : 'Melee', cdn ? `Cooldown ${cdn}` : '', c.uses != null ? `${hr.uses[show] || 0} left` : ''].filter(Boolean).join(' · ');
     box.innerHTML = `<span class="tx"><b>${c.name}</b><span class="mt">${meta}</span></span><span class="tx2">${focus ? `<span class="odds">${focus}</span>` : `${blk ? `<em class="bl">${blk}.</em> ` : ''}${G.cardText(hr, show)}${!blk && hint ? ` <i>${hint}</i>` : ''}`}</span>`;
   } else box.innerHTML = `<span class="tx2">${hint || ''}</span>`;

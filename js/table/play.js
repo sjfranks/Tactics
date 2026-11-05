@@ -180,7 +180,7 @@ const here = u => ({ c: u.c, r: u.r, l: u.l || 0 });
 // walking somewhere and then using an ability asks first, on the board itself: the walk arrow, the reticle and a small
 // Confirm? label. Tap the label or the target again to go; tap anything else to call it off.
 function confirmCombo(u, id, target, path) {
-  const c = CARDS[id], t = typeof target === 'number' ? vu(target) : null;
+  const c = G.cardOf(ru(u), id), t = typeof target === 'number' ? vu(target) : null;
   showArrow(path, 'red'); if (t) showReticle(t, c.target, .9); previewCost(u, 2, true); UI.fcFocus = t ? t.id : null;
   const btn = $('#goPill'); btn.hidden = false; $('#dock').classList.add('confirming'); sfx('select');
   btn.setAttribute('aria-label', `Confirm: ${u.name} walks ${path.length - 1} square${path.length > 2 ? 's' : ''}, then uses ${c.name}${t ? ' on ' + t.name : ''}. Costs 2 actions.`);
@@ -317,19 +317,20 @@ function campaignReport() {
   const rows = ['fighter', 'cleric', 'mage', 'thief'].filter(k => CAMP.tally[k]).map(k => ({ kind: k, name: GC.UNITS[k].name, s: CAMP.tally[k] }));
   return rows.length ? `<h3>The whole campaign · ${CAMP.battles} battle${CAMP.battles === 1 ? '' : 's'} fought</h3>` + tallyTable(rows, '★ Hero of the campaign') : '';
 }
-// a won battle's experience joins each hero's growth: [{ kind, name, gained, lv, xp, ups: [{ lv, power }] }]
+// a won battle's experience joins each hero's growth: [{ kind, name, gained, lv, xp, ups: [{ lv }] }]
 function applyXp() {
   return G.S.units.filter(u => u.side === 'hero' && G.S.stats[u.id]).map(u => {
-    const g = CAMP.growth[u.kind] || (CAMP.growth[u.kind] = { lv: 1, xp: 0 }), gained = G.S.stats[u.id].xp, ups = GC.gainXp(g, u.kind, gained);
+    const g = CAMP.growth[u.kind] || (CAMP.growth[u.kind] = { lv: 1, xp: 0, ups: [] }), gained = G.S.stats[u.id].xp, ups = GC.gainXp(g, u.kind, gained);
     return { kind: u.kind, name: u.name, gained, lv: g.lv, xp: g.xp, ups };
   });
 }
-// the experience each hero earned: a bar toward the next level, and any level gained with the power it brings
-function xpReport(rows) {
+// the experience each hero earned: a bar toward the next level, and any level gained (each brings an upgrade to pick
+// at camp, unless the campaign is over)
+function xpReport(rows, camp = true) {
   if (!rows.length) return '';
   const X = GC.TUNE.xp, any = rows.some(r => r.ups.length);
   if (any) setTimeout(() => sfx('win'), 900);
-  return `<h3>Experience</h3><div class="xpl">${rows.map(r => `<div class="xpr${r.ups.length ? ' up' : ''}"><span class="rf">${face(r.kind)}</span><div class="xpb"><div class="xpt"><b>${r.name.replace('Sister ', '')}</b><span>Lv ${r.lv}</span><em>+${r.gained} XP</em></div><span class="bar"><i style="width:${r.lv >= X.max ? 100 : r.xp / X.level * 100}%"></i></span>${r.ups.map(u => `<p class="lvup">Level ${u.lv}! +${X.hp} max HP${u.power ? ` · learns <b>${CARDS[u.power].name}</b>: ${CARDS[u.power].text.replace('{die}', diceText(u.power))}` : ''}</p>`).join('')}</div></div>`).join('')}</div>`;
+  return `<h3>Experience</h3><div class="xpl">${rows.map(r => `<div class="xpr${r.ups.length ? ' up' : ''}"><span class="rf">${face(r.kind)}</span><div class="xpb"><div class="xpt"><b>${r.name.replace('Sister ', '')}</b><span>Lv ${r.lv}</span><em>+${r.gained} XP</em></div><span class="bar"><i style="width:${r.lv >= X.max ? 100 : r.xp / X.level * 100}%"></i></span>${r.ups.map(u => `<p class="lvup">Level ${u.lv}! +${X.hp} max HP${camp && u.lv - 1 <= GC.upgradable(r.kind).length ? ' · <b>upgrade a card</b> below' : ''}</p>`).join('')}</div></div>`).join('')}</div>`;
 }
 const diceText = id => { const c = CARDS[id], n = c.n || 1; return c.weapon ? 'its weapon die' : c.die ? (n > 1 ? n : '') + 'd' + c.die : ''; };
 function gameOver(win) {
@@ -341,7 +342,7 @@ function gameOver(win) {
   if (free) return freeOver(win, rounds, L, rep);
   // the campaign moves on at once (closing the page during the closing scene keeps the result)
   addTally(); CAMP.state = null;
-  const xpRep = win ? xpReport(applyXp()) : '';
+  const xpRep = win ? xpReport(applyXp(), !last) : '';
   const campRep = win && last ? campaignReport() : '';
   if (win && !last) { CAMP.level = level + 1; CAMP.offer = GC.offerBoons(CAMP.boons); }
   if (win && last) CAMP = freshCamp(CAMP.diff); // the campaign is won: the next visit starts a new one
@@ -350,7 +351,7 @@ function gameOver(win) {
     const sc = DLG.scenes[level]; await talk(sc && (win ? sc.win : sc.lose));
     const t = $('#endTitle'), btn = $('#againBtn');
     const up = heroes().map(h => h.name), down = units.filter(h => h && h.side === 'hero' && h.alive && h.down).map(h => h.name);
-    $('#endBoons').hidden = true; btn.disabled = false;
+    $('#endBoons').hidden = true; $('#endUps').hidden = true; btn.disabled = false;
     if (win) level++;
     steps('#endSteps');
     if (win && last) {
@@ -362,7 +363,7 @@ function gameOver(win) {
       t.textContent = 'Victory'; t.className = 'win';
       $('#endText').textContent = `${L.name} is cleared in ${rounds} round${rounds > 1 ? 's' : ''}. ${down.length ? `${listOf(down)} ${down.length > 1 ? 'are' : 'is'} carried from the field and back on their feet by nightfall. ` : ''}The party makes camp before ${LEVELS[level].name}.`;
       $('#endReport').innerHTML = xpRep + rep;
-      offerBoons(() => loadLevel(level), 'March on'); sfx('crit');
+      offerCamp(() => loadLevel(level), 'March on'); sfx('crit');
     } else {
       const n = units.filter(u => u && u.alive && u.side === 'gob').length;
       t.textContent = 'The Party Has Fallen'; t.className = 'lose';
@@ -379,7 +380,7 @@ function freeOver(win, rounds, L, rep) {
   setTimeout(async () => {
     const sc = DLG.scenes[level]; await talk(sc && (win ? sc.win : sc.lose));
     const t = $('#endTitle'), btn = $('#againBtn'), n = units.filter(u => u && u.alive && u.side === 'gob').length;
-    $('#endBoons').hidden = true; btn.disabled = false; steps('#endSteps');
+    $('#endBoons').hidden = true; $('#endUps').hidden = true; btn.disabled = false; steps('#endSteps');
     t.textContent = win ? 'Victory' : 'The Party Has Fallen'; t.className = win ? 'win' : 'lose';
     $('#endText').textContent = win ? `${L.name} is cleared in ${rounds} round${rounds > 1 ? 's' : ''}.` : `The goblins hold ${L.name}. ${n} foe${n === 1 ? '' : 's'} still stand${n === 1 ? 's' : ''}.`;
     $('#endReport').innerHTML = rep;

@@ -37,51 +37,57 @@ function options(B, u) {
   const allyLater = S.order.slice(S.turn + 1).map(B.U).filter(x => x.side === 'hero' && B.up(x));
   for (const id of B.cardsOf(u)) {
     if (B.block(u, id)) continue;
-    const card = B.CARDS[id], tg = B.targets(u, id);
+    const card = B.cardOf(u, id), tg = B.targets(u, id), proneV = t => t.st.prone || B.def(t).boss ? 0 : 1.5 + allyLater.length * .8;
     if (card.atk || (card.target === 'enemy' && id === 't_trick') || id === 'c_rebuke') {
       for (const [k, e] of tg) {
         if (e.unit == null) continue;
         const t = B.U(e.unit), from = e.path ? e.path[e.path.length - 1] : u;
         let v = 0;
-        if (card.atk) { const f = B.forecast(u, id, t, from, T); v = f.avg + f.kill * (t.hp + 5); if (id === 'm_frost') v += 2.5 * (1 - f.miss); if (id === 'f_charge') v += 1.5 * (1 - f.miss); if (id === 'f_bash' && !t.st.prone && !B.def(t).boss) v += (1.5 + allyLater.length * .8) * (1 - f.miss); }
-        else if (id === 't_trick') v = t.st.prone ? 0 : 1.5 + allyLater.length * .8;
-        else if (id === 'c_rebuke') { const a = B.armourOf(t); v = a >= 2 ? 1 + allyLater.filter(h => B.dist(h, t) <= 3).length * a / 1.5 : 0; }
+        if (card.atk) {
+          const f = B.forecast(u, id, t, from, T), hit = 1 - f.miss, live = 1 - f.kill; v = f.avg + f.kill * (t.hp + 5);
+          if (id === 'm_frost') v += (2.5 + (card.spread ? foes.filter(x => x !== t && B.dist(x, t) === 1).length * 2 : 0)) * hit;
+          if (id === 'f_charge') v += (1.5 + (card.drive > 1 ? 1 : 0)) * hit;
+          if (card.leap && foes.some(x => x !== t && B.dist(x, t) <= 2)) v += 1.8 * hit;
+          if (card.fan && foes.some(x => x !== t && B.dist(x, from) <= 4 && B.los(from, x))) v += 3.5;
+          if (card.poison && !t.st.poisoned) v += 3 * hit * live;
+        }
+        else if (id === 't_trick') v = proneV(t) + (card.all ? foes.filter(x => x !== t && B.dist(x, from) === 1).reduce((n, x) => n + proneV(x), 0) : 0);
+        else if (id === 'c_rebuke') { const strip = x => { const a = B.armourOf(x); return a >= 2 ? 1 + allyLater.filter(h => B.dist(h, x) <= 3).length * a / 1.5 : 0; }; v = strip(t) + (card.spread ? foes.filter(x => x !== t && B.dist(x, t) === 1).reduce((n, x) => n + strip(x) * .8, 0) : 0); }
         if (e.path) v -= 1.6; // the walk costs an action
         if (S.smash && S.smash.cells.includes(B.key(from.c, from.r))) v -= 5;
         opts.push({ v, id, target: e.unit, path: e.path });
       }
     } else if (card.sweep) {
       const fs = (card.sweep === 'around' ? foes.filter(t => B.cheb(t, u) === 1) : foes.filter(t => B.dist(t, u) === 1));
-      let v = 0; for (const t of fs) { const f = B.forecast(u, id, t, u, T); v += f.avg + f.kill * (t.hp + 5) + (card.shove ? 1 : 0); }
+      let v = 0; for (const t of fs) { const f = B.forecast(u, id, t, u, T); v += f.avg + f.kill * (t.hp + 5) + (card.shove ? 1 : 0) + (card.trip ? proneV(t) * (1 - f.miss) * (1 - f.kill) : 0); }
+      if (card.ward && !u.st.warded) v += 1 + fs.length * .5;
       opts.push({ v, id, target: u.id });
     } else if (card.area) {
       for (const [k, e] of tg) {
-        const hit = B.blastAt(e.cell); let v = 0;
+        const hit = B.blastHits(u, e.cell); let v = 0;
         for (const x of hit) { const f = B.forecast(u, id, x, u, T); v += x.side === 'gob' ? f.avg + f.kill * (x.hp + 5) + 1.5 : -(f.avg * 2 + 4); }
         if (v > 0) opts.push({ v, id, target: e.cell });
       }
-    } else if (card.heal) { // Heal, or a draught (kept for someone badly hurt)
-      for (const [k, e] of tg) { const t = B.U(e.unit); if (e.path) continue; const need = t.down ? 99 : t.maxHp - t.hp, avg = B.cardN(u, id) * (B.cardDie(u, id) + 1) / 2; if (t.down) opts.push({ v: 20, id, target: t.id }); else if (need >= (id === 'potion' ? Math.max(5, t.maxHp * .5) : 4)) opts.push({ v: Math.min(need, avg) * 1.1, id, target: t.id }); }
+    } else if (card.heal) { // Heal, or a draught (kept for someone badly hurt); an upgraded Heal spills to the heroes beside
+      for (const [k, e] of tg) {
+        const t = B.U(e.unit); if (e.path) continue; const need = t.down ? 99 : t.maxHp - t.hp, avg = B.cardN(u, id) * (B.cardDie(u, id) + 1) / 2;
+        const spill = card.spill ? B.heroes().filter(h => h !== t && B.dist(h, t) === 1).reduce((n, h) => n + Math.min(avg / 2, h.maxHp - h.hp), 0) * 1.1 : 0;
+        if (t.down) opts.push({ v: 20 + spill, id, target: t.id }); else if (need >= (id === 'potion' ? Math.max(5, t.maxHp * .5) : 4) || spill >= 3) opts.push({ v: Math.min(need, avg) * 1.1 + spill, id, target: t.id });
+      }
     } else if (id === 'c_bless') {
-      for (const [k, e] of tg) { const t = B.U(e.unit); if (e.path || t.st.blessed) continue; const later = t === u ? 0 : allyLater.includes(t) ? 1 : 0; if (later && ['fighter', 'thief'].includes(t.kind)) opts.push({ v: 1.8, id, target: t.id }); }
+      for (const [k, e] of tg) {
+        const t = B.U(e.unit); if (e.path || t.st.blessed) continue; const later = t === u ? 0 : allyLater.includes(t) ? 1 : 0, near = foes.filter(g => B.dist(g, t) <= 2).length;
+        const v = (later && ['fighter', 'thief'].includes(t.kind) ? 1.8 : 0) + (card.ward && !t.st.warded && near ? 1 + near * .7 : 0); if (v > 0) opts.push({ v, id, target: t.id });
+      }
     } else if (id === 'c_haste') {
       for (const [k, e] of tg) { const t = B.U(e.unit); if (e.path || t === u || t.st.hasted) continue; if (['fighter', 'thief'].includes(t.kind)) opts.push({ v: 2.2, id, target: t.id }); }
     } else if (id === 'f_taunt') {
       const near = foes.filter(g => B.dist(g, u) <= 4).length, soft = B.heroes().filter(h => h !== u && h.hp < h.maxHp * .5).length;
-      if (near >= 2 && soft) opts.push({ v: 1.5 + soft, id, target: u.id });
-    } else if (id === 'f_cry') { // powers learned by levelling up: bless the heroes about to act
-      const n = allyLater.filter(h => B.dist(h, u) <= 3 && !h.st.blessed).length; if (n >= 2) opts.push({ v: 1.2 + n * .6, id, target: u.id });
-    } else if (id === 'c_prayer') {
-      const avg = B.cardN(u, id) * (B.cardDie(u, id) + 1) / 2; let v = 0; for (const h of B.heroes()) if (B.dist(h, u) <= 2) v += Math.min(avg, h.maxHp - h.hp);
-      if (v >= 4) opts.push({ v: v * 1.1, id, target: u.id });
-    } else if (id === 'c_ward') {
-      for (const [k, e] of tg) { const t = B.U(e.unit); if (e.path || t.st.warded) continue; const near = foes.filter(g => B.dist(g, t) <= 2).length; if (near) opts.push({ v: 1 + near * .7, id, target: t.id }); }
-    } else if (id === 'm_shield') {
-      const near = foes.filter(g => B.dist(g, u) <= 2).length; if (near && !u.st.warded) opts.push({ v: 1 + near * .8, id, target: u.id });
-    } else if (id === 't_smoke') {
-      const n = B.heroes().filter(h => (h === u || B.dist(h, u) === 1) && !h.st.hidden).length; if (n >= 2) opts.push({ v: 1 + n * .6, id, target: u.id });
+      const rally = card.rally ? allyLater.filter(h => B.dist(h, u) <= card.rally && !h.st.blessed).length * .7 : 0;
+      if ((near >= 2 && soft) || rally >= 1.4) opts.push({ v: (near >= 2 && soft ? 1.5 + soft : 0) + rally, id, target: u.id });
     } else if (id === 't_hide') {
-      if (!u.st.hidden && u.ap >= 2) opts.push({ v: 1.2, id, target: u.id });
+      const smoke = card.smoke ? B.heroes().filter(h => h !== u && B.dist(h, u) === 1 && !h.st.hidden && foes.some(g => B.dist(g, h) <= 2)).length : 0;
+      if ((!u.st.hidden && u.ap >= 2) || smoke) opts.push({ v: (!u.st.hidden && u.ap >= 2 ? 1.2 : 0) + smoke * 1.2, id, target: u.id });
     } else if (id === 'f_grab') {
       for (const g of B.grabbable(u)) {
         if (g.side !== 'gob') continue;
@@ -128,14 +134,16 @@ function heroTurn(B, stats) {
   if (S.phase === 'player') { const evs = B.endTurn(); check(B, evs, `${S.level} r${S.round} end`); }
 }
 
-// the boons a party would carry into a battle: one random pick of three offered after each earlier one
+// the boons a party would carry into a battle: one random pick of three offered after each earlier one; and the
+// levels it would have reached, each with an upgrade picked at random
+const seeded = (seed, salt) => { let x = (seed * 2654435761 + salt) >>> 0; return () => ((x = (x * 1664525 + 1013904223) >>> 0) / 4294967296); };
 function boonsFor(level, seed) {
   if (process.env.BOONS === '0') return [];
-  let x = seed * 2654435761 >>> 0; const rnd = () => ((x = (x * 1664525 + 1013904223) >>> 0) / 4294967296);
-  return GC.partyBoons(level, rnd);
+  return GC.partyBoons(level, seeded(seed, 0));
 }
+const growthFor = (level, seed) => process.env.LV0 ? null : GC.partyGrowth(level, seeded(seed, 7919));
 function play(level, seed, stats) {
-  const S = GC.newState(level, seed, { boons: boonsFor(level, seed), diff: process.env.DIFF, growth: process.env.LV0 ? null : GC.partyGrowth(level), xp: true }), B = GC.battle(S);
+  const S = GC.newState(level, seed, { boons: boonsFor(level, seed), diff: process.env.DIFF, growth: growthFor(level, seed), xp: true }), B = GC.battle(S);
   check(B, B.begin(), 'begin');
   for (let k = 0; k < 2000 && !S.result; k++) heroTurn(B, stats);
   const hs = S.units.filter(u => u.side === 'hero');
