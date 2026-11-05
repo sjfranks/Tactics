@@ -6,6 +6,7 @@
 // =====================================================================================================================
 'use strict';
 const $ = s => document.querySelector(s);
+const ovOpen = () => [...document.querySelectorAll('.ov')].some(o => !o.hidden); // a screen or sheet covers the table
 const REDUCED = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })(); // the player asks for less motion
 const V3 = THREE.Vector3, UP = new V3(0, 1, 0);
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -216,7 +217,7 @@ const VIEWC = 6, VIEWR = 8; // the camera frames this many squares; bigger maps 
 const PITCH = 1, CLOSE_PITCH = .5;
 let camPitch = PITCH, camPitchT = PITCH, camY = .1, camYT = .1;
 // the play view's distance, as a share of the one that fits a whole 6 × 8 board
-const playZoom = () => innerHeight > innerWidth ? 1 : .52; // on a tall screen the whole 6 × 8 board stays in view
+const playZoom = () => 1; // the whole 6 × 8 board stays in view, on any screen (a bigger map pans)
 
 // environment map: a dim crypt with warm torch panels, so metal, gems and dice catch reflections
 {

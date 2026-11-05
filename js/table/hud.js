@@ -144,7 +144,7 @@ function hotTap(h, id) {
   UI.card = id; UI.aim = null; UI.fcFocus = null; sfx('pick'); refresh();
 }
 window.addEventListener('keydown', e => { // 1–9 pick abilities, Escape puts the chosen one down
-  const h = myHero(); if (e.ctrlKey || e.metaKey || e.altKey || !h) return;
+  const h = myHero(); if (e.ctrlKey || e.metaKey || e.altKey || !h || ovOpen() || !$('#menu').hidden) return; // not under a sheet or the open menu
   const k = +e.key, id = k >= 1 && k <= 9 ? G.cardsOf(ru(h))[k - 1] : null;
   if (id) { e.preventDefault(); hotTap(h, id); const b = document.querySelector(`.hk[data-id="${id}"]`); if (b) b.scrollIntoView({ inline: 'nearest', block: 'nearest' }); }
   else if (e.key === ']' || e.key === '[') { e.preventDefault(); hbPage(e.key === ']' ? 1 : -1); }

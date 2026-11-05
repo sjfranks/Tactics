@@ -199,7 +199,7 @@ $('#tNew').onclick = async () => {
 };
 $('#tLevels').onclick = () => { ac(); showLevels(); };
 $('#tBack').onclick = () => { ac(); sfx('pick'); $('#titleMain').hidden = false; $('#titleLevels').hidden = true; };
-$('#tHelp').onclick = () => { ac(); $('#help').hidden = false; };
+$('#tHelp').onclick = () => { ac(); $('#helpClose').textContent = 'Back'; $('#help').scrollTop = 0; $('#help').hidden = false; };
 $('#tSettings').onclick = () => { ac(); renderSettings(); $('#settings').hidden = false; sfx('select'); };
 // to the title from a battle: a campaign turn is already saved; a free battle is let go
 $('#menuMain').onclick = () => { ac(); $('#settings').hidden = true; toTitle(); };

@@ -238,7 +238,6 @@ $('#restartBtn').onclick = async () => {
   if (UI.phase === 'intro' || UI.over || await ask('Restart this battle?', 'The battle starts again from the briefing. The boons stay.', 'Restart', 'Keep playing')) { $('#end').hidden = true; $('#intro').hidden = true; loadLevel(level); }
 };
 $('#uwho').onclick = () => { ac(); openSheet(); };
-$('#csheet').onclick = e => { if (e.target.id === 'csheet') $('#csheet').hidden = true; };
 // a question in the page itself (the viewer allows no browser dialogs): resolves true for the first button
 function ask(title, html, yes, no) {
   $('#cfTitle').textContent = title; $('#cfText').innerHTML = html; $('#cfEnd').textContent = yes; $('#cfBack').textContent = no;
@@ -262,17 +261,18 @@ window.addEventListener('keydown', e => {
   if (!$('#confirm').hidden) { if (k === 'enter') { e.preventDefault(); $('#cfEnd').click(); } else if (k === 'escape') { e.preventDefault(); $('#cfBack').click(); } return; }
   if (k === 'enter' && !$('#intro').hidden) { e.preventDefault(); $('#introGo').click(); return; }
   if (k === 'enter' && !$('#end').hidden) { e.preventDefault(); $('#againBtn').click(); return; }
-  if ([...document.querySelectorAll('.ov')].some(o => !o.hidden)) return;
+  if (k === 'escape' && !$('#menu').hidden) { e.preventDefault(); setMenu(false); return; }
+  if (k === 'escape' && closeSheet()) { e.preventDefault(); return; }
+  if (ovOpen()) return;
   if (k === 'z' && (mod || !e.shiftKey)) { e.preventDefault(); undoMove(); }
   else if ((k === 'e' || k === 'enter') && !mod && myHero()) { e.preventDefault(); askEndTurn(); }
   else if (k === 'f' && !mod) showFloor(UI.view === 'lower' ? 'upper' : 'lower');
   else if (k === 'pageup' || k === 'pagedown') { e.preventDefault(); showFloor(k === 'pageup' ? 'upper' : 'lower'); }
 });
 $('#rotBtn').onclick = () => { ac(); UI.wallDir = UI.wallDir === 'v' ? 'h' : 'v'; sfx('pick'); refresh(); }; // turn the ice wall across or down
-$('#helpBtn').onclick = () => { setMenu(false); $('#help').hidden = false; };
+$('#helpBtn').onclick = () => { setMenu(false); $('#helpClose').textContent = 'To battle'; $('#help').scrollTop = 0; $('#help').hidden = false; };
 $('#settingsBtn').onclick = () => { ac(); setMenu(false); renderSettings(); $('#settings').hidden = false; sfx('select'); };
 $('#settingsClose').onclick = () => { $('#settings').hidden = true; };
-$('#settings').onclick = e => { if (e.target.id === 'settings') $('#settings').hidden = true; };
 $('#menuUndo').onclick = () => { setMenu(false); ac(); undoMove(); };
 $('#menuFloor').onclick = () => { setMenu(false); ac(); sfx('select'); setView(UI.view === 'lower' ? 'upper' : 'lower'); };
 // the floor switch on the left: up to the upper floor, down to the ground floor
@@ -286,8 +286,11 @@ $('#menuView').onclick = () => {
 };
 $('#menuLog').onclick = () => { setMenu(false); ac(); renderLog(); $('#logv').hidden = false; $('#logList').scrollTop = 1e6; };
 $('#logClose').onclick = () => { $('#logv').hidden = true; };
-$('#logv').onclick = e => { if (e.target.id === 'logv') $('#logv').hidden = true; };
 $('#helpClose').onclick = () => { ac(); $('#help').hidden = true; };
+// the sheets that can be put away: by the ✕ in their corner, a tap on the dim backdrop around them, or Escape
+const CLOSABLE = ['#csheet', '#logv', '#settings', '#help'];
+function closeSheet() { const q = CLOSABLE.find(q => !$(q).hidden); if (q) $(q).hidden = true; return !!q; }
+CLOSABLE.forEach(q => $(q).addEventListener('click', e => { if (e.target === e.currentTarget || e.target.closest('.xb')) { ac(); $(q).hidden = true; } }));
 $('#againBtn').onclick = () => { ac(); if ($('#againBtn').disabled) return; $('#end').hidden = true; if (endAction) endAction(); };
 $('#introGo').onclick = async () => {
   ac(); $('#intro').hidden = true;

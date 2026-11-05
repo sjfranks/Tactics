@@ -64,7 +64,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 /* End sits at the right end of the card row, level with the cards */
 #bar #endBtn{position:relative;right:auto;bottom:auto;flex:none;align-self:flex-start;margin-top:-6px;pointer-events:auto}
 /* character sheet */
-#csheet .sheet{padding:0;overflow:hidden}
+#csheet .sheet{padding:0;overflow:hidden;overflow:clip}
 .cs-head{display:flex;align-items:center;gap:12px;padding:16px 18px 12px;background:linear-gradient(120deg,#1d3a78,#0c1a3c)}
 .cs-head.gob{background:linear-gradient(120deg,#6a1a1a,#2a0c0c)}
 .cs-head .ubadge{width:52px;height:60px}.cs-head .ubadge>span{width:46px;height:54px}.cs-head .ubadge svg{width:28px;height:28px}
@@ -198,14 +198,14 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
 /* ---------- overlays ---------- */
 .ov{position:absolute;inset:0;z-index:10;display:grid;place-items:center;background:rgba(8,6,12,.7);padding:max(16px,env(safe-area-inset-left,0px));padding-block:calc(env(safe-area-inset-top,0px) + 16px) calc(env(safe-area-inset-bottom,0px) + 16px);overflow:auto;touch-action:pan-y}
-.sheet{width:100%;max-width:440px;background:linear-gradient(180deg,#1b2c52,#0f1a33);border:1px solid var(--line);border-top:2px solid var(--gilt);border-radius:16px;padding:20px 20px 18px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.sheet{box-sizing:border-box;width:100%;max-width:480px;background:linear-gradient(180deg,#1b2c52,#0f1a33);border:1px solid var(--line);border-top:2px solid var(--gilt);border-radius:16px;padding:20px 20px 18px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
 .sheet .kick{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:800;margin:0 0 4px}
 .sheet h2{font-family:var(--display);font-size:38px;line-height:1;margin:0 0 8px;text-wrap:balance}
 .sheet h3{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin:16px 0 6px}
 .sheet p,.sheet li{font-size:15px;line-height:1.45;color:#ddd0b4;margin:0}
 .sheet ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
 .sheet li b{color:var(--parch)}
-.sheet.cf{max-width:320px;text-align:center}
+.sheet.cf{max-width:360px;text-align:center}
 #logSheet{padding:16px 16px 14px}
 #logSheet h2{font-size:28px;margin-bottom:8px}
 #logList{max-height:56vh;overflow-y:auto;display:flex;flex-direction:column;gap:3px;padding-right:4px;touch-action:pan-y;font-size:13.5px;line-height:1.35}
@@ -217,7 +217,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 #logList .le.dice s{opacity:.55}
 #logList .le.hdr{border:none;margin-top:8px;padding:0;font-family:var(--display);font-weight:800;font-size:15px;color:var(--gold);letter-spacing:.06em;text-transform:uppercase}
 #logList .le.empty{border:none;color:#9fb4d4}
-.sheet.cf{max-width:320px;text-align:center}
+.sheet.cf{max-width:360px;text-align:center}
 .sheet.cf h2{font-size:30px}
 .sheet.cf p b{color:var(--parch)}
 .cfb{display:flex;gap:10px;margin-top:16px}
@@ -345,7 +345,7 @@ body{font-family:var(--body)}
 .hexb{background:linear-gradient(180deg,#8a7656,#2a231e)}.hexb::before{background:linear-gradient(180deg,#2b2420,#120f0d)}.hexb svg{stroke:var(--bone)}
 .uwho .nm{font-family:var(--display);font-weight:400;font-size:20px;letter-spacing:.02em;color:var(--bone);text-shadow:0 1px 0 #000,0 0 12px rgba(0,0,0,.8)}
 .uwho .hpn{font-family:var(--body);color:var(--bone-dim)}.uwho .hpn i{color:var(--bone)}
-.uwho .hpb{height:6px;border-radius:1px;background:#070505;box-shadow:inset 0 0 0 1px #3d3128,0 0 0 1px #000}.uwho .hpb i{background:linear-gradient(180deg,#e0584a,#7c120c)}
+.uwho .hpb{height:6px;border-radius:1px;background:#070505;box-shadow:inset 0 0 0 1px #3d3128,0 0 0 1px #000}.uwho .hpb i{background:linear-gradient(180deg,#c3cf9a,#56703a)}.uwho.gob .hpb i{background:linear-gradient(180deg,#e0584a,#7c120c)}
 .uwho .ubadge,.ubadge{background:linear-gradient(180deg,#b29a6c,#3e3122)!important}
 .ubadge>span{background:linear-gradient(160deg,#3c4652,#151a20)!important}.ubadge.gob>span{background:linear-gradient(160deg,#5a1610,#1e0504)!important}
 .rnd{font-family:var(--display);font-weight:400;font-size:13px;letter-spacing:.06em;color:var(--bone);background:linear-gradient(180deg,#3a2f27,#1a1512);box-shadow:inset 0 0 0 1px #5c4a3a,0 0 0 1px #000;border-radius:3px}
@@ -394,7 +394,7 @@ body{font-family:var(--body)}
 /* character sheet, intro and end screens */
 .cs-head{background:linear-gradient(120deg,#3a3028,#16120f)!important;border-bottom:1px solid var(--tarnish)}.cs-head.gob{background:linear-gradient(120deg,#4a1410,#1a0605)!important}
 .cs-head h2{font-family:var(--display);font-weight:400}.cs-head small{color:var(--tarnish)}
-.cs-hp{font-family:var(--display);font-weight:400;color:var(--bone-dim)}.cs-hp i{color:var(--bone)}.cs-hp .bar{border-radius:1px;background:#070505;box-shadow:inset 0 0 0 1px #3d3128}.cs-hp .bar b{background:linear-gradient(180deg,#e0584a,#7c120c)}
+.cs-hp{font-family:var(--display);font-weight:400;color:var(--bone-dim)}.cs-hp i{color:var(--bone)}.cs-hp .bar{border-radius:1px;background:#070505;box-shadow:inset 0 0 0 1px #3d3128}.cs-hp .bar b{background:linear-gradient(180deg,#c3cf9a,#56703a)}.cs-hp.gob .bar b{background:linear-gradient(180deg,#e0584a,#7c120c)}
 .cs-stats div{border-radius:2px;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1px #3d3128;color:var(--bone-dim)}.cs-stats b{font-family:var(--display);font-weight:400;color:var(--bone)}
 .cs-tags span{border-radius:2px;background:#2a221d;color:var(--bone)}
 .cs-card{border-radius:3px;background:linear-gradient(90deg,hsl(var(--hue) 30% 16%),#141110)!important;border:1px solid #3d3128!important}.cs-card b{font-family:var(--display);font-weight:400;color:var(--bone)}.cs-card p{color:var(--bone-dim)!important}.cs-card em{color:var(--tarnish)}.cs-card svg{stroke:var(--bone)}
@@ -410,6 +410,11 @@ body{font-family:var(--body)}
 .sheet,#menu{border-radius:3px;background:linear-gradient(180deg,#231e1b,#110e0c);border:1px solid #4a3e33;border-top:2px solid var(--tarnish);box-shadow:0 0 0 1px #000,0 24px 60px rgba(0,0,0,.8)}
 .sheet h2{font-family:var(--display);font-weight:400;color:var(--bone)}.sheet .kick,.sheet h3{color:var(--tarnish)}.sheet p,.sheet li{color:var(--bone-dim)}
 .sheet .go{border-radius:3px;border:1px solid var(--blood-hi);background:linear-gradient(180deg,#9a1e16,#4a0a07);font-family:var(--display);font-weight:400;color:var(--bone);text-shadow:0 1px 0 #000}
+/* a sheet's ✕ stays in its top corner however far the sheet scrolls */
+.xbar{position:sticky;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:3;height:0;display:flex;justify-content:flex-end;pointer-events:none}
+.xb{pointer-events:auto;flex:none;width:38px;height:38px;margin:-10px -10px 0 0;padding:0;border-radius:3px;border:1px solid #4a3e33;background:rgba(17,14,12,.92);color:var(--bone);font:700 15px/1 var(--body);display:grid;place-items:center;cursor:pointer;box-shadow:0 0 0 1px #000,0 4px 12px rgba(0,0,0,.6)}
+.xb:hover,.xb:focus-visible{border-color:var(--tarnish);color:#fff}
+#csheet .xb{margin:8px 8px 0 0}
 .mi{color:var(--bone)}
 /* ================= the table speaks: foe intents, odds, the fallen, numbers that land ================= */
 /* foe intents: an arrow from each goblin to the hero it means to strike; dotted where it means to walk */
@@ -506,7 +511,7 @@ body{font-family:var(--body)}
 /* the title screen: the campaign, or the level select */
 #app.titled #top,#app.titled #dock,#app.titled #floorBtn,#app.titled #tags{visibility:hidden}
 #title{background:radial-gradient(ellipse at 50% 40%,rgba(10,8,6,.35),rgba(6,5,4,.88))}
-.sheet.ttl{text-align:center;max-width:400px}
+.sheet.ttl{text-align:center;max-width:440px}
 .ttl h1{font-family:var(--display);font-weight:400;font-size:52px;line-height:1;margin:2px 0 18px;color:var(--bone);text-shadow:0 2px 0 #000,0 0 26px rgba(232,135,58,.35)}
 .ttl h2{font-size:30px}
 .ttl .go{display:flex;flex-direction:column;align-items:center;justify-content:center;height:auto;min-height:56px;padding:8px 12px}
@@ -624,7 +629,7 @@ body{font-family:var(--body)}
     </div>
   </div>
   <div class="ov" id="settings" hidden>
-    <div class="sheet">
+    <div class="sheet"><div class="xbar"><button class="xb" aria-label="Close" title="Close (Esc)">✕</button></div>
       <h2>Settings</h2>
       <div class="setl">
         <button class="mi on" id="muteBtn"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg><span>Sound</span><i class="sw"></i></button>
@@ -644,7 +649,7 @@ body{font-family:var(--body)}
     </div>
   </div>
   <div class="ov" id="logv" hidden>
-    <div class="sheet" id="logSheet"><h2>Combat log</h2><div id="logList"></div><button class="go" id="logClose">Close</button></div>
+    <div class="sheet" id="logSheet"><div class="xbar"><button class="xb" aria-label="Close" title="Close (Esc)">✕</button></div><h2>Combat log</h2><div id="logList"></div><button class="go" id="logClose">Close</button></div>
   </div>
   </div>
   <div class="ov" id="confirm" hidden>
@@ -658,7 +663,7 @@ body{font-family:var(--body)}
     <div class="sheet" id="csBody"></div>
   </div>
   <div class="ov" id="help" hidden>
-    <div class="sheet">
+    <div class="sheet"><div class="xbar"><button class="xb" aria-label="Close" title="Close (Esc)">✕</button></div>
       <h2>Goblin Crypt</h2>
       <p>Five battles stand between your party and the Goblin King: a gorge crossing, a ridge camp, the warg pens, the forge pits and his throne room. Every hero has 3 actions on their turn, every goblin 2. Moving is an action, and so is each ability. The dice are real dice: a <b>1</b> misses, a top face is a <b>crit</b> that explodes into another die, and the target's <b>armour</b> takes a fixed amount off the rest. The party rests to full health between battles.</p>
       <h3>The campaign</h3>
@@ -678,13 +683,13 @@ body{font-family:var(--body)}
         <li><b>Undo</b> in the ☰ menu takes back moves and abilities that rolled no dice. Dice are final: once a roll is made it stands, and so does everything before it.</li>
         <li><b>Twist two fingers</b> to turn the board, pinch to zoom, and drag the floor to look around. On a computer, shift-drag or right-drag turns it. Tap during the goblins' turn to speed it up.</li>
         <li>A hero's abilities sit in one hotbar five slots wide. When an edge of it fades, there are more past it: drag the bar sideways, or tap <b>›</b> beside it (or press <b>[</b> and <b>]</b>) for the next set.</li>
-        <li><b>Keys:</b> 1–9 pick an ability, <b>E</b> or <b>Enter</b> ends the turn, <b>Z</b> undoes, <b>Esc</b> puts the ability down, <b>F</b> (or Page Up and Page Down) switches floors in a house. In a scene, Enter or a tap goes on and Esc skips.</li>
+        <li><b>Keys:</b> 1–9 pick an ability, <b>E</b> or <b>Enter</b> ends the turn, <b>Z</b> undoes, <b>Esc</b> puts the ability down or closes a sheet, <b>F</b> (or Page Up and Page Down) switches floors in a house. In a scene, Enter or a tap goes on and Esc skips.</li>
       </ul>
       <h3>Turns</h3>
       <ul>
         <li>At the start of the battle every piece rolls <b>initiative</b> once (d10, plus 3 for Vex and wargs, 1 for Orlen, cutters and archers, −1 for Grubnash) and keeps it to the end; a goblin that wakes or is called in rolls when it joins. The higher roll goes first, then heroes and goblins alternate, one piece at a time. The strip at the top shows who acts now and who comes next.</li>
         <li><b>Disadvantage:</b> each attack after a piece's first in a turn throws one more die for every attack it has already made, and the highest are set aside.</li>
-        <li>A hero at 0 HP is <b>down</b>, not dead: they lie where they fell, and goblins leave the body be. Sister Wenna's <b>Heal</b> raises them with whatever it rolls. If every hero is down, the battle is lost.</li>
+        <li>A hero at 0 HP is <b>down</b>, not dead: they lie where they fell, and goblins leave the body be. Sister Wenna's <b>Heal</b> raises them with whatever it rolls. She can cast it once a turn. If every hero is down, the battle is lost.</li>
         <li>A <b>Prone</b> hero spends an action to stand up.</li>
       </ul>
       <h3>Attack and armour</h3>

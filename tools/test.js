@@ -150,6 +150,7 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
   await tapCell(2, 7); await idle();
   const vex = await hero('thief');
   ok(!vex.down && vex.hp > 0, `Heal raised Vex with ${vex.hp} HP`);
+  ok(await p.evaluate(() => G.block(G.U(UI.active.id), 'c_heal') === 'Ready in 1' && document.querySelector('.hk[data-id="c_heal"]').classList.contains('off')), 'Heal is spent until her next turn');
 
   console.log('boons: a better blade, and a healing draught');
   await setup(0, 'fighter', "const w = S.units.find(u => u.kind === 'cleric'); w.hp = 3; w.c = 2; w.r = 7;", { boons: ['tempered', 'draughts'] });

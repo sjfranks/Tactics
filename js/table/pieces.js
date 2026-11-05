@@ -54,13 +54,13 @@ function openSheet() {
     const bn = foe ? [] : boonNames(u.kind), boons = bn.length ? `<div class="cs-tags cs-boons">${bn.map(n => `<span>★ ${n}</span>`).join('')}</div>` : '';
     const note = u.down ? 'Down: Heal raises them. Goblins leave the fallen be.' : foe ? u.def.note : u === UI.active && UI.phase === 'player' ? `${r.ap} action${r.ap === 1 ? '' : 's'} left this turn` : '';
     html = `<div class="cs-head ${foe ? 'gob' : ''}">${PORTRAIT[u.kind] ? `<img class="cs-fig" alt="" src="${PORTRAIT[u.kind].body}">` : `<span class="ubadge ${foe ? 'gob' : ''}"><span>${ICONS[u.kind]}</span></span>`}<div><h2>${u.name}</h2><small>${foe ? (u.def.boss ? 'Goblin King' : 'Foe') : u.def.role}</small></div></div>
-      <div class="cs-body"><div class="cs-hp"><i>${u.hp}</i>/ ${u.maxHp}<span class="bar"><b style="width:${u.hp / u.maxHp * 100}%"></b></span></div>
+      <div class="cs-body"><div class="cs-hp${foe ? ' gob' : ''}"><i>${u.hp}</i>/ ${u.maxHp}<span class="bar"><b style="width:${u.hp / u.maxHp * 100}%"></b></span></div>
       <div class="cs-stats"><div>Move<b>${G.moveOf(r)}</b></div><div>Die<b>d${G.dieOf(r)}</b></div><div>Range<b>${u.def.range}</b></div><div>Armour<b>${G.armourOf(r)}</b></div></div>
       ${foe ? '' : levelLine(u.kind)}${boons}${sts.length ? `<div class="cs-tags">${sts.map(x => `<span>${ST_DESC[x]}</span>`).join('')}</div>` : ''}${note ? `<p class="cs-note">${note}</p>` : ''}${cards}
       <p class="cs-note">${L.name} · Round ${UI.round} · ${foesLeft} foes left</p>
       <button class="go" id="csClose">Close</button></div>`;
   } else html = `<div class="cs-body"><p class="cs-note">${L.name} · Round ${UI.round} · ${foesLeft} foes left. Tap a unit to see its sheet.</p><button class="go" id="csClose">Close</button></div>`;
-  $('#csBody').innerHTML = html; $('#csheet').hidden = false;
+  $('#csBody').innerHTML = '<div class="xbar"><button class="xb" aria-label="Close" title="Close (Esc)">✕</button></div>' + html; $('#csheet').hidden = false; $('#csheet').scrollTop = 0;
   $('#csClose').onclick = () => { $('#csheet').hidden = true; };
 }
 const ART = {

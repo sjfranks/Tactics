@@ -43,7 +43,7 @@ function options(B, u) {
         if (e.unit == null) continue;
         const t = B.U(e.unit), from = e.path ? e.path[e.path.length - 1] : u;
         let v = 0;
-        if (card.atk) { const f = B.forecast(u, id, t, from, T); v = f.avg + f.kill * (t.hp + 5); if (id === 'm_frost') v += 2.5 * (1 - f.miss); if (id === 'f_charge') v += 1.5 * (1 - f.miss); }
+        if (card.atk) { const f = B.forecast(u, id, t, from, T); v = f.avg + f.kill * (t.hp + 5); if (id === 'm_frost') v += 2.5 * (1 - f.miss); if (id === 'f_charge') v += 1.5 * (1 - f.miss); if (id === 'f_bash' && !t.st.prone && !B.def(t).boss) v += (1.5 + allyLater.length * .8) * (1 - f.miss); }
         else if (id === 't_trick') v = t.st.prone ? 0 : 1.5 + allyLater.length * .8;
         else if (id === 'c_rebuke') { const a = B.armourOf(t); v = a >= 2 ? 1 + allyLater.filter(h => B.dist(h, t) <= 3).length * a / 1.5 : 0; }
         if (e.path) v -= 1.6; // the walk costs an action
