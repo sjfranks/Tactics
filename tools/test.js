@@ -183,6 +183,8 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     const b1 = await badge('warg');
     ok(b1.text === '0' && b1.low, `Judgement strips the warg's armour: ${b0.text} → ${b1.text}, shown in red`);
     ok(await p.evaluate(() => { const u = units.find(x => x && x.alive && x.kind === 'warg' && x.r === 5); return !!u.tag.querySelector('.sts i.judged') && !!u.fx.judge; }), 'the warg wears the gold mark of the Judged, on its nameplate and over its head');
+    ok(await p.evaluate(() => condSeen.judged === 1 && $('#coT').textContent === 'Judged' && /every hero who hits it heals/.test($('#coX').textContent)), 'the first Judgement brings a word on what Judged does');
+    ok(await p.evaluate(() => { const r = G.U(UI.active.id), w = G.S.units.find(u => u.kind === 'warg' && u.r === 5); return G.forecast(r, 'c_attack', w).tags.includes('Judged: heal 1'); }), 'and the odds on the Judged warg say a hit heals 1');
     ok(await p.evaluate(() => !combatLog.some(e => /toughness/i.test(e.html))), 'nothing rolls for defence any more');
   }
 

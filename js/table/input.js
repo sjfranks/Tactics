@@ -199,6 +199,7 @@ function setMenu(open) { $('#dock').classList.toggle('mopen', open); $('#menu').
 $('#menuBtn').onclick = () => { ac(); setMenu($('#menu').hidden); sfx('select'); };
 $('#threatBtn').onclick = () => { ac(); showThreat = !showThreat; $('#threatBtn').classList.toggle('on', showThreat); sfx('select'); refreshHL(); };
 $('#intentBtn').onclick = () => { ac(); showIntents = !showIntents; $('#intentBtn').classList.toggle('on', showIntents); try { localStorage.setItem('gc-intents', showIntents ? '1' : '0'); } catch (e) { } sfx('select'); };
+$('#hintBtn').onclick = () => { ac(); condHints = !condHints; $('#hintBtn').classList.toggle('on', condHints); try { localStorage.setItem('gc-hints', condHints ? '1' : '0'); } catch (e) { } if (!condHints && coQ.length) { coQ = coQ.slice(0, 1); doneHint(); } sfx('select'); };
 $('#cineBtn').onclick = () => { ac(); closeUps = !closeUps; $('#cineBtn').classList.toggle('on', closeUps); try { localStorage.setItem('gc-closeups', closeUps ? '1' : '0'); } catch (e) { } sfx('select'); };
 $('#barkBtn').onclick = () => { ac(); showBarks = !showBarks; $('#barkBtn').classList.toggle('on', showBarks); try { localStorage.setItem('gc-barks', showBarks ? '1' : '0'); } catch (e) { } sfx('select'); };
 $('#muteBtn').onclick = () => { ac(); muted = !muted; $('#muteBtn').classList.toggle('on', !muted); try { localStorage.setItem('gc-mute', muted ? '1' : '0'); } catch (e) { } };
@@ -212,7 +213,7 @@ $('#newBtn').onclick = async () => {
 };
 // the settings that show a value
 function renderSettings() {
-  $('#muteBtn').classList.toggle('on', !muted); $('#musicBtn').classList.toggle('on', musicOn); $('#cineBtn').classList.toggle('on', closeUps);
+  $('#muteBtn').classList.toggle('on', !muted); $('#musicBtn').classList.toggle('on', musicOn); $('#cineBtn').classList.toggle('on', closeUps); $('#hintBtn').classList.toggle('on', condHints);
   $('#speedLbl').textContent = FAST ? 'Fast' : 'Normal'; $('#diffLbl').textContent = GC.TUNE.difficulty[CAMP.diff].label;
   $('#diffNote').textContent = `${GC.TUNE.difficulty[CAMP.diff].label}: goblins have ${Math.round(GC.TUNE.difficulty[CAMP.diff].hp * 100)}% of their health. A change counts from the next battle.`;
 }

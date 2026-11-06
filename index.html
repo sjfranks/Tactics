@@ -599,6 +599,18 @@ body{font-family:var(--body)}
 #hbInfo .tx3{font-size:11.5px;line-height:1.25;color:#a99d86;opacity:.9;padding-left:13px;position:relative;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #hbInfo .tx3::before{content:'';position:absolute;left:1px;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--ember);box-shadow:0 0 6px rgba(232,135,58,.8)}
 #hbInfo .tx3 b{color:var(--ember);font-weight:800}
+/* the odds over a target name what the team set up for this blow: a crush, a sneak attack, a Judged foe to heal on */
+.tag .fc em{font:800 9.5px/1 var(--body);font-style:normal;letter-spacing:.04em;color:#1a1208;background:linear-gradient(180deg,#ffe2a0,#d9a040);padding:2px 4px;border-radius:2px;align-self:center;white-space:nowrap}
+#hbInfo .ftg{color:#f0c870;font-weight:800}
+/* the first time a condition lands, a word on what it does: under the top bar, gone by itself, never in the way */
+#callout{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 58px);z-index:7;transform:translateX(-50%);width:min(340px,calc(100% - 32px));box-sizing:border-box;display:flex;gap:10px;align-items:flex-start;padding:9px 12px 10px;border-radius:3px;background:linear-gradient(180deg,#231e1b,#141110);box-shadow:inset 0 0 0 1px #4a3e33,inset 2px 0 0 var(--c,#c9a46a),0 10px 24px rgba(0,0,0,.7);animation:coIn .28s ease-out;cursor:pointer}
+#callout.out{opacity:0;transform:translate(-50%,-6px);transition:opacity .35s,transform .35s}
+@keyframes coIn{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translateX(-50%)}}
+#coIc{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:rgba(0,0,0,.5);box-shadow:0 0 0 1.5px var(--c,#c9a46a)}
+#coIc svg{width:14px;height:14px;stroke:var(--c,#c9a46a);fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+#callout b{display:block;font:400 16px/1.1 var(--display);color:var(--bone)}
+#coX{display:block;margin-top:2px;font-size:12.5px;line-height:1.35;color:var(--bone-dim)}
+@media (prefers-reduced-motion:reduce){#callout{animation:none}}
 /* key numbers only where there is a keyboard to press them */
 @media (hover:none) and (pointer:coarse){.hk .key{display:none}}
 /* palette: the open menu wears brass, not blue; every switch is iron when off and brass when on */
@@ -673,6 +685,7 @@ details.repd .rep{margin-top:4px}
   <div id="roll" hidden><div class="rl" id="rollLbl"></div><div class="notes" id="rollNotes"></div><div class="chips" id="rollChips"></div><div class="res" id="rollRes"></div></div>
   <div id="combos"></div>
   <div id="banner"><span id="bannerTxt"></span></div>
+  <div id="callout" hidden role="status" aria-live="polite"><i id="coIc"></i><span><b id="coT"></b><span id="coX"></span></span></div>
   <div id="talk" hidden role="dialog" aria-live="polite"><div class="tk"><span id="talkFace" class="ubadge"></span><div class="tb"><b id="talkName"></b><p id="talkText"></p></div><button id="talkSkip">Skip</button></div><i class="tnext">Tap to go on</i></div>
 
   <div id="dock">
@@ -724,6 +737,7 @@ details.repd .rep{margin-top:4px}
         <button class="mi on" id="muteBtn"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg><span>Sound</span><i class="sw"></i></button>
         <button class="mi on" id="musicBtn"><svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg><span>Music</span><i class="sw"></i></button>
         <button class="mi on" id="cineBtn"><svg viewBox="0 0 24 24"><path d="M3 7h13v10H3z"/><path d="M16 10l5-3v10l-5-3"/></svg><span>Battle close-ups</span><i class="sw"></i></button>
+        <button class="mi on" id="hintBtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg><span>Condition hints</span><i class="sw"></i></button>
         <button class="mi on" id="barkBtn"><svg viewBox="0 0 24 24"><path d="M4 5h16v10H9l-5 4z"/></svg><span>Banter</span><i class="sw"></i></button>
         <button class="mi" id="styleBtn"><svg viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 22V12M3 7l9 5 9-5"/></svg><span>Model style</span><em id="styleLbl" class="sv">Painted</em></button>
         <button class="mi" id="speedBtn"><svg viewBox="0 0 24 24"><path d="M4 6l7 6-7 6zM13 6l7 6-7 6z"/></svg><span>Game speed</span><em id="speedLbl" class="sv">Normal</em></button>
@@ -794,6 +808,7 @@ details.repd .rep{margin-top:4px}
       <h3>Teamwork</h3>
       <ul>
         <li>Under each figure's health bar, small marks show what has been set up on it: gold for <b>Judged</b>, blue for <b>Frozen</b>, tan for <b>Prone</b>, green for <b>Poisoned</b>; on heroes, <b>Blessed</b>, <b>Warded</b>, <b>Hasted</b> and <b>Hidden</b>.</li>
+        <li>The odds over a target name what the team has set up for that blow, such as <b>Crush +3</b>, <b>Sneak +2d</b>, <b>Flank +1d</b> or <b>Judged: heal 1</b>. The first time each condition lands, a short note under the top bar says what it does (Settings › Condition hints turns them off).</li>
         <li><b>Judged</b>, Sister Wenna's mark (Judgement, and her Mace III): armour −2 till her next turn, and every hero who hits it heals 1, or 2 at Judgement III. Pile onto the Judged foe and the whole party mends.</li>
         <li><b>Frozen</b> (Orlen's Frost Ray, Ice Wall III) and <b>Prone</b> (Brakka's Charge and Cleave, Vex's Dirty Trick, Thunderwave, Grapple III): every hit takes +1 die, and Brakka's Longsword II adds +3 more. Frost Ray III's deep freeze holds through every blow.</li>
         <li><b>Hammer and anvil:</b> Charge III and Thunderwave III drive a foe in beside your heroes, and each of them strikes it for free. Grapple III throws a friend into the fight to strike a foe where they land.</li>

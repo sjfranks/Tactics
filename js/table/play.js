@@ -46,6 +46,34 @@ let closeUps = true, cine = null, pendingClose = null; // cine: the camera befor
 // the dice have been thrown and the result called: close in, then play the blow (fn) as it fell
 const afterRoll = fn => e => { const p = pendingClose; pendingClose = null; const ms = p ? closeUp(p[0], p[1]) : 0; if (!ms) return fn(e); clearDice(); return wait(ms).then(() => fn(e)); }; // the readout keeps the numbers
 try { closeUps = localStorage.getItem('gc-closeups') !== '0'; } catch (e) { }
+// ---------------- condition hints: the first time each condition lands, a short word on what it does ----------------
+const COND_HINT = {
+  judged: ['Judged', "Armour −2 till Wenna's next turn, and every hero who hits it heals. Pile on."],
+  frozen: ['Frozen', "No armour and it cannot move; every hit takes +1 die. Brakka's Longsword II adds +3."],
+  prone: ['Prone', 'Armour −1 and every hit takes +1 die; standing up costs it an action.'],
+  poisoned: ['Poisoned', 'Loses 2 at the start of each of its next 2 turns.'],
+  blessed: ['Blessed', '+1 die on their next roll.'],
+  warded: ['Warded', "Armour +2 till the caster's next turn."],
+  hasted: ['Hasted', 'Extra actions on their next turn.'],
+  hidden: ['Hidden', 'Cannot be targeted, and the next attack gets +2 dice.'],
+  taunt: ['Taunting', 'Goblins must attack the taunter; armour +1.']
+};
+let condHints = true, condSeen = {}, coQ = [], coT = null;
+try { condHints = localStorage.getItem('gc-hints') !== '0'; condSeen = JSON.parse(localStorage.getItem('gc-seen') || '{}') || {}; } catch (e) { }
+function condHint(k) {
+  if (!condHints || QUIET || condSeen[k] || !COND_HINT[k] || coQ.includes(k)) return;
+  condSeen[k] = 1; try { localStorage.setItem('gc-seen', JSON.stringify(condSeen)); } catch (e) { }
+  coQ.push(k); if (coQ.length === 1) nextHint();
+}
+function nextHint() {
+  const k = coQ[0], el = $('#callout'); if (!k) { el.hidden = true; return; }
+  const [c, svg] = ST_ICON[k], [t, x] = COND_HINT[k];
+  el.style.setProperty('--c', c); $('#coIc').innerHTML = `<svg viewBox="0 0 24 24">${svg}</svg>`; $('#coT').textContent = t; $('#coX').textContent = x;
+  el.classList.remove('out'); el.hidden = false; void el.offsetWidth;
+  clearTimeout(coT); coT = setTimeout(doneHint, 5200);
+}
+function doneHint() { clearTimeout(coT); const el = $('#callout'); el.classList.add('out'); coT = setTimeout(() => { coQ.shift(); el.hidden = true; nextHint(); }, 360); }
+$('#callout').onclick = () => doneHint();
 // the grid fades away, then the camera glides down behind the attacker: the attacker on the left of the screen, the
 // target on the right. Returns how long to wait before the blow plays (0: no close-up)
 function closeUp(a, b) {
@@ -112,7 +140,7 @@ const PLAY = {
   cast: e => { const u = vu(e.id); if (!u) return null; const p = liftShot(u); return e.wait ? p : null; },
   aim: e => { const u = vu(e.id); return u ? aimAt(u, typeof e.at === 'number' ? vu(e.at) : e.at, e.kind) : null; },
   endAim: () => endAim(),
-  status: e => { const u = vu(e.id); if (!u) return null; if (e.armour != null) setArmour(u, e.armour); return applyStatus(u, e.key, e.on && (e.v || true)); },
+  status: e => { const u = vu(e.id); if (!u) return null; if (e.armour != null) setArmour(u, e.armour); if (e.on) condHint(e.key); return applyStatus(u, e.key, e.on && (e.v || true)); },
   par: e => Promise.all(e.list.map((evs, i) => wait(i * (e.stagger || 0)).then(() => play(evs)))),
   roll: e => showDice(e),
   total: e => showTotal(e.value, e.suffix || ''),

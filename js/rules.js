@@ -645,7 +645,11 @@ function battle(S) {
       if (!r.crits) dmg -= Math.min(dmg, spec.armour);
       sum += dmg; if (dmg >= t.hp) kill++;
     }
-    return { miss: miss / trials, avg: sum / trials, kill: kill / trials, sides: spec.sides, n: spec.n, dis: spec.dis, armour: spec.armour, crit: !spec.noCrit };
+    // what the team has set up that this blow uses, most telling first: for the odds over the target
+    const TAGS = [[/^Crush \+(\d+)$/, m => `Crush +${m[1]}`], [/^Shatter \+(\d+)$/, m => `Shatter +${m[1]}`], [/^Sneak Attack \+(\d+)/, m => `Sneak +${m[1]}d`], [/^Flanking \+(\d+)/, m => `Flank +${m[1]}d`], [/^Prone \+1/, () => 'Prone +1d'], [/^Shatter \+1 die/, () => 'Frozen +1d'], [/^Blessed/, () => 'Blessed +1d'], [/^High ground/, () => 'High +1d']];
+    const tags = []; for (const [re, f] of TAGS) for (const nt of spec.notes) { const m = nt.match(re); if (m && !tags.includes(f(m))) tags.push(f(m)); }
+    if (t.st.judged && u.side === 'hero') tags.splice(tags.findIndex(x => /Crush|Shatter/.test(x)) + 1, 0, `Judged: heal ${judgedMercy(t)}`);
+    return { miss: miss / trials, avg: sum / trials, kill: kill / trials, sides: spec.sides, n: spec.n, dis: spec.dis, armour: spec.armour, crit: !spec.noCrit, tags };
   }
 
   // ---------------- the story: events for the view ----------------

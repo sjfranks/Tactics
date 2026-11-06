@@ -53,14 +53,14 @@ function renderFc() {
   for (const u of units) {
     if (!u || !u.alive) continue;
     const el = u.tag.querySelector('.fc'), f = UI.fc.get(u.id);
-    const html = !f ? '' : f.heal != null ? `<b class="hl">${f.revive ? 'Raise' : '+' + f.heal.toFixed(1)}</b>` : `<b>${f.avg < .95 ? '−<1' : '−' + Math.round(f.avg)}</b>${f.kill >= .01 ? `<i>KO ${pct(f.kill)}</i>` : ''}`;
+    const html = !f ? '' : f.heal != null ? `<b class="hl">${f.revive ? 'Raise' : '+' + f.heal.toFixed(1)}</b>` : `<b>${f.avg < .95 ? '−<1' : '−' + Math.round(f.avg)}</b>${f.kill >= .01 ? `<i>KO ${pct(f.kill)}</i>` : ''}${f.tags && f.tags.length && u.side !== 'hero' ? `<em>${f.tags[0]}</em>` : ''}`;
     if (el._k !== html) { el._k = html; el.innerHTML = html; el.classList.toggle('on', !!html); el.classList.toggle('heal', !!f && f.heal != null); el.classList.toggle('ff', !!f && f.heal == null && u.side === 'hero'); }
   }
 }
 function fcLine(id) {
   const f = UI.fc.get(id), t = vu(id); if (!f || !t) return '';
   if (f.heal != null) return `<b>${shortName(t)}</b>: ~${f.heal.toFixed(1)} HP${f.revive ? ', and they rise' : f.need < f.heal ? ` (${f.need} missing)` : ''}`;
-  return `<b>${shortName(t)}</b>: hit <b>${pct(1 - f.miss)}</b> · ~${f.avg.toFixed(1)} damage${f.kill >= .01 ? ` · KO <b>${pct(f.kill)}</b>` : ''}${f.armour ? ` · armour ${f.armour}` : ''}`;
+  return `<b>${shortName(t)}</b>: hit <b>${pct(1 - f.miss)}</b> · ~${f.avg.toFixed(1)} damage${f.kill >= .01 ? ` · KO <b>${pct(f.kill)}</b>` : ''}${f.armour ? ` · armour ${f.armour}` : ''}${f.tags && f.tags.length ? ` · <span class="ftg">${f.tags.join(', ')}</span>` : ''}`;
 }
 function renderDock() {
   renderTools();
