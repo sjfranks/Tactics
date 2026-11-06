@@ -72,6 +72,9 @@ function closeUp(a, b) {
     return along > .3 && across < span / 2 + 1.4;
   });
   cine.hid.forEach(u => { u.piece.visible = u.ring.visible = u.blob.visible = false; u.tag.style.visibility = 'hidden'; });
+  // the shot is the pair's: every other nameplate steps out of it too
+  cine.tags = liveUnits().filter(u => !cine.hid.includes(u) && u.root.position.distanceTo(a) > .1 && u.root.position.distanceTo(b) > .1);
+  cine.tags.forEach(u => { u.tag.style.visibility = 'hidden'; });
   // the grid and the squares lit for the order fade first; the glide starts as they go
   [...HL, ...HLM].forEach(m => { m.visible = false; }); hideReticle();
   fadeGrid(0, 220);
@@ -80,6 +83,7 @@ function closeUp(a, b) {
 function endCloseUp() {
   if (!cine) return; const c = cine; cine = null;
   (c.hid || []).forEach(u => { if (u.alive) u.piece.visible = u.ring.visible = u.blob.visible = !viewHides(u); u.tag.style.visibility = ''; });
+  (c.tags || []).forEach(u => { u.tag.style.visibility = ''; });
   camTX = c.x; camTZ = c.z; camAzT = c.az; zoomT = c.zoom; camPitchT = c.pitch; camYT = c.y; clampCam();
   fadeGrid(1, 450);
 }
@@ -304,18 +308,21 @@ let endAction = null;
 function steps(el) { $(el).innerHTML = MODE === 'free' ? '' : LEVELS.slice(0, GC.CAMPAIGN).map((_, i) => `<i class="${i < level ? 'done' : i === level ? 'now' : ''}"></i>`).join(''); }
 const listOf = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
 // a tally: what each hero dealt, finished, healed and took; the best of them is starred
-function tallyTable(rows, note) {
+// the tally of a battle (or the campaign): the best hero in one line, and the full table folded away beneath it
+function tallyTable(rows, label, title = 'Battle report') {
   const score = s => s.dealt + s.healed * 1.2 + s.kills * 3 - s.downs * 4;
-  const best = rows.reduce((a, b) => score(b.s) > score(a.s) ? b : a, rows[0]);
-  return `<table class="rep"><tr><th></th><th>Dealt</th><th>Kills</th><th>Healed</th><th>Taken</th><th>Down</th></tr>${rows.map(r => { const s = r.s; return `<tr${r === best ? ' class="mvp"' : ''}><td><div class="rnm"><span class="rf">${face(r.kind)}</span><span class="rn">${r.name.replace('Sister ', '')}</span>${r === best ? '<em title="Best">★</em>' : ''}</div></td><td>${s.dealt}</td><td>${s.kills}</td><td>${s.healed}</td><td>${s.taken}</td><td>${s.downs}</td></tr>`; }).join('')}</table><p class="repn">${note}</p>`;
+  const best = rows.reduce((a, b) => score(b.s) > score(a.s) ? b : a, rows[0]), bs = best.s;
+  const feat = [bs.dealt && `${bs.dealt} dealt`, bs.kills && `${bs.kills} slain`, bs.healed && `${bs.healed} healed`].filter(Boolean).join(' · ') || 'held the line';
+  return `<p class="mvpl"><span class="rf">${face(best.kind)}</span><span class="mvt"><small>★ ${label}</small><b>${best.name}</b><span>${feat}</span></span></p>
+    <details class="repd"><summary>${title}</summary><table class="rep"><tr><th></th><th>Dealt</th><th>Kills</th><th>Healed</th><th>Taken</th><th>Down</th></tr>${rows.map(r => { const s = r.s; return `<tr${r === best ? ' class="mvp"' : ''}><td><div class="rnm"><span class="rf">${face(r.kind)}</span><span class="rn">${r.name.replace('Sister ', '')}</span>${r === best ? '<em title="Best">★</em>' : ''}</div></td><td>${s.dealt}</td><td>${s.kills}</td><td>${s.healed}</td><td>${s.taken}</td><td>${s.downs}</td></tr>`; }).join('')}</table></details>`;
 }
 function report() {
   const st = G.S.stats, rows = units.filter(u => u && u.side === 'hero' && st[u.id]).map(u => ({ kind: u.kind, name: u.name, s: st[u.id] }));
-  return tallyTable(rows, '★ Best in battle: most harm dealt and healed');
+  return tallyTable(rows, 'Best in battle');
 }
 function campaignReport() {
   const rows = ['fighter', 'cleric', 'mage', 'thief'].filter(k => CAMP.tally[k]).map(k => ({ kind: k, name: GC.UNITS[k].name, s: CAMP.tally[k] }));
-  return rows.length ? `<h3>The whole campaign · ${CAMP.battles} battle${CAMP.battles === 1 ? '' : 's'} fought</h3>` + tallyTable(rows, '★ Hero of the campaign') : '';
+  return rows.length ? `<h3>The whole campaign · ${CAMP.battles} battle${CAMP.battles === 1 ? '' : 's'} fought</h3>` + tallyTable(rows, 'Hero of the campaign', 'Campaign report') : '';
 }
 // a won battle's experience joins each hero's growth: [{ kind, name, gained, lv, xp, ups: [{ lv }] }]
 function applyXp() {
@@ -330,7 +337,7 @@ function xpReport(rows, camp = true) {
   if (!rows.length) return '';
   const X = GC.TUNE.xp, any = rows.some(r => r.ups.length);
   if (any) setTimeout(() => sfx('win'), 900);
-  return `<h3>Experience</h3><div class="xpl">${rows.map(r => `<div class="xpr${r.ups.length ? ' up' : ''}"><span class="rf">${face(r.kind)}</span><div class="xpb"><div class="xpt"><b>${r.name.replace('Sister ', '')}</b><span>Lv ${r.lv}</span><em>+${r.gained} XP</em></div><span class="bar"><i style="width:${r.lv >= X.max ? 100 : r.xp / X.level * 100}%"></i></span>${r.ups.map(u => `<p class="lvup">Level ${u.lv}! +${X.hp} max HP${camp ? ' · <b>raise a card a tier</b> below' : ''}</p>`).join('')}</div></div>`).join('')}</div>`;
+  return `<h3>Experience</h3><div class="xpl">${rows.map(r => `<div class="xpr${r.ups.length ? ' up' : ''}"><span class="rf">${face(r.kind)}</span><div class="xpb"><div class="xpt"><b>${r.name.replace('Sister ', '')}</b><span>Lv ${r.lv}</span>${r.ups.length ? `<i class="lvb">Level up${r.ups.length > 1 ? ' ×' + r.ups.length : ''}</i>` : ''}<em>+${r.gained} XP</em></div><span class="bar"><i style="width:${r.lv >= X.max ? 100 : r.xp / X.level * 100}%"></i></span></div></div>`).join('')}</div>${any ? `<p class="lvup">A level brings +${X.hp} max HP${camp ? ', and <b>raises a card a tier</b> at camp' : ''}.</p>` : ''}`;
 }
 const diceText = id => { const c = CARDS[id], n = c.n || 1; return c.weapon ? 'its weapon die' : c.die ? (n > 1 ? n : '') + 'd' + c.die : ''; };
 function gameOver(win) {
@@ -361,9 +368,9 @@ function gameOver(win) {
       btn.textContent = 'New campaign'; endAction = newCampaign; sfx('win');
     } else if (win) {
       t.textContent = 'Victory'; t.className = 'win';
-      $('#endText').textContent = `${L.name} is cleared in ${rounds} round${rounds > 1 ? 's' : ''}. ${down.length ? `${listOf(down)} ${down.length > 1 ? 'are' : 'is'} carried from the field and back on their feet by nightfall. ` : ''}The party makes camp before ${LEVELS[level].name}.`;
+      $('#endText').textContent = `${L.name} is cleared in ${rounds} round${rounds > 1 ? 's' : ''}.${down.length ? ` ${listOf(down)} ${down.length > 1 ? 'are' : 'is'} carried from the field and back on their feet by nightfall.` : ''}`;
       $('#endReport').innerHTML = xpRep + rep;
-      offerCamp(() => loadLevel(level), 'March on'); sfx('crit');
+      btn.textContent = 'Make camp'; endAction = () => { sfx('select'); showCamp(); }; sfx('crit'); // the choices wait at camp, a screen of their own
     } else {
       const n = units.filter(u => u && u.alive && u.side === 'gob').length;
       t.textContent = 'The Party Has Fallen'; t.className = 'lose';

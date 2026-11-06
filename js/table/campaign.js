@@ -68,11 +68,11 @@ function takeBoon(id) {
 }
 // between battles, when the page was closed before every choice was made: the camp, then the next battle's briefing
 function showCamp() {
-  steps('#endSteps');
+  steps('#endSteps'); $('#end').scrollTop = 0;
   $('#endTitle').textContent = 'Camp'; $('#endTitle').className = 'win';
-  $('#endText').textContent = `Before ${LEVELS[level].name}, the party makes camp, mends its gear and trains.${upsDue().length ? ' Upgrade a card for each hero who gained a level.' : ''}${CAMP.offer ? ' Choose one boon for the road.' : ''}`;
+  $('#endText').textContent = `Before ${LEVELS[level].name}, the party makes camp, mends its gear and trains.${upsDue().length ? ' Each hero who gained a level raises a card a tier.' : ''}${CAMP.offer ? ' Choose one boon for the road.' : ''}`;
   $('#endReport').innerHTML = '';
-  offerCamp(() => { $('#end').hidden = true; loadLevel(level); }, 'To the briefing'); // laid out again, so the battle carries what was picked
+  offerCamp(() => { $('#end').hidden = true; loadLevel(level); }, 'March on'); // laid out again, so the battle carries what was picked
   $('#end').hidden = false;
 }
 const campDue = () => MODE === 'camp' && (!!CAMP.offer || upsDue().length > 0); // a choice is waiting at camp

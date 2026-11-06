@@ -2,7 +2,7 @@
 <title>Goblin Crypt</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700;12..96,800&family=IM+Fell+English+SC&family=Alegreya+Sans:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Alegreya+Sans:wght@400;500;700;800&display=swap">
 <style>
 /* Layout: full-bleed sunlit board seen from high above; unit panel top-left, hand of cards docked in the thumb zone */
 :root{
@@ -49,12 +49,13 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .rnd{flex:none;font-size:10px;font-weight:800;letter-spacing:.1em;color:#8fe0ff;padding:3px 6px;border-radius:5px;background:rgba(61,184,255,.14)}
 .rnd.gob{color:#ff8a7a;background:rgba(255,90,70,.16)}
 .tokens{flex:none;display:flex;gap:4px}
-.tok{position:relative;width:26px;height:30px;padding:0;border:none;background:#fff;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);display:grid;place-items:center;transition:transform .15s,opacity .2s}
-.tok>span{width:22px;height:26px;clip-path:inherit;display:grid;place-items:center;background:linear-gradient(160deg,#55c8ff,#1659b8)}
+.tok{position:relative;width:26px;height:30px;padding:0;border:none;background:none;display:grid;place-items:center;transition:transform .15s,opacity .2s;--frame:#fff}
+.tok::before{content:'';position:absolute;inset:0;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--frame)}
+.tok>span{position:relative;width:22px;height:26px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);display:grid;place-items:center;background:linear-gradient(160deg,#55c8ff,#1659b8)}
 .tok svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-.tok.sel{background:#ffd76a;transform:translateY(2px) scale(1.12)}
+.tok.sel{--frame:#ffd76a;transform:translateY(2px) scale(1.12)}
 .tok.gob>span{background:linear-gradient(160deg,#ff6a5a,#8a1610)}
-.tok .ini{position:absolute;right:-1px;bottom:-1px;min-width:13px;height:13px;padding:0 2px;border-radius:7px;background:#0f1a33;color:#efe1c0;font:800 9px/13px var(--display);text-align:center;box-shadow:0 0 0 1px #c9a24a}
+.tok .ini{position:absolute;right:-4px;bottom:-3px;z-index:1;box-sizing:border-box;min-width:14px;height:13px;padding:0 3px;border-radius:7px;background:#0f1a33;color:#efe1c0;font:800 9px/13px var(--display);text-align:center;box-shadow:0 0 0 1px #c9a24a}
 .tok{overflow:visible}
 .tok img{transition:filter .25s}
 #goPill{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 58px);z-index:6;touch-action:manipulation;padding:7px 18px;border-radius:999px;border:1.5px solid var(--gold);background:rgba(43,29,14,.94);box-shadow:var(--skirt);font:800 17px var(--display);color:#ffe2a6;animation:cpulse 1.4s ease-in-out infinite}
@@ -243,8 +244,8 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .uwho .hpb{width:46px;height:6px;border-radius:3px;background:#11151b;box-shadow:inset 0 1px 1px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08)}.uwho .hpb i{background:linear-gradient(180deg,#8ff08a,#33b04a)}
 .uwho .ubadge{background:linear-gradient(180deg,#f3d68a,#a8782a)}
 .rnd{color:#cfe6ff;background:linear-gradient(180deg,#36506e,#24364c);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 0 0 1px #11161d;border-radius:6px;padding:4px 7px}
-.tok{background:linear-gradient(180deg,#e6ebf2,#8a94a3)}
-.tok.sel{background:linear-gradient(180deg,#ffe6a0,#c48a26)}
+.tok{--frame:linear-gradient(180deg,#e6ebf2,#8a94a3)}
+.tok.sel{--frame:linear-gradient(180deg,#ffe6a0,#c48a26)}
 .tok .ini{background:#1d2229;box-shadow:0 0 0 1px var(--brass)}
 #menu{position:absolute;left:max(8px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 52px);bottom:auto;z-index:9;width:230px;padding:6px;border-radius:12px;background:linear-gradient(180deg,#323a46,#1f252d);border:1px solid var(--slate-hi);border-top-color:#7d8796;box-shadow:0 0 0 1px var(--slate-lo),0 14px 32px rgba(0,0,0,.55)}
 .mi{color:#eef1f5}
@@ -351,8 +352,8 @@ body{font-family:var(--body)}
 .ubadge>span{background:linear-gradient(160deg,#3c4652,#151a20)!important}.ubadge.gob>span{background:linear-gradient(160deg,#5a1610,#1e0504)!important}
 .rnd{font-family:var(--display);font-weight:400;font-size:13px;letter-spacing:.06em;color:var(--bone);background:linear-gradient(180deg,#3a2f27,#1a1512);box-shadow:inset 0 0 0 1px #5c4a3a,0 0 0 1px #000;border-radius:3px}
 .rnd.gob{color:#f0b0a0;background:linear-gradient(180deg,#5a1610,#22070a)}
-.tok{background:linear-gradient(180deg,#a89068,#3c3022)}.tok>span{background:linear-gradient(160deg,#3c4652,#151a20)}.tok.gob>span{background:linear-gradient(160deg,#5a1610,#1e0504)}
-.tok.sel{background:linear-gradient(180deg,#f2b462,#8a4612)}
+.tok{--frame:linear-gradient(180deg,#a89068,#3c3022)}.tok>span{background:linear-gradient(160deg,#3c4652,#151a20)}.tok.gob>span{background:linear-gradient(160deg,#5a1610,#1e0504)}
+.tok.sel{--frame:linear-gradient(180deg,#f2b462,#8a4612)}
 .tok .ini{background:#0d0a09;color:var(--bone);font-family:var(--body);box-shadow:0 0 0 1px var(--tarnish)}
 /* nameplates over the field */
 .hp{width:36px;height:6px;border-radius:1px;background:#070505;box-shadow:0 0 0 1px #000,0 0 0 2px rgba(150,125,95,.35),0 2px 4px rgba(0,0,0,.7)}
@@ -580,6 +581,63 @@ body{font-family:var(--body)}
 .upb i{position:absolute;right:4px;top:3px;font:800 10px/1 var(--body);font-style:normal;color:#f0c870;text-shadow:0 1px 0 #000}
 .upb .tp{display:flex;gap:3px;margin-top:-1px}.upb .tp b{width:5px;height:5px;border-radius:50%;background:#3a3029;box-shadow:inset 0 0 0 1px #5a4a3a}.upb .tp b.on{background:#e8c070;box-shadow:0 0 4px rgba(232,192,112,.7)}
 .upt{margin:0!important;min-height:2.7em;font-size:13px!important;line-height:1.35!important;color:var(--bone-dim)!important}.upt b{color:#f0d8a0;margin-right:3px}
+
+/* ================= refinements: one hierarchy for the HUD, quiet where it should be ================= */
+/* the dock steps back while there is nothing to do (the briefing, the end of a battle) */
+#dock .dk{transition:opacity .25s,transform .25s}
+#dock.idle .dk{opacity:0;transform:translateY(14px)}
+#dock.idle .dk,#dock.idle .dk>*{pointer-events:none}
+/* the dice tally takes the ability card's place: nothing of the card peeks out from behind it */
+#dock.rolling #hbInfo>*{visibility:hidden}
+/* the ability card: its name, its terms as small pills, the rules, then the prompt on a quieter line */
+#hbInfo{display:flex;flex-direction:column;gap:3px;padding:7px 12px 8px}
+#hbInfo .tx{align-items:center;gap:9px}
+#hbInfo .mt{display:flex;gap:4px;flex-wrap:nowrap;min-width:0;overflow:hidden}
+#hbInfo .mt i{flex:none;font:800 9.5px/1 var(--body);font-style:normal;letter-spacing:.08em;text-transform:uppercase;color:#cdb48a;padding:3px 6px 3px;border-radius:2px;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1px rgba(154,126,72,.45)}
+#hbInfo .mt i.dis{color:#ffb4a2;background:rgba(138,26,20,.55);box-shadow:inset 0 0 0 1px rgba(207,59,46,.7)}
+#hbInfo .tx2{color:var(--bone);font-size:13.5px;line-height:1.32}
+#hbInfo .tx3{font-size:11.5px;line-height:1.25;color:#a99d86;opacity:.9;padding-left:13px;position:relative;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hbInfo .tx3::before{content:'';position:absolute;left:1px;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--ember);box-shadow:0 0 6px rgba(232,135,58,.8)}
+#hbInfo .tx3 b{color:var(--ember);font-weight:800}
+/* key numbers only where there is a keyboard to press them */
+@media (hover:none) and (pointer:coarse){.hk .key{display:none}}
+/* palette: the open menu wears brass, not blue; every switch is iron when off and brass when on */
+#menuBtn[aria-expanded="true"]{background:linear-gradient(180deg,#f0c870,#8a5a20)}
+.sw{background:#2b2521;box-shadow:inset 0 0 0 1px #4a3e33}
+.mi.on .sw{background:#a8843e;box-shadow:none}
+.sw::after{background:#e3d6b9}
+/* the way back out of a briefing or a battle's end: a quiet link under the call to action, not a second button */
+#introMenu,#endMenu{display:block;width:auto;min-height:0;margin:12px auto 0;padding:8px 14px;border:none;background:none;box-shadow:none;font:700 14px/1.2 var(--body);letter-spacing:.02em;color:var(--bone-dim);text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(169,157,134,.5)}
+#introMenu:hover,#endMenu:hover{color:var(--bone)}
+/* the title on a phone: key art, not a dialog. The name high over the night board, the menu low in the thumb's reach */
+@media (max-width:600px) and (orientation:portrait){
+  #title{place-items:stretch;padding:calc(env(safe-area-inset-top,0px) + 9vh) 20px calc(env(safe-area-inset-bottom,0px) + 22px);background:linear-gradient(180deg,rgba(6,5,4,.86),rgba(6,5,4,.3) 30%,rgba(6,5,4,.12) 50%,rgba(6,5,4,.86) 74%,rgba(6,5,4,.96))}
+  #title .sheet.ttl{display:flex;flex-direction:column;max-width:none;min-height:100%;padding:0;background:none;border:none;box-shadow:none}
+  #title .ttl h1{font-size:62px;margin:4px 0 0;text-shadow:0 2px 0 #000,0 0 34px rgba(232,135,58,.45),0 0 2px rgba(0,0,0,.9)}
+  #title .ttl h1::after{content:'';display:block;width:132px;height:1px;margin:16px auto 0;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+  #title .ttl .kick{letter-spacing:.28em}
+  #titleMain{margin-top:auto}
+  #titleLevels{margin-top:22px}
+  #title .trow{margin-top:14px}
+  #title:has(#titleLevels:not([hidden])){background:linear-gradient(180deg,rgba(6,5,4,.86),rgba(6,5,4,.7) 30%,rgba(6,5,4,.9) 56%,rgba(6,5,4,.96))}
+  #titleLevels .mnote{color:var(--bone-dim)!important;text-shadow:0 1px 2px #000,0 0 12px #000}
+}
+/* after a battle: the party's experience in four short rows, the best hero in one line, the full table folded away */
+.xpl{gap:7px}
+.xpr{align-items:center}.xpr .rf{width:28px;height:28px}
+.xpt .lvb{font:800 9.5px/1 var(--body);font-style:normal;letter-spacing:.1em;text-transform:uppercase;color:#1a0f24;background:linear-gradient(180deg,#e4cdff,#a878f0);padding:3px 6px;border-radius:2px;box-shadow:0 0 10px rgba(180,120,255,.5)}
+p.lvup{margin:2px 0 10px!important;font:500 12.5px/1.35 var(--body)!important;color:#d8c8f0!important}
+.mvpl{display:flex;align-items:center;gap:10px;margin:6px 0 4px!important;padding:8px 10px;border-radius:3px;background:linear-gradient(90deg,rgba(201,164,106,.16),rgba(201,164,106,0));box-shadow:inset 2px 0 0 var(--gold)}
+.mvpl .rf{flex:none;width:30px;height:30px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 1.5px var(--gold)}.mvpl .rf img{width:100%;height:100%;object-fit:cover}
+.mvpl .mvt{display:flex;flex-direction:column;gap:1px;min-width:0}
+.mvpl small{font:800 9.5px/1.2 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+.mvpl b{font:400 17px/1.1 var(--display);color:var(--bone)}.mvpl .mvt>span{font-size:12.5px;color:var(--bone-dim)}
+details.repd{margin:4px 0 6px}
+details.repd summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 2px;font:800 10.5px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--tarnish)}
+details.repd summary::-webkit-details-marker{display:none}
+details.repd summary::before{content:'';width:0;height:0;border-left:5px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
+details.repd[open] summary::before{transform:rotate(90deg)}
+details.repd .rep{margin-top:4px}
 </style>
 
 <div id="app">

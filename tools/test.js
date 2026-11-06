@@ -204,11 +204,15 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     await tapThrough();
     await p.waitForSelector('#end', { state: 'visible', timeout: 60000 });
     const end = await p.evaluate(() => ({ title: document.querySelector('#endTitle').textContent, boons: document.querySelectorAll('#boonList .boon').length, disabled: document.querySelector('#againBtn').disabled, saved: JSON.parse(localStorage.getItem(SAVE_KEY)) }));
-    ok(end.title === 'Victory' && end.boons === 3 && end.disabled, 'Victory offers three boons, and the march waits for a pick');
+    ok(end.title === 'Victory' && !end.disabled && /Make camp/.test(await p.textContent('#againBtn')) && await p.evaluate(() => $('#endBoons').hidden && $('#endUps').hidden), 'Victory first: the experience and the report, then Make camp');
     ok(end.saved && end.saved.level === 1 && end.saved.offer && end.saved.offer.length === 3, 'the save has moved on to the next battle, with the offer');
     const xp = await p.evaluate(() => ({ rows: document.querySelectorAll('#endReport .xpr').length, f: CAMP.growth.fighter, saved: JSON.parse(localStorage.getItem(SAVE_KEY)).growth.fighter }));
     ok(xp.rows === 4 && xp.f.xp === GC.TUNE.xp.hit + GC.TUNE.xp.kill + GC.TUNE.xp.win && xp.saved.xp === xp.f.xp, `experience: Brakka's blow and the win earn him ${xp.f.xp} XP, saved with the campaign`);
     await shot('victory');
+    ok(await p.evaluate(() => !!$('#endReport .mvpl') && !$('#endReport details.repd').open), 'the best hero in one line, the full report folded away');
+    await p.click('#againBtn'); await p.waitForTimeout(200);
+    const camp = await p.evaluate(() => ({ title: $('#endTitle').textContent, boons: document.querySelectorAll('#boonList .boon').length, disabled: $('#againBtn').disabled }));
+    ok(camp.title === 'Camp' && camp.boons === 3 && camp.disabled, 'then the camp: three boons, and the march waits for a pick');
     const pick = await p.evaluate(() => document.querySelector('#boonList .boon').dataset.id);
     await p.click('#boonList .boon'); await p.click('#againBtn');
     await p.waitForSelector('#intro', { state: 'visible' });
@@ -236,9 +240,11 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     await setup(0, 'fighter', tweak, { seed, camp: true });
     await tapCell(2, 5); await tapThrough();
     await p.waitForSelector('#end', { state: 'visible', timeout: 60000 });
-    const up = await p.evaluate(() => ({ lv: CAMP.growth.fighter.lv, text: document.querySelector('#endReport .lvup') && document.querySelector('#endReport .lvup').textContent,
-      rows: [...document.querySelectorAll('#upList .upk')].map(e => e.dataset.kind), cards: document.querySelectorAll('#upList .upk[data-kind="fighter"] .upb').length, open: !$('#endUps').hidden }));
-    ok(up.lv === 2 && /Level 2! \+2 max HP · raise a card a tier below/.test(up.text || '') && up.open && up.rows.join() === 'fighter' && up.cards === 5, 'Brakka reaches level 2: one of his five cards to raise a tier');
+    const up = await p.evaluate(() => ({ lv: CAMP.growth.fighter.lv, text: document.querySelector('#endReport .lvup') && document.querySelector('#endReport .lvup').textContent, badge: !!document.querySelector('#endReport .xpr.up .lvb') }));
+    ok(up.lv === 2 && up.badge && /raises a card a tier/.test(up.text || ''), 'Brakka reaches level 2: the victory says so');
+    await p.click('#againBtn'); await p.waitForTimeout(200);
+    const up2 = await p.evaluate(() => ({ open: !$('#endUps').hidden, rows: [...document.querySelectorAll('#upList .upk')].map(e => e.dataset.kind), cards: document.querySelectorAll('#upList .upk[data-kind="fighter"] .upb').length }));
+    ok(up2.open && up2.rows.join() === 'fighter' && up2.cards === 5, 'at camp, one of his five cards to raise a tier');
     await p.click('#boonList .boon');
     ok(await p.evaluate(() => $('#againBtn').disabled), 'with a boon picked, the march still waits for the upgrade');
     await p.click('#upList .upb[data-id="f_charge"]');

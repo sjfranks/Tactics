@@ -65,6 +65,7 @@ function fcLine(id) {
 function renderDock() {
   renderTools();
   { const wc = UI.card && CARDS[UI.card] && CARDS[UI.card].wall && UI.phase === 'player' && !UI.busy, rb = $('#rotBtn'); rb.hidden = !wc; rb.querySelector('span').textContent = UI.wallDir === 'v' ? 'Down' : 'Across'; }
+  $('#dock').classList.toggle('idle', UI.phase === 'intro' || !!UI.over); // nothing to do: the dock steps back behind the briefing and the end
   const end = $('#endBtn'), act = UI.active && G ? G.U(UI.active.id) : null;
   end.disabled = UI.phase !== 'player' || UI.busy || UI.over;
   end.classList.toggle('pulse', !end.disabled && !!act && act.ap <= 0);
@@ -76,7 +77,7 @@ function renderDock() {
   else if (UI.phase !== 'player') hint = (UI.active ? shortName(UI.active) + "'s turn" : "Goblins' turn") + (ffwd ? ' · <b>fast-forward</b>' : ' · <b>tap</b> to speed up');
   else if (UI.confirm) hint = 'Tap <b>Confirm?</b> or the target again to go';
   else if (UI.busy) hint = '';
-  else if (h && UI.card) { const cd = CARDS[UI.card]; hint = (cd.target === 'grab' && grabbedId() != null ? HINTS.grabTo : HINTS[cd.spot ? 'spot' : cd.target]) + (cd.die && cd.target !== 'ally' && (hr.atks || 0) > 0 ? ` · <b class="dis">disadvantage${hr.atks > 1 ? ' ×' + hr.atks : ''}</b>` : ''); }
+  else if (h && UI.card) { const cd = CARDS[UI.card]; hint = cd.target === 'grab' && grabbedId() != null ? HINTS.grabTo : HINTS[cd.spot ? 'spot' : cd.target]; }
   else if (h) hint = hr.ap > 0 ? 'Tap a <b>blue</b> square or drag to move · 1 action' + (UI.climbShown ? ' · <b>chevrons</b> mark a climb' : '') : '';
   else if (UI.sel && UI.sel.down) hint = `${UI.sel.name} is down`;
   else hint = 'Tap a hero to use their abilities';
@@ -100,8 +101,10 @@ function renderDock() {
   const show = UI.peek && ids.includes(UI.peek) ? UI.peek : UI.card, focus = UI.fcFocus != null && UI.fc.has(UI.fcFocus) ? fcLine(UI.fcFocus) : '';
   if (show) {
     const c = G.cardOf(hr, show), blk = G.block(hr, show);
-    const cdn = G.cardCd(hr, show), meta = [c.cost, c.target === 'self' ? 'Self' : c.range > 1 || c.reach ? `Range ${G.reachOf(hr, c)}` : 'Melee', cdn ? `Cooldown ${cdn}` : '', c.uses != null ? `${hr.uses[show] || 0} left` : ''].filter(Boolean).join(' · ');
-    box.innerHTML = `<span class="tx"><b>${c.name}</b><span class="mt">${meta}</span></span><span class="tx2">${focus ? `<span class="odds">${focus}</span>` : `${blk ? `<em class="bl">${blk}.</em> ` : ''}${G.cardText(hr, show)}${!blk && hint ? ` <i>${hint}</i>` : ''}`}</span>`;
+    const cdn = G.cardCd(hr, show), dis = c.die && c.target !== 'ally' && !blk && (hr.atks || 0) > 0 ? hr.atks : 0;
+    const pills = [c.cost, c.target === 'self' ? 'Self' : c.range > 1 || c.reach ? `Range ${G.reachOf(hr, c)}` : 'Melee', cdn ? `↻ ${cdn}` : '', c.uses != null ? `${hr.uses[show] || 0} left` : ''].filter(Boolean).map(t => `<i>${t}</i>`).join('');
+    const prompt = !blk && hint && show === UI.card ? `<span class="tx3">${hint}</span>` : '';
+    box.innerHTML = `<span class="tx"><b>${c.name}</b><span class="mt">${pills}${dis ? `<i class="dis" title="Each attack after the first this turn throws an extra die and keeps the lowest">Disadvantage${dis > 1 ? ' ×' + dis : ''}</i>` : ''}</span></span><span class="tx2">${focus ? `<span class="odds">${focus}</span>` : `${blk ? `<em class="bl">${blk}.</em> ` : ''}${G.cardText(hr, show)}`}</span>${focus ? '' : prompt}`;
   } else box.innerHTML = `<span class="tx2">${hint || ''}</span>`;
   hbFades(); measure();
 }

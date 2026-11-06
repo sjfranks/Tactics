@@ -115,7 +115,7 @@ function frame(t) {
   if (reticle.visible && reticleOn) { const q = reticleOn.root.position; reticle.position.set(q.x, q.y + .07, q.z); lieFlat(reticle, q.x, q.z, t * .0012); reticle.material.opacity = (reticle.userData.op ?? 1) * (.8 + .2 * Math.sin(t * .009)); }
   if (smashMarks) smashMat.opacity = .5 + .35 * Math.sin(t * .009);
   if (G && G.B.vents.length) { const soon = UI.phase !== 'intro' && (G.S.round + 1) % GC.TUNE.vents.every === 0; ventMat.emissiveIntensity = soon ? 1.1 + .9 * (.5 + .5 * Math.sin(t * .01)) : .8; } // vents throb the round before they blow
-  if (rollAt && !$('#roll').hidden) placeRoll();
+  if (!$('#roll').hidden) placeRoll(); // the tally keeps the ability card's place, whatever its size
   updateBubbles(t);
   for (let i = floats.length - 1; i >= 0; i--) {
     const f = floats[i], k = (t - f.t0) / f.dur;
