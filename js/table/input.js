@@ -220,7 +220,7 @@ function swapPiece(u) { // rebuild a unit's miniature in the current style, keep
   const old = u.piece, np = buildPiece(u.kind);
   np.piece.rotation.copy(old.rotation); np.piece.position.copy(old.position); np.piece.visible = old.visible;
   np.stand.userData.lean = u.stand.userData.lean;
-  ['bless', 'taunt', 'ice', 'haste', 'rebuke'].forEach(k => { if (u.fx[k]) np.piece.add(u.fx[k]); });
+  ['bless', 'taunt', 'ice', 'haste', 'judge', 'warded', 'poisoned'].forEach(k => { if (u.fx[k]) np.piece.add(u.fx[k]); });
   u.root.remove(old); u.root.add(np.piece); Object.assign(u, np); ownMats(u); resetRig(u); if (u.st.hidden) setBase(u, 'sneak'); if (u.st.prone) proneNow(u);
   if (u.st.hidden) u.piece.traverse(o => { if (o.isMesh && o.material && o.material.userData.e0) { o.material.transparent = true; o.material.opacity = .32; } });
 }

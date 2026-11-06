@@ -12,13 +12,14 @@ function setHasted(u, on) {
   if (!on && u.fx.haste) { u.piece.remove(u.fx.haste); u.fx.haste = null; }
   updateTag(u);
 }
-// a status as the rules name it, put on or taken off a piece; instant: no tween (undo, reload)
-function applyStatus(u, k, on, instant) {
+// a status as the rules name it, put on or taken off a piece; instant: no tween (undo, reload). The nameplate's marks follow
+function applyStatus(u, k, on, instant) { const r = setStatus(u, k, on, instant); renderSts(u); return r; }
+function setStatus(u, k, on, instant) {
   if (k === 'prone') {
     if (!instant) return setProne(u, on);
     u.st.prone = on; if (on) proneNow(u); else standNow(u); updateTag(u); return null;
   }
-  if (k === 'rebuked') return setRebuked(u, on ? 1 : 0);
+  if (k === 'judged') return setJudged(u, on ? 1 : 0);
   if (k === 'warded') return setGlow(u, k, on, 0x6ab8ff, .55);
   if (k === 'poisoned') return setGlow(u, k, on, 0x8ae04a, .3);
   const f = { hidden: setHidden, blessed: setBlessed, hasted: setHasted, frozen: setFrozen, taunt: setTaunt }[k];
@@ -96,7 +97,7 @@ async function killFx(e) {
 // a hero at 0 is down, not dead: the body drops where it stood and greys out
 async function downFx(e) {
   const u = vu(e.id); if (!u) return;
-  QUIET = true; try { ['hidden', 'blessed', 'hasted', 'frozen', 'taunt', 'rebuked'].forEach(k => { if (u.st[k]) applyStatus(u, k, false, true); }); } finally { QUIET = false; }
+  QUIET = true; try { ['hidden', 'blessed', 'hasted', 'frozen', 'taunt', 'judged'].forEach(k => { if (u.st[k]) applyStatus(u, k, false, true); }); } finally { QUIET = false; }
   sfx('topple'); shake(.18); hitstop(100);
   if (u._ro) { u._ro.classList.add('ko'); u._ro.insertAdjacentHTML('beforeend', '<small>down</small>'); }
   floatAt(u.root.position.clone().setY(u.root.position.y + u.h + .3), 'Down!', 'verdict vdown', 'heal can raise them', 1700);

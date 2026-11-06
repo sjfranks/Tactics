@@ -7,7 +7,8 @@
 // choose, and (on the player's turn) the battle itself. It is saved in this browser after every change, so closing the
 // page loses nothing; the viewer's hot reload carries it too.
 const SAVE_KEY = 'goblin-crypt-campaign-1';
-// growth: each hero's level, the experience toward the next, and the cards upgraded (one for each level from 2)
+// growth: each hero's level, the experience toward the next, and the cards raised a tier (one for each level from 2;
+// a card raised twice is at tier III)
 const freshGrowth = () => ({ fighter: { lv: 1, xp: 0, ups: [] }, cleric: { lv: 1, xp: 0, ups: [] }, mage: { lv: 1, xp: 0, ups: [] }, thief: { lv: 1, xp: 0, ups: [] } });
 const freshCamp = (diff = 'normal') => ({ v: 1, level: 0, boons: [], diff, tally: {}, battles: 0, offer: null, state: null, growth: freshGrowth() });
 let CAMP = freshCamp();
@@ -19,7 +20,7 @@ function readCamp(c) {
   if (!c || c.v !== 1 || !Number.isInteger(c.level) || c.level < 0 || c.level >= GC.CAMPAIGN) return null;
   const offer = Array.isArray(c.offer) ? c.offer.filter(id => GC.BOONS[id] && !(c.boons || []).includes(id)) : [];
   return { ...freshCamp(), ...c, boons: (c.boons || []).filter(id => GC.BOONS[id]), offer: offer.length ? offer : null, diff: GC.TUNE.difficulty[c.diff] ? c.diff : 'normal', tally: c.tally && typeof c.tally === 'object' ? c.tally : {},
-    growth: Object.fromEntries(Object.entries(freshGrowth()).map(([k, g]) => { const o = c.growth && c.growth[k]; if (!o || !Number.isInteger(o.lv) || o.lv < 1) return [k, g]; const lv = Math.min(GC.TUNE.xp.max, o.lv), ups = [...new Set(Array.isArray(o.ups) ? o.ups : [])].filter(id => GC.upgradable(k).includes(id)).slice(0, lv - 1); return [k, { lv, xp: Math.max(0, +o.xp || 0), ups }]; })) };
+    growth: Object.fromEntries(Object.entries(freshGrowth()).map(([k, g]) => { const o = c.growth && c.growth[k]; if (!o || !Number.isInteger(o.lv) || o.lv < 1) return [k, g]; const lv = Math.min(GC.TUNE.xp.max, o.lv), ups = []; for (const id of Array.isArray(o.ups) ? o.ups : []) if (GC.upgradable(k).includes(id) && GC.tierIn(ups, id) < GC.MAX_TIER && ups.length < lv - 1) ups.push(id); return [k, { lv, xp: Math.max(0, +o.xp || 0), ups }]; })) };
 }
 function loadCamp() { try { return readCamp(JSON.parse(localStorage.getItem(SAVE_KEY))); } catch (e) { return null; } }
 // the battle in progress, kept whenever it is the player's move
@@ -75,21 +76,23 @@ function showCamp() {
   $('#end').hidden = false;
 }
 const campDue = () => MODE === 'camp' && (!!CAMP.offer || upsDue().length > 0); // a choice is waiting at camp
-// the heroes with an upgrade to choose (one for each level gained), and how many each
-const upsDue = () => GC.HERO_KINDS.map(k => ({ kind: k, n: GC.upgradesDue(k, CAMP.growth[k]) })).filter(d => d.n > 0);
-// a card's upgrade, as the hero would hold it (with their own dice)
+// the heroes with a card to raise (one for each level gained), and how many each, as far as their cards have tiers left
+const upsDue = () => GC.HERO_KINDS.map(k => { const g = CAMP.growth[k], open = GC.upgradable(k).filter(id => GC.tierIn(g && g.ups, id) < GC.MAX_TIER).length; return { kind: k, n: Math.min(GC.upgradesDue(k, g), open) }; }).filter(d => d.n > 0);
+const ROMAN = ['', 'I', 'II', 'III'];
+// the tier a card would rise to, as the hero would hold it (with their own dice)
 function upText(kind, id) {
-  const r = G && G.S.units.find(u => u.kind === kind && u.side === 'hero'), c = GC.UPPED[id], dice = r ? G.diceName(r, id) : diceText(id);
-  return `<b>${c.name}</b> ${c.text.replace('{die}', dice)}`;
+  const r = G && G.S.units.find(u => u.kind === kind && u.side === 'hero'), t = GC.tierIn(CAMP.growth[kind].ups, id), c = GC.TIERS[id][t], dice = r ? G.diceName(r, id) : diceText(id);
+  return `<b>${GC.TIERS[id][t - 1].name} → ${c.name}</b> ${c.text.replace('{die}', dice)}`;
 }
-// each hero who gained a level picks a card to upgrade: their cards in a row (the upgraded ones marked), and what the
+// each hero who gained a level raises a card a tier: their cards in a row, each with its tier (I to III), and what the
 // one tapped would become; done(kind, ids) with that hero's picks so far
 function renderUpgrades(box, due, done) {
   box.innerHTML = due.map(d => {
     const g = CAMP.growth[d.kind], nm = GC.UNITS[d.kind].name;
-    return `<div class="upk" data-kind="${d.kind}"><div class="uph"><span class="rf">${face(d.kind)}</span><b>${nm}</b><small>Level ${g.lv} · ${d.n > 1 ? `pick ${d.n}` : 'pick one'}</small></div>
-      <div class="upc" role="group" aria-label="${nm}: a card to upgrade">${GC.upgradable(d.kind).map(id => { const [hue, art] = ART[id], had = (g.ups || []).includes(id); return `<button class="upb${had ? ' had' : ''}" data-id="${id}" style="--hue:${hue}"${had ? ' disabled' : ''} aria-pressed="false" aria-label="${had ? GC.UPPED[id].name + ', upgraded' : 'Upgrade ' + CARDS[id].name}"><span class="ui"><svg viewBox="0 0 24 24">${art}</svg>${had ? '<i>+</i>' : ''}</span><span class="un">${had ? GC.UPPED[id].name : CARDS[id].name}</span></button>`; }).join('')}</div>
-      <p class="upt">Tap a card to see what it becomes.</p></div>`;
+    return `<div class="upk" data-kind="${d.kind}"><div class="uph"><span class="rf">${face(d.kind)}</span><b>${nm}</b><small>Level ${g.lv} · ${d.n > 1 ? `raise ${d.n}` : 'raise one'}</small></div>
+      <div class="upc" role="group" aria-label="${nm}: a card to raise a tier">${GC.upgradable(d.kind).map(id => { const [hue, art] = ART[id], t = GC.tierIn(g.ups, id), top = t >= GC.MAX_TIER, nmT = GC.TIERS[id][t - 1].name;
+        return `<button class="upb${top ? ' had' : ''}" data-id="${id}" style="--hue:${hue}"${top ? ' disabled' : ''} aria-pressed="false" aria-label="${top ? nmT + ', the top tier' : `Raise ${nmT} to ${GC.TIERS[id][t].name}`}"><span class="ui"><svg viewBox="0 0 24 24">${art}</svg>${t > 1 ? `<i>${ROMAN[t]}</i>` : ''}</span><span class="un">${CARDS[id].name}</span><span class="tp" aria-hidden="true">${[1, 2, 3].map(k => `<b class="${k <= t ? 'on' : ''}"></b>`).join('')}</span></button>`; }).join('')}</div>
+      <p class="upt">Tap a card to see its next tier.</p></div>`;
   }).join('');
   box.querySelectorAll('.upk').forEach(el => {
     const kind = el.dataset.kind, n = due.find(d => d.kind === kind).n, sel = [];
@@ -98,12 +101,12 @@ function renderUpgrades(box, due, done) {
       const id = b.dataset.id, i = sel.indexOf(id);
       if (i >= 0) sel.splice(i, 1); else { sel.push(id); if (sel.length > n) sel.shift(); }
       el.querySelectorAll('.upb').forEach(x => { const on = sel.includes(x.dataset.id); x.classList.toggle('sel', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
-      el.querySelector('.upt').innerHTML = i >= 0 && !sel.length ? 'Tap a card to see what it becomes.' : upText(kind, i >= 0 ? sel[sel.length - 1] : id);
+      el.querySelector('.upt').innerHTML = i >= 0 && !sel.length ? 'Tap a card to see its next tier.' : upText(kind, i >= 0 ? sel[sel.length - 1] : id);
       done(kind, sel.slice());
     });
   });
 }
-// the choices under the victory text: an upgrade for each hero who gained a level, and a boon for the road. The
+// the choices under the victory text: a card to raise for each hero who gained a level, and a boon for the road. The
 // button waits until every one is made
 function offerCamp(go, label) {
   const btn = $('#againBtn'), due = upsDue(), picks = {};
@@ -121,8 +124,8 @@ function offerCamp(go, label) {
   };
 }
 const partyBoonIds = () => MODE === 'free' ? FREE.boons : CAMP.boons;
-// the party's upgraded cards, by name, hero by hero
-const upNames = () => { const g = (MODE === 'free' ? FREE.growth : CAMP.growth) || {}; return GC.HERO_KINDS.flatMap(k => ((g[k] && g[k].ups) || []).map(id => GC.UPPED[id].name)); };
+// the party's raised cards, by name and tier, hero by hero
+const upNames = () => { const g = (MODE === 'free' ? FREE.growth : CAMP.growth) || {}; return GC.HERO_KINDS.flatMap(k => { const ups = (g[k] && g[k].ups) || []; return [...new Set(ups)].map(id => GC.TIERS[id][GC.tierIn(ups, id) - 1].name); }); };
 const boonNames = (who) => partyBoonIds().map(id => GC.BOONS[id]).filter(b => !who || b.who === who || b.who === 'party').map(b => b.name);
 
 // ---------------- laying out a battle ----------------

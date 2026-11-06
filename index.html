@@ -274,7 +274,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 #hbInfo .tx2 i{font-style:normal;color:#9fb4d4}
 #hbInfo .bl{font-style:normal;font-weight:800;color:#ff8a6c}
 #hbInfo b.dis{color:#ff8a6c}
-#dock{--tile:clamp(38px,calc((min(100vw,560px) - 92px) / 6),62px)} /* five slots, the › button and End across the dock */
+#dock{--tile:clamp(38px,calc((min(100vw,560px) - 96px) / 6),62px)} /* five slots, the › button and End across the dock, inside its margins */
 #hbRow{display:flex;align-items:stretch;gap:6px}
 /* the hotbar: five slots wide, every ability in one row that scrolls; an edge fades while abilities lie past it */
 #hbWrap{flex:none;width:calc(var(--tile) * 5 + 24px);overflow-x:auto;overflow-y:visible;padding-top:5px;margin-top:-5px;scroll-snap-type:x mandatory;scrollbar-width:none;touch-action:pan-x;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
@@ -317,7 +317,8 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
   #hbInfo .tx2{-webkit-line-clamp:2}
 }
 /* the dialogue box spans the dock; the play-by-play of each action is written into it */
-#dock{padding-left:max(6px,env(safe-area-inset-left,0px));padding-right:max(6px,env(safe-area-inset-right,0px))}
+#dock{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#hb{align-items:center} /* the slots sit in the middle of the room beside End */
 @media (max-width:600px){.dk{max-width:none}}
 #hbInfo{margin-bottom:6px;box-sizing:border-box}
 #roll{box-sizing:border-box;align-items:stretch;gap:2px;padding:6px 10px 7px;text-shadow:none}
@@ -549,12 +550,19 @@ body{font-family:var(--body)}
 .xpb .bar i,.cs-lv .bar i{display:block;height:100%;background:linear-gradient(90deg,#7a4ad0,#c8a0ff)}
 .lvup{margin:5px 0 0!important;font:600 12.5px/1.35 var(--body);color:#e8dcff!important}.lvup b{color:#fff}
 .cs-lv{margin:8px 0 4px}.cs-lv b{font:800 13px/1 var(--body);color:#d4b4ff}.cs-lv small{display:block;margin-top:3px;font:600 11.5px/1.3 var(--body);color:var(--bone-dim)}
-/* upgrades: a gold + on an upgraded card, wherever it shows; and the pick at camp, one row of cards per hero who gained a level */
-.hk .pl{position:absolute;right:6px;top:3px;font:800 14px/1 var(--body);color:#f0c870;text-shadow:0 1px 0 #000,0 0 6px rgba(240,180,80,.7);z-index:3;pointer-events:none}
+/* tiers: a raised card wears its tier (II, III) in gold, wherever it shows; and the pick at camp, one row of cards per hero who gained a level */
+.hk .pl{position:absolute;right:6px;top:5px;font:800 9.5px/1 var(--body);letter-spacing:.02em;color:#f0c870;text-shadow:0 1px 0 #000,0 0 6px rgba(240,180,80,.7);z-index:3;pointer-events:none}
+.hk.t3 .pl{color:#ffe7a8;text-shadow:0 1px 0 #000,0 0 8px rgba(255,200,90,.95)}
 .hk.up{box-shadow:inset 0 0 0 1px #8a6a2a,inset 0 1px 0 rgba(255,228,190,.2),0 2px 0 #000,0 4px 10px rgba(0,0,0,.6)}
 .cs-card.up{border-color:rgba(240,200,112,.55)!important;box-shadow:0 0 0 1px rgba(240,200,112,.2)}.cs-card.up b{color:#f0d8a0!important}
 .boonchips span.up{background:#241a2e;color:#e4d2ff;border-color:rgba(200,160,255,.35)}
 .boonchips .bcg{display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%}
+/* the conditions on a figure, under its health bar: what a friend can use */
+.tag .sts{display:flex;gap:2px;min-height:0}.tag .sts:empty{display:none}
+.tag .sts i{width:13px;height:13px;border-radius:50%;display:grid;place-items:center;background:rgba(8,6,5,.9);box-shadow:0 0 0 1px var(--c),0 1px 3px rgba(0,0,0,.7)}
+.tag .sts svg{width:9px;height:9px;stroke:var(--c);fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.tag .sts i.deep{box-shadow:0 0 0 1.5px var(--c),0 0 6px var(--c)}
+.tag.down .sts,.tag.of .sts{display:none}
 #endUps{margin-bottom:4px}
 .upk{padding:10px 0 8px;border-top:1px solid rgba(154,126,72,.22)}.upk:first-child{border-top:none;padding-top:4px}
 .uph{display:flex;align-items:center;gap:8px}
@@ -569,7 +577,8 @@ body{font-family:var(--body)}
 .upb:not(.had):active .ui{transform:scale(.95)}
 .upb.sel .ui{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 0 16px rgba(201,164,106,.5)}.upb.sel .un{color:#f0d8a0}
 .upb.had{opacity:.5;cursor:default}
-.upb i{position:absolute;right:4px;top:2px;font:800 13px/1 var(--body);font-style:normal;color:#f0c870;text-shadow:0 1px 0 #000}
+.upb i{position:absolute;right:4px;top:3px;font:800 10px/1 var(--body);font-style:normal;color:#f0c870;text-shadow:0 1px 0 #000}
+.upb .tp{display:flex;gap:3px;margin-top:-1px}.upb .tp b{width:5px;height:5px;border-radius:50%;background:#3a3029;box-shadow:inset 0 0 0 1px #5a4a3a}.upb .tp b.on{background:#e8c070;box-shadow:0 0 4px rgba(232,192,112,.7)}
 .upt{margin:0!important;min-height:2.7em;font-size:13px!important;line-height:1.35!important;color:var(--bone-dim)!important}.upt b{color:#f0d8a0;margin-right:3px}
 </style>
 
@@ -692,7 +701,7 @@ body{font-family:var(--body)}
       <ul>
         <li>After each victory the party makes camp and picks one of three <b>boons</b>: a better weapon, tougher armour, more health, a faster cooldown, Healing Draughts for everyone. Boons last the rest of the campaign; each hero's sheet lists theirs.</li>
         <li><b>Experience:</b> in the campaign each hero earns a little XP for every action: 6 for a hit, 14 more for each foe slain, 6 for a heal, 4 for a helping spell, and 20 for still standing at a victory. 100 XP is a level, and each level adds 2 max HP.</li>
-        <li><b>Upgrades:</b> every hero keeps the same five abilities all campaign, a basic attack and four powers. Instead of new ones, each level from 2 <b>upgrades</b> one of them, your pick, at camp: tap a card there to see what it becomes. An upgraded ability wears a gold <b>+</b>. Charge+ drives a foe back two squares, Heal+ spills over to the heroes beside, Mace+ smites from three squares off, Fireball+ spares your heroes, Frost Ray+ freezes the foes beside its mark, Throwing Knives+ hits a second foe, and so on. A hero's sheet shows how close the next level is.</li>
+        <li><b>Tiers:</b> every hero keeps the same five abilities all campaign, a basic attack and four powers. Each level from 2 raises one of them a tier, from I to III, your pick at camp: tap a card there to see its next tier. Tiers II and III bring the teamwork below. A raised ability wears its tier, II or III, in gold. A hero's sheet shows how close the next level is.</li>
         <li><b>Battle close-ups:</b> when an attack, a spell or a heal is locked in, its dice are thrown first; then the grid fades and the camera closes in low behind the attacker, the attacker on the left and the target on the right, to watch the blow land, and pulls back. Settings turns them off; tapping during the goblins' turn skips them.</li>
         <li><b>Healing Draught</b>: one a battle. Drink it, or pour it for a friend beside you, to heal 2d4.</li>
         <li>The campaign saves itself in this browser after every move. Close the page and come back to the same turn.</li>
@@ -721,13 +730,23 @@ body{font-family:var(--body)}
         <li>Otherwise the target takes the total less its <b>armour</b>: the number on the shield beside its health bar. There is no roll for it.</li>
         <li>A <b>crit</b> (a die on its top face) cuts straight through armour. Only blows up close crit: arrows, bolts, rays, hexes and Fireball never do.</li>
         <li>Armour: Brakka 2, Sister Wenna and Vex 1, Orlen none; cutters and archers none, shamans 1, wargs 2, Grubnash 3.</li>
-        <li><b>Taunt</b> adds 1, <b>Prone</b> takes 1 off, <b>Rebuke</b> takes 2 off until Wenna's next turn, and <b>Frozen</b> leaves none. The shield turns red while armour is stripped.</li>
+        <li><b>Taunt</b> adds 1, <b>Prone</b> takes 1 off, <b>Judged</b> takes 2 off until Wenna's next turn, and <b>Frozen</b> leaves none. The shield turns red while armour is stripped.</li>
         <li>One roll, many targets: Cleave, Thunderwave and Fireball roll once, and each figure caught loses its own armour. Grubnash Smash, fire, falls and slams ignore armour.</li>
+      </ul>
+      <h3>Teamwork</h3>
+      <ul>
+        <li>Under each figure's health bar, small marks show what has been set up on it: gold for <b>Judged</b>, blue for <b>Frozen</b>, tan for <b>Prone</b>, green for <b>Poisoned</b>; on heroes, <b>Blessed</b>, <b>Warded</b>, <b>Hasted</b> and <b>Hidden</b>.</li>
+        <li><b>Judged</b>, Sister Wenna's mark (Judgement, and her Mace III): armour −2 till her next turn, and every hero who hits it heals 1, or 2 at Judgement III. Pile onto the Judged foe and the whole party mends.</li>
+        <li><b>Frozen</b> (Orlen's Frost Ray, Ice Wall III) and <b>Prone</b> (Brakka's Charge and Cleave, Vex's Dirty Trick, Thunderwave, Grapple III): every hit takes +1 die, and Brakka's Longsword II adds +3 more. Frost Ray III's deep freeze holds through every blow.</li>
+        <li><b>Hammer and anvil:</b> Charge III and Thunderwave III drive a foe in beside your heroes, and each of them strikes it for free. Grapple III throws a friend into the fight to strike a foe where they land.</li>
+        <li>Orlen's Arcane Bolt II and III leap on to foes standing beside your heroes. Fireball II spares the heroes, so it can land on a melee, and Fireball III burns hotter for each foe it catches: herd them together first.</li>
+        <li>Vex's Dagger is stronger flanked, with a friend beside her foe (+2 dice at III). Hide II and III hide the heroes near her too, so their next attacks gain +2 dice.</li>
+        <li>Wenna's Bless III and Heal II reach the heroes beside her target, and Brakka's Taunt II and III Bless and Ward everyone within 3 of him.</li>
       </ul>
       <h3>Combos</h3>
       <ul>
         <li><b>Prone</b> and <b>Frozen</b> foes take +1 die from every hit and lose armour. Charge, Thunderwave and Dirty Trick knock them down; Frost Ray freezes.</li>
-        <li><b>Rebuke</b> then strike: 2 off a foe's armour, so a warg's is gone and Grubnash's falls to 1.</li>
+        <li><b>Judgement</b> then strike: 2 off a foe's armour, so a warg's is gone and Grubnash's falls to 1, and every hero who hits it heals.</li>
         <li><b>Charge</b> a goblin into a wall, a pillar or another piece for a +2 Slam; shove it into fire for +2 burn.</li>
         <li><b>Grapple</b> moves a foe or a friend beside Brakka one square in any direction: drag a goblin off a ledge or into the gorge, or pull a friend out of harm's way.</li>
         <li><b>Hide</b> lasts until the end of Vex's next turn. Strike from hiding for +2 dice; add <b>Bless</b> and a prone target for a five-die backstab.</li>
@@ -764,7 +783,7 @@ body{font-family:var(--body)}
       <h2 id="endTitle">Victory</h2>
       <p id="endText"></p>
       <div id="endReport"></div>
-      <div id="endUps" hidden><h3>Level up: upgrade a card</h3><div id="upList"></div></div>
+      <div id="endUps" hidden><h3>Level up: raise a card a tier</h3><div id="upList"></div></div>
       <div id="endBoons" hidden><h3>Choose a boon for the road</h3><div class="boons" id="boonList" role="group" aria-label="Boons"></div></div>
       <button class="go" id="againBtn">Next battle</button>
       <button class="tb2" id="endMenu" hidden>Main menu</button>

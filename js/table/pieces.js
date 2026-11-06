@@ -39,18 +39,18 @@ function renderTokens() {
     box.appendChild(b);
   });
 }
-const ST_DESC = { warded: 'Warded: armour +2 till the caster\'s next turn', poisoned: 'Poisoned: loses 2 at the start of its turn', hidden: 'Hidden: cannot be targeted; next attack +2 dice', blessed: 'Blessed: next roll +1 die', hasted: 'Hasted: +1 action next turn', prone: 'Prone: standing up costs an action; hits against it +1 die; armour −1', frozen: 'Frozen: cannot move; no armour; next hit +1 die', taunt: 'Taunting: goblins must attack; armour +1', rebuked: 'Rebuked: armour −2' };
-// a hero's level on their sheet: experience toward the next, which upgrades a card while any is left to upgrade
+const ST_DESC = { warded: 'Warded: armour +2 till the caster\'s next turn', poisoned: 'Poisoned: loses 2 at the start of its turn', hidden: 'Hidden: cannot be targeted; next attack +2 dice', blessed: 'Blessed: next roll +1 die', hasted: 'Hasted: extra actions next turn', prone: 'Prone: standing up costs an action; hits against it +1 die; armour −1', frozen: 'Frozen: cannot move; no armour; hits +1 die', taunt: 'Taunting: goblins must attack; armour +1', judged: 'Judged: armour −2; every hero who hits it heals' };
+// a hero's level on their sheet: experience toward the next, which raises a card a tier while any has one left
 function levelLine(kind) {
-  const g = growthOf(kind), X = GC.TUNE.xp, more = g.lv - 1 < GC.upgradable(kind).length, xp = Math.min(X.level, g.xp + g.gained);
-  return `<div class="cs-lv"><b>Level ${g.lv}</b><span class="bar"><i style="width:${g.lv >= X.max ? 100 : xp / X.level * 100}%"></i></span><small>${g.lv >= X.max ? 'Top level' : `${g.xp}${g.gained ? ` + ${g.gained}` : ''} / ${X.level} XP${more ? ` · level ${g.lv + 1} upgrades a card` : ''}`}</small></div>`;
+  const g = growthOf(kind), X = GC.TUNE.xp, more = GC.upgradable(kind).some(id => GC.tierIn(g.ups, id) < GC.MAX_TIER), xp = Math.min(X.level, g.xp + g.gained);
+  return `<div class="cs-lv"><b>Level ${g.lv}</b><span class="bar"><i style="width:${g.lv >= X.max ? 100 : xp / X.level * 100}%"></i></span><small>${g.lv >= X.max ? 'Top level' : `${g.xp}${g.gained ? ` + ${g.gained}` : ''} / ${X.level} XP${more ? ` · level ${g.lv + 1} raises a card a tier` : ''}`}</small></div>`;
 }
 function openSheet() {
   const u = UI.inspect || UI.sel || UI.active, L = lvl(), foesLeft = units.filter(x => x.alive && x.side === 'gob').length;
   let html;
   if (u && u.alive && G) {
     const r = ru(u), foe = u.side === 'gob', sts = statusList(u);
-    const cards = foe ? '' : `<div class="cs-cards">${G.cardsOf(r).map(id => { const c = G.cardOf(r, id), blk = G.block(r, id), [hue, art] = ART[id], cd = G.cardCd(r, id); return `<div class="cs-card${c.upgraded ? ' up' : ''}" style="--hue:${hue}"><svg viewBox="0 0 24 24">${art}</svg><div><b>${c.name}</b><p>${G.cardText(r, id)}</p></div><em>${blk && UI.phase === 'player' ? blk : cd ? '↻ ' + cd : c.cost}</em></div>`; }).join('')}</div>`;
+    const cards = foe ? '' : `<div class="cs-cards">${G.cardsOf(r).map(id => { const c = G.cardOf(r, id), blk = G.block(r, id), [hue, art] = ART[id], cd = G.cardCd(r, id); return `<div class="cs-card${c.tier > 1 ? ' up' : ''}" style="--hue:${hue}"><svg viewBox="0 0 24 24">${art}</svg><div><b>${c.name}</b><p>${G.cardText(r, id)}</p></div><em>${blk && UI.phase === 'player' ? blk : cd ? '↻ ' + cd : c.cost}</em></div>`; }).join('')}</div>`;
     const bn = foe ? [] : boonNames(u.kind), boons = bn.length ? `<div class="cs-tags cs-boons">${bn.map(n => `<span>★ ${n}</span>`).join('')}</div>` : '';
     const note = u.down ? 'Down: Heal raises them. Goblins leave the fallen be.' : foe ? u.def.note : u === UI.active && UI.phase === 'player' ? `${r.ap} action${r.ap === 1 ? '' : 's'} left this turn` : '';
     html = `<div class="cs-head ${foe ? 'gob' : ''}">${PORTRAIT[u.kind] ? `<img class="cs-fig" alt="" src="${PORTRAIT[u.kind].body}">` : `<span class="ubadge ${foe ? 'gob' : ''}"><span>${ICONS[u.kind]}</span></span>`}<div><h2>${u.name}</h2><small>${foe ? (u.def.boss ? 'Goblin King' : 'Foe') : u.def.role}</small></div></div>
@@ -115,7 +115,7 @@ function makeUnit(r) {
   ring.rotation.x = -Math.PI / 2; ring.renderOrder = 2; scene.add(ring);
   const hit = new THREE.Mesh(hitGeo, hitMat); hit.position.y = .55; root.add(hit);
   const tag = document.createElement('div'); tag.className = 'tag ' + side;
-  tag.innerHTML = `<div class="fc"></div><div class="hpr"><b class="arm" hidden></b><div class="hp"><i class="trail"></i><i class="fill"></i></div></div>` + (side === 'hero' ? '<div class="ap"></div>' : '');
+  tag.innerHTML = `<div class="fc"></div><div class="hpr"><b class="arm" hidden></b><div class="hp"><i class="trail"></i><i class="fill"></i></div></div><div class="sts"></div>` + (side === 'hero' ? '<div class="ap"></div>' : '');
   if (def.boss) tag.classList.add('boss');
   $('#tags').appendChild(tag);
   const u = { id: r.id, kind: r.kind, def, side, name: def.name, hp: r.hp, maxHp: r.maxHp, c: r.c, r: r.r, l: r.l || 0, st: {}, alive: true, down: false, asleep: !!r.asleep, init: 0, deployed: false, root, piece, fig, stand, h, rig, ring, hit, tag, blob, size: r.size || 1, fx: {} };
@@ -149,6 +149,7 @@ function ownMats(u) {
 function updateTag(u) {
   const w = Math.max(0, u.hp / u.maxHp * 100) + '%';
   u.tag.querySelector('.fill').style.width = w; u.tag.querySelector('.trail').style.width = w;
+  renderSts(u);
   if (u.def.boss) updateBoss();
 }
 // the shield on a nameplate: what each blow loses. Red when it has been stripped (Rebuke, Prone, Frozen), gold when
@@ -163,7 +164,19 @@ function updateBoss() {
   $('#boss').hidden = !k || !k.deployed;
   if (k) $('#bossBar').style.width = (k.hp / k.maxHp * 100) + '%';
 }
-const STATUSES = ['hidden', 'blessed', 'hasted', 'prone', 'frozen', 'taunt', 'rebuked', 'warded', 'poisoned'];
+const STATUSES = ['judged', 'frozen', 'prone', 'poisoned', 'blessed', 'warded', 'hasted', 'hidden', 'taunt'];
+// a small mark on the nameplate for each condition, so a friend can see what is set up for them: [colour, icon]
+const ST_ICON = {
+  judged: ['#f0c45a', ART.c_rebuke[1]], frozen: ['#9fdcff', ART.m_frost[1]], prone: ['#e0b27a', ART.t_trick[1]],
+  poisoned: ['#8ae04a', '<path d="M12 3c-2.5 4-5 6.6-5 10a5 5 0 0 0 10 0c0-3.4-2.5-6-5-10z"/>'], blessed: ['#ffd56a', ART.c_bless[1]],
+  warded: ['#7ab8ff', '<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/>'], hasted: ['#7dffb0', ART.c_haste[1]], hidden: ['#c0b0e0', ART.t_hide[1]], taunt: ['#ff6a50', ART.f_taunt[1]]
+};
+function renderSts(u) {
+  const el = u.tag.querySelector('.sts'); if (!el) return;
+  const ks = u.down || !u.alive ? [] : STATUSES.filter(k => u.st[k]), k0 = ks.map(k => k + (u.st[k] === 2 ? '2' : '')).join();
+  if (el._k === k0) return; el._k = k0;
+  el.innerHTML = ks.map(k => { const [c, svg] = ST_ICON[k]; return `<i class="${k}${u.st[k] === 2 && k === 'frozen' ? ' deep' : ''}" style="--c:${c}" title="${ST_DESC[k]}"><svg viewBox="0 0 24 24">${svg}</svg></i>`; }).join('');
+}
 const statusList = u => STATUSES.filter(s => u.st[s]);
 
 // ---------------- status visuals ----------------
@@ -179,11 +192,11 @@ function setBlessed(u, on) {
   if (!on && u.fx.bless) { u.piece.remove(u.fx.bless); u.fx.bless = null; }
   updateTag(u);
 }
-// Rebuked: a pale halo over the foe; v is the id of the cleric who laid it on (plus one), and it lifts when her next turn starts
-function setRebuked(u, v) {
-  u.st.rebuked = v || 0;
-  if (v && !u.fx.rebuke) { u.fx.rebuke = glowSprite(0xd8b0ff, .55); u.fx.rebuke.position.y = u.h + .1; u.piece.add(u.fx.rebuke); }
-  if (!v && u.fx.rebuke) { u.piece.remove(u.fx.rebuke); u.fx.rebuke = null; }
+// Judged: a gold halo over the foe; v is the id of the cleric who laid it on (plus one), and it lifts when her next turn starts
+function setJudged(u, v) {
+  u.st.judged = v || 0;
+  if (v && !u.fx.judge) { u.fx.judge = glowSprite(0xffc440, .6); u.fx.judge.position.y = u.h + .1; u.piece.add(u.fx.judge); }
+  if (!v && u.fx.judge) { u.piece.remove(u.fx.judge); u.fx.judge = null; }
   updateTag(u);
 }
 // Ward and Poison: a glow on the figure, blue for a ward, green for poison

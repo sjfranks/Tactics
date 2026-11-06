@@ -16,7 +16,7 @@ A tabletop tactics game on a 3D board. Four heroes (Brakka the fighter, Sister W
 - **Down, not dead:** a hero at 0 HP lies where they fell until Heal raises them. Sister Wenna can cast Heal once a turn. The battle is lost only when every hero is down.
 - **Undo** takes back moves and abilities that rolled no dice. Dice are final.
 - **Experience:** in the campaign, heroes earn a little XP for every action (a hit, a kill, a heal, a helping spell) and for standing at a victory. Each 100 XP is a level (+2 max HP). A hero's sheet shows how close the next level is.
-- **Upgrades:** every hero keeps one set of five abilities all campaign, a basic attack and four powers (Vex's include Throwing Knives). Each level from 2 upgrades one of them instead, picked at camp from the hero's cards: Charge+ drives a foe back two squares, Cleave+ knocks everyone it hits Prone, Heal+ spills over to the heroes beside, Mace+ smites from three squares off, Fireball+ spares your heroes, Frost Ray+ freezes the foes beside its mark, Throwing Knives+ throws at a second foe, Hide+ hides the heroes beside Vex too. Every card has one upgrade; an upgraded one wears a gold +. The level select gives the party the levels it would have by then, with upgrades picked at random.
+- **Tiers and teamwork:** every hero keeps one set of five abilities all campaign, a basic attack and four powers (Vex's include Throwing Knives). Each level from 2 raises one of them a tier, from I to III, picked at camp. Tiers II and III are built around teamwork, through a few conditions that one hero sets and the others use: **Judged** (Sister Wenna's mark: armour −2, and every hero who hits it heals), **Frozen** and **Prone** (+1 die to every hit, +3 more from Brakka's Longsword II), and Blessed, Warded and Hidden on the heroes. Charge III and Thunderwave III drive foes in beside your heroes, who strike them for free; Grapple III throws a friend into the fight; Arcane Bolt leaps to foes beside your heroes; Fireball III burns hotter for each foe caught. Small marks under each figure's health bar show its conditions. The level select gives the party the levels it would have by then, with tiers picked at random.
 - **The camera** looks up the board from the party's side and keeps the whole 6 × 8 board in view on any screen, phone or desktop, upright or on its side (the throne room is bigger, and pans); when an attack, spell or heal is locked in, the dice are thrown first, then the grid fades and it closes in low behind the attacker (attacker left, target right) to watch the blow, and pulls back (Settings turns close-ups off).
 - **The campaign:** after each victory the party makes camp and picks one of three **boons** (a reforged blade, a shield, Healing Draughts for everyone, faster prayers...). Boons last the rest of the campaign. The campaign saves itself in the browser after every move, so you can close the page and come back to the same turn.
 - **Settings:** difficulty (goblins have 75%, 100% or 125% of their health), game speed, music, banter, model style, a new campaign.
@@ -49,13 +49,13 @@ GitHub Actions runs a check on every push and pull request (every script parses;
 
 ### Retuning
 
-Every number lives in the tables at the top of `js/rules.js`: `TUNE`, `UNITS`, `CARDS`, `BOONS` and `LEVELS`. A card's `up` is its upgrade: the new text, anything it changes, and the flag its effect reads. A level marked `extra` is played from the level select only; `deck` lays a second floor over the map, and a prop or foe with a fourth number stands on it. Change them, then check the difficulty curve:
+Every number lives in the tables at the top of `js/rules.js`: `TUNE`, `UNITS`, `CARDS`, `BOONS` and `LEVELS`. A card's `tiers` are its tiers II and III: each lists what it changes on the tier below (its text, and the flags its effect reads). A level marked `extra` is played from the level select only; `deck` lays a second floor over the map, and a prop or foe with a fourth number stands on it. Change them, then check the difficulty curve:
 
 ```sh
 node tools/sim.js 500 all     # battles per level, all levels (or a level index)
 ```
 
-On Normal, with 400 battles per level and the levels a party would have reached by then, the bot wins about 100%, 97%, 98%, 91% and 81% of the five campaign battles, and 90% of the Reeve's House (runs vary by a few points). `LV0=1` fights without the levels. The bot ignores foe intents and plays one action at a time, so people do better.
+On Normal, with 400 battles per level and the levels a party would have reached by then, the bot wins about 100%, 97%, 98%, 90% and 81% of the five campaign battles, and 92% of the Reeve's House (runs vary by a few points). `LV0=1` fights without the levels. The bot ignores foe intents and plays one action at a time, so people do better.
 
 ## Archive
 

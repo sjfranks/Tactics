@@ -181,7 +181,8 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     ok(b0.text === '2' && !b0.hidden && !b0.low && bk.text === '2' && bm.hidden, `shields: warg ${b0.text}, Brakka ${bk.text}, Orlen none`);
     await p.click('.hk[data-id="c_rebuke"]'); await p.waitForTimeout(150); await tapCell(1, 5); await idle();
     const b1 = await badge('warg');
-    ok(b1.text === '0' && b1.low, `Rebuke strips the warg's armour: ${b0.text} → ${b1.text}, shown in red`);
+    ok(b1.text === '0' && b1.low, `Judgement strips the warg's armour: ${b0.text} → ${b1.text}, shown in red`);
+    ok(await p.evaluate(() => { const u = units.find(x => x && x.alive && x.kind === 'warg' && x.r === 5); return !!u.tag.querySelector('.sts i.judged') && !!u.fx.judge; }), 'the warg wears the gold mark of the Judged, on its nameplate and over its head');
     ok(await p.evaluate(() => !combatLog.some(e => /toughness/i.test(e.html))), 'nothing rolls for defence any more');
   }
 
@@ -227,7 +228,7 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     ok(JSON.stringify(after) === JSON.stringify(before), `back on the same turn: ${GC.LEVELS[after.level].name}, round ${after.round}, ${after.active} to move`);
   }
 
-  console.log('a level gained upgrades a card, picked at camp');
+  console.log('a level gained raises a card a tier, picked at camp');
   {
     const tweak = "S.units.filter(u => u.side === 'gob').forEach((g, i) => { if (i) g.alive = false; else { g.c = 2; g.r = 5; g.hp = 2; } });";
     const seed = await finisher(0, tweak);
@@ -237,24 +238,24 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     await p.waitForSelector('#end', { state: 'visible', timeout: 60000 });
     const up = await p.evaluate(() => ({ lv: CAMP.growth.fighter.lv, text: document.querySelector('#endReport .lvup') && document.querySelector('#endReport .lvup').textContent,
       rows: [...document.querySelectorAll('#upList .upk')].map(e => e.dataset.kind), cards: document.querySelectorAll('#upList .upk[data-kind="fighter"] .upb').length, open: !$('#endUps').hidden }));
-    ok(up.lv === 2 && /Level 2! \+2 max HP · upgrade a card below/.test(up.text || '') && up.open && up.rows.join() === 'fighter' && up.cards === 5, 'Brakka reaches level 2: one of his five cards to upgrade');
+    ok(up.lv === 2 && /Level 2! \+2 max HP · raise a card a tier below/.test(up.text || '') && up.open && up.rows.join() === 'fighter' && up.cards === 5, 'Brakka reaches level 2: one of his five cards to raise a tier');
     await p.click('#boonList .boon');
     ok(await p.evaluate(() => $('#againBtn').disabled), 'with a boon picked, the march still waits for the upgrade');
     await p.click('#upList .upb[data-id="f_charge"]');
     const t = await p.evaluate(() => ({ text: $('#upList .upt').textContent, sel: $('#upList .upb[data-id="f_charge"]').classList.contains('sel'), disabled: $('#againBtn').disabled }));
-    ok(/^Charge\+/.test(t.text) && /drive the foe back 2/.test(t.text) && t.sel && !t.disabled, `Charge shows what it becomes ("${t.text}"), and the march is ready`);
+    ok(/^Charge → Charge II/.test(t.text) && /drive the foe back 2/.test(t.text) && t.sel && !t.disabled, `Charge shows its next tier ("${t.text}"), and the march is ready`);
     await p.click('#againBtn'); await p.waitForSelector('#intro', { state: 'visible' });
     const next = await p.evaluate(() => { const f = G.S.units.find(u => u.kind === 'fighter'); return { ups: f.ups, saved: JSON.parse(localStorage.getItem(SAVE_KEY)).growth.fighter.ups, hp: f.maxHp, chips: $('#introBoons').textContent, boonHp: CAMP.boons.reduce((n, id) => { const b = GC.BOONS[id]; return n + ((b.who === 'fighter' || b.who === 'party') && b.mod && b.mod.hp || 0); }, 0) }; });
-    ok(next.ups.join() === 'f_charge' && next.saved.join() === 'f_charge' && next.hp === GC.UNITS.fighter.hp + GC.TUNE.xp.hp + next.boonHp, `he carries Charge+ into the next battle, with ${next.hp} HP, and the save keeps it`);
-    ok(/Upgrades\s*Charge\+/.test(next.chips), 'the briefing lists the party\'s upgrades');
+    ok(next.ups.join() === 'f_charge' && next.saved.join() === 'f_charge' && next.hp === GC.UNITS.fighter.hp + GC.TUNE.xp.hp + next.boonHp, `he carries Charge II into the next battle, with ${next.hp} HP, and the save keeps it`);
+    ok(/Upgrades\s*Charge II/.test(next.chips), 'the briefing lists the party\'s raised cards');
     // the hotbar and the sheet show the upgraded card
     await setup(1, 'fighter', '', { camp: true });
     await p.click('.hk[data-id="f_charge"]'); await p.waitForTimeout(150);
-    const bar = await p.evaluate(() => ({ up: $('.hk[data-id="f_charge"]').classList.contains('up') && !!$('.hk[data-id="f_charge"] .pl'), plain: !$('.hk[data-id="f_cleave"]').classList.contains('up'), info: $('#hbInfo').textContent }));
-    ok(bar.up && bar.plain && /Charge\+/.test(bar.info) && /drive the foe back 2/.test(bar.info), 'the hotbar marks Charge+ with a gold +, and its line reads the upgrade');
+    const bar = await p.evaluate(() => ({ up: $('.hk[data-id="f_charge"]').classList.contains('up') && $('.hk[data-id="f_charge"] .pl').textContent, plain: !$('.hk[data-id="f_cleave"]').classList.contains('up'), info: $('#hbInfo').textContent }));
+    ok(bar.up === 'II' && bar.plain && /Charge II/.test(bar.info) && /drive the foe back 2/.test(bar.info), 'the hotbar marks Charge II in gold, and its line reads the tier');
     await p.click('#uwho'); await p.waitForTimeout(200);
     const sheet = await p.evaluate(() => ({ up: [...document.querySelectorAll('#csBody .cs-card.up b')].map(b => b.textContent), lv: $('#csBody .cs-lv small').textContent }));
-    ok(sheet.up.join() === 'Charge+' && /level 3 upgrades a card/.test(sheet.lv), `his sheet shows ${sheet.up.join()} and "${sheet.lv}"`);
+    ok(sheet.up.join() === 'Charge II' && /level 3 raises a card a tier/.test(sheet.lv), `his sheet shows ${sheet.up.join()} and "${sheet.lv}"`);
     await p.keyboard.press('Escape');
     // closed before choosing: the camp comes back with the pick still to make
     await p.evaluate(() => { CAMP = freshCamp(); CAMP.level = 1; CAMP.battles = 1; CAMP.growth.mage = { lv: 2, xp: 10, ups: [] }; saveCamp(); });
@@ -263,7 +264,17 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     const camp = await p.evaluate(() => ({ title: $('#endTitle').textContent, rows: [...document.querySelectorAll('#upList .upk')].map(e => e.dataset.kind), boons: !$('#endBoons').hidden, disabled: $('#againBtn').disabled }));
     ok(camp.title === 'Camp' && camp.rows.join() === 'mage' && !camp.boons && camp.disabled, 'a pick left unmade brings the camp back, Orlen\'s upgrade waiting');
     await p.click('#upList .upb[data-id="m_fire"]'); await p.click('#againBtn'); await p.waitForSelector('#intro', { state: 'visible' });
-    ok(await p.evaluate(() => CAMP.growth.mage.ups.join() === 'm_fire' && G.S.units.find(u => u.kind === 'mage').ups.join() === 'm_fire'), 'Fireball+ is his, and on to the briefing');
+    ok(await p.evaluate(() => CAMP.growth.mage.ups.join() === 'm_fire' && G.S.units.find(u => u.kind === 'mage').ups.join() === 'm_fire'), 'Fireball II is his, and on to the briefing');
+    // a second raise takes a card to tier III
+    await p.evaluate(() => { CAMP = freshCamp(); CAMP.level = 2; CAMP.battles = 2; CAMP.growth.mage = { lv: 3, xp: 0, ups: ['m_fire'] }; saveCamp(); });
+    await p.reload(); await p.waitForSelector('#title', { state: 'visible', timeout: 60000 });
+    await p.click('#tCont'); await p.waitForSelector('#end', { state: 'visible', timeout: 60000 });
+    const t2 = await p.evaluate(() => ({ pips: $('#upList .upb[data-id="m_fire"] .tp').querySelectorAll('b.on').length, mark: $('#upList .upb[data-id="m_fire"] .ui i').textContent }));
+    await p.click('#upList .upb[data-id="m_fire"]');
+    const t3 = await p.evaluate(() => $('#upList .upt').textContent);
+    ok(t2.pips === 2 && t2.mark === 'II' && /^Fireball II → Fireball III/.test(t3) && /for every foe it catches/.test(t3), `Fireball shows tier II, and its next: "${t3}"`);
+    await p.click('#againBtn'); await p.waitForSelector('#intro', { state: 'visible' });
+    ok(await p.evaluate(() => G.S.units.find(u => u.kind === 'mage').ups.join() === 'm_fire,m_fire' && G.cardOf(G.S.units.find(u => u.kind === 'mage'), 'm_fire').name === 'Fireball III'), 'Fireball III, carried into the battle');
     await p.evaluate(() => { CAMP = freshCamp(); saveCamp(); });
   }
 

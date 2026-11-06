@@ -46,7 +46,7 @@ function computeForecast() {
   const put = (t, from) => { const k = `${id}|${t.id}|${key(from.c, from.r, from.l)}`; let f = fcCache.get(k); if (f === undefined) { f = G.forecast(r, id, t, from, 900); fcCache.set(k, f); } if (f) UI.fc.set(t.id, f); };
   if (card.atk || card.heal) { for (const e of G.targets(r, id).values()) if (e.unit != null) put(G.U(e.unit), e.path ? e.path[e.path.length - 1] : r); }
   else if (card.sweep) G.sweepTargets(r, id).forEach(tid => put(G.U(tid), r));
-  else if (card.area && UI.aim) G.blastHits(r, GC.parseKey(UI.aim)).forEach(t => put(t, r)); // an upgraded Fireball spares the heroes
+  else if (card.area && UI.aim) { const q = GC.parseKey(UI.aim); G.blastHits(r, q).forEach(t => put(t, q)); } // aimed at a square (Fireball II spares the heroes; III burns hotter for each foe)
 }
 const pct = x => x >= .995 ? '100%' : x < .01 ? '<1%' : Math.round(x * 100) + '%';
 function renderFc() {
@@ -90,9 +90,9 @@ function renderDock() {
     const id = ids[i];
     if (!id) { const e = document.createElement('div'); e.className = 'hk empty'; e.setAttribute('aria-hidden', 'true'); e.innerHTML = `<span class="key">${i + 1}</span>`; bar.appendChild(e); continue; }
     const c = G.cardOf(hr, id), block = G.block(hr, id), [hue, art] = ART[id], cd = hr.cd[id] > 0 ? hr.cd[id] : 0, dn = G.diceName(hr, id);
-    const b = document.createElement('button'); b.className = 'hk' + (UI.card === id ? ' sel' : '') + (block ? ' off' : '') + (c.upgraded ? ' up' : ''); b.style.setProperty('--hue', hue); b.dataset.id = id;
+    const b = document.createElement('button'); b.className = 'hk' + (UI.card === id ? ' sel' : '') + (block ? ' off' : '') + (c.tier > 1 ? ' up t' + c.tier : ''); b.style.setProperty('--hue', hue); b.dataset.id = id;
     b.setAttribute('aria-label', `${i + 1}: ${c.name}. ${G.cardText(hr, id)}${block ? ' (' + block + ')' : ''}`); b.setAttribute('aria-pressed', UI.card === id ? 'true' : 'false');
-    b.innerHTML = `<span class="ic"><svg viewBox="0 0 24 24">${art}</svg></span>${i < 9 ? `<span class="key">${i + 1}</span>` : ''}${dn ? `<span class="dv">${dn}</span>` : ''}${c.uses != null ? `<span class="us">×${hr.uses[id] || 0}</span>` : ''}${c.upgraded ? '<span class="pl" aria-hidden="true">+</span>' : ''}${cd ? `<span class="cd">${cd}</span>` : ''}`;
+    b.innerHTML = `<span class="ic"><svg viewBox="0 0 24 24">${art}</svg></span>${i < 9 ? `<span class="key">${i + 1}</span>` : ''}${dn ? `<span class="dv">${dn}</span>` : ''}${c.uses != null ? `<span class="us">×${hr.uses[id] || 0}</span>` : ''}${c.tier > 1 ? `<span class="pl" aria-hidden="true">${c.tier > 2 ? 'III' : 'II'}</span>` : ''}${cd ? `<span class="cd">${cd}</span>` : ''}`;
     b.onclick = () => { if (!hbSwiped) hotTap(h, id); };
     bar.appendChild(b);
   }

@@ -108,7 +108,7 @@ const PLAY = {
   cast: e => { const u = vu(e.id); if (!u) return null; const p = liftShot(u); return e.wait ? p : null; },
   aim: e => { const u = vu(e.id); return u ? aimAt(u, typeof e.at === 'number' ? vu(e.at) : e.at, e.kind) : null; },
   endAim: () => endAim(),
-  status: e => { const u = vu(e.id); if (!u) return null; if (e.armour != null) setArmour(u, e.armour); return applyStatus(u, e.key, e.on); },
+  status: e => { const u = vu(e.id); if (!u) return null; if (e.armour != null) setArmour(u, e.armour); return applyStatus(u, e.key, e.on && (e.v || true)); },
   par: e => Promise.all(e.list.map((evs, i) => wait(i * (e.stagger || 0)).then(() => play(evs)))),
   roll: e => showDice(e),
   total: e => showTotal(e.value, e.suffix || ''),
@@ -274,7 +274,7 @@ function sync() {
     if (u.c !== r.c || u.r !== r.r || (u.l || 0) !== (r.l || 0)) { u.c = r.c; u.r = r.r; u.l = r.l || 0; u.root.position.copy(posOf(u)); u.viewFaded = undefined; }
     if (u.hp !== r.hp) { u.hp = r.hp; updateTag(u); }
     if (u.down !== r.down) setDownLook(u, r.down);
-    for (const k of STATUSES) if (!!u.st[k] !== !!r.st[k]) applyStatus(u, k, !!r.st[k], true);
+    for (const k of STATUSES) if (!!u.st[k] !== !!r.st[k] || (r.st[k] === 2) !== (u.st[k] === 2)) applyStatus(u, k, r.st[k] === 2 ? 2 : !!r.st[k], true);
     if (u.asleep !== r.asleep) { u.asleep = r.asleep; u.tag.classList.toggle('zz', r.asleep); }
     if (u.armour !== G.armourOf(r)) setArmour(u, G.armourOf(r));
     if (!u.deployed && UI.phase !== 'intro') showNow(u);
@@ -324,13 +324,13 @@ function applyXp() {
     return { kind: u.kind, name: u.name, gained, lv: g.lv, xp: g.xp, ups };
   });
 }
-// the experience each hero earned: a bar toward the next level, and any level gained (each brings an upgrade to pick
+// the experience each hero earned: a bar toward the next level, and any level gained (each raises a card a tier, picked
 // at camp, unless the campaign is over)
 function xpReport(rows, camp = true) {
   if (!rows.length) return '';
   const X = GC.TUNE.xp, any = rows.some(r => r.ups.length);
   if (any) setTimeout(() => sfx('win'), 900);
-  return `<h3>Experience</h3><div class="xpl">${rows.map(r => `<div class="xpr${r.ups.length ? ' up' : ''}"><span class="rf">${face(r.kind)}</span><div class="xpb"><div class="xpt"><b>${r.name.replace('Sister ', '')}</b><span>Lv ${r.lv}</span><em>+${r.gained} XP</em></div><span class="bar"><i style="width:${r.lv >= X.max ? 100 : r.xp / X.level * 100}%"></i></span>${r.ups.map(u => `<p class="lvup">Level ${u.lv}! +${X.hp} max HP${camp && u.lv - 1 <= GC.upgradable(r.kind).length ? ' · <b>upgrade a card</b> below' : ''}</p>`).join('')}</div></div>`).join('')}</div>`;
+  return `<h3>Experience</h3><div class="xpl">${rows.map(r => `<div class="xpr${r.ups.length ? ' up' : ''}"><span class="rf">${face(r.kind)}</span><div class="xpb"><div class="xpt"><b>${r.name.replace('Sister ', '')}</b><span>Lv ${r.lv}</span><em>+${r.gained} XP</em></div><span class="bar"><i style="width:${r.lv >= X.max ? 100 : r.xp / X.level * 100}%"></i></span>${r.ups.map(u => `<p class="lvup">Level ${u.lv}! +${X.hp} max HP${camp ? ' · <b>raise a card a tier</b> below' : ''}</p>`).join('')}</div></div>`).join('')}</div>`;
 }
 const diceText = id => { const c = CARDS[id], n = c.n || 1; return c.weapon ? 'its weapon die' : c.die ? (n > 1 ? n : '') + 'd' + c.die : ''; };
 function gameOver(win) {
