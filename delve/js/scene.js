@@ -88,7 +88,7 @@ const VIEW = (() => {
   // the dice have a scene of their own, drawn over the dungeon by a camera that looks down on them, so the face
   // that came up is the face you read; its floor is invisible, so they seem to land on the dungeon's
   let dscene, dcam;
-  const DCAM = new V3(0, 3.1, 2.15), DLOOK = new V3(0, 0, -2.57);
+  const DCAM = new V3(0, 3.6, 1.0), DLOOK = new V3(0, 0, -1.79);
   const CW = 3.6, CH = 2.7, ZN = 3.6, ZF = -6.4, DAIS = .42;
   const CAM = new V3(0, 1.38, 2.75), LOOK = new V3(0, .46, -2.4);
   const lights = {}, U = {}, fx = [], live = [];
@@ -258,36 +258,37 @@ const VIEW = (() => {
   }
 
   // ---------------- dice ----------------
-  // a d6 per unit type with that unit's faces; the d20 for initiative
+  // Every roll is a d10: a pentagonal trapezohedron, ten kites, five round the top pole and five round the bottom.
+  // Each unit type has its own colour and its own mix of the four shared symbols.
   const kits = {}, faceTex = {};
-  function faceTexture(style, kind, icon) {
-    const k = style + kind + icon;
-    return faceTex[k] || (faceTex[k] = tex(ART.dieFace(ART.DICE[style] || ART.DICE.goblin, kind, icon), { pixel: false }));
+  function faceTexture(style, kind) {
+    const k = style + kind;
+    return faceTex[k] || (faceTex[k] = tex(ART.d10Face(ART.DICE[style] || ART.DICE.goblin, kind), { pixel: false }));
   }
-  const S6 = .33;
-  function d6Kit(spec) {
-    const k = spec.style + spec.faces.join() + spec.icons.hit + spec.icons.knack;
-    if (kits[k]) return kits[k];
-    const geo = new THREE.BoxGeometry(S6, S6, S6);
-    const mats = spec.faces.map(f => new THREE.MeshPhongMaterial({ map: faceTexture(spec.style, f, f === 'hit' ? spec.icons.hit : f === 'knack' ? spec.icons.knack : ''), shininess: 40, specular: 0x1c1c1c, emissive: 0x000000 }));
-    return kits[k] = { geo, mats, faces: faceFrames(geo), rest: S6 / 2 };
-  }
-  let d20 = null;
-  function d20Kit() {
-    if (d20) return d20;
-    const ico = new THREE.IcosahedronGeometry(.23, 0), src = ico.toNonIndexed ? (ico.index ? ico.toNonIndexed() : ico) : ico;
-    const P = src.attributes.position, tris = [];
-    for (let i = 0; i < P.count; i += 3) tris.push([0, 1, 2].map(j => new V3(P.getX(i + j), P.getY(i + j), P.getZ(i + j))));
-    // give opposite faces numbers that add up to 21
-    const nrm = tris.map(t => new V3().subVectors(t[1], t[0]).cross(new V3().subVectors(t[2], t[0])).normalize());
-    const num = new Array(tris.length).fill(0); let next = 1;
-    for (let i = 0; i < tris.length; i++) { if (num[i]) continue; let o = -1, best = 2; nrm.forEach((n, j) => { const d = n.dot(nrm[i]); if (j !== i && !num[j] && d < best) { best = d; o = j; } }); num[i] = next; if (o >= 0) num[o] = 21 - next; next++; }
-    const pos = [], uv = [], geo = new THREE.BufferGeometry();
-    tris.forEach((t, i) => { pos.push(...t[0].toArray(), ...t[1].toArray(), ...t[2].toArray()); uv.push(.03, .03, .97, .03, .5, .89); geo.addGroup(i * 3, 3, i); });
+  let d10geo = null;
+  function d10Geometry() {
+    if (d10geo) return d10geo;
+    const R = .3, Hh = .35, e = Hh * (1 - Math.cos(Math.PI / 5)) / (1 + Math.cos(Math.PI / 5)), Tp = new V3(0, Hh, 0), Bp = new V3(0, -Hh, 0);
+    const A = k => new V3(Math.cos(k * Math.PI * 2 / 5) * R, e, Math.sin(k * Math.PI * 2 / 5) * R);
+    const Bk = k => new V3(Math.cos((k + .5) * Math.PI * 2 / 5) * R, -e, Math.sin((k + .5) * Math.PI * 2 / 5) * R);
+    const kites = []; for (let k = 0; k < 5; k++) { kites.push([Tp, A(k), Bk(k), A(k + 1)]); kites.push([Bp, Bk(k), A(k + 1), Bk(k + 1)]); }
+    const pos = [], uv = [], geo = new THREE.BufferGeometry(); let rest = 0;
+    kites.forEach(([P, X, Q, Y], i) => {
+      const n = new V3().subVectors(X, P).cross(new V3().subVectors(Q, P)), c = P.clone().add(X).add(Q).add(Y);
+      if (n.dot(c) < 0) [X, Y] = [Y, X]; // wind each face anticlockwise seen from outside
+      rest = new V3().subVectors(X, P).cross(new V3().subVectors(Q, P)).normalize().dot(P);
+      [[P, [.5, .98]], [X, [.148, .203]], [Q, [.5, .02]], [P, [.5, .98]], [Q, [.5, .02]], [Y, [.852, .203]]].forEach(([v, t]) => { pos.push(v.x, v.y, v.z); uv.push(t[0], t[1]); });
+      geo.addGroup(i * 6, 6, i);
+    });
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.computeVertexNormals();
-    const texs = num.map(n => tex(ART.d20Face(ART.DICE.init, n), { pixel: false }));
-    const frames = faceFrames(geo).map((f, i) => ({ ...f, v: num[i] }));
-    return d20 = { geo, texs, faces: frames, rest: .23 * .7947, num };
+    return d10geo = { geo, faces: faceFrames(geo), rest };
+  }
+  function d10Kit(spec) {
+    const k = spec.style + spec.faces.join();
+    if (kits[k]) return kits[k];
+    const G = d10Geometry();
+    const mats = spec.faces.map(f => new THREE.MeshPhongMaterial({ map: faceTexture(spec.style, f), shininess: 40, specular: 0x1c1c1c, emissive: 0x000000, flatShading: true }));
+    return kits[k] = { geo: G.geo, mats, faces: G.faces, rest: G.rest };
   }
   // for each face: its outward normal and which way is "up" on its picture (so a landed die can turn its face to be read)
   function faceFrames(geo) {
@@ -308,8 +309,8 @@ const VIEW = (() => {
   const taken = [];
   function spotNear(x, z) {
     let best = null, bd = 1e9;
-    for (let gx = -.88; gx <= .881; gx += .44) for (let gz = .45; gz >= -.65; gz -= .4) {
-      if (taken.some(t => Math.hypot(t.x - gx, t.z - gz) < .4)) continue;
+    for (let gx = -.84; gx <= .841; gx += .56) for (let gz = .45; gz >= -.65; gz -= .5) {
+      if (taken.some(t => Math.hypot(t.x - gx, t.z - gz) < .5)) continue;
       const d = Math.hypot(gx - x, (gz - z) * 1.4); if (d < bd) { bd = d; best = { x: gx + rand(-.03, .03), z: gz + rand(-.03, .03) }; }
     }
     best = best || { x: rand(-1, 1), z: rand(-.5, .5) };
@@ -348,7 +349,16 @@ const VIEW = (() => {
       q.setFromAxisAngle(axis, -remain); qw.setFromAxisAngle(wob, .6 * Math.pow(1 - t, 3) * Math.sin(t * 30));
       m.quaternion.copy(q).multiply(qw).multiply(finalQ);
       sh.position.x = m.position.x; sh.position.z = m.position.z; sh.material.opacity = Math.max(0, .75 - (m.position.y - to.y) * .5);
-    }, ease.lin).then(() => { m.quaternion.copy(finalQ); m.position.copy(to); return m; });
+    }, ease.lin).then(() => {
+      m.quaternion.copy(finalQ); m.position.copy(to);
+      // once it settles, the face that came up lights a little and the faces on the die's sides darken,
+      // so the result is the one symbol that stands out
+      if (!kit.dim) kit.dim = mats.map(x => { const c = x.clone(); c.color = new THREE.Color(0x5a5a5a); return c; });
+      if (!kit.lit) kit.lit = {};
+      if (!kit.lit[side]) { const up = mats[side].clone(); up.emissive = new THREE.Color(0x3a362c); up.emissiveMap = up.map; kit.lit[side] = up; }
+      m.material = kit.dim.slice(); m.material[side] = kit.lit[side];
+      return m;
+    });
   }
   function critFlare(m) {
     const g = sprite(0xffb020, .9); m.add(g);
@@ -366,17 +376,17 @@ const VIEW = (() => {
   const partyHand = () => new V3(rand(-.5, .5), 1.5, 1.7);
   const foeHand = id => new V3(U[id] ? U[id].home.x * .9 + rand(-.15, .15) : rand(-.6, .6), 1.4, -2.2);
   // Throw a unit's dice: every target's first dice together, then each crit's extra die out of the die that exploded.
-  // spec: { style, faces, icons, from (a goblin's id, or null for the party), groups: [{ target, dice: [{ side, face, from, dropped }] }], onLand(die, group) }
+  // spec: { style, faces, from (a goblin's id, or null for the party), groups: [{ target, dice: [{ side, face, from, dropped }] }], onLand(die, group) }
   async function roll(spec) {
     clearDice(); await wait(170);
-    const kit = d6Kit(spec), mats = kit.mats;
+    const kit = d10Kit(spec), mats = kit.mats;
     const start = () => spec.from ? foeHand(spec.from) : partyHand();
     const aims = spec.groups.length > 1 ? spec.groups.map(g => U[g.target] ? { x: U[g.target].home.x * 1.05, z: U[g.target].home.z < -3 ? -.45 : .05 } : { x: 0, z: 0 }) : null;
     sfx('throw');
     const firsts = [];
     spec.groups.forEach((g, gi) => g.dice.forEach((d, di) => { if (d.from < 0) firsts.push({ g, gi, d, di }); }));
     await Promise.all(firsts.map((f, k) => {
-      const aim = aims ? aims[f.gi] : { x: (k - (firsts.length - 1) / 2) * .44, z: .05 };
+      const aim = aims ? aims[f.gi] : { x: (k - (firsts.length - 1) / 2) * .56, z: .05 };
       const spot = spotNear(aim.x, aim.z);
       return wait(k * 70).then(() => throwDie(kit, mats, f.d.side, start(), spot)).then(m => { f.d.mesh = m; spec.onLand && spec.onLand(f.d, f.g); return f.d.face === 'crit' && !f.d.dropped && spec.explode !== false ? critFlare(m) : null; });
     }));
@@ -385,7 +395,7 @@ const VIEW = (() => {
       for (let di = 0; di < g.dice.length; di++) {
         const d = g.dice[di]; if (d.from < 0) continue;
         const parent = g.dice[d.from].mesh; if (!parent) continue;
-        const p = parent.position, spot = spotNear(p.x + .35, p.z - .3);
+        const p = parent.position, spot = spotNear(p.x + .5, p.z - .4);
         const from = p.clone().add(new V3(0, .7, 0));
         d.mesh = await throwDie(kit, mats, d.side, from, spot, 480);
         spec.onLand && spec.onLand(d, g);
@@ -393,21 +403,6 @@ const VIEW = (() => {
       }
     }
     spec.groups.forEach(g => g.dice.forEach(d => { if (d.dropped && d.mesh) dim(d.mesh); }));
-  }
-  // initiative: everyone's d20 at once, the party's from below, the goblins' from where they stand
-  async function initiative(rolls, isFoe, tint) {
-    clearDice(); await wait(120);
-    const kit = d20Kit();
-    sfx('throw');
-    const heroes = rolls.filter(r => !isFoe(r.id)), foes = rolls.filter(r => isFoe(r.id));
-    const go = (r, k, row) => {
-      const face = kit.faces.findIndex(f => f.v === r.roll);
-      const mats = kit.texs.map(t => new THREE.MeshPhongMaterial({ map: t, color: tint(r.id), shininess: 40, specular: 0x1c1c1c }));
-      const n = row.length, spot = spotNear((k - (n - 1) / 2) * .46, isFoe(r.id) ? -.55 : .35);
-      const from = isFoe(r.id) ? foeHand(r.id) : partyHand();
-      return wait(k * 80 + (isFoe(r.id) ? 140 : 0)).then(() => throwDie(kit, mats, face, from, spot, 700)).then(m => { r.mesh = m; return m; });
-    };
-    await Promise.all([...heroes.map((r, k) => go(r, k, heroes)), ...foes.map((r, k) => go(r, k, foes))]);
   }
   // where a landed die is on the page (to pin a label to it)
   const dieAt = m => { const v = m.position.clone().add(new V3(0, .22, 0)).project(dcam); return { x: (v.x + 1) / 2 * W, y: (1 - v.y) / 2 * H }; };
@@ -477,7 +472,7 @@ const VIEW = (() => {
   }
 
   return {
-    init, setUnits, boxOf, mark, roll, initiative, clearDice, dieAt, hurt, kill, lunge, hop, cast, bolt, slash, sparkle, fireball, shake, flashScreen, sfx, audio, wait, tween, ease,
+    init, setUnits, boxOf, mark, roll, clearDice, dieAt, hurt, kill, lunge, hop, cast, bolt, slash, sparkle, fireball, shake, flashScreen, sfx, audio, wait, tween, ease,
     set speed(v) { speed = v; }, get speed() { return speed; }, set muted(v) { muted = v; }, get muted() { return muted; }, set onFrame(f) { onFrame = f; },
     alive: id => U[id] && U[id].alive,
   };

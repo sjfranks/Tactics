@@ -334,63 +334,59 @@ const ART = (() => {
   }
 
   // ---------------- die faces ----------------
-  // drawn smooth (dice are things on the floor, not pixel art); 128×128 per face
+  // Every die is a d10 and every die uses the same four symbols: blank, hit (a sword), surge (a bolt) and critical
+  // (a burst with an exclamation mark). The die's colour says whose it is. Drawn smooth: dice are things, not pixel art.
   const DICE = {
-    fighter: { bg: '#6a1c16', edge: '#3a0c08', ink: '#e9c47a' }, mage: { bg: '#23305a', edge: '#0e1530', ink: '#dfe6ff' },
-    cleric: { bg: '#e2d6b8', edge: '#a8946a', ink: '#6a4416' }, rogue: { bg: '#2e2838', edge: '#120e18', ink: '#c9b2ea' },
-    goblin: { bg: '#4e5c2a', edge: '#262e12', ink: '#e8e0b0' }, shaman: { bg: '#3a2846', edge: '#1a0e22', ink: '#b8ffb0' },
-    init: { bg: '#d8cfb8', edge: '#8a7e62', ink: '#2a1e10' },
+    fighter: { bg: '#7a1f18', edge: '#3a0c08' }, mage: { bg: '#25336a', edge: '#0e1530' },
+    cleric: { bg: '#e6dcc2', edge: '#a8946a' }, rogue: { bg: '#3a3346', edge: '#141018' },
+    goblin: { bg: '#556430', edge: '#262e12' }, shaman: { bg: '#4a3258', edge: '#1a0e22' },
   };
-  function burstPath(g, cx, cy, r0, r1, n, rot = 0) {
-    g.beginPath();
-    for (let i = 0; i < n * 2; i++) { const a = rot + i * Math.PI / n, r = i % 2 ? r0 : r1 * (i % 4 === 0 ? 1 : .86); g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); }
-    g.closePath();
+  // the symbols, on a 100×100 grid: [shape, data, fill, stroke, stroke width]
+  const SYM = {
+    hit: [['path', 'M50 3L60 16V58H40V16Z', '#eef3f8', '#15181f', 5], ['path', 'M50 15V54', null, '#8f9bab', 3], ['path', 'M23 57H77V67H23Z', '#e6b84e', '#15181f', 5],
+      ['path', 'M44 67H56V82H44Z', '#7a4a24', '#15181f', 5], ['circle', [50, 89, 7], '#e6b84e', '#15181f', 5]],
+    surge: [['path', 'M59 3L19 56H45L36 97L82 40H55L67 3Z', '#ffd23a', '#5a2400', 5], ['path', 'M57 13L33 48', null, '#fff3b0', 3]],
+  };
+  function burstPts(r0, r1, n, rot) { const o = []; for (let i = 0; i < n * 2; i++) { const a = rot + i * Math.PI / n, r = i % 2 ? r0 : r1 * (i % 4 === 0 ? 1 : .86); o.push([50 + Math.cos(a) * r, 50 + Math.sin(a) * r]); } return o; }
+  SYM.crit = [['poly', burstPts(30, 50, 9, -.2), '#ffb11a', '#7a2a00', 4], ['poly', burstPts(20, 36, 9, .15), '#ff5a1a', null, 0],
+    ['path', 'M42.5 23h15l-3 34h-9z', '#fff6d8', '#5a1000', 4], ['circle', [50, 68, 6.5], '#fff6d8', '#5a1000', 4]];
+  const svgOf = kind => kind === 'blank' ? '' : `<svg class="sym sym-${kind}" viewBox="0 0 100 100" aria-hidden="true">${SYM[kind].map(([k, d, f, st, w]) => {
+    const paint = `fill="${f || 'none'}"${st ? ` stroke="${st}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"` : ''}`;
+    if (k === 'path') return `<path d="${d}" ${paint}/>`;
+    if (k === 'circle') return `<circle cx="${d[0]}" cy="${d[1]}" r="${d[2]}" ${paint}/>`;
+    return `<polygon points="${d.map(p => p.map(v => v.toFixed(1)).join(',')).join(' ')}" ${paint}/>`;
+  }).join('')}</svg>`;
+  const FACE_SVG = { blank: '', hit: svgOf('hit'), surge: svgOf('surge'), crit: svgOf('crit') };
+  function drawSym(g, kind, cx, cy, size) {
+    if (!SYM[kind]) return;
+    g.save(); g.translate(cx - size / 2, cy - size / 2); g.scale(size / 100, size / 100); g.lineJoin = 'round'; g.lineCap = 'round';
+    SYM[kind].forEach(([k, d, f, st, w]) => {
+      let p;
+      if (k === 'path') p = new Path2D(d);
+      else if (k === 'circle') { p = new Path2D(); p.arc(d[0], d[1], d[2], 0, Math.PI * 2); }
+      else { p = new Path2D(); d.forEach(([x, y], i) => i ? p.lineTo(x, y) : p.moveTo(x, y)); p.closePath(); }
+      if (st) { g.lineWidth = w; g.strokeStyle = st; g.stroke(p); }
+      if (f) { g.fillStyle = f; g.fill(p); }
+    });
+    g.restore();
   }
-  // the critical icon: a burst with an exclamation mark in it
-  function drawCrit(g, cx, cy, s) {
-    burstPath(g, cx, cy, s * .3, s * .5, 9, -.2); g.fillStyle = '#ffb11a'; g.fill(); g.lineWidth = s * .04; g.strokeStyle = '#7a2a00'; g.stroke();
-    burstPath(g, cx, cy, s * .2, s * .36, 9, .15); g.fillStyle = '#ff5a1a'; g.fill();
-    g.fillStyle = '#fff6d8'; g.strokeStyle = '#5a1000'; g.lineWidth = s * .05; g.lineJoin = 'round';
-    g.beginPath(); g.moveTo(cx - s * .075, cy - s * .27); g.lineTo(cx + s * .075, cy - s * .27); g.lineTo(cx + s * .045, cy + s * .07); g.lineTo(cx - s * .045, cy + s * .07); g.closePath(); g.stroke(); g.fill();
-    g.beginPath(); g.arc(cx, cy + s * .18, s * .065, 0, Math.PI * 2); g.stroke(); g.fill();
-  }
-  function emoji(g, ch, cx, cy, size) {
-    // colour emoji take the fill's transparency, so draw them with a solid fill at full opacity
-    g.save(); g.globalAlpha = 1; g.fillStyle = '#000'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-    g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = size * .08; g.shadowOffsetY = size * .04; g.fillText(ch, cx, cy + size * .05); g.restore();
-  }
-  function dieFace(style, kind, icon, label) {
-    const cv = document.createElement('canvas'); cv.width = cv.height = 128; const g = cv.getContext('2d'), s = 128;
-    g.fillStyle = style.bg; g.fillRect(0, 0, s, s);
-    const gr = g.createRadialGradient(s * .38, s * .34, 8, s * .5, s * .5, s * .78); gr.addColorStop(0, 'rgba(255,255,255,.22)'); gr.addColorStop(1, 'rgba(0,0,0,.32)'); g.fillStyle = gr; g.fillRect(0, 0, s, s);
-    g.lineWidth = 10; g.strokeStyle = style.edge; g.globalAlpha = .7; g.strokeRect(0, 0, s, s); g.globalAlpha = 1;
-    if (kind === 'hit') emoji(g, icon, s / 2, s / 2, 74);
-    else if (kind === 'knack') {
-      // the power face: a dark disc in a gold ring, so its icon reads on light dice and dark ones alike
-      g.beginPath(); g.arc(s / 2, s / 2, s * .41, 0, Math.PI * 2);
-      const disc = g.createRadialGradient(s * .44, s * .4, 4, s / 2, s / 2, s * .41); disc.addColorStop(0, '#3a2a12'); disc.addColorStop(1, '#140c04');
-      g.fillStyle = disc; g.fill(); g.lineWidth = 7; g.strokeStyle = '#f1cf62'; g.stroke();
-      g.beginPath(); g.arc(s / 2, s / 2, s * .41 - 5, 0, Math.PI * 2); g.lineWidth = 2; g.strokeStyle = 'rgba(0,0,0,.6)'; g.stroke();
-      emoji(g, icon, s / 2, s / 2, 64);
-    } else if (kind === 'crit') drawCrit(g, s / 2, s / 2, s * .92);
-    else if (kind === 'num') { g.fillStyle = style.ink; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `bold ${String(label).length > 1 ? 58 : 70}px "Pixelify Sans",ui-monospace,monospace`; g.fillText(label, s / 2, s / 2 + 4); if (label === 6 || label === 9) g.fillRect(s / 2 - 16, s * .78, 32, 6); }
+  // a d10 face is a kite, apex up (the corners come from the die's own shape: wide corners 81% of the way down)
+  const KITE = [[128, 5], [38, 204], [128, 251], [218, 204]];
+  function d10Face(style, kind) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 256; const g = cv.getContext('2d');
+    g.fillStyle = style.bg; g.fillRect(0, 0, 256, 256);
+    const gr = g.createRadialGradient(118, 120, 10, 128, 150, 170); gr.addColorStop(0, 'rgba(255,255,255,.2)'); gr.addColorStop(1, 'rgba(0,0,0,.3)'); g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+    g.beginPath(); KITE.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
+    g.lineWidth = 12; g.strokeStyle = style.edge; g.globalAlpha = .65; g.stroke(); g.globalAlpha = 1;
+    // a soft dark pool behind the symbol so it reads on pale dice and dark ones alike
+    if (kind !== 'blank') {
+      const pool = g.createRadialGradient(128, 156, 4, 128, 156, 70); pool.addColorStop(0, 'rgba(0,0,0,.42)'); pool.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = pool; g.fillRect(40, 70, 176, 170);
+    }
+    g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 6; g.shadowOffsetY = 3;
+    drawSym(g, kind, 128, 154, kind === 'crit' ? 118 : 112);
     return cv;
   }
-  // a d20 face is a triangle: number in the middle
-  function d20Face(style, n) {
-    const cv = document.createElement('canvas'); cv.width = cv.height = 128; const g = cv.getContext('2d');
-    g.fillStyle = style.bg; g.fillRect(0, 0, 128, 128);
-    g.beginPath(); g.moveTo(4, 124); g.lineTo(124, 124); g.lineTo(64, 14); g.closePath(); g.lineWidth = 8; g.strokeStyle = style.edge; g.stroke();
-    g.fillStyle = n === 20 ? '#b0300a' : style.ink; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = `bold ${n > 9 ? 44 : 52}px "Pixelify Sans",ui-monospace,monospace`; g.fillText(n, 64, 86);
-    if (n === 6 || n === 9) g.fillRect(52, 108, 24, 4);
-    return cv;
-  }
-  // the critical icon for the page itself
-  const CRIT_SVG = (() => {
-    const pts = (r0, r1, n, rot) => { const o = []; for (let i = 0; i < n * 2; i++) { const a = rot + i * Math.PI / n, r = i % 2 ? r0 : r1 * (i % 4 === 0 ? 1 : .86); o.push((50 + Math.cos(a) * r).toFixed(1) + ',' + (50 + Math.sin(a) * r).toFixed(1)); } return o.join(' '); };
-    return `<svg class="crit-ico" viewBox="0 0 100 100" aria-hidden="true"><polygon points="${pts(30, 50, 9, -.2)}" fill="#ffb11a" stroke="#7a2a00" stroke-width="4"/><polygon points="${pts(20, 36, 9, .15)}" fill="#ff5a1a"/><path d="M42.5 23h15l-3 34h-9z" fill="#fff6d8" stroke="#5a1000" stroke-width="4" stroke-linejoin="round"/><circle cx="50" cy="68" r="6.5" fill="#fff6d8" stroke="#5a1000" stroke-width="4"/></svg>`;
-  })();
 
   // ---------------- cache ----------------
   const cache = {};
@@ -406,5 +402,5 @@ const ART = (() => {
   // a portrait as an <canvas> at its own size (the page scales it up, pixelated)
   const portraitCanvas = (type, v) => portrait(type, v).canvas(1);
 
-  return { Pix, sprite, portrait, portraitCanvas, wall, floor, ceiling, backWall, dieFace, d20Face, DICE, CRIT_SVG, drawCrit, P };
+  return { Pix, sprite, portrait, portraitCanvas, wall, floor, ceiling, backWall, d10Face, DICE, FACE_SVG, drawSym, P };
 })();
