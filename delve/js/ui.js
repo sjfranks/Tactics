@@ -39,6 +39,9 @@
   const SYM = ART.FACE_SVG;
   // a face as a chip: its symbol, and (for an attack) the damage it shows on the die in front of it
   const faceLabel = (u, f) => { const d = DV.faceDamage(u, f); return d.n + (d.plus ? '+' : ''); };
+  // what a face says for a given roll: an attack's damage, a power's amount (Guard, healing, a penalty), or nothing
+  const signed = n => n < 0 ? '−' + Math.abs(n) : String(n);
+  const rollLabel = (u, A, f) => A.kind === 'attack' ? faceLabel(u, f) : A.nums ? signed(A.nums[DV.FACE_RANK[f]]) : null;
   const faceChip = (f, cls = '', num = null) => `<span class="face f-${f} ${num != null ? 'num ' : ''}${cls}" title="${DV.FACE_NAME[f]}${num != null ? ' ' + num : ''}">${num != null && f === 'crit' ? SYM.burst : SYM[f]}${num != null ? `<b>${num}</b>` : ''}</span>`;
   const actor = () => ui.hero && S.units[ui.hero];
   const partyPick = () => ui.phase === 'fight' && !ui.busy && !SET.auto && DV.ready(S).side === 'hero';
@@ -132,29 +135,24 @@
   }
   function drawAll() { Object.keys(S.units).forEach(drawUnit); drawOrder(); $('#roundN').textContent = S.round || '–'; }
   // the round at a glance: the party (any order you like), then the goblins in the order they act
+  // the round at a glance, in speed order: who has acted, who is acting, who comes next. Heroes tied on speed (you
+  // choose which goes first) are marked; a gap falls between speeds.
   function drawOrder() {
-    const ol = $('#order');
-    if (ol.children.length !== DV.PARTY.length + S.order.foe.length + 1) {
-      ol.innerHTML = '';
-      [...S.order.hero, null, ...S.order.foe].forEach(id => {
-        const li = el('li');
-        if (!id) { li.className = 'osep'; li.setAttribute('aria-hidden', 'true'); ol.appendChild(li); return; }
-        const u = U(id), b = el('button', 'oc ' + u.side);
-        b.type = 'button'; b.dataset.id = id;
-        const m = el('span', 'mini'); m.appendChild(ART.portraitCanvas(u.type, variantOf(u))); b.appendChild(m);
-        b.insertAdjacentHTML('beforeend', '<b></b>');
-        b.addEventListener('click', () => openSheet(id));
-        li.appendChild(b); ol.appendChild(li);
-      });
-    }
-    const rd = DV.ready(S), nextFoe = S.order.foe.find(id => !U(id).down && !S.acted.includes(id));
-    $$('.oc', ol).forEach(b => {
-      const id = b.dataset.id, u = U(id), done = S.acted.includes(id) && !S.over;
-      const cur = id === ui.active && !S.over;
-      b.classList.toggle('cur', cur); b.classList.toggle('done', done && !u.down); b.classList.toggle('out', u.down);
-      b.classList.toggle('next', u.side === 'foe' && id === nextFoe && !cur && !S.over);
-      $('b', b).textContent = u.down ? '' : done ? '✓' : u.side === 'foe' && id === nextFoe ? 'next' : '';
-      b.setAttribute('aria-label', `${u.name}${u.down ? ', down' : done ? ', has acted' : ''}`);
+    const ol = $('#order'), q = DV.queue(S);
+    ol.innerHTML = '';
+    let last = null;
+    q.forEach(e => {
+      const u = U(e.id);
+      if (last != null && u.speed !== last && !e.out) { const g = el('li', 'osep'); g.setAttribute('aria-hidden', 'true'); ol.appendChild(g); }
+      if (!e.out) last = u.speed;
+      const cur = (e.now || e.id === ui.active) && !e.done && !S.over;
+      const li = el('li'), b = el('button', `oc ${u.side}${cur ? ' cur' : ''}${e.done ? ' done' : ''}${e.out ? ' out' : ''}${e.pick ? ' pick' : ''}`);
+      b.type = 'button'; b.dataset.id = e.id;
+      const m = el('span', 'mini'); m.appendChild(ART.portraitCanvas(u.type, variantOf(u))); b.appendChild(m);
+      b.insertAdjacentHTML('beforeend', `<b>${e.out ? '' : e.done ? '✓' : e.pick ? 'pick' : '⚡' + u.speed}</b>`);
+      b.setAttribute('aria-label', `${u.name}, speed ${u.speed}${u.down ? ', down' : e.done ? ', has acted' : e.pick ? ', you choose the order' : ''}`);
+      b.addEventListener('click', () => openSheet(e.id));
+      li.appendChild(b); ol.appendChild(li);
     });
   }
   const variantOf = u => u.type === 'goblin' ? +u.id.replace(/\D/g, '') - 1 : 0;
@@ -382,7 +380,7 @@
     switch (e.t) {
       case 'round':
         $('#roundN').textContent = e.n; log(`Round ${e.n}`, 'rd');
-        banner(`Round ${e.n}`, 'the party moves first'); drawAll(); await wait(e.n > 1 ? 450 : 300);
+        banner(`Round ${e.n}`, 'fastest first'); drawAll(); await wait(e.n > 1 ? 450 : 300);
         break;
       case 'done':
         drawUnit(e.id); drawOrder();
@@ -424,7 +422,7 @@
         break;
       }
       case 'roll': {
-        const sum = e.mode === 'sum', chip = d => faceChip(d.face, (d.extra ? 'extra ' : '') + (d.dropped ? 'dropped' : ''), sum ? faceLabel(u, d.face) : null);
+        const RA = DV.ACTIONS[e.act], sum = e.mode === 'sum', chip = d => faceChip(d.face, (d.extra ? 'extra ' : '') + (d.dropped ? 'dropped' : ''), rollLabel(u, RA, d.face));
         const notes = [];
         if (e.later) notes.push('2nd attack');
         if (e.blessed) notes.push('🙏');
@@ -432,7 +430,7 @@
         if (!sum) notes.push('best');
         const grp = RO.group(notes.join(' '));
         await VIEW.roll({
-          style: u.type, faces: u.faces, labels: u.faces.map(f => faceLabel(u, f)), from: u.side === 'foe' ? u.id : null, groups: e.groups, explode: sum && DV.TUNE.explode,
+          style: u.type, faces: u.faces, labels: u.faces.map(f => rollLabel(u, RA, f) ?? ''), from: u.side === 'foe' ? u.id : null, groups: e.groups, explode: sum && DV.TUNE.explode,
           onLand: d => grp.insertAdjacentHTML('beforeend', chip(d)),
         });
         if (sum) grp.insertAdjacentHTML('beforeend', `<em class="tot">= ${e.total}</em>`);
@@ -558,7 +556,8 @@
     const sts = Object.values(ST).filter(st => st.on(u)).map(st => `<span class="tagc"><span class="emo">${st.icon}</span> ${st.name}${st.n ? ' ' + st.n(u) : ''}</span>`);
     const cds = u.actions.filter(a => u.cd[a] > 0).map(a => `<span class="tagc dim">${esc(DV.ACTIONS[a].name)} ready in ${u.cd[a]}</span>`);
     const kin = Object.values(S.units).filter(x => x.type === u.type).length;
-    const when = S.over || u.down ? '' : S.turn && S.turn.id === id ? `Acting: ${S.turn.left} ${S.turn.left === 1 ? 'action' : 'actions'} left` : S.acted.includes(id) ? 'Has acted this round' : u.side === 'hero' ? 'Still to act this round' : `Acts ${['1st', '2nd', '3rd', '4th'][S.order.foe.indexOf(id)] || ''} among the goblins`;
+    const qi = DV.queue(S).filter(x => !x.done && !x.out && !x.now).findIndex(x => x.id === id);
+    const when = S.over || u.down ? '' : S.turn && S.turn.id === id ? `Acting: ${S.turn.left} ${S.turn.left === 1 ? 'action' : 'actions'} left` : S.acted.includes(id) ? 'Has acted this round' : qi === 0 ? 'Acts next' : qi > 0 ? `Acts in ${qi + 1} turns` : '';
     const actRow = a => {
       const A = DV.ACTIONS[a];
       const tiers = A.kind === 'power' ? `<div class="tiers">${DV.FACE_KINDS.map(k => `<p class="tier t-${k}"><span class="syms">${SYM[k]}</span><span class="odd">${Math.round(odds[k] * 100)}%</span><span>${esc(A.tiers[k])}</span></p>`).join('')}</div>` : '';
@@ -571,6 +570,7 @@
       <div class="stats">
         <div class="stat hp"><small>HP</small><b>${Math.max(0, u.hp)}<span style="font-size:14px;color:var(--parch-dim)">/${u.max}</span></b><span class="bar"><u></u><i></i></span><span class="step"><button type="button" data-f="hp" data-d="-1" aria-label="Less max HP">−</button><button type="button" data-f="hp" data-d="1" aria-label="More max HP">+</button></span></div>
         <div class="stat"><small>Damage</small><b>${u.dmg}</b><span class="note">per hit</span><span class="step"><button type="button" data-f="dmg" data-d="-1" aria-label="Less damage">−</button><button type="button" data-f="dmg" data-d="1" aria-label="More damage">+</button></span></div>
+        <div class="stat"><small>Speed</small><b>${u.speed}</b><span class="note">initiative</span><span class="step"><button type="button" data-f="speed" data-d="-1" aria-label="Slower">−</button><button type="button" data-f="speed" data-d="1" aria-label="Faster">+</button></span></div>
         <div class="stat"><small>Attack</small><b>${avg === Infinity ? '∞' : avg.toFixed(1)}</b><span class="note">average for ${DV.TUNE.dice} dice</span></div>
       </div>
       <section><h3>Die · d6</h3>
@@ -589,7 +589,7 @@
       ${sts.length || cds.length || u.down || when ? `<section><h3>Right now</h3><div class="tags">${u.down ? `<span class="tagc">${u.side === 'hero' ? 'Down' : 'Slain'}</span>` : ''}${when ? `<span class="tagc">${when}</span>` : ''}${sts.join('')}${cds.join('')}</div></section>` : ''}
       <section><h3>This fight</h3><div class="tags"><span class="tagc">Dealt ${u.stats.dealt}</span><span class="tagc">Taken ${u.stats.taken}</span>${u.stats.healed ? `<span class="tagc">Healed ${u.stats.healed}</span>` : ''}<span class="tagc">Dice ${u.stats.dice}</span><span class="tagc">Grazes ${u.stats.grazes}</span><span class="tagc">Crits ${u.stats.crits}</span>${u.stats.kills ? `<span class="tagc">Kills ${u.stats.kills}</span>` : ''}</div></section>
       <section><h3>Tune</h3>
-        <p class="legend">${sheetTuning ? `Changes apply to ${kin > 1 ? `all ${kin} ${esc(u.cls.toLowerCase())}s` : esc(short(u.name))} now and in later fights, and are kept on this device.` : 'Try other numbers: change HP, damage and the mix of faces on the die.'}</p>
+        <p class="legend">${sheetTuning ? `Changes apply to ${kin > 1 ? `all ${kin} ${esc(u.cls.toLowerCase())}s` : esc(short(u.name))} now and in later fights, and are kept on this device.` : 'Try other numbers: change HP, damage, speed and the mix of faces on the die.'}</p>
         <div class="row"><button class="btn small" type="button" id="tuneBtn" aria-pressed="${sheetTuning}">${sheetTuning ? 'Done tuning' : 'Tune'}</button>${TUNING.units[u.type] ? `<button class="btn small" type="button" id="tuneReset">Back to defaults</button>` : ''}</div>
       </section>`;
     const card = openModal(html, sheetTuning ? 'tuning' : '');
@@ -599,7 +599,7 @@
     const rs = $('#tuneReset', card); if (rs) rs.onclick = () => { delete TUNING.units[u.type]; saveTuning(); retune(u.type, DV.DEFAULTS[u.type]); openSheet(id, true); };
     $$('.step button', card).forEach(b => b.onclick = () => {
       const f = b.dataset.f, d = +b.dataset.d, T2 = DV.UNITS[u.type];
-      const v = Math.max(f === 'hp' ? 1 : 0, Math.min(60, T2[f] + d));
+      const v = Math.max(f === 'hp' || f === 'speed' ? 1 : 0, Math.min(f === 'speed' ? 9 : 60, T2[f] + d));
       if (v === T2[f]) return;
       setTune(u.type, f, v); openSheet(id, true);
     });
@@ -618,10 +618,11 @@
   // push a type's new numbers into its template and into everyone of that type in this fight
   function retune(type, D) {
     const T = DV.UNITS[type];
-    ['hp', 'dmg', 'faces'].forEach(f => { if (D[f] == null) return; T[f] = Array.isArray(D[f]) ? D[f].slice() : D[f]; });
+    ['hp', 'dmg', 'speed', 'faces'].forEach(f => { if (D[f] == null) return; T[f] = Array.isArray(D[f]) ? D[f].slice() : D[f]; });
     Object.values(S.units).filter(u => u.type === type).forEach(u => {
       if (D.hp != null && D.hp !== u.max) { const dh = D.hp - u.max; u.max = D.hp; if (!u.down) u.hp = Math.max(1, Math.min(u.max, u.hp + dh)); ui.hp[u.id] = u.hp; }
       if (D.dmg != null) u.dmg = D.dmg;
+      if (D.speed != null) u.speed = D.speed;
       if (D.faces) u.faces = D.faces.slice();
     });
     drawAll(); if (partyPick()) showSelection();
@@ -633,7 +634,7 @@
     const changed = Object.keys(TUNING.units).length + Object.keys(TUNING.tune || {}).filter(k => TUNING.tune[k] !== DV.TUNE0[k]).length;
     const card = openModal(`
       <h2>Goblin Delve</h2>
-      <p>A test bench for dice combat: two actions a turn, a d6 per character with its own mix of four shared symbols and its damage on each face, powers that roll too, the party acting in the order you choose, three goblins and their shaman.</p>
+      <p>A test bench for dice combat: two actions a turn, a d6 per character with its own mix of four shared symbols and its damage on each face, powers that roll too, initiative by speed, three goblins and their shaman.</p>
       <div class="row"><button class="btn gold" type="button" id="mNew">New fight</button><button class="btn" type="button" id="mSim">Simulate 1,000 fights</button><button class="btn" type="button" id="mLog">Combat log</button></div>
       <section><h3>Play</h3>
         <div class="set"><div><b>Auto-play the party</b><small>The heroes choose for themselves, so you can watch the rules run.</small></div>${sw('mAuto', SET.auto)}</div>
@@ -641,12 +642,11 @@
         <div class="set"><div><b>Sound</b><small>Dice, blows and spells.</small></div>${sw('mSound', !SET.mute)}</div>
       </section>
       <section><h3>House rules</h3>
-        <div class="set"><div><b>Turn order</b><small>Alternate: a hero, then a goblin, then a hero. Party first: all four heroes, then every goblin.</small></div><span class="seg"><button type="button" data-turns="alternate" aria-pressed="${DV.TUNE.turns === 'alternate'}">Alternate</button><button type="button" data-turns="party" aria-pressed="${DV.TUNE.turns === 'party'}">Party first</button></span></div>
         <div class="set"><div><b>Criticals explode</b><small>A critical rolls one more die, which can explode again.</small></div>${sw('mExplode', DV.TUNE.explode)}</div>
         <div class="set"><div><b>Tuned numbers</b><small>${changed ? `${changed} change${changed > 1 ? 's' : ''} from the defaults, kept on this device.` : 'Open any sheet and tap Tune to change stats and die faces.'}</small></div>${changed ? `<button class="btn small" type="button" id="mReset">Reset all</button>` : ''}</div>
       </section>
       <details><summary>How a fight works</summary><ul>
-        <li>Each round, you choose which hero acts next (tap a ready portrait) until all four have acted. ${DV.TUNE.turns === 'alternate' ? 'A goblin acts after each hero' : 'Then the goblins act'}, in a fixed order: Snikk, Grub, Muckle, then Old Gnarl. The party starts every round.</li>
+        <li>Initiative is speed: the fastest acts first, every round. A hero and a goblin on the same speed: the hero goes first. Heroes on the same speed: you choose which goes first (tap a ready portrait). Goblins on the same speed: the one with the most HP left goes first, so wounding a goblin also slows it down.</li>
         <li>A turn is ${DV.TUNE.actions} actions: typically an attack and a power. Big spells take both. End the turn early with End.</li>
         <li>Every roll is a d6 with four symbols, mixed differently for each class, and each face shows the damage it deals on an attack: ${SYM.graze} graze (a partial success), ${SYM.hit} hit, ${SYM.surge} surge (a hit plus something extra) and ${SYM.crit} critical. Nothing misses.</li>
         <li>An attack rolls ${DV.TUNE.dice} dice and adds them up: a graze deals ${DV.TUNE.graze}, the rest deal the character’s damage, a surge adds the class’s extra${DV.TUNE.explode ? ', and a critical rolls another die, which can explode again' : ''}. A second attack in the same turn rolls ${DV.TUNE.laterDice} die.</li>
@@ -663,7 +663,6 @@
     toggle('mAuto', v => { SET.auto = v; saveSet(); ui.sel = null; VIEW.mark({}); if (v && ui.phase === 'fight' && !ui.busy) proceed(); else { drawAll(); renderHotbar(); } });
     toggle('mSound', v => { SET.mute = !v; VIEW.muted = SET.mute; saveSet(); if (v) VIEW.audio(); });
     toggle('mExplode', v => { DV.TUNE.explode = v; TUNING.tune = { ...(TUNING.tune || {}), explode: v }; saveTuning(); });
-    $$('[data-turns]', card).forEach(b => b.onclick = () => { DV.TUNE.turns = b.dataset.turns; TUNING.tune = { ...(TUNING.tune || {}), turns: DV.TUNE.turns }; saveTuning(); openMenu(); });
     $$('[data-sp]', card).forEach(b => b.onclick = () => { SET.speed = b.dataset.sp; saveSet(); applySpeed(); $$('[data-sp]', card).forEach(x => x.setAttribute('aria-pressed', x === b)); });
     const rs = $('#mReset', card); if (rs) rs.onclick = () => { TUNING = { units: {}, tune: {} }; saveTuning(); DV.applyTuning(null); Object.keys(DV.UNITS).forEach(t => retune(t, DV.UNITS[t])); openMenu(); };
   }
@@ -681,7 +680,7 @@
         <div class="kpis"><div class="stat"><small>Party wins</small><b>${pct(r.winRate)}</b></div><div class="stat"><small>Rounds</small><b>${f1(r.avgRounds)}</b><span class="note">on average</span></div><div class="stat"><small>No one fell</small><b>${pct(r.flawlessRate)}</b><span class="note">of fights</span></div></div>
         <div class="kpis"><div class="stat"><small>Heroes up</small><b>${r.avgHeroesUp.toFixed(1)}</b><span class="note">at the end</span></div><div class="stat"><small>Party HP</small><b>${f1(r.avgHeroHp)}</b><span class="note">left of ${DV.PARTY.reduce((s, k) => s + DV.UNITS[k].hp, 0)}</span></div><div class="stat"><small>Longest chain</small><b>${r.maxChain}</b><span class="note">exploding dice</span></div></div>
         <div class="tablewrap"><table class="t"><thead><tr><th>Per fight</th><th>Dealt</th><th>Taken</th><th>Healed</th><th>Fell</th><th>Crits</th></tr></thead><tbody>${rows}</tbody></table></div>
-        <p class="legend">${ms} ms · House rules: ${DV.TUNE.turns === 'alternate' ? 'heroes and goblins alternate' : 'the party goes first'}, criticals ${DV.TUNE.explode ? 'explode' : 'do not explode'}.</p>
+        <p class="legend">${ms} ms · House rules: criticals ${DV.TUNE.explode ? 'explode' : 'do not explode'}.</p>
         <div class="row"><button class="btn gold" type="button" id="sAgain">Run again</button><button class="btn" type="button" id="sBack">Back to the fight</button></div>`;
       $('.x', card).onclick = closeModal; $('#sBack', card).onclick = closeModal; $('#sAgain', card).onclick = openSim;
     }, 60);

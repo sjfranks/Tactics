@@ -83,18 +83,32 @@ const fail = m => { failures++; console.log('FAIL', m); };
   u = await p.evaluate(() => DELVE.S.units.fighter);
   if (u.max !== D.hp || u.faces[0] !== D.face) fail(`reset did not restore the defaults: ${u.max} HP, first face ${u.faces[0]}`);
   await p.keyboard.press('Escape');
+  // speed order: the fastest hero is up first
+  const first = await p.evaluate(() => { const q = DV.queue(DELVE.S).filter(x => !x.done && !x.out); return { hero: DELVE.ui.hero, top: q[0].id }; });
+  if (first.hero !== first.top) fail(`the fastest should act first: ${JSON.stringify(first)}`);
   // End: one action, then End passes the second; End straight away passes a whole turn
-  await p.click('#hotbar .abtn:nth-child(2)'); await p.click('#hotbar .abtn:nth-child(2)'); // Brakka: Defend
+  const h1 = first.hero;
+  await p.click('#hotbar .abtn:nth-child(2)'); await p.click('#hotbar .abtn:nth-child(2)'); // a self power (Vex: Hide)
   await p.waitForFunction(() => !DELVE.ui.busy && DELVE.S.turn && DELVE.S.turn.left === 1, null, { timeout: 20000 });
   await p.click('#endTurn');
   await p.waitForFunction(() => !DELVE.ui.busy && DV.ready(DELVE.S).side === 'hero', null, { timeout: 30000 });
-  let st = await p.evaluate(() => ({ acted: DELVE.S.acted, guard: DELVE.S.units.fighter.guard }));
-  if (!st.acted.includes('fighter') || !st.guard) fail(`Defend then End: ${JSON.stringify(st)}`);
+  const h2 = await p.evaluate(() => DELVE.ui.hero);
+  let acted = await p.evaluate(() => DELVE.S.acted);
+  if (!acted.includes(h1)) fail(`${h1} should have acted after one action and End: ${JSON.stringify(acted)}`);
   await p.click('#endTurn');
   await p.waitForFunction(() => !DELVE.ui.busy && DV.ready(DELVE.S).side === 'hero', null, { timeout: 30000 });
-  st = await p.evaluate(() => DELVE.S.acted);
-  if (st.filter(id => !id.startsWith('gob') && id !== 'shaman').length !== 2) fail(`End straight away should pass a hero's turn: ${JSON.stringify(st)}`);
-  else console.log('End: after one action, and straight away, both pass the turn');
+  acted = await p.evaluate(() => DELVE.S.acted);
+  if (!acted.includes(h2)) fail(`End straight away should pass ${h2}'s turn: ${JSON.stringify(acted)}`);
+  else console.log(`End: after one action (${h1}), and straight away (${h2}), both pass the turn`);
+  // heroes tied on speed: the strip marks them, and tapping either picks who goes first
+  const tie = await p.evaluate(() => DV.ready(DELVE.S).ids);
+  if (tie.length > 1) {
+    await p.click(`.pc[data-id="${tie[1]}"]`);
+    const now = await p.evaluate(() => DELVE.ui.hero);
+    const marked = await p.evaluate(() => document.querySelectorAll('#order .oc.pick').length);
+    if (now !== tie[1] || marked < 2) fail(`tied heroes ${tie.join(', ')}: picked ${now}, ${marked} marked in the strip`);
+    else console.log(`tied on speed: ${tie.join(' and ')}, marked in the strip, picked by a tap`);
+  }
   await p.click('#menuBtn');
   // the simulator
   await p.click('#mSim'); await p.waitForSelector('#sAgain', { timeout: 20000 });
