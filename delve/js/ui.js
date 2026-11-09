@@ -570,7 +570,7 @@
       <details><summary>How a fight works</summary><ul>
         <li>Everyone rolls initiative once (d${DV.TUNE.initDie} + bonus) and acts in that order every round.</li>
         <li>On a hero’s turn, pick one action from the hotbar, then a target. Goblins act on their own.</li>
-        <li>An attack rolls the character’s own d6: two blank faces miss, two hit faces deal its damage, the power face triggers its power${DV.TUNE.knackHits ? ' and hits' : ''}, and the critical burst hits${DV.TUNE.explode ? ' and rolls another die, which can explode again' : ''}.</li>
+        <li>An attack rolls the character’s own d6: the blank face misses, the three hit faces deal its damage, the power face triggers its power${DV.TUNE.knackHits ? ' and hits' : ''}, and the critical burst hits${DV.TUNE.explode ? ' and rolls another die, which can explode again' : ''}.</li>
         <li>Melee reaches only the front rank while anyone stands in it. Ranged attacks and spells reach anyone.</li>
         <li>Powers with a wait can’t be used again until that many of your turns have passed.</li>
         <li>Brace takes ${DV.TUNE.brace} off each hit until your next turn. A Blessed hero’s next roll adds a die.</li>

@@ -18,7 +18,7 @@ const DV = (() => {
   // ---------------- the attack die ----------------
   // Every unit rolls its own d6. Its six faces are kinds: blank (a miss), hit (deal your damage),
   // knack (your special power) and crit (a hit, and roll one more die).
-  const STD_FACES = ['blank', 'blank', 'hit', 'hit', 'knack', 'crit'];
+  const STD_FACES = ['blank', 'hit', 'hit', 'hit', 'knack', 'crit'];
   const FACE_KINDS = ['blank', 'hit', 'knack', 'crit'];
   const FACE_NAME = { blank: 'Blank', hit: 'Hit', knack: 'Power', crit: 'Critical' };
   const FACE_RANK = { blank: 0, hit: 1, knack: 2, crit: 3 };
