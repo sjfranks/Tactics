@@ -258,36 +258,28 @@ const VIEW = (() => {
   }
 
   // ---------------- dice ----------------
-  // Every roll is a d10: a pentagonal trapezohedron, ten kites, five round the top pole and five round the bottom.
-  // Each unit type has its own colour and its own mix of the four shared symbols.
+  // Every roll is a d6. Each unit type has its own colour, its own mix of the four shared symbols, and on each face
+  // the damage that face deals.
   const kits = {}, faceTex = {};
-  function faceTexture(style, kind) {
-    const k = style + kind;
-    return faceTex[k] || (faceTex[k] = tex(ART.d10Face(ART.DICE[style] || ART.DICE.goblin, kind), { pixel: false }));
+  function faceTexture(style, kind, label) {
+    const k = style + kind + label;
+    return faceTex[k] || (faceTex[k] = tex(ART.d6Face(ART.DICE[style] || ART.DICE.goblin, kind, label), { pixel: false }));
   }
-  let d10geo = null;
-  function d10Geometry() {
-    if (d10geo) return d10geo;
-    const R = .3, Hh = .35, e = Hh * (1 - Math.cos(Math.PI / 5)) / (1 + Math.cos(Math.PI / 5)), Tp = new V3(0, Hh, 0), Bp = new V3(0, -Hh, 0);
-    const A = k => new V3(Math.cos(k * Math.PI * 2 / 5) * R, e, Math.sin(k * Math.PI * 2 / 5) * R);
-    const Bk = k => new V3(Math.cos((k + .5) * Math.PI * 2 / 5) * R, -e, Math.sin((k + .5) * Math.PI * 2 / 5) * R);
-    const kites = []; for (let k = 0; k < 5; k++) { kites.push([Tp, A(k), Bk(k), A(k + 1)]); kites.push([Bp, Bk(k), A(k + 1), Bk(k + 1)]); }
-    const pos = [], uv = [], geo = new THREE.BufferGeometry(); let rest = 0;
-    kites.forEach(([P, X, Q, Y], i) => {
-      const n = new V3().subVectors(X, P).cross(new V3().subVectors(Q, P)), c = P.clone().add(X).add(Q).add(Y);
-      if (n.dot(c) < 0) [X, Y] = [Y, X]; // wind each face anticlockwise seen from outside
-      rest = new V3().subVectors(X, P).cross(new V3().subVectors(Q, P)).normalize().dot(P);
-      [[P, [.5, .98]], [X, [.148, .203]], [Q, [.5, .02]], [P, [.5, .98]], [Q, [.5, .02]], [Y, [.852, .203]]].forEach(([v, t]) => { pos.push(v.x, v.y, v.z); uv.push(t[0], t[1]); });
-      geo.addGroup(i * 6, 6, i);
-    });
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.computeVertexNormals();
-    return d10geo = { geo, faces: faceFrames(geo), rest };
+  // the numbers are drawn in the page's number face: once it has loaded, draw the faces again
+  try { document.fonts && document.fonts.ready.then(() => { Object.keys(faceTex).forEach(k => delete faceTex[k]); Object.keys(kits).forEach(k => delete kits[k]); }); } catch (e) { }
+  const S6 = .38;
+  let d6geo = null;
+  function d6Geometry() {
+    if (d6geo) return d6geo;
+    const geo = new THREE.BoxGeometry(S6, S6, S6);
+    return d6geo = { geo, faces: faceFrames(geo), rest: S6 / 2 };
   }
-  function d10Kit(spec) {
-    const k = spec.style + spec.faces.join();
+  function d6Kit(spec) {
+    const labels = spec.labels || spec.faces.map(() => '');
+    const k = spec.style + spec.faces.join() + labels.join();
     if (kits[k]) return kits[k];
-    const G = d10Geometry();
-    const mats = spec.faces.map(f => new THREE.MeshPhongMaterial({ map: faceTexture(spec.style, f), shininess: 40, specular: 0x1c1c1c, emissive: 0x000000, flatShading: true }));
+    const G = d6Geometry();
+    const mats = spec.faces.map((f, i) => new THREE.MeshPhongMaterial({ map: faceTexture(spec.style, f, labels[i]), shininess: 40, specular: 0x1c1c1c, emissive: 0x000000 }));
     return kits[k] = { geo: G.geo, mats, faces: G.faces, rest: G.rest };
   }
   // for each face: its outward normal and which way is "up" on its picture (so a landed die can turn its face to be read)
@@ -376,10 +368,10 @@ const VIEW = (() => {
   const partyHand = () => new V3(rand(-.5, .5), 1.5, 1.7);
   const foeHand = id => new V3(U[id] ? U[id].home.x * .9 + rand(-.15, .15) : rand(-.6, .6), 1.4, -2.2);
   // Throw a unit's dice: every target's first dice together, then each crit's extra die out of the die that exploded.
-  // spec: { style, faces, from (a goblin's id, or null for the party), groups: [{ target, dice: [{ side, face, from, dropped }] }], onLand(die, group) }
+  // spec: { style, faces, labels (the number on each face), from (a goblin's id, or null for the party), groups: [{ target, dice: [{ side, face, from, dropped }] }], onLand(die, group) }
   async function roll(spec) {
     clearDice(); await wait(170);
-    const kit = d10Kit(spec), mats = kit.mats;
+    const kit = d6Kit(spec), mats = kit.mats;
     const start = () => spec.from ? foeHand(spec.from) : partyHand();
     const aims = spec.groups.length > 1 ? spec.groups.map(g => U[g.target] ? { x: U[g.target].home.x * 1.05, z: U[g.target].home.z < -3 ? -.45 : .05 } : { x: 0, z: 0 }) : null;
     sfx('throw');

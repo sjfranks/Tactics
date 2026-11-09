@@ -17,15 +17,16 @@ const DV = (() => {
   };
 
   // ---------------- the dice ----------------
-  // Every roll is a d10, and every die shares four symbols: graze (a glancing, partial success), hit, surge (a hit plus
-  // something extra) and critical. How many faces show each symbol depends on the class. No roll ever misses.
+  // Every roll is a d6, and every die shares four symbols: graze (a glancing, partial success), hit, surge (a hit plus
+  // something extra) and critical. Each face also shows the damage it deals on an attack. How many faces show each
+  // symbol depends on the class. No roll ever misses.
   // An attack adds its dice up. A power reads its best die: the better the face, the stronger the effect.
-  const SIDES = 10;
+  const SIDES = 6;
   const FACE_KINDS = ['graze', 'hit', 'surge', 'crit'];
   const FACE_NAME = { graze: 'Graze', hit: 'Hit', surge: 'Surge', crit: 'Critical' };
   const FACE_RANK = { graze: 0, hit: 1, surge: 2, crit: 3 };
-  function dieOf(n) { // the symbols spread round the die (neighbours on a d10's two rings are 5 apart)
-    const bag = FACE_KINDS.flatMap(k => Array(n[k] || 0).fill(k)), out = [], order = [0, 5, 2, 7, 4, 9, 1, 6, 3, 8];
+  function dieOf(n) { // the symbols spread round the die, so a symbol and its twin are not on opposite faces
+    const bag = FACE_KINDS.flatMap(k => Array(n[k] || 0).fill(k)), out = [], order = [0, 2, 4, 1, 3, 5];
     bag.forEach((k, i) => out[order[i]] = k);
     return out;
   }
@@ -50,7 +51,7 @@ const DV = (() => {
   const ACTIONS = {
     attack: { name: 'Attack', kind: 'attack', cost: 1, target: 'foe', reach: 'unit', text: 'Roll 2 dice against one foe and add them up. A second attack in the same turn rolls 1 die.' },
     knives: { name: 'Throwing Knives', icon: '🎯', kind: 'attack', cost: 1, target: 'foe', reach: 'ranged', text: 'An attack that reaches any goblin, even in the back rank. Counts as an attack.' },
-    fireball: { name: 'Fireball', icon: '🔥', kind: 'attack', cost: 2, target: 'all', reach: 'ranged', recharge: 2, text: 'Both actions. Roll 2 dice once; every goblin takes the total. A surge adds 1 more.' },
+    fireball: { name: 'Fireball', icon: '🔥', kind: 'attack', cost: 2, target: 'all', reach: 'ranged', recharge: 2, text: 'Both actions. Roll 2 dice once; every goblin takes the total.' },
     defend: {
       name: 'Defend', icon: '🛡️', kind: 'power', cost: 1, target: 'self', text: 'Guard: until your next turn, each attack on you deals that much less damage.',
       tiers: { graze: 'Guard 1.', hit: 'Guard 2.', surge: 'Guard 2, and Guard 1 for the rest of the front rank.', crit: 'Guard 3, and Guard 1 for the rest of the front rank.' },
@@ -103,14 +104,14 @@ const DV = (() => {
   Object.keys(ACTIONS).forEach(k => ACTIONS[k].id = k);
 
   // ---------------- who fights ----------------
-  // rank: front or back · dice: how many of the d10's faces show each symbol (they add up to 10)
+  // rank: front or back · dice: how many of the d6's faces show each symbol (they add up to 6)
   const UNITS = {
-    fighter: { name: 'Brakka', cls: 'Fighter', side: 'hero', rank: 'front', hp: 24, dmg: 3, reach: 'melee', hitIcon: '⚔️', weapon: 'Longsword', surge: 'heavy', dice: { graze: 2, hit: 4, surge: 3, crit: 1 }, actions: ['attack', 'defend', 'taunt', 'interpose'], blurb: 'Shield first, questions later. Holds the line so nobody else has to.' },
-    mage: { name: 'Orlen', cls: 'Wizard', side: 'hero', rank: 'back', hp: 14, dmg: 2, reach: 'ranged', hitIcon: '✨', weapon: 'Arcane bolt', surge: 'arc', dice: { graze: 3, hit: 3, surge: 3, crit: 1 }, actions: ['attack', 'fireball', 'weaken', 'slow'], blurb: 'Old, frail and very hard to argue with from range.' },
-    cleric: { name: 'Sister Wenna', cls: 'Cleric', side: 'hero', rank: 'front', hp: 20, dmg: 2, reach: 'ranged', hitIcon: '🌟', weapon: 'Holy light', surge: 'mercy', dice: { graze: 2, hit: 4, surge: 3, crit: 1 }, actions: ['attack', 'heal', 'bless', 'prayer'], blurb: 'Mends the living and smites the rest from a safe distance.' },
-    rogue: { name: 'Vex', cls: 'Rogue', side: 'hero', rank: 'back', hp: 16, dmg: 2, reach: 'melee', hitIcon: '🗡️', weapon: 'Dagger', surge: 'vanish', dice: { graze: 3, hit: 3, surge: 2, crit: 2 }, actions: ['attack', 'hide', 'poison', 'knives'], blurb: 'Quick, quiet, and always looking for the soft spot.' },
-    goblin: { name: 'Goblin', cls: 'Goblin fighter', side: 'foe', rank: 'front', hp: 24, dmg: 2, reach: 'melee', hitIcon: '🪓', weapon: 'Hatchet', surge: 'gangUp', dice: { graze: 3, hit: 4, surge: 2, crit: 1 }, actions: ['attack'], blurb: 'Brave in a crowd. Braver in a bigger one.' },
-    shaman: { name: 'Goblin Shaman', cls: 'Goblin shaman', side: 'foe', rank: 'back', hp: 20, dmg: 2, reach: 'ranged', hitIcon: '💀', weapon: 'Hex bolt', surge: 'mend', dice: { graze: 3, hit: 4, surge: 2, crit: 1 }, actions: ['attack', 'chant', 'curse'], blurb: 'Keeps the others standing, and keeps well behind them.' },
+    fighter: { name: 'Brakka', cls: 'Fighter', side: 'hero', rank: 'front', hp: 24, dmg: 3, reach: 'melee', hitIcon: '⚔️', weapon: 'Longsword', surge: 'heavy', dice: { graze: 1, hit: 2, surge: 2, crit: 1 }, actions: ['attack', 'defend', 'taunt', 'interpose'], blurb: 'Shield first, questions later. Holds the line so nobody else has to.' },
+    mage: { name: 'Orlen', cls: 'Wizard', side: 'hero', rank: 'back', hp: 14, dmg: 2, reach: 'ranged', hitIcon: '✨', weapon: 'Arcane bolt', surge: 'arc', dice: { graze: 2, hit: 1, surge: 2, crit: 1 }, actions: ['attack', 'fireball', 'weaken', 'slow'], blurb: 'Old, frail and very hard to argue with from range.' },
+    cleric: { name: 'Sister Wenna', cls: 'Cleric', side: 'hero', rank: 'front', hp: 20, dmg: 2, reach: 'ranged', hitIcon: '🌟', weapon: 'Holy light', surge: 'mercy', dice: { graze: 1, hit: 2, surge: 2, crit: 1 }, actions: ['attack', 'heal', 'bless', 'prayer'], blurb: 'Mends the living and smites the rest from a safe distance.' },
+    rogue: { name: 'Vex', cls: 'Rogue', side: 'hero', rank: 'back', hp: 16, dmg: 2, reach: 'melee', hitIcon: '🗡️', weapon: 'Dagger', surge: 'vanish', dice: { graze: 2, hit: 1, surge: 1, crit: 2 }, actions: ['attack', 'hide', 'poison', 'knives'], blurb: 'Quick, quiet, and always looking for the soft spot.' },
+    goblin: { name: 'Goblin', cls: 'Goblin fighter', side: 'foe', rank: 'front', hp: 24, dmg: 2, reach: 'melee', hitIcon: '🪓', weapon: 'Hatchet', surge: 'gangUp', dice: { graze: 2, hit: 2, surge: 1, crit: 1 }, actions: ['attack'], blurb: 'Brave in a crowd. Braver in a bigger one.' },
+    shaman: { name: 'Goblin Shaman', cls: 'Goblin shaman', side: 'foe', rank: 'back', hp: 20, dmg: 2, reach: 'ranged', hitIcon: '💀', weapon: 'Hex bolt', surge: 'mend', dice: { graze: 2, hit: 2, surge: 1, crit: 1 }, actions: ['attack', 'chant', 'curse'], blurb: 'Keeps the others standing, and keeps well behind them.' },
   };
   Object.values(UNITS).forEach(T => { T.faces = dieOf(T.dice); delete T.dice; });
   const DEFAULTS = JSON.parse(JSON.stringify(UNITS)), TUNE0 = { ...TUNE };
@@ -352,8 +353,7 @@ const DV = (() => {
       if (d.face === 'crit') crits++;
       if (d.face === 'surge') {
         surges++;
-        if (A.id === 'fireball') dmg += 1;
-        else dmg += ((SURGES[u.surge] || {}).bonus || 0) + gang;
+        if (A.id !== 'fireball') dmg += ((SURGES[u.surge] || {}).bonus || 0) + gang;
       }
     });
     if (u.blessed) dmg += u.blessed.dmg || 0;
@@ -489,6 +489,12 @@ const DV = (() => {
     FACE_KINDS.forEach(k => { const upTo = below + c[k]; out[k] = Math.pow(upTo / N, n) - Math.pow(below / N, n); below = upTo; });
     return out;
   }
+  // the damage a face shows: what that face deals on an attack (a goblin's surge shows a + for its Gang Up)
+  function faceDamage(u, kind) {
+    if (kind === 'graze') return { n: TUNE.graze };
+    if (kind === 'surge') return { n: u.dmg + ((SURGES[u.surge] || {}).bonus || 0), plus: u.surge === 'gangUp' };
+    return { n: u.dmg };
+  }
   // what one attack die is worth on average, explosions included (surge effects other than damage left out)
   function perDie(u, S) {
     const c = counts(u.faces), N = u.faces.length, C = TUNE.explode ? c.crit : 0;
@@ -617,7 +623,7 @@ const DV = (() => {
 
   return {
     TUNE, TUNE0, SIDES, FACE_KINDS, FACE_NAME, FACE_RANK, SURGES, ACTIONS, UNITS, DEFAULTS, PARTY, ENCOUNTER,
-    newBattle, start, ready, act, endTurn, obey, targets, canUse, turnOf, attackDice, powerDice, standing, reachable, odds, tierOdds, perDie, counts,
+    newBattle, start, ready, act, endTurn, obey, targets, canUse, turnOf, attackDice, powerDice, standing, reachable, odds, tierOdds, perDie, faceDamage, counts,
     mind, simulate, playOut, applyTuning, mostWounded,
   };
 })();

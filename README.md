@@ -58,7 +58,7 @@ On Normal, with 400 battles per level and the levels a party would have reached 
 
 ## Goblin Delve
 
-`delve/` holds a second, separate program: a test bench for dice combat rules, laid out like a dungeon crawler for a phone held upright. The party's portraits run down the right, three goblin fighters and a shaman stand in the corridor, actions sit in a hotbar, and every roll is thrown as 3D dice. Every character has two actions a turn (typically an attack and a power). Every roll is a d10 with four shared symbols (graze, hit, surge, critical), mixed differently for each class: attacks add their dice up, powers take the best die. The player chooses the order the heroes act in each round. Stats and die faces can be tuned from any character sheet, and the menu simulates 1,000 fights. See [`delve/README.md`](delve/README.md); once on `main`, Pages serves it at `/Tactics/delve/`.
+`delve/` holds a second, separate program: a test bench for dice combat rules, laid out like a dungeon crawler for a phone held upright. The party's portraits run down the right, three goblin fighters and a shaman stand in the corridor, actions sit in a hotbar, and every roll is thrown as 3D dice. Every character has two actions a turn (typically an attack and a power). Every roll is a d6 with four shared symbols (graze, hit, surge, critical) and the damage printed on each face, mixed differently for each class: attacks add their dice up, powers take the best die. The player chooses the order the heroes act in each round. Stats and die faces can be tuned from any character sheet, and the menu simulates 1,000 fights. See [`delve/README.md`](delve/README.md); once on `main`, Pages serves it at `/Tactics/delve/`.
 
 ## Archive
 

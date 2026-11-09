@@ -37,7 +37,9 @@
   const actIcon = (u, a) => a === 'attack' ? u.hitIcon : DV.ACTIONS[a].icon;
   // every die shares the same four symbols
   const SYM = ART.FACE_SVG;
-  const faceChip = (f, cls = '') => `<span class="face f-${f} ${cls}" title="${DV.FACE_NAME[f]}">${SYM[f]}</span>`;
+  // a face as a chip: its symbol, and (for an attack) the damage it shows on the die in front of it
+  const faceLabel = (u, f) => { const d = DV.faceDamage(u, f); return d.n + (d.plus ? '+' : ''); };
+  const faceChip = (f, cls = '', num = null) => `<span class="face f-${f} ${num != null ? 'num ' : ''}${cls}" title="${DV.FACE_NAME[f]}${num != null ? ' ' + num : ''}">${num != null && f === 'crit' ? SYM.burst : SYM[f]}${num != null ? `<b>${num}</b>` : ''}</span>`;
   const actor = () => ui.hero && S.units[ui.hero];
   const partyPick = () => ui.phase === 'fight' && !ui.busy && !SET.auto && DV.ready(S).side === 'hero';
   const wait = ms => VIEW.wait(ms);
@@ -214,8 +216,8 @@
 
   // ---------------- the card over the dungeon: what the chosen action does ----------------
   function faceLine(u, A) {
-    const sb = A.id === 'fireball' ? 1 : (DV.SURGES[u.surge].bonus || 0);
-    const sx = A.id === 'fireball' ? '' : sb ? '' : ` + ${DV.SURGES[u.surge].name}`;
+    const sb = A.id === 'fireball' ? 0 : (DV.SURGES[u.surge].bonus || 0);
+    const sx = A.id === 'fireball' || sb ? '' : ` + ${DV.SURGES[u.surge].name}`;
     return `<span class="fl">${SYM.graze}${DV.TUNE.graze}</span><span class="fl">${SYM.hit}${u.dmg}</span><span class="fl">${SYM.surge}${u.dmg + sb}${esc(sx)}</span><span class="fl">${SYM.crit}${u.dmg}${DV.TUNE.explode ? ' + 🎲' : ''}</span>`;
   }
   function showTip(u, A) {
@@ -422,7 +424,7 @@
         break;
       }
       case 'roll': {
-        const sum = e.mode === 'sum', chip = d => faceChip(d.face, (d.extra ? 'extra ' : '') + (d.dropped ? 'dropped' : ''));
+        const sum = e.mode === 'sum', chip = d => faceChip(d.face, (d.extra ? 'extra ' : '') + (d.dropped ? 'dropped' : ''), sum ? faceLabel(u, d.face) : null);
         const notes = [];
         if (e.later) notes.push('2nd attack');
         if (e.blessed) notes.push('🙏');
@@ -430,7 +432,7 @@
         if (!sum) notes.push('best');
         const grp = RO.group(notes.join(' '));
         await VIEW.roll({
-          style: u.type, faces: u.faces, from: u.side === 'foe' ? u.id : null, groups: e.groups, explode: sum && DV.TUNE.explode,
+          style: u.type, faces: u.faces, labels: u.faces.map(f => faceLabel(u, f)), from: u.side === 'foe' ? u.id : null, groups: e.groups, explode: sum && DV.TUNE.explode,
           onLand: d => grp.insertAdjacentHTML('beforeend', chip(d)),
         });
         if (sum) grp.insertAdjacentHTML('beforeend', `<em class="tot">= ${e.total}</em>`);
@@ -571,8 +573,8 @@
         <div class="stat"><small>Damage</small><b>${u.dmg}</b><span class="note">per hit</span><span class="step"><button type="button" data-f="dmg" data-d="-1" aria-label="Less damage">−</button><button type="button" data-f="dmg" data-d="1" aria-label="More damage">+</button></span></div>
         <div class="stat"><small>Attack</small><b>${avg === Infinity ? '∞' : avg.toFixed(1)}</b><span class="note">average for ${DV.TUNE.dice} dice</span></div>
       </div>
-      <section><h3>Die · d10</h3>
-        <div class="faces">${u.faces.map((f, i) => `<button type="button" class="face f-${f}" data-i="${i}" title="${DV.FACE_NAME[f]}" aria-label="Face ${i + 1}: ${DV.FACE_NAME[f]}">${SYM[f]}</button>`).join('')}</div>
+      <section><h3>Die · d6</h3>
+        <div class="faces">${u.faces.map((f, i) => `<button type="button" class="face num f-${f}" data-i="${i}" title="${DV.FACE_NAME[f]} ${faceLabel(u, f)}" aria-label="Face ${i + 1}: ${DV.FACE_NAME[f]}, ${faceLabel(u, f)} damage">${f === 'crit' ? SYM.burst : SYM[f]}<b>${faceLabel(u, f)}</b></button>`).join('')}</div>
         <div class="mix">${DV.FACE_KINDS.map(k => `<span class="mx mx-${k}" style="flex:${c[k]}" title="${DV.FACE_NAME[k]} ×${c[k]}">${c[k] ? `<span class="face f-${k}">${SYM[k]}</span><b>${c[k]}</b>` : ''}</span>`).join('')}</div>
         <p class="legend tune-only" ${sheetTuning ? '' : 'hidden'}>Tap a face to change it: graze → hit → surge → critical.</p>
       </section>
@@ -631,7 +633,7 @@
     const changed = Object.keys(TUNING.units).length + Object.keys(TUNING.tune || {}).filter(k => TUNING.tune[k] !== DV.TUNE0[k]).length;
     const card = openModal(`
       <h2>Goblin Delve</h2>
-      <p>A test bench for dice combat: two actions a turn, a d10 per character with its own mix of four shared symbols, powers that roll too, the party acting in the order you choose, three goblins and their shaman.</p>
+      <p>A test bench for dice combat: two actions a turn, a d6 per character with its own mix of four shared symbols and its damage on each face, powers that roll too, the party acting in the order you choose, three goblins and their shaman.</p>
       <div class="row"><button class="btn gold" type="button" id="mNew">New fight</button><button class="btn" type="button" id="mSim">Simulate 1,000 fights</button><button class="btn" type="button" id="mLog">Combat log</button></div>
       <section><h3>Play</h3>
         <div class="set"><div><b>Auto-play the party</b><small>The heroes choose for themselves, so you can watch the rules run.</small></div>${sw('mAuto', SET.auto)}</div>
@@ -646,7 +648,7 @@
       <details><summary>How a fight works</summary><ul>
         <li>Each round, you choose which hero acts next (tap a ready portrait) until all four have acted. ${DV.TUNE.turns === 'alternate' ? 'A goblin acts after each hero' : 'Then the goblins act'}, in a fixed order: Snikk, Grub, Muckle, then Old Gnarl. The party starts every round.</li>
         <li>A turn is ${DV.TUNE.actions} actions: typically an attack and a power. Big spells take both. End the turn early with End.</li>
-        <li>Every roll is a d10 with four symbols, mixed differently for each class: ${SYM.graze} graze (a partial success), ${SYM.hit} hit, ${SYM.surge} surge (a hit plus something extra) and ${SYM.crit} critical. Nothing misses.</li>
+        <li>Every roll is a d6 with four symbols, mixed differently for each class, and each face shows the damage it deals on an attack: ${SYM.graze} graze (a partial success), ${SYM.hit} hit, ${SYM.surge} surge (a hit plus something extra) and ${SYM.crit} critical. Nothing misses.</li>
         <li>An attack rolls ${DV.TUNE.dice} dice and adds them up: a graze deals ${DV.TUNE.graze}, the rest deal the character’s damage, a surge adds the class’s extra${DV.TUNE.explode ? ', and a critical rolls another die, which can explode again' : ''}. A second attack in the same turn rolls ${DV.TUNE.laterDice} die.</li>
         <li>A power rolls ${DV.TUNE.dice} dice and the best one counts: each power says what a graze, hit, surge and critical do.</li>
         <li>Melee reaches only the front rank while anyone stands in it. Ranged attacks and spells reach anyone. Goblins cannot attack a hidden hero.</li>

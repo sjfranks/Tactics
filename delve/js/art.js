@@ -334,8 +334,8 @@ const ART = (() => {
   }
 
   // ---------------- die faces ----------------
-  // Every die is a d10 and every die uses the same four symbols: graze (a half-filled circle: a partial success),
-  // hit (a sword), surge (a bolt) and critical (a burst with an exclamation mark). The die's colour says whose it is. Drawn smooth: dice are things, not pixel art.
+  // Every die is a d6 and every die uses the same four symbols: graze (a half-filled circle: a partial success),
+  // hit (a sword), surge (a bolt) and critical (a burst with an exclamation mark), each with the damage it deals. The die's colour says whose it is. Drawn smooth: dice are things, not pixel art.
   const DICE = {
     fighter: { bg: '#7a1f18', edge: '#3a0c08' }, mage: { bg: '#25336a', edge: '#0e1530' },
     cleric: { bg: '#e6dcc2', edge: '#a8946a' }, rogue: { bg: '#3a3346', edge: '#141018' },
@@ -351,13 +351,14 @@ const ART = (() => {
   function burstPts(r0, r1, n, rot) { const o = []; for (let i = 0; i < n * 2; i++) { const a = rot + i * Math.PI / n, r = i % 2 ? r0 : r1 * (i % 4 === 0 ? 1 : .86); o.push([50 + Math.cos(a) * r, 50 + Math.sin(a) * r]); } return o; }
   SYM.crit = [['poly', burstPts(30, 50, 9, -.2), '#ffb11a', '#7a2a00', 4], ['poly', burstPts(20, 36, 9, .15), '#ff5a1a', null, 0],
     ['path', 'M42.5 23h15l-3 34h-9z', '#fff6d8', '#5a1000', 4], ['circle', [50, 68, 6.5], '#fff6d8', '#5a1000', 4]];
+  SYM.burst = SYM.crit.slice(0, 2); // the critical's burst alone, for a face that carries a number
   const svgOf = kind => `<svg class="sym sym-${kind}" viewBox="0 0 100 100" aria-hidden="true">${SYM[kind].map(([k, d, f, st, w]) => {
     const paint = `fill="${f || 'none'}"${st ? ` stroke="${st}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"` : ''}`;
     if (k === 'path') return `<path d="${d}" ${paint}/>`;
     if (k === 'circle') return `<circle cx="${d[0]}" cy="${d[1]}" r="${d[2]}" ${paint}/>`;
     return `<polygon points="${d.map(p => p.map(v => v.toFixed(1)).join(',')).join(' ')}" ${paint}/>`;
   }).join('')}</svg>`;
-  const FACE_SVG = { graze: svgOf('graze'), hit: svgOf('hit'), surge: svgOf('surge'), crit: svgOf('crit') };
+  const FACE_SVG = { graze: svgOf('graze'), hit: svgOf('hit'), surge: svgOf('surge'), crit: svgOf('crit'), burst: svgOf('burst') };
   function drawSym(g, kind, cx, cy, size) {
     if (!SYM[kind]) return;
     g.save(); g.translate(cx - size / 2, cy - size / 2); g.scale(size / 100, size / 100); g.lineJoin = 'round'; g.lineCap = 'round';
@@ -371,21 +372,29 @@ const ART = (() => {
     });
     g.restore();
   }
-  // a d10 face is a kite, apex up (the corners come from the die's own shape: wide corners 81% of the way down)
-  const KITE = [[128, 5], [38, 204], [128, 251], [218, 204]];
-  function d10Face(style, kind) {
-    const cv = document.createElement('canvas'); cv.width = cv.height = 256; const g = cv.getContext('2d');
-    g.fillStyle = style.bg; g.fillRect(0, 0, 256, 256);
-    const gr = g.createRadialGradient(118, 120, 10, 128, 150, 170); gr.addColorStop(0, 'rgba(255,255,255,.2)'); gr.addColorStop(1, 'rgba(0,0,0,.3)'); g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
-    g.beginPath(); KITE.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
-    g.lineWidth = 12; g.strokeStyle = style.edge; g.globalAlpha = .65; g.stroke(); g.globalAlpha = 1;
-    // a soft dark pool behind the symbol so it reads on pale dice and dark ones alike
-    {
-      const pool = g.createRadialGradient(128, 156, 4, 128, 156, 70); pool.addColorStop(0, 'rgba(0,0,0,.42)'); pool.addColorStop(1, 'rgba(0,0,0,0)');
-      g.fillStyle = pool; g.fillRect(40, 70, 176, 170);
+  // a d6 face: the damage it deals on an attack, big, in front of its symbol (a graze's half-moon, a hit's sword
+  // laid corner to corner, a surge's bolt, a critical's burst)
+  function d6Face(style, kind, label) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 256; const g = cv.getContext('2d'), s = 256;
+    g.fillStyle = style.bg; g.fillRect(0, 0, s, s);
+    const gr = g.createRadialGradient(s * .4, s * .36, 10, s * .5, s * .5, s * .74); gr.addColorStop(0, 'rgba(255,255,255,.2)'); gr.addColorStop(1, 'rgba(0,0,0,.3)'); g.fillStyle = gr; g.fillRect(0, 0, s, s);
+    g.lineWidth = 16; g.strokeStyle = style.edge; g.globalAlpha = .7; g.strokeRect(0, 0, s, s); g.globalAlpha = 1;
+    // the symbol, large, behind the number
+    const pool = g.createRadialGradient(s / 2, s / 2, 6, s / 2, s / 2, s * .46); pool.addColorStop(0, 'rgba(0,0,0,.4)'); pool.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = pool; g.fillRect(0, 0, s, s);
+    g.save(); g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 8; g.shadowOffsetY = 3;
+    if (kind === 'hit') { g.translate(s / 2, s / 2); g.rotate(-Math.PI / 4); drawSym(g, 'hit', 0, 0, 236); }
+    else if (kind === 'crit') drawSym(g, label != null && label !== '' ? 'burst' : 'crit', s / 2, s / 2, 250);
+    else drawSym(g, kind, s / 2, s / 2, kind === 'surge' ? 224 : 190);
+    g.restore();
+    if (label != null && label !== '') {
+      const big = String(label).length > 1;
+      g.font = `700 ${big ? 120 : 150}px "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", sans-serif`;
+      g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+      const y = s / 2 + 10;
+      g.lineWidth = 20; g.strokeStyle = '#120c06'; g.strokeText(label, s / 2, y);
+      g.fillStyle = kind === 'crit' ? '#fff3c4' : kind === 'surge' ? '#fff6dc' : '#ffffff'; g.fillText(label, s / 2, y);
     }
-    g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 6; g.shadowOffsetY = 3;
-    drawSym(g, kind, 128, 154, kind === 'crit' ? 118 : kind === 'graze' ? 92 : 112);
     return cv;
   }
 
@@ -403,5 +412,5 @@ const ART = (() => {
   // a portrait as an <canvas> at its own size (the page scales it up, pixelated)
   const portraitCanvas = (type, v) => portrait(type, v).canvas(1);
 
-  return { Pix, sprite, portrait, portraitCanvas, wall, floor, ceiling, backWall, d10Face, DICE, FACE_SVG, drawSym, P };
+  return { Pix, sprite, portrait, portraitCanvas, wall, floor, ceiling, backWall, d6Face, DICE, FACE_SVG, drawSym, P };
 })();
