@@ -118,7 +118,8 @@ const VIEW = (() => {
     dcam = new THREE.PerspectiveCamera(40, 1, .05, 30); dcam.position.copy(DCAM); dcam.lookAt(DLOOK);
     dscene.add(new THREE.AmbientLight(0x8890a8, .55));
     const key = new THREE.DirectionalLight(0xfff0d8, .75); key.position.set(-1.5, 3, 2); dscene.add(key);
-    const warm = new THREE.PointLight(0xffb070, .7, 8, 1.5); warm.position.set(1.4, 1.6, -1.2); dscene.add(warm);
+    // a soft warm fill from the torches' side, high and far enough that it tints the dice without glaring off them
+    const warm = new THREE.DirectionalLight(0xffb070, .3); warm.position.set(2.5, 3, -2.5); dscene.add(warm);
     const lantern = new THREE.PointLight(0xffd7a0, 1.15, 9, 1.4); lantern.position.set(.35, 1.9, 2.3); scene.add(lantern); lights.lantern = lantern;
     lights.torches = [-1, 1].map(s => {
       const g = new THREE.Group(); g.position.set(s * (CW / 2 - .06), 1.6, -2.9);
@@ -268,7 +269,7 @@ const VIEW = (() => {
     const k = spec.style + spec.faces.join() + spec.icons.hit + spec.icons.knack;
     if (kits[k]) return kits[k];
     const geo = new THREE.BoxGeometry(S6, S6, S6);
-    const mats = spec.faces.map(f => new THREE.MeshPhongMaterial({ map: faceTexture(spec.style, f, f === 'hit' ? spec.icons.hit : f === 'knack' ? spec.icons.knack : ''), shininess: 70, specular: 0x333333, emissive: 0x000000 }));
+    const mats = spec.faces.map(f => new THREE.MeshPhongMaterial({ map: faceTexture(spec.style, f, f === 'hit' ? spec.icons.hit : f === 'knack' ? spec.icons.knack : ''), shininess: 40, specular: 0x1c1c1c, emissive: 0x000000 }));
     return kits[k] = { geo, mats, faces: faceFrames(geo), rest: S6 / 2 };
   }
   let d20 = null;
@@ -401,7 +402,7 @@ const VIEW = (() => {
     const heroes = rolls.filter(r => !isFoe(r.id)), foes = rolls.filter(r => isFoe(r.id));
     const go = (r, k, row) => {
       const face = kit.faces.findIndex(f => f.v === r.roll);
-      const mats = kit.texs.map(t => new THREE.MeshPhongMaterial({ map: t, color: tint(r.id), shininess: 70, specular: 0x333333 }));
+      const mats = kit.texs.map(t => new THREE.MeshPhongMaterial({ map: t, color: tint(r.id), shininess: 40, specular: 0x1c1c1c }));
       const n = row.length, spot = spotNear((k - (n - 1) / 2) * .46, isFoe(r.id) ? -.55 : .35);
       const from = isFoe(r.id) ? foeHand(r.id) : partyHand();
       return wait(k * 80 + (isFoe(r.id) ? 140 : 0)).then(() => throwDie(kit, mats, face, from, spot, 700)).then(m => { r.mesh = m; return m; });

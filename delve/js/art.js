@@ -337,7 +337,7 @@ const ART = (() => {
   // drawn smooth (dice are things on the floor, not pixel art); 128×128 per face
   const DICE = {
     fighter: { bg: '#6a1c16', edge: '#3a0c08', ink: '#e9c47a' }, mage: { bg: '#23305a', edge: '#0e1530', ink: '#dfe6ff' },
-    cleric: { bg: '#e2d6b8', edge: '#a8946a', ink: '#6a4416' }, rogue: { bg: '#1c1820', edge: '#08060a', ink: '#c9b2ea' },
+    cleric: { bg: '#e2d6b8', edge: '#a8946a', ink: '#6a4416' }, rogue: { bg: '#2e2838', edge: '#120e18', ink: '#c9b2ea' },
     goblin: { bg: '#4e5c2a', edge: '#262e12', ink: '#e8e0b0' }, shaman: { bg: '#3a2846', edge: '#1a0e22', ink: '#b8ffb0' },
     init: { bg: '#d8cfb8', edge: '#8a7e62', ink: '#2a1e10' },
   };
@@ -355,7 +355,8 @@ const ART = (() => {
     g.beginPath(); g.arc(cx, cy + s * .18, s * .065, 0, Math.PI * 2); g.stroke(); g.fill();
   }
   function emoji(g, ch, cx, cy, size) {
-    g.save(); g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    // colour emoji take the fill's transparency, so draw them with a solid fill at full opacity
+    g.save(); g.globalAlpha = 1; g.fillStyle = '#000'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
     g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = size * .08; g.shadowOffsetY = size * .04; g.fillText(ch, cx, cy + size * .05); g.restore();
   }
   function dieFace(style, kind, icon, label) {
@@ -365,8 +366,12 @@ const ART = (() => {
     g.lineWidth = 10; g.strokeStyle = style.edge; g.globalAlpha = .7; g.strokeRect(0, 0, s, s); g.globalAlpha = 1;
     if (kind === 'hit') emoji(g, icon, s / 2, s / 2, 74);
     else if (kind === 'knack') {
-      g.beginPath(); g.arc(s / 2, s / 2, s * .4, 0, Math.PI * 2); g.lineWidth = 6; g.strokeStyle = '#f1cf62'; g.stroke();
-      g.fillStyle = 'rgba(241,207,98,.18)'; g.fill(); emoji(g, icon, s / 2, s / 2, 62);
+      // the power face: a dark disc in a gold ring, so its icon reads on light dice and dark ones alike
+      g.beginPath(); g.arc(s / 2, s / 2, s * .41, 0, Math.PI * 2);
+      const disc = g.createRadialGradient(s * .44, s * .4, 4, s / 2, s / 2, s * .41); disc.addColorStop(0, '#3a2a12'); disc.addColorStop(1, '#140c04');
+      g.fillStyle = disc; g.fill(); g.lineWidth = 7; g.strokeStyle = '#f1cf62'; g.stroke();
+      g.beginPath(); g.arc(s / 2, s / 2, s * .41 - 5, 0, Math.PI * 2); g.lineWidth = 2; g.strokeStyle = 'rgba(0,0,0,.6)'; g.stroke();
+      emoji(g, icon, s / 2, s / 2, 64);
     } else if (kind === 'crit') drawCrit(g, s / 2, s / 2, s * .92);
     else if (kind === 'num') { g.fillStyle = style.ink; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `bold ${String(label).length > 1 ? 58 : 70}px "Pixelify Sans",ui-monospace,monospace`; g.fillText(label, s / 2, s / 2 + 4); if (label === 6 || label === 9) g.fillRect(s / 2 - 16, s * .78, 32, 6); }
     return cv;
