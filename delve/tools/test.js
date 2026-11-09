@@ -41,31 +41,33 @@ const fail = m => { failures++; console.log('FAIL', m); };
   for (let f = 0; f < fights; f++) {
     if (f) { await p.click('#rAgain'); await p.waitForSelector('#hotbar .abtn'); }
     await shot(`fight${f}-0-start`);
-    let acts = 0, picks = 0;
+    let acts = 0, picks = 0, powers = 0, ends = 0;
     for (let i = 0; i < 2000; i++) {
       const st = await p.evaluate(() => ({ phase: DELVE.ui.phase, busy: DELVE.ui.busy, modal: !document.querySelector('#modal').hidden }));
       if (st.phase === 'over') break;
       if (st.busy || st.modal) { await p.waitForTimeout(100); continue; }
       const bad = await checkBars(); if (bad.length) fail(bad.join('; '));
-      const c = await p.evaluate(() => { const S = DELVE.S, m = DV.mind(S); return { ...m, cur: DELVE.ui.hero, i: S.units[m.id].actions.indexOf(m.act), foe: m.target ? S.units[m.target].side === 'foe' : false }; });
+      const c = await p.evaluate(() => { const S = DELVE.S, m = DV.mind(S), A = m.act && DV.ACTIONS[m.act]; return { ...m, cur: DELVE.ui.hero, mid: !!S.turn, i: m.act ? S.units[m.id].actions.indexOf(m.act) : -1, tt: A && A.target, foe: m.target ? S.units[m.target].side === 'foe' : false }; });
       // the player picks who acts: tap that hero's portrait
-      if (c.id !== c.cur) {
+      if (c.id !== c.cur && !c.mid) {
         await p.click(`.pc[data-id="${c.id}"]`); picks++;
         const now = await p.evaluate(() => DELVE.ui.hero);
         if (now !== c.id) fail(`tapping ${c.id}'s portrait picked ${now}`);
       }
+      if (c.end) { await p.click('#endTurn'); ends++; continue; }
       const btn = `#hotbar .abtn:nth-child(${c.i + 1})`;
       await p.click(btn);
       if (!c.target) await p.click(btn);
       else if (c.foe) { const box = await p.locator(`.tag[data-id="${c.target}"]`).boundingBox(); await p.mouse.click(box.x + box.width / 2, box.y + box.height * .6); }
       else await p.click(`.pc[data-id="${c.target}"]`);
+      if (c.act !== 'attack') powers++;
       acts++;
       if (acts === 2) { await p.waitForTimeout(500); await shot(`fight${f}-1-roll`); }
     }
     await p.waitForSelector('#rAgain', { timeout: 20000 });
     const r = await p.evaluate(() => ({ over: DELVE.S.over, round: DELVE.S.round }));
     const bad = await checkBars(); if (bad.length) fail('at the end: ' + bad.join('; '));
-    console.log(`fight ${f + 1}: ${r.over === 'hero' ? 'the party wins' : 'the goblins win'} in round ${r.round}, ${acts} hero actions through the hotbar, ${picks} heroes picked out of turn`);
+    console.log(`fight ${f + 1}: ${r.over === 'hero' ? 'the party wins' : 'the goblins win'} in round ${r.round}, ${acts} hero actions through the hotbar (${powers} powers), ${ends} turns ended early, ${picks} heroes picked out of turn`);
     await shot(`fight${f}-2-result`);
   }
 
@@ -74,11 +76,26 @@ const fail = m => { failures++; console.log('FAIL', m); };
   await p.click('.pc[data-id="fighter"]'); await p.click('#tuneBtn');
   await p.click('.step button[data-f="hp"][data-d="1"]'); await p.click('.faces button[data-i="0"]');
   await p.reload(); await p.waitForSelector('#hotbar .abtn');
+  const D = await p.evaluate(() => ({ hp: DV.DEFAULTS.fighter.hp, face: DV.DEFAULTS.fighter.faces[0], next: DV.FACE_KINDS[DV.FACE_KINDS.indexOf(DV.DEFAULTS.fighter.faces[0]) + 1] }));
   let u = await p.evaluate(() => DELVE.S.units.fighter);
-  if (u.max !== 15 || u.faces[0] !== 'hit') fail(`tuning did not survive a reload: ${u.max} HP, first face ${u.faces[0]}`);
+  if (u.max !== D.hp + 1 || u.faces[0] !== D.next) fail(`tuning did not survive a reload: ${u.max} HP, first face ${u.faces[0]}`);
   await p.click('#menuBtn'); await p.click('#mReset');
   u = await p.evaluate(() => DELVE.S.units.fighter);
-  if (u.max !== 14 || u.faces[0] !== 'blank') fail(`reset did not restore the defaults: ${u.max} HP, first face ${u.faces[0]}`);
+  if (u.max !== D.hp || u.faces[0] !== D.face) fail(`reset did not restore the defaults: ${u.max} HP, first face ${u.faces[0]}`);
+  await p.keyboard.press('Escape');
+  // End: one action, then End passes the second; End straight away passes a whole turn
+  await p.click('#hotbar .abtn:nth-child(2)'); await p.click('#hotbar .abtn:nth-child(2)'); // Brakka: Defend
+  await p.waitForFunction(() => !DELVE.ui.busy && DELVE.S.turn && DELVE.S.turn.left === 1, null, { timeout: 20000 });
+  await p.click('#endTurn');
+  await p.waitForFunction(() => !DELVE.ui.busy && DV.ready(DELVE.S).side === 'hero', null, { timeout: 30000 });
+  let st = await p.evaluate(() => ({ acted: DELVE.S.acted, guard: DELVE.S.units.fighter.guard }));
+  if (!st.acted.includes('fighter') || !st.guard) fail(`Defend then End: ${JSON.stringify(st)}`);
+  await p.click('#endTurn');
+  await p.waitForFunction(() => !DELVE.ui.busy && DV.ready(DELVE.S).side === 'hero', null, { timeout: 30000 });
+  st = await p.evaluate(() => DELVE.S.acted);
+  if (st.filter(id => !id.startsWith('gob') && id !== 'shaman').length !== 2) fail(`End straight away should pass a hero's turn: ${JSON.stringify(st)}`);
+  else console.log('End: after one action, and straight away, both pass the turn');
+  await p.click('#menuBtn');
   // the simulator
   await p.click('#mSim'); await p.waitForSelector('#sAgain', { timeout: 20000 });
   const win = await p.textContent('.kpis .stat b');

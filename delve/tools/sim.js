@@ -10,5 +10,5 @@ const t0 = Date.now(), r = DV.simulate(n, seed);
 const pct = x => (100 * x).toFixed(1).padStart(5) + '%', f1 = x => x.toFixed(1).padStart(5);
 console.log(`${n} battles in ${Date.now() - t0} ms`);
 console.log(`Party wins ${pct(r.winRate)} · ${f1(r.avgRounds)} rounds · ${f1(r.avgHeroesUp)} heroes standing · ${f1(r.avgHeroHp)} party HP left · no one fell ${pct(r.flawlessRate)} · longest explosion ${r.maxChain}`);
-console.log('                        dealt  taken  healed  fell   miss   crits/battle');
-Object.values(r.units).forEach(q => console.log(`${(q.name + ' (' + q.cls + ')').padEnd(24)}${f1(q.avgDealt)}  ${f1(q.avgTaken)}  ${f1(q.avgHealed)}  ${pct(q.downRate)} ${pct(q.missRate)}  ${(q.crits / n).toFixed(2)}`));
+console.log('                           dealt  taken  healed   fell   rolls  crits  (per battle)');
+Object.values(r.units).forEach(q => console.log(`${(q.name + ' (' + q.cls + ')').padEnd(27)}${f1(q.avgDealt)}  ${f1(q.avgTaken)}  ${f1(q.avgHealed)}  ${pct(q.downRate)}  ${f1(q.rolls / n)}  ${(q.crits / n).toFixed(2).padStart(5)}`));

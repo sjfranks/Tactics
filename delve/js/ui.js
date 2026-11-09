@@ -19,8 +19,19 @@
   let S = null; // the battle
   // hero: the hero the player has picked to act next (until they act, another ready hero can be picked instead)
   const ui = { phase: 'fight', sel: null, busy: false, gen: 0, log: [], hp: {}, active: null, hero: null, floaters: {} };
-  const ST_ICON = { brace: '🛡️', taunt: '📯', blessed: '🙏', bleed: '🩸' };
-  const ST_NAME = { brace: 'Braced', taunt: 'Taunting', blessed: 'Blessed', bleed: 'Bleeding' };
+  // statuses, shown as icons on portraits and nameplates
+  const ST = {
+    guard: { icon: '🛡️', name: 'Guard', on: u => u.guard > 0, n: u => u.guard },
+    taunt: { icon: '📯', name: 'Taunting', on: u => !!u.taunt },
+    ward: { icon: '🔰', name: 'Shielded', on: u => !!u.ward },
+    hidden: { icon: '🌫️', name: 'Hidden', on: u => !!u.hidden },
+    coat: { icon: '🧪', name: 'Poisoned blade', on: u => !!u.coat, n: u => u.coat.attacks },
+    poison: { icon: '☠️', name: 'Poisoned', on: u => !!u.poison, n: u => u.poison.ticks },
+    weak: { icon: '🥀', name: 'Weakened', on: u => !!u.weak, n: u => u.weak.n },
+    slow: { icon: '🐌', name: 'Slowed', on: u => !!u.slow },
+    blessed: { icon: '🙏', name: 'Blessed', on: u => !!u.blessed },
+  };
+  const statusIcons = u => u.down ? '' : Object.values(ST).filter(st => st.on(u)).map(st => `<span title="${st.name}">${st.icon}${st.n ? `<sub>${st.n(u)}</sub>` : ''}</span>`).join('');
   const short = n => n.replace(/^Sister /, '').replace(/^Old /, '');
   const U = id => S.units[id];
   const actIcon = (u, a) => a === 'attack' ? u.hitIcon : DV.ACTIONS[a].icon;
@@ -35,6 +46,8 @@
   // ---------------- readout: the box above the hotbar ----------------
   const RO = {
     open(title, sub) { $('#roTitle').innerHTML = title; $('#roSub').textContent = sub || ''; $('#roChips').innerHTML = ''; $('#roText').innerHTML = ''; },
+    // a new title and prompt, keeping the dice of the last roll in view
+    retitle(title, sub) { $('#roTitle').innerHTML = title; $('#roSub').textContent = sub || ''; $('#roText').innerHTML = ''; },
     chip(html) { $('#roChips').insertAdjacentHTML('beforeend', html); },
     group(label) { const g = el('span', 'chipgrp', label ? `<em>${esc(label)}</em>` : ''); $('#roChips').appendChild(g); return g; },
     text(html, cls = '') { const s = el('span', cls, html); $('#roText').appendChild(s); },
@@ -98,7 +111,7 @@
   }
   function drawUnit(id) {
     const u = U(id), hp = ui.hp[id] ?? u.hp;
-    const sts = Object.keys(ST_ICON).filter(k => k === 'bleed' ? u.bleed > 0 && !u.down : u[k] && !u.down).map(k => `<span title="${ST_NAME[k]}">${ST_ICON[k]}</span>`).join('');
+    const sts = statusIcons(u);
     if (u.side === 'hero') {
       const c = $(`.pc[data-id="${id}"]`); if (!c) return;
       setBar($('.bar', c), hp, u.max); $('.pc-hp', c).textContent = `${Math.max(0, hp)}/${u.max}`;
@@ -167,12 +180,8 @@
   }
 
   // ---------------- the hotbar ----------------
-  function diceLabel(A) {
-    if (A.auto) return 'sure';
-    if (!A.dice) return '';
-    if (A.target === 'all') return '🎲 each';
-    return `🎲${A.dice}${A.keep === 'best' ? '↑' : ''}`;
-  }
+  const pips = n => '◆'.repeat(n);
+  const diceLabel = (u, A) => A.kind === 'attack' ? `🎲${DV.attackDice(S, u)}` : `🎲${DV.powerDice()}↑`;
   function renderHotbar() {
     const bar = $('#hotbar'); bar.innerHTML = '';
     if (ui.phase === 'over') {
@@ -184,41 +193,73 @@
       if (!u) return;
       const w = el('div', 'waiting' + (u.side === 'hero' ? ' hero' : ''));
       const m = el('span', 'mini'); m.appendChild(ART.portraitCanvas(u.type, variantOf(u))); w.appendChild(m);
-      w.insertAdjacentHTML('beforeend', `<span><b>${esc(u.name)}</b> ${u.side === 'foe' ? 'acts' : SET.auto ? 'acts on its own' : 'acts'}<span class="dots"></span></span>`);
+      w.insertAdjacentHTML('beforeend', `<span><b>${esc(u.name)}</b> ${u.side === 'foe' || !SET.auto ? 'acts' : 'acts on its own'}<span class="dots"></span></span>`);
       bar.appendChild(w); return;
     }
+    const T = DV.turnOf(S, u);
     u.actions.forEach((a, i) => {
-      const A = DV.ACTIONS[a], can = DV.canUse(S, u.id, a), b = el('button', 'abtn' + (can.ok ? '' : ' off') + (ui.sel === a ? ' sel' : ''));
+      const A = DV.ACTIONS[a], can = DV.canUse(S, u.id, a);
+      const b = el('button', 'abtn' + (A.kind === 'power' ? ' pow' : '') + (can.ok ? '' : ' off') + (ui.sel === a ? ' sel' : ''));
       b.type = 'button'; b.dataset.act = a;
-      b.innerHTML = `<span class="ai">${actIcon(u, a)}</span><span class="nm">${esc(A.name)}</span><span class="cost">${diceLabel(A)}</span><span class="hk">${i + 1}</span>${can.wait ? `<span class="cd">${can.wait}</span>` : ''}`;
-      b.setAttribute('aria-label', `${A.name}${can.ok ? '' : ', ' + can.why}`);
+      b.innerHTML = `<span class="ai">${actIcon(u, a)}</span><span class="nm">${esc(A.name)}</span><span class="cost">${pips(A.cost)}</span><span class="dl">${diceLabel(u, A)}</span>${can.wait ? `<span class="cd">${can.wait}</span>` : can.used ? '<span class="cd ok">✓</span>' : ''}`;
+      b.setAttribute('aria-label', `${A.name}, ${A.cost} ${A.cost > 1 ? 'actions' : 'action'}${can.ok ? '' : ', ' + can.why} (key ${i + 1})`);
       b.setAttribute('aria-pressed', ui.sel === a ? 'true' : 'false');
       b.onclick = () => choose(a, b);
       bar.appendChild(b);
     });
+    const end = el('button', 'endbtn' + (T.left ? '' : ' now'), `<b>End</b><small>${T.left ? pips(T.left) : 'turn'}</small>`);
+    end.type = 'button'; end.id = 'endTurn'; end.setAttribute('aria-label', `End ${u.name}'s turn (${T.left} ${T.left === 1 ? 'action' : 'actions'} left, key E)`);
+    end.onclick = endTurn; bar.appendChild(end);
   }
+
+  // ---------------- the card over the dungeon: what the chosen action does ----------------
+  function faceLine(u, A) {
+    const sb = A.id === 'fireball' ? 1 : (DV.SURGES[u.surge].bonus || 0);
+    const sx = A.id === 'fireball' ? '' : sb ? '' : ` + ${DV.SURGES[u.surge].name}`;
+    return `<span class="fl">${SYM.graze}${DV.TUNE.graze}</span><span class="fl">${SYM.hit}${u.dmg}</span><span class="fl">${SYM.surge}${u.dmg + sb}${esc(sx)}</span><span class="fl">${SYM.crit}${u.dmg}${DV.TUNE.explode ? ' + 🎲' : ''}</span>`;
+  }
+  function showTip(u, A) {
+    const tip = $('#tip'), mods = [];
+    let body = '';
+    if (A.kind === 'attack') {
+      const T = DV.turnOf(S, u);
+      if (T.attacks) mods.push('second attack: 1 die');
+      if (u.blessed) mods.push('blessed');
+      if (u.hidden) mods.push(`from hiding ×${u.hidden.mult}`);
+      if (u.weak) mods.push(`weakened −${u.weak.n}`);
+      body = `<p class="tl">Roll ${DV.attackDice(S, u)} ${DV.attackDice(S, u) > 1 ? 'dice' : 'die'}${A.target === 'all' ? ' once; every goblin takes the total' : ', added up'}${mods.length ? ` · ${esc(mods.join(' · '))}` : ''}</p><p class="faces-line">${faceLine(u, A)}</p>`;
+    } else {
+      const o = DV.tierOdds(u);
+      body = `<p class="tl">Roll ${DV.powerDice()} dice; the best one counts.</p>` + DV.FACE_KINDS.map(k => `<p class="tier t-${k}"><span class="syms">${SYM[k]}</span><span class="odd">${Math.round(o[k] * 100)}%</span><span>${esc(A.tiers[k])}</span></p>`).join('');
+    }
+    tip.innerHTML = `<b>${actIcon(u, A.id)} ${esc(A.name)} <span class="pp">${pips(A.cost)}</span></b><p class="tx">${esc(A.text)}</p>${body}`;
+    tip.hidden = false;
+  }
+  const hideTip = () => { $('#tip').hidden = true; };
 
   // ---------------- choosing and targeting ----------------
   function idleReadout(u) {
-    const more = DV.ready(S).ids.length > 1;
-    RO.open(`${esc(short(u.name))}'s turn`, `${DV.ready(S).ids.length} of 4 still to act`);
-    RO.text(`Pick an action below, then a target.`, 'gold');
-    RO.text(more ? 'Tap another ready hero to send them first.' : 'Tap a goblin or portrait for its sheet.', 'dim');
+    const T = DV.turnOf(S, u), started = !!S.turn && S.turn.id === u.id;
+    const sub = `${T.left} ${T.left === 1 ? 'action' : 'actions'} left`;
+    if (started) RO.retitle(`${esc(short(u.name))}'s turn`, sub); else RO.open(`${esc(short(u.name))}'s turn`, sub);
+    if (started) RO.text(T.left ? 'Pick another action, or End the turn.' : 'End the turn.', 'gold');
+    else {
+      RO.text('Pick an action, then a target.', 'gold');
+      RO.text(DV.ready(S).ids.length > 1 ? 'Tap another ready hero to send them first.' : 'Tap a goblin or portrait for its sheet.', 'dim');
+    }
   }
-  // the player picks which hero acts next
+  // the player picks which hero acts next (until that hero has used an action)
   function pickHero(id) {
-    if (ui.hero === id) return;
+    if (ui.hero === id || S.turn) return;
     ui.hero = id; ui.sel = null; sfx('select');
-    VIEW.mark({}); $$('.pc').forEach(c => c.classList.remove('tgt')); $$('.tag .odds').forEach(o => o.textContent = '');
+    VIEW.mark({}); $$('.pc').forEach(c => c.classList.remove('tgt')); $$('.tag .odds').forEach(o => o.textContent = ''); hideTip();
     setActive(id); drawAll(); renderHotbar(); idleReadout(actor());
   }
   function describeAction(u, A) {
-    const parts = [];
-    if (A.auto) parts.push('no roll');
-    else if (A.dice) parts.push(A.target === 'all' ? '1 die per foe' : `${A.dice} ${A.dice > 1 ? 'dice' : 'die'}${A.keep === 'best' ? ', keep best' : ''}`);
-    const reach = A.target === 'foe' ? (A.reach === 'unit' ? u.reach : A.reach) : null;
-    if (reach) parts.push(reach);
-    if (A.cd) parts.push(`recharges in ${A.cd} rounds`);
+    const parts = [A.cost > 1 ? 'both actions' : '1 action'];
+    parts.push(A.kind === 'attack' ? (A.target === 'all' ? '2 dice at every goblin' : '2 dice added up, 1 on a second attack') : 'best of 2 dice');
+    if (A.target === 'foe') parts.push(A.reach === 'unit' ? u.reach : A.reach);
+    if (A.recharge) parts.push(`recharges in ${A.recharge} rounds`);
     return parts.join(' · ');
   }
   function choose(a, btn) {
@@ -227,7 +268,7 @@
     const u = actor(), A = DV.ACTIONS[a], can = DV.canUse(S, u.id, a);
     if (!can.ok) { sfx('nope'); if (btn) { btn.classList.remove('nope'); void btn.offsetWidth; btn.classList.add('nope'); } RO.note(`${esc(A.name)}: ${esc(can.why)}.`); return; }
     if (ui.sel === a) {
-      if (A.target === 'none' || A.target === 'all') return commit(a, null);
+      if (['none', 'self', 'all'].includes(A.target)) return commit(a, null);
       ui.sel = null; showSelection(); return;
     }
     ui.sel = a; sfx('select'); showSelection();
@@ -238,22 +279,24 @@
     const marks = {}, A = ui.sel && DV.ACTIONS[ui.sel];
     $$('.pc').forEach(c => c.classList.remove('tgt'));
     $$('.tag .odds').forEach(o => o.textContent = '');
-    if (!A) { VIEW.mark({}); idleReadout(u); return; }
+    if (!A) { VIEW.mark({}); hideTip(); idleReadout(u); return; }
     const tg = DV.targets(S, u.id, ui.sel);
     if (A.target === 'foe' || A.target === 'all') tg.forEach(id => marks[id] = A.target === 'all' ? 'hot' : 'valid');
-    if (A.target === 'ally') tg.forEach(id => $(`.pc[data-id="${id}"]`).classList.add('tgt'));
+    if (A.target === 'ally' || A.target === 'other') tg.forEach(id => $(`.pc[data-id="${id}"]`).classList.add('tgt'));
     VIEW.mark(marks);
-    // odds on each goblin in reach: average damage, chance to land anything, chance to finish it
-    if (A.target === 'foe' || A.target === 'all') tg.forEach(id => {
+    // on an attack, each goblin in reach shows the average damage and the chance to finish it
+    if (A.kind === 'attack') tg.forEach(id => {
       const o = DV.odds(S, u.id, ui.sel, id); if (!o) return;
       const t = $(`.tag[data-id="${id}"] .odds`);
-      if (t) t.textContent = `≈${o.avg.toFixed(1)} · ${Math.round(o.hit * 100)}%${o.kill > .005 ? ` · ☠${Math.round(o.kill * 100)}%` : ''}`;
+      if (t) t.textContent = `≈${o.avg.toFixed(1)}${o.kill > .005 ? ` · ☠${Math.round(o.kill * 100)}%` : ''}`;
     });
-    RO.open(`<span class="emo">${actIcon(u, ui.sel)}</span> ${esc(A.name)}`, describeAction(u, A));
-    const prompt = A.target === 'foe' ? (A.reach === 'melee' || (A.reach === 'unit' && u.reach === 'melee') ? 'Tap a goblin in the front rank.' : 'Tap any goblin.')
-      : A.target === 'ally' ? 'Tap a hero’s portrait.' : A.target === 'all' ? `Tap ${esc(A.name)} again, or any goblin, to cast it.` : `Tap ${esc(A.name)} again to use it.`;
+    RO.retitle(`<span class="emo">${actIcon(u, ui.sel)}</span> ${esc(A.name)}`, `${A.cost > 1 ? 'both actions' : '1 action'}${A.recharge ? ` · recharges in ${A.recharge}` : ''}`);
+    const melee = A.reach === 'melee' || (A.reach === 'unit' && u.reach === 'melee');
+    const prompt = A.target === 'foe' ? (melee ? 'Tap a goblin in the front rank.' : 'Tap any goblin.')
+      : A.target === 'ally' ? 'Tap a hero’s portrait.' : A.target === 'other' ? 'Tap another hero’s portrait.'
+        : A.target === 'all' ? `Tap ${esc(A.name)} again, or any goblin, to cast it.` : `Tap ${esc(A.name)} again to use it.`;
     RO.text(prompt, 'gold');
-    RO.text(A.id === 'attack' ? `<span class="syms">${SYM.hit} hits for ${u.dmg} · ${SYM.surge} ${esc(DV.SURGES[u.surge].name)} · ${SYM.crit} rolls again</span>` : esc(A.text));
+    showTip(u, A);
   }
   function hoverFoe(id) {
     if (!partyPick() || !ui.sel) return;
@@ -277,41 +320,45 @@
   }
   function tapHero(id) {
     VIEW.audio();
-    if (partyPick() && ui.sel && DV.ACTIONS[ui.sel].target === 'ally') {
+    if (partyPick() && ui.sel && ['ally', 'other'].includes(DV.ACTIONS[ui.sel].target)) {
       const u = actor();
       if (DV.targets(S, u.id, ui.sel).includes(id)) return commit(ui.sel, id);
-      sfx('nope'); RO.note(`${esc(U(id).name)} is not hurt.`); return;
+      sfx('nope'); RO.note(id === u.id ? 'Pick another hero.' : `${esc(U(id).name)} ${U(id).down ? 'has fallen' : 'is not hurt'}.`); return;
     }
     // a hero still waiting to act this round: tap to send them next. Anyone else: the sheet
-    if (partyPick() && id !== ui.hero && DV.ready(S).ids.includes(id)) return pickHero(id);
+    if (partyPick() && !S.turn && id !== ui.hero && DV.ready(S).ids.includes(id)) return pickHero(id);
     openSheet(id);
   }
+  function clearAim() { ui.sel = null; VIEW.mark({}); $$('.pc').forEach(c => c.classList.remove('tgt')); $$('.tag .odds').forEach(o => o.textContent = ''); hideTip(); }
   async function commit(a, target) {
-    ui.sel = null; ui.busy = true; VIEW.mark({});
-    $$('.pc').forEach(c => c.classList.remove('tgt')); $$('.tag .odds').forEach(o => o.textContent = '');
-    renderHotbar();
+    clearAim(); ui.busy = true; renderHotbar();
     const g = ui.gen;
     await play(DV.act(S, ui.hero, a, target));
     if (g === ui.gen) proceed();
   }
-  // whose turn next: goblins (and the party, on Auto) act by themselves
+  async function endTurn() {
+    if (!partyPick()) return;
+    clearAim(); ui.busy = true; renderHotbar();
+    const g = ui.gen;
+    await play(DV.obey(S, { id: ui.hero, end: true }));
+    if (g === ui.gen) proceed();
+  }
+  // whoever acts next: goblins (and the party, on Auto) act by themselves, one action at a time
   async function proceed() {
     const g = ui.gen;
-    for (let guard = 0; guard < 500; guard++) {
+    for (let guard = 0; guard < 2000; guard++) {
       if (g !== ui.gen) return;
       if (S.over) return finish();
       const rd = DV.ready(S);
       if (rd.side === 'hero' && !SET.auto) break;
       ui.busy = true;
-      if (rd.side === 'foe') setActive(rd.ids[0]);
-      renderHotbar();
-      await wait(rd.side === 'foe' ? 520 : 380);
+      const c = DV.mind(S);
+      if (c.id !== ui.active) { setActive(c.id); if (U(c.id).side === 'hero') ui.hero = c.id; renderHotbar(); }
+      await wait(U(c.id).side === 'foe' ? 460 : 340);
       // the goblins wait while a sheet or the menu is open
       while (!$('#modal').hidden && g === ui.gen) await new Promise(r => setTimeout(r, 200));
       if (g !== ui.gen || S.over) return;
-      const c = DV.mind(S);
-      if (c.id !== ui.active) { setActive(c.id); await wait(150); }
-      await play(DV.act(S, c.id, c.act, c.target));
+      await play(DV.obey(S, c));
     }
     if (g !== ui.gen) return;
     // the party's move: keep the hero already picked if they can still act, else the next one down the column
@@ -340,78 +387,104 @@
         break;
       case 'turn':
         setActive(e.id); drawUnit(e.id);
+        if (u.side === 'hero') ui.hero = e.id;
         await wait(80);
         break;
-      case 'status':
+      case 'status': {
         drawUnit(e.id);
-        if (e.on) { floatOn(e.id, `${ST_ICON[e.key]} ${ST_NAME[e.key]}`, 'note'); log(`${nm(e.id)} is ${ST_NAME[e.key].toLowerCase()}${e.key === 'bleed' ? ` for ${e.n} turns` : ''}.`, lcls(e.id)); }
-        if (e.on && e.key === 'brace' && u.side === 'hero') cardFx(e.id, 'glint', 650);
-        break;
-      case 'tick':
-        RO.open(`${esc(u.name)} bleeds`, `${e.left} more ${e.left === 1 ? 'turn' : 'turns'}`);
-        break;
-      case 'act': {
-        const A = DV.ACTIONS[e.act];
-        RO.open(`<span class="emo">${actIcon(u, e.act)}</span> ${esc(short(u.name))} · ${esc(A.name)}${e.target ? ` → ${esc(short(U(e.target).name))}` : ''}`, '');
-        log(`${nm(e.id)} uses <b>${esc(A.name)}</b>${e.target ? ` on ${nm(e.target)}` : ''}.`, lcls(e.id));
-        if (u.side === 'hero') cardFx(e.id, 'acting', 420);
-        if (e.act === 'missile') { sfx('zap'); await VIEW.bolt(null, e.target, 0xb0a0ff, .36); }
-        else if (e.act === 'taunt') { sfx('horn'); RO.text(`${esc(short(u.name))} bellows a challenge. Goblin fighters must come at ${u.type === 'fighter' ? 'him' : 'them'}.`); await wait(450); }
-        else if (e.act === 'prayer') { sfx('heal'); DV.standing(S, 'hero').forEach(h => cardFx(h.id, 'healed', 800)); await wait(400); }
-        else if (e.act === 'brace') { sfx('select'); await wait(250); }
-        else if (e.act === 'chant') { await VIEW.cast(e.id, 0x7dff9a); }
-        else if (u.side === 'foe') { if (u.reach === 'ranged') VIEW.cast(e.id, 0xc070ff); else VIEW.hop(e.id); await wait(160); }
-        break;
-      }
-      case 'roll': {
-        const A = DV.ACTIONS[e.act], multi = e.groups.length > 1, chip = d => faceChip(d.face, (d.extra ? 'extra ' : '') + (d.dropped ? 'dropped' : ''));
-        if (e.blessed) RO.text('🙏 Blessed: one more die.', 'gold');
-        const grp = {};
-        e.groups.forEach(g => { grp[g.target] = RO.group(multi ? short(U(g.target).name) : ''); });
-        await VIEW.roll({
-          style: u.type, faces: u.faces,
-          from: u.side === 'foe' ? u.id : null, groups: e.groups, explode: DV.TUNE.explode,
-          onLand: (d, g) => grp[g.target].insertAdjacentHTML('beforeend', chip(d)),
-        });
-        e.groups.forEach(g => log(`${multi ? nm(g.target) + ': ' : ''}${g.dice.map(chip).join(' ')}`, lcls(e.id)));
-        await wait(260);
-        // the blow lands as the dice fell
-        const hit = e.groups.filter(g => g.hits > 0).map(g => g.target);
-        if (u.side === 'foe') { if (hit.length) { if (u.reach === 'ranged') await VIEW.bolt(u.id, null, 0xc070ff, .3); else await VIEW.lunge(u.id); } }
-        else if (hit.length) {
-          if (e.act === 'fireball') await VIEW.fireball(hit);
-          else if (A.reach === 'ranged' || (A.reach === 'unit' && u.reach === 'ranged')) await Promise.all(hit.map(t => VIEW.bolt(null, t, u.type === 'mage' ? 0xa9bcff : 0xffffff, .26)));
-          else hit.forEach(t => VIEW.slash(t, u.type === 'cleric' ? 0xffe6a0 : 0xffffff));
+        const st = ST[e.key]; if (!st) break;
+        if (e.on) {
+          floatOn(e.id, `${st.icon} ${st.name}${e.n != null && e.key !== 'coat' ? ' ' + e.n : ''}`, 'note');
+          log(`${nm(e.id)}: ${st.name.toLowerCase()}${e.n != null ? ' ' + e.n : ''}.`, lcls(e.id));
+          if (u.side === 'hero' && ['guard', 'ward', 'blessed'].includes(e.key)) cardFx(e.id, 'glint', 650);
+          if (u.side === 'foe' && ['weak', 'slow'].includes(e.key)) VIEW.sparkle(e.id, e.key === 'weak' ? 0xb070ff : 0x70c0ff);
+          await wait(160);
         }
         break;
       }
-      case 'miss':
-        floatOn(e.id, 'Miss', 'miss'); sfx('miss');
-        RO.text(`${esc(short(U(e.src).name))} misses ${esc(short(U(e.id).name))}.`, 'dim');
-        log(`Miss.`, lcls(e.src));
-        await wait(200);
+      case 'tick':
+        RO.open(`☠️ ${esc(short(u.name))} is poisoned`, `${e.left} more ${e.left === 1 ? 'turn' : 'turns'}`);
+        break;
+      case 'slowed':
+        floatOn(e.id, `🐌 −${e.lost} action${e.lost > 1 ? 's' : ''}`, 'note');
+        log(`${nm(e.id)} is slowed: ${e.lost} ${e.lost > 1 ? 'actions' : 'action'} lost.`, lcls(e.id));
+        await wait(320);
+        break;
+      case 'act': {
+        const A = DV.ACTIONS[e.act];
+        RO.open(`<span class="emo">${actIcon(u, e.act)}</span> ${esc(short(u.name))} · ${esc(A.name)}${e.target ? ` → ${esc(short(U(e.target).name))}` : ''}`, e.left ? `${e.left} ${e.left === 1 ? 'action' : 'actions'} left` : 'last action');
+        log(`${nm(e.id)} uses <b>${esc(A.name)}</b>${e.target ? ` on ${nm(e.target)}` : ''}.`, lcls(e.id));
+        if (u.side === 'hero') cardFx(e.id, 'acting', 420);
+        else if (e.act === 'chant') VIEW.cast(e.id, 0x7dff9a);
+        else if (u.reach === 'ranged' || e.act === 'curse') VIEW.cast(e.id, 0xc070ff);
+        else VIEW.hop(e.id);
+        await wait(160);
+        break;
+      }
+      case 'roll': {
+        const sum = e.mode === 'sum', chip = d => faceChip(d.face, (d.extra ? 'extra ' : '') + (d.dropped ? 'dropped' : ''));
+        const notes = [];
+        if (e.later) notes.push('2nd attack');
+        if (e.blessed) notes.push('🙏');
+        if (e.from) notes.push(`🌫️×${e.from}`);
+        if (!sum) notes.push('best');
+        const grp = RO.group(notes.join(' '));
+        await VIEW.roll({
+          style: u.type, faces: u.faces, from: u.side === 'foe' ? u.id : null, groups: e.groups, explode: sum && DV.TUNE.explode,
+          onLand: d => grp.insertAdjacentHTML('beforeend', chip(d)),
+        });
+        if (sum) grp.insertAdjacentHTML('beforeend', `<em class="tot">= ${e.total}</em>`);
+        log(`${e.groups[0].dice.map(chip).join(' ')}${sum ? ` = <b>${e.total}</b>` : ' (best die counts)'}`, lcls(e.id));
+        await wait(220);
+        if (!sum) break;
+        // the blow lands as the dice fell
+        const A = DV.ACTIONS[e.act], tgt = e.targets || [e.groups[0].target];
+        if (u.side === 'foe') { if (u.reach === 'ranged') await VIEW.bolt(u.id, null, 0xc070ff, .3); else await VIEW.lunge(u.id); }
+        else if (e.act === 'fireball') await VIEW.fireball(tgt);
+        else if (A.reach === 'ranged' || (A.reach === 'unit' && u.reach === 'ranged')) await VIEW.bolt(null, tgt[0], u.type === 'mage' ? 0xa9bcff : u.type === 'cleric' ? 0xffe6a0 : 0xffffff, .26);
+        else VIEW.slash(tgt[0], 0xffffff);
+        break;
+      }
+      case 'tier': {
+        RO.text(`<span class="syms">${SYM[e.tier]}</span> ${esc(e.text)}`, e.tier === 'graze' ? '' : 'gold');
+        log(`<span class="syms">${SYM[e.tier]}</span> ${esc(DV.FACE_NAME[e.tier])}: ${esc(e.text)}`, lcls(e.id));
+        if (e.tier === 'crit') { sfx('crit'); VIEW.flashScreen(); }
+        const fx = {
+          taunt: () => sfx('horn'), defend: () => sfx('select'), interpose: () => sfx('select'), hide: () => sfx('throw'), poison: () => sfx('zap'),
+          weaken: () => VIEW.bolt(null, e.target, 0xb070ff, .3), slow: () => VIEW.bolt(null, e.target, 0x70c0ff, .3), curse: () => VIEW.bolt(e.id, null, 0xb070ff, .3),
+          heal: () => sfx('heal'), bless: () => sfx('heal'), prayer: () => sfx('heal'),
+        }[e.act];
+        if (fx) await fx();
+        await wait(e.tier === 'graze' ? 260 : 340);
+        break;
+      }
+      case 'interpose':
+        floatOn(e.id, '🔰 Interposes!', 'note'); cardFx(e.id, 'acting', 420);
+        RO.text(`${esc(short(u.name))} steps in front of ${esc(short(U(e.from).name))}`, 'gold');
+        log(`${nm(e.id)} steps in front of ${nm(e.from)}.`);
+        await wait(280);
         break;
       case 'dmg': {
         ui.hp[e.id] = e.hp;
         const big = e.kind === 'crit';
-        if (u.side === 'foe') { if (e.kind !== 'bleed') VIEW.hurt(e.id, { crit: big }); else VIEW.hurt(e.id, { colors: [0xc01818, 0xff4040] }); }
+        if (u.side === 'foe') VIEW.hurt(e.id, e.kind === 'poison' ? { colors: [0x70d040, 0xc0ff80] } : { crit: big });
         else { cardFx(e.id, 'hit', 400); VIEW.shake(big ? .12 : .06); sfx('hit'); }
         floatOn(e.id, e.amount ? `−${e.amount}` : 'Blocked', e.amount ? (big ? 'dmg big' : 'dmg') : 'miss');
         drawUnit(e.id);
-        const why = e.kind === 'bleed' ? ' (bleeding)' : e.kind === 'arc' ? ' (arc)' : '';
-        const bl = e.braced ? ` <span class="dim">(braced, −${e.raw - e.amount})</span>` : '';
-        RO.text(`${esc(short(u.name))} takes ${e.amount}${why}${bl}`, u.side === 'hero' ? 'bad' : '');
-        log(`${nm(e.id)} takes <b>${e.amount}</b>${why}${e.hits > 1 ? ` from ${e.hits} hits` : ''}${bl}. ${Math.max(0, e.hp)} HP left.`, lcls(e.id));
-        await wait(big ? 320 : 220);
+        const why = e.kind === 'poison' ? ' (poison)' : e.kind === 'arc' ? ' (arc)' : '';
+        const gd = e.guarded ? ` <span class="dim">(guard −${e.guarded})</span>` : '';
+        RO.text(`${esc(short(u.name))} takes ${e.amount}${why}${gd}`, u.side === 'hero' ? 'bad' : '');
+        log(`${nm(e.id)} takes <b>${e.amount}</b>${why}${gd}. ${Math.max(0, e.hp)} HP left.`, lcls(e.id));
+        await wait(big ? 300 : 200);
         break;
       }
       case 'surge': {
         const K = DV.SURGES[e.surge];
-        floatOn(e.surge === 'bleed' ? e.target : e.id, `${SYM.surge} ${esc(K.name)}!`, 'note'); sfx('zap');
+        floatOn(e.id, `${SYM.surge} ${esc(K.name)}!`, 'note'); sfx('zap');
         RO.text(`<span class="syms">${SYM.surge}</span> ${esc(K.name)}${e.fizzle ? ': ' + esc(e.fizzle.toLowerCase()) : e.bonus ? ` +${e.bonus}` : ''}`, 'gold');
         log(`<span class="syms">${SYM.surge}</span> <b>${esc(K.name)}</b>${e.fizzle ? `: ${esc(e.fizzle.toLowerCase())}` : e.bonus ? `: +${e.bonus} damage` : ''}.`, lcls(e.id));
-        if (e.surge === 'arc') { const others = DV.standing(S, 'foe').filter(x => x.id !== e.target).map(x => x.id); others.forEach(o => VIEW.bolt(e.target, o, 0xa9bcff, .18)); }
-        await wait(260);
+        if (e.surge === 'arc') DV.standing(S, 'foe').filter(x => x.id !== e.target).forEach(o => VIEW.bolt(e.target, o.id, 0xa9bcff, .18));
+        await wait(240);
         break;
       }
       case 'heal':
@@ -421,7 +494,7 @@
         if (e.raised) floatOn(e.id, 'Back up!', 'note');
         RO.text(`${esc(short(u.name))} ${e.raised ? 'gets back up with' : 'heals'} ${e.raised ? e.hp : e.amount}`, 'good');
         log(`${nm(e.id)} ${e.raised ? 'gets back up with' : 'heals'} <b>${e.raised ? e.hp : e.amount}</b>. ${e.hp} HP.`, lcls(e.id));
-        await wait(300);
+        await wait(260);
         break;
       case 'down':
         if (u.side === 'foe') { RO.text(`${esc(short(u.name))} is slain!`, 'gold'); log(`${nm(e.id)} is slain.`, 'foe'); await VIEW.kill(e.id); }
@@ -478,12 +551,17 @@
   function openSheet(id, keepTuning) {
     if (!S) return;
     if (!keepTuning) sheetTuning = false;
-    const u = U(id), T = DV.UNITS[u.type], K = DV.SURGES[u.surge], c = DV.counts(u.faces);
-    const hitPct = Math.round((u.faces.length - c.blank) / u.faces.length * 100), avg = DV.perDie(u, S);
-    const sts = Object.keys(ST_ICON).filter(k => k === 'bleed' ? u.bleed > 0 : u[k]).map(k => `<span class="tagc"><span class="emo">${ST_ICON[k]}</span> ${ST_NAME[k]}${k === 'bleed' ? ` (${u.bleed})` : ''}</span>`);
+    const u = U(id), T = DV.UNITS[u.type], K = DV.SURGES[u.surge], c = DV.counts(u.faces), odds = DV.tierOdds(u);
+    const avg = DV.perDie(u, S) * DV.TUNE.dice;
+    const sts = Object.values(ST).filter(st => st.on(u)).map(st => `<span class="tagc"><span class="emo">${st.icon}</span> ${st.name}${st.n ? ' ' + st.n(u) : ''}</span>`);
     const cds = u.actions.filter(a => u.cd[a] > 0).map(a => `<span class="tagc dim">${esc(DV.ACTIONS[a].name)} ready in ${u.cd[a]}</span>`);
     const kin = Object.values(S.units).filter(x => x.type === u.type).length;
-    const when = S.over ? '' : u.down ? '' : S.acted.includes(id) ? 'Has acted this round' : u.side === 'hero' ? 'Still to act this round' : `Acts ${['1st', '2nd', '3rd', '4th'][S.order.foe.indexOf(id)] || ''} among the goblins`;
+    const when = S.over || u.down ? '' : S.turn && S.turn.id === id ? `Acting: ${S.turn.left} ${S.turn.left === 1 ? 'action' : 'actions'} left` : S.acted.includes(id) ? 'Has acted this round' : u.side === 'hero' ? 'Still to act this round' : `Acts ${['1st', '2nd', '3rd', '4th'][S.order.foe.indexOf(id)] || ''} among the goblins`;
+    const actRow = a => {
+      const A = DV.ACTIONS[a];
+      const tiers = A.kind === 'power' ? `<div class="tiers">${DV.FACE_KINDS.map(k => `<p class="tier t-${k}"><span class="syms">${SYM[k]}</span><span class="odd">${Math.round(odds[k] * 100)}%</span><span>${esc(A.tiers[k])}</span></p>`).join('')}</div>` : '';
+      return `<div class="act${A.kind === 'power' ? ' facedo' : ''}"><span class="ai">${actIcon(u, a)}</span><div><b>${esc(A.name)}</b> <span class="pp">${pips(A.cost)}</span><span class="meta">${esc(describeAction(u, A))}</span><p>${esc(A.text)}</p>${tiers}</div></div>`;
+    };
     const html = `
       <div class="sh-head"><div class="sh-pic"></div><div><h2>${esc(u.name)}</h2>
         <p class="sub">${esc(u.cls)} · ${u.rank === 'front' ? 'Front' : 'Back'} rank · ${u.reach === 'melee' ? 'Melee' : 'Ranged'} · ${esc(u.weapon)}</p>
@@ -491,22 +569,23 @@
       <div class="stats">
         <div class="stat hp"><small>HP</small><b>${Math.max(0, u.hp)}<span style="font-size:14px;color:var(--parch-dim)">/${u.max}</span></b><span class="bar"><u></u><i></i></span><span class="step"><button type="button" data-f="hp" data-d="-1" aria-label="Less max HP">−</button><button type="button" data-f="hp" data-d="1" aria-label="More max HP">+</button></span></div>
         <div class="stat"><small>Damage</small><b>${u.dmg}</b><span class="note">per hit</span><span class="step"><button type="button" data-f="dmg" data-d="-1" aria-label="Less damage">−</button><button type="button" data-f="dmg" data-d="1" aria-label="More damage">+</button></span></div>
-        <div class="stat"><small>Per roll</small><b>${avg === Infinity ? '∞' : avg.toFixed(1)}</b><span class="note">average damage, ${hitPct}% to land</span></div>
+        <div class="stat"><small>Attack</small><b>${avg === Infinity ? '∞' : avg.toFixed(1)}</b><span class="note">average for ${DV.TUNE.dice} dice</span></div>
       </div>
-      <section><h3>Attack die · d10</h3>
+      <section><h3>Die · d10</h3>
         <div class="faces">${u.faces.map((f, i) => `<button type="button" class="face f-${f}" data-i="${i}" title="${DV.FACE_NAME[f]}" aria-label="Face ${i + 1}: ${DV.FACE_NAME[f]}">${SYM[f]}</button>`).join('')}</div>
         <div class="mix">${DV.FACE_KINDS.map(k => `<span class="mx mx-${k}" style="flex:${c[k]}" title="${DV.FACE_NAME[k]} ×${c[k]}">${c[k] ? `<span class="face f-${k}">${SYM[k]}</span><b>${c[k]}</b>` : ''}</span>`).join('')}</div>
-        <p class="legend">${c.blank} blank (miss) · ${c.hit} hit for ${u.dmg} · ${c.surge} surge · ${c.crit} critical.${DV.TUNE.explode ? ' Explosions are in the average.' : ''}</p>
-        <p class="legend tune-only" ${sheetTuning ? '' : 'hidden'}>Tap a face to change it: blank → hit → surge → critical.</p>
+        <p class="legend tune-only" ${sheetTuning ? '' : 'hidden'}>Tap a face to change it: graze → hit → surge → critical.</p>
       </section>
-      <section><h3>What the faces do</h3>
+      <section><h3>On an attack · each die adds</h3>
+        <div class="act facedo"><span class="ai syms">${SYM.graze}</span><div><b>Graze</b><p>${DV.TUNE.graze} damage. A glancing blow: nothing misses outright.</p></div></div>
         <div class="act facedo"><span class="ai syms">${SYM.hit}</span><div><b>Hit</b><p>${u.dmg} damage.</p></div></div>
-        <div class="act facedo"><span class="ai syms">${SYM.surge}</span><div><b>Surge · ${esc(K.name)}</b><p>${esc(K.text)}</p></div></div>
-        <div class="act facedo"><span class="ai syms">${SYM.crit}</span><div><b>Critical</b><p>A hit${DV.TUNE.explode ? ', and roll one more die. That die can explode too.' : '.'}</p></div></div>
+        <div class="act facedo"><span class="ai syms">${SYM.surge}</span><div><b>Surge · ${esc(K.name)}</b><p>${u.dmg} damage. ${esc(K.text)}</p></div></div>
+        <div class="act facedo"><span class="ai syms">${SYM.crit}</span><div><b>Critical</b><p>${u.dmg} damage${DV.TUNE.explode ? ', and roll one more die. That die can explode too.' : '.'}</p></div></div>
+        <p class="legend">On a power, only the best die counts: graze is the weakest result, critical the strongest.</p>
       </section>
-      <section><h3>Actions</h3><div class="acts">${u.actions.map(a => { const A = DV.ACTIONS[a]; return `<div class="act"><span class="ai">${actIcon(u, a)}</span><div><b>${esc(A.name)}</b><span class="meta">${esc(describeAction(u, A))}</span><p>${esc(A.text)}</p></div></div>`; }).join('')}</div></section>
+      <section><h3>Actions · ${DV.TUNE.actions} a turn</h3><div class="acts">${u.actions.map(actRow).join('')}</div></section>
       ${sts.length || cds.length || u.down || when ? `<section><h3>Right now</h3><div class="tags">${u.down ? `<span class="tagc">${u.side === 'hero' ? 'Down' : 'Slain'}</span>` : ''}${when ? `<span class="tagc">${when}</span>` : ''}${sts.join('')}${cds.join('')}</div></section>` : ''}
-      <section><h3>This fight</h3><div class="tags"><span class="tagc">Dealt ${u.stats.dealt}</span><span class="tagc">Taken ${u.stats.taken}</span>${u.stats.healed ? `<span class="tagc">Healed ${u.stats.healed}</span>` : ''}<span class="tagc">Dice ${u.stats.dice}</span><span class="tagc">Crits ${u.stats.crits}</span>${u.stats.kills ? `<span class="tagc">Kills ${u.stats.kills}</span>` : ''}</div></section>
+      <section><h3>This fight</h3><div class="tags"><span class="tagc">Dealt ${u.stats.dealt}</span><span class="tagc">Taken ${u.stats.taken}</span>${u.stats.healed ? `<span class="tagc">Healed ${u.stats.healed}</span>` : ''}<span class="tagc">Dice ${u.stats.dice}</span><span class="tagc">Grazes ${u.stats.grazes}</span><span class="tagc">Crits ${u.stats.crits}</span>${u.stats.kills ? `<span class="tagc">Kills ${u.stats.kills}</span>` : ''}</div></section>
       <section><h3>Tune</h3>
         <p class="legend">${sheetTuning ? `Changes apply to ${kin > 1 ? `all ${kin} ${esc(u.cls.toLowerCase())}s` : esc(short(u.name))} now and in later fights, and are kept on this device.` : 'Try other numbers: change HP, damage and the mix of faces on the die.'}</p>
         <div class="row"><button class="btn small" type="button" id="tuneBtn" aria-pressed="${sheetTuning}">${sheetTuning ? 'Done tuning' : 'Tune'}</button>${TUNING.units[u.type] ? `<button class="btn small" type="button" id="tuneReset">Back to defaults</button>` : ''}</div>
@@ -552,7 +631,7 @@
     const changed = Object.keys(TUNING.units).length + Object.keys(TUNING.tune || {}).filter(k => TUNING.tune[k] !== DV.TUNE0[k]).length;
     const card = openModal(`
       <h2>Goblin Delve</h2>
-      <p>A test bench for dice combat: a d10 per character with its own mix of four shared symbols, the party acting in the order you choose, three goblins and their shaman.</p>
+      <p>A test bench for dice combat: two actions a turn, a d10 per character with its own mix of four shared symbols, powers that roll too, the party acting in the order you choose, three goblins and their shaman.</p>
       <div class="row"><button class="btn gold" type="button" id="mNew">New fight</button><button class="btn" type="button" id="mSim">Simulate 1,000 fights</button><button class="btn" type="button" id="mLog">Combat log</button></div>
       <section><h3>Play</h3>
         <div class="set"><div><b>Auto-play the party</b><small>The heroes choose for themselves, so you can watch the rules run.</small></div>${sw('mAuto', SET.auto)}</div>
@@ -566,12 +645,13 @@
       </section>
       <details><summary>How a fight works</summary><ul>
         <li>Each round, you choose which hero acts next (tap a ready portrait) until all four have acted. ${DV.TUNE.turns === 'alternate' ? 'A goblin acts after each hero' : 'Then the goblins act'}, in a fixed order: Snikk, Grub, Muckle, then Old Gnarl. The party starts every round.</li>
-        <li>On a hero’s turn, pick one action from the hotbar, then a target. Goblins act on their own.</li>
-        <li>Every roll is a d10 with four symbols: blank misses, ${SYM.hit} hits for the character’s damage, ${SYM.surge} surges (a hit plus that class’s surge), and ${SYM.crit} is a critical: a hit${DV.TUNE.explode ? ' that rolls another die, which can explode again' : ''}. Each class has its own mix of faces.</li>
-        <li>Melee reaches only the front rank while anyone stands in it. Ranged attacks and spells reach anyone.</li>
-        <li>A power that recharges can’t be used again until that many rounds have passed.</li>
-        <li>Brace takes ${DV.TUNE.brace} off each hit until your next turn. A Blessed hero’s next roll adds a die.</li>
-        <li>Over each goblin in reach: average damage · chance to hit · chance to finish it.</li>
+        <li>A turn is ${DV.TUNE.actions} actions: typically an attack and a power. Big spells take both. End the turn early with End.</li>
+        <li>Every roll is a d10 with four symbols, mixed differently for each class: ${SYM.graze} graze (a partial success), ${SYM.hit} hit, ${SYM.surge} surge (a hit plus something extra) and ${SYM.crit} critical. Nothing misses.</li>
+        <li>An attack rolls ${DV.TUNE.dice} dice and adds them up: a graze deals ${DV.TUNE.graze}, the rest deal the character’s damage, a surge adds the class’s extra${DV.TUNE.explode ? ', and a critical rolls another die, which can explode again' : ''}. A second attack in the same turn rolls ${DV.TUNE.laterDice} die.</li>
+        <li>A power rolls ${DV.TUNE.dice} dice and the best one counts: each power says what a graze, hit, surge and critical do.</li>
+        <li>Melee reaches only the front rank while anyone stands in it. Ranged attacks and spells reach anyone. Goblins cannot attack a hidden hero.</li>
+        <li>A power can be used once a turn; one that recharges waits that many rounds.</li>
+        <li>Over each goblin in reach of an attack: the average damage and the chance to finish it.</li>
         <li>A hero at 0 HP is down until healed. The fight ends when one side has no one standing.</li>
       </ul></details>`);
     $('#mNew', card).onclick = newFight;
@@ -595,7 +675,7 @@
       const pct = x => Math.round(x * 100) + '%', f1 = x => x.toFixed(1);
       const rows = Object.values(r.units).map(q => `<tr class="${q.side}"><td>${esc(q.name)}</td><td>${f1(q.avgDealt)}</td><td>${f1(q.avgTaken)}</td><td>${q.avgHealed ? f1(q.avgHealed) : '–'}</td><td>${pct(q.downRate)}</td><td>${(q.crits / r.n).toFixed(2)}</td></tr>`).join('');
       card.innerHTML = `<button class="x" type="button" aria-label="Close">×</button><h2>1,000 fights</h2>
-        <p>The party plays with a simple bot (it ignores the odds and never braces), so a person usually does better.</p>
+        <p>The party plays with a simple bot (it ignores the odds), so a person usually does better.</p>
         <div class="kpis"><div class="stat"><small>Party wins</small><b>${pct(r.winRate)}</b></div><div class="stat"><small>Rounds</small><b>${f1(r.avgRounds)}</b><span class="note">on average</span></div><div class="stat"><small>No one fell</small><b>${pct(r.flawlessRate)}</b><span class="note">of fights</span></div></div>
         <div class="kpis"><div class="stat"><small>Heroes up</small><b>${r.avgHeroesUp.toFixed(1)}</b><span class="note">at the end</span></div><div class="stat"><small>Party HP</small><b>${f1(r.avgHeroHp)}</b><span class="note">left of ${DV.PARTY.reduce((s, k) => s + DV.UNITS[k].hp, 0)}</span></div><div class="stat"><small>Longest chain</small><b>${r.maxChain}</b><span class="note">exploding dice</span></div></div>
         <div class="tablewrap"><table class="t"><thead><tr><th>Per fight</th><th>Dealt</th><th>Taken</th><th>Healed</th><th>Fell</th><th>Crits</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -626,6 +706,7 @@
     if (n >= 1 && n <= 9 && partyPick()) { const u = actor(); if (u && u.actions[n - 1]) choose(u.actions[n - 1], $$('#hotbar .abtn')[n - 1]); }
     // H steps through the heroes still to act
     if (e.key === 'h' && partyPick()) { const ids = DV.ready(S).ids; pickHero(ids[(ids.indexOf(ui.hero) + 1) % ids.length]); }
+    if ((e.key === 'e' || e.key === 'E') && partyPick()) endTurn();
   });
 
   // ---------------- start ----------------
@@ -642,7 +723,7 @@
     $('#readout').onclick = openLog;
     newFight();
     // for tools/test.js
-    window.DELVE = { get S() { return S; }, ui, newFight, choose, tapFoe, tapHero, pickHero, SET };
+    window.DELVE = { get S() { return S; }, ui, newFight, choose, tapFoe, tapHero, pickHero, endTurn, SET };
   }
   boot();
 })();

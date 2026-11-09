@@ -334,8 +334,8 @@ const ART = (() => {
   }
 
   // ---------------- die faces ----------------
-  // Every die is a d10 and every die uses the same four symbols: blank, hit (a sword), surge (a bolt) and critical
-  // (a burst with an exclamation mark). The die's colour says whose it is. Drawn smooth: dice are things, not pixel art.
+  // Every die is a d10 and every die uses the same four symbols: graze (a half-filled circle: a partial success),
+  // hit (a sword), surge (a bolt) and critical (a burst with an exclamation mark). The die's colour says whose it is. Drawn smooth: dice are things, not pixel art.
   const DICE = {
     fighter: { bg: '#7a1f18', edge: '#3a0c08' }, mage: { bg: '#25336a', edge: '#0e1530' },
     cleric: { bg: '#e6dcc2', edge: '#a8946a' }, rogue: { bg: '#3a3346', edge: '#141018' },
@@ -343,6 +343,7 @@ const ART = (() => {
   };
   // the symbols, on a 100×100 grid: [shape, data, fill, stroke, stroke width]
   const SYM = {
+    graze: [['circle', [50, 50, 30], '#2a3240', '#c9d3de', 9], ['path', 'M50 20A30 30 0 0 0 50 80Z', '#c9d3de', null, 0]],
     hit: [['path', 'M50 3L60 16V58H40V16Z', '#eef3f8', '#15181f', 5], ['path', 'M50 15V54', null, '#8f9bab', 3], ['path', 'M23 57H77V67H23Z', '#e6b84e', '#15181f', 5],
       ['path', 'M44 67H56V82H44Z', '#7a4a24', '#15181f', 5], ['circle', [50, 89, 7], '#e6b84e', '#15181f', 5]],
     surge: [['path', 'M59 3L19 56H45L36 97L82 40H55L67 3Z', '#ffd23a', '#5a2400', 5], ['path', 'M57 13L33 48', null, '#fff3b0', 3]],
@@ -350,13 +351,13 @@ const ART = (() => {
   function burstPts(r0, r1, n, rot) { const o = []; for (let i = 0; i < n * 2; i++) { const a = rot + i * Math.PI / n, r = i % 2 ? r0 : r1 * (i % 4 === 0 ? 1 : .86); o.push([50 + Math.cos(a) * r, 50 + Math.sin(a) * r]); } return o; }
   SYM.crit = [['poly', burstPts(30, 50, 9, -.2), '#ffb11a', '#7a2a00', 4], ['poly', burstPts(20, 36, 9, .15), '#ff5a1a', null, 0],
     ['path', 'M42.5 23h15l-3 34h-9z', '#fff6d8', '#5a1000', 4], ['circle', [50, 68, 6.5], '#fff6d8', '#5a1000', 4]];
-  const svgOf = kind => kind === 'blank' ? '' : `<svg class="sym sym-${kind}" viewBox="0 0 100 100" aria-hidden="true">${SYM[kind].map(([k, d, f, st, w]) => {
+  const svgOf = kind => `<svg class="sym sym-${kind}" viewBox="0 0 100 100" aria-hidden="true">${SYM[kind].map(([k, d, f, st, w]) => {
     const paint = `fill="${f || 'none'}"${st ? ` stroke="${st}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"` : ''}`;
     if (k === 'path') return `<path d="${d}" ${paint}/>`;
     if (k === 'circle') return `<circle cx="${d[0]}" cy="${d[1]}" r="${d[2]}" ${paint}/>`;
     return `<polygon points="${d.map(p => p.map(v => v.toFixed(1)).join(',')).join(' ')}" ${paint}/>`;
   }).join('')}</svg>`;
-  const FACE_SVG = { blank: '', hit: svgOf('hit'), surge: svgOf('surge'), crit: svgOf('crit') };
+  const FACE_SVG = { graze: svgOf('graze'), hit: svgOf('hit'), surge: svgOf('surge'), crit: svgOf('crit') };
   function drawSym(g, kind, cx, cy, size) {
     if (!SYM[kind]) return;
     g.save(); g.translate(cx - size / 2, cy - size / 2); g.scale(size / 100, size / 100); g.lineJoin = 'round'; g.lineCap = 'round';
@@ -379,12 +380,12 @@ const ART = (() => {
     g.beginPath(); KITE.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
     g.lineWidth = 12; g.strokeStyle = style.edge; g.globalAlpha = .65; g.stroke(); g.globalAlpha = 1;
     // a soft dark pool behind the symbol so it reads on pale dice and dark ones alike
-    if (kind !== 'blank') {
+    {
       const pool = g.createRadialGradient(128, 156, 4, 128, 156, 70); pool.addColorStop(0, 'rgba(0,0,0,.42)'); pool.addColorStop(1, 'rgba(0,0,0,0)');
       g.fillStyle = pool; g.fillRect(40, 70, 176, 170);
     }
     g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 6; g.shadowOffsetY = 3;
-    drawSym(g, kind, 128, 154, kind === 'crit' ? 118 : 112);
+    drawSym(g, kind, 128, 154, kind === 'crit' ? 118 : kind === 'graze' ? 92 : 112);
     return cv;
   }
 
