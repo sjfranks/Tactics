@@ -56,6 +56,10 @@ node tools/sim.js 500 all     # battles per level, all levels (or a level index)
 
 On Normal, with 400 battles per level and the levels a party would have reached by then, the bot wins about 100%, 98%, 98%, 89% and 80% of the five campaign battles, and 90% of the Reeve's House (runs vary by a few points). `LV0=1` fights without the levels. The bot ignores foe intents and plays one action at a time, so people do better.
 
+## Goblin Delve
+
+`delve/` holds a second, separate program: a test bench for dice combat rules, laid out like a dungeon crawler for a phone held upright. The party's portraits run down the right, three goblin fighters and a shaman stand in the corridor, actions sit in a hotbar, and every roll is thrown as 3D dice. Each character rolls its own d6 (two blanks, two weapon hits, a power face, an exploding critical). Stats and die faces can be tuned from any character sheet, and the menu simulates 1,000 fights. See [`delve/README.md`](delve/README.md); once on `main`, Pages serves it at `/Tactics/delve/`.
+
 ## Archive
 
 Earlier projects in this repository are kept in `archive/`: Goblin Crypt as a roguelike run (`archive/goblin-crypt-runs/`: three acts of rooms, relics, shops and new actions, tuned against Slay the Spire run data), Rogue Tactics (`archive/rogue-tactics/`, the game that was at the root before), Emberwatch v1, the pre-1e rulebook and the Tactics 48 prototype. Each has an `ARCHIVED.md` explaining how to bring it back.

@@ -19,10 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Goblin Crypt is static: the page plus its scripts, no build step.
-      - run: mkdir _site && cp -r index.html js _site/
+      # Goblin Crypt is static: the page plus its scripts, no build step. Goblin Delve rides along at /delve/.
+      - run: mkdir -p _site/delve && cp -r index.html js _site/ && cp -r delve/index.html delve/js _site/delve/
       # Bust phone caches: every deploy loads fresh scripts.
-      - run: sed -i "s/?v=BUILD/?v=${GITHUB_SHA::8}/g" _site/index.html
+      - run: sed -i "s/?v=BUILD/?v=${GITHUB_SHA::8}/g" _site/index.html _site/delve/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

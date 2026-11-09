@@ -18,6 +18,8 @@ jobs:
         with:
           node-version: 20
       - name: Every script parses
-        run: for f in js/*.js js/table/*.js tools/*.js; do node --check "$f"; done
+        run: for f in js/*.js js/table/*.js tools/*.js delve/js/*.js delve/tools/*.js; do node --check "$f"; done
       - name: Simulated battles, every level
         run: node tools/sim.js 60 all
+      - name: Goblin Delve, simulated fights
+        run: node delve/tools/sim.js 500
