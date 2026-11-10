@@ -360,6 +360,26 @@ const VIEW = (() => {
     return tween(280, k => m.scale.setScalar(1 + .35 * Math.sin(Math.PI * k)), ease.out);
   }
   function dim(m) { m.material = m.material.map(x => { const c = x.clone(); c.transparent = true; c.opacity = .4; return c; }); }
+  // Compile every kind of material the dice and effects will use before the first roll: a material's shader is built the
+  // first time it is drawn, and building one mid-roll stalls a frame (on a phone a hitch; on a software renderer, a
+  // black frame).
+  function warmUp() {
+    const kit = d6Kit({ style: 'fighter', faces: ['neg', 'plain', 'surge', 'neg', 'plain', 'surge'], labels: ['1', '2', '3', '', '', ''] });
+    const lit = kit.mats[0].clone(); lit.emissive = new THREE.Color(0x3a362c); lit.emissiveMap = lit.map;
+    const flare = kit.mats[0].clone(); flare.emissive = new THREE.Color(0xff8a00); flare.emissiveIntensity = .5;
+    const flareLit = lit.clone(); flareLit.emissive = new THREE.Color(0xff8a00);
+    const faded = kit.mats[0].clone(); faded.transparent = true; faded.opacity = .4;
+    const fadedLit = lit.clone(); fadedLit.transparent = true; fadedLit.opacity = .4;
+    const temp = [];
+    [kit.mats, [lit], [flare], [flareLit], [faded], [fadedLit]].forEach((mats, i) => {
+      const m = new THREE.Mesh(kit.geo, mats.length > 1 ? mats : Array(6).fill(mats[0])); m.position.set(i * .5 - 1.2, -5, 0); dscene.add(m); temp.push([dscene, m]);
+    });
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(.5, .5), new THREE.MeshBasicMaterial({ map: T.dshadow, transparent: true, depthWrite: false })); sh.position.y = -5; dscene.add(sh); temp.push([dscene, sh]);
+    [scene, dscene].forEach(sc => { const sp = sprite(0xffffff, .1); sp.position.y = -5; sc.add(sp); temp.push([sc, sp]); });
+    const sl = sprite(0xffffff, .1, { map: T.slash }); sl.position.y = -5; scene.add(sl); temp.push([scene, sl]);
+    try { renderer.compile(scene, camera); renderer.compile(dscene, dcam); } catch (e) { }
+    temp.forEach(([sc, m]) => sc.remove(m));
+  }
   function clearDice() {
     taken.length = 0;
     const ds = live.splice(0);
@@ -458,7 +478,7 @@ const VIEW = (() => {
     renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.outputEncoding = THREE.sRGBEncoding; renderer.autoClear = false;
-    build(); resize();
+    build(); resize(); warmUp();
     new ResizeObserver(resize).observe(host);
     if (!started) { started = true; requestAnimationFrame(frame); }
   }

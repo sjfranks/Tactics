@@ -33,6 +33,7 @@
     blessed: { icon: '🙏', name: 'Blessed', on: u => !!u.blessed },
     exposed: { icon: '⚠️', name: 'Off balance', on: u => u.exposed > 0, n: u => u.exposed },
     spent: { icon: '🫗', name: 'Spent', on: u => u.spent > 0, n: u => u.spent },
+    brittle: { icon: '❄️', name: 'Brittle', on: u => !!u.brittle, n: u => u.brittle.n },
   };
   const statusIcons = u => u.down ? '' : Object.values(ST).filter(st => st.on(u)).map(st => `<span title="${st.name}">${st.icon}${st.n ? `<sub>${st.n(u)}</sub>` : ''}</span>`).join('');
   const short = n => n.replace(/^Sister /, '').replace(/^Old /, '');
@@ -46,7 +47,7 @@
   function rollLabel(u, A, f) {
     if (A.kind === 'attack') { const v = DV.faceValue(S, u, f); return v.miss ? null : v.n + (v.plus ? '+' : ''); }
     if (A.read === 'total') return String(DV.FACE_VALUE[f]);
-    if (A.amount) return signed((A.id === 'weaken' || A.id === 'curse' ? -1 : 1) * DV.FACE_VALUE[f]);
+    if (A.amount) return signed((A.id === 'curse' ? -1 : 1) * DV.FACE_VALUE[f]);
     return null;
   }
   const attackLabel = (u, f) => rollLabel(u, DV.ACTIONS.attack, f);
@@ -189,7 +190,14 @@
 
   // ---------------- the hotbar ----------------
   const pips = n => '◆'.repeat(n);
-  const diceLabel = (u, A) => A.kind === 'attack' ? `🎲${DV.attackDice(S, u)}` : `🎲${DV.powerDice(A)}`;
+  const keepMark = k => k === 'low' ? '↓' : k === 'high' ? '↑' : '';
+  const diceLabel = (u, A) => { if (A.kind !== 'attack') return `🎲${DV.powerDice(A)}`; const D = DV.attackDice(S, u, A); return `🎲${D.n}${keepMark(D.keep)}`; };
+  // how an attack's dice will be read, in words
+  function rollWords(D) {
+    if (!D.keep) return `Roll ${D.n} die`;
+    const how = D.keep === 'low' ? 'keep the lowest' : 'keep the highest';
+    return `Roll ${D.n} dice and ${how} (${Math.abs(D.edge) > 1 ? 'double ' : ''}${D.keep === 'low' ? 'disadvantage' : 'advantage'})`;
+  }
   function renderHotbar() {
     const bar = $('#hotbar'); bar.innerHTML = '';
     if (ui.phase === 'over') {
@@ -237,13 +245,15 @@
     const tip = $('#tip'), mods = [];
     let body = '';
     if (A.kind === 'attack') {
-      const T = DV.turnOf(S, u), n = DV.attackDice(S, u);
-      if (T.attacks) mods.push('second attack: 1 die');
+      const T = DV.turnOf(S, u), D = DV.attackDice(S, u, A);
+      if (T.attacks) mods.push(`attack ${T.attacks + 1} this turn`);
       if (u.blessed) mods.push('blessed');
       if (u.hidden) mods.push(`from hiding ×${u.hidden.mult}`);
       if (u.weak) mods.push(`weakened −${u.weak.n}`);
       if (DV.explodes(u)) mods.push('3s explode');
-      body = `<p class="tl">Roll ${n} ${n > 1 ? 'dice' : 'die'}${A.target === 'all' ? ' once; every goblin takes the total' : ', added up'}${mods.length ? ` · ${esc(mods.join(' · '))}` : ''}</p><p class="faces-line">${faceLine(u)}</p>`;
+      const brittle = DV.targets(S, u.id, A.id).some(id => U(id).brittle) && T.presses < DV.TUNE.presses;
+      body = `<p class="tl">${rollWords(D)}${A.target === 'all' ? '; every goblin takes it' : ''}${mods.length ? ` · ${esc(mods.join(' · '))}` : ''}</p><p class="faces-line">${faceLine(u)}</p>`
+        + (brittle ? `<p class="press-tip">❄️ A hit on a Brittle goblin presses: +1 action this turn.</p>` : '');
     } else body = powerRows(u, A);
     tip.innerHTML = `<b>${actIcon(u, A.id)} ${esc(A.name)} <span class="pp">${pips(A.cost)}</span></b><p class="tx">${esc(A.text)}</p>${body}`;
     tip.hidden = false;
@@ -276,7 +286,7 @@
   }
   function describeAction(u, A) {
     const parts = [A.cost > 1 ? 'both actions' : '1 action'];
-    parts.push(A.kind === 'attack' ? (A.target === 'all' ? '2 dice at every goblin' : '2 dice added up, 1 on a second attack') : A.read === 'total' ? `${A.dice} dice added up` : '1 die');
+    parts.push(A.kind === 'attack' ? (A.target === 'all' ? 'advantage, every goblin' : '1 die, disadvantage on later attacks') : A.read === 'total' ? `${A.dice} dice added up` : '1 die');
     if (A.target === 'foe') parts.push(A.reach === 'unit' ? u.reach : A.reach);
     if (A.recharge) parts.push(`recharges in ${A.recharge} rounds`);
     return parts.join(' · ');
@@ -307,7 +317,7 @@
     if (A.kind === 'attack') tg.forEach(id => {
       const o = DV.odds(S, u.id, ui.sel, id); if (!o) return;
       const t = $(`.tag[data-id="${id}"] .odds`);
-      if (t) t.textContent = `≈${o.avg.toFixed(1)}${o.kill > .005 ? ` · ☠${Math.round(o.kill * 100)}%` : ''}`;
+      if (t) t.textContent = `≈${o.avg.toFixed(1)}${o.kill > .005 ? ` · ☠${Math.round(o.kill * 100)}%` : ''}${o.press ? ' · ❄+1' : ''}`;
     });
     RO.retitle(`<span class="emo">${actIcon(u, ui.sel)}</span> ${esc(A.name)}`, `${A.cost > 1 ? 'both actions' : '1 action'}${A.recharge ? ` · recharges in ${A.recharge}` : ''}`);
     const melee = A.reach === 'melee' || (A.reach === 'unit' && u.reach === 'melee');
@@ -442,9 +452,9 @@
         break;
       }
       case 'roll': {
-        const RA = DV.ACTIONS[e.act], sum = e.mode === 'sum' || e.mode === 'total', chip = d => faceChip(d.face, d.extra ? 'extra' : '', rollLabel(u, RA, d.face));
+        const RA = DV.ACTIONS[e.act], sum = e.mode === 'sum' || e.mode === 'total', chip = d => faceChip(d.face, (d.extra ? 'extra ' : '') + (d.dropped ? 'dropped' : ''), rollLabel(u, RA, d.face));
         const notes = [];
-        if (e.later) notes.push('2nd attack');
+        if (e.keep) notes.push(e.keep === 'low' ? 'lowest' : 'highest');
         if (e.blessed) notes.push('🙏');
         if (e.from) notes.push(`🌫️×${e.from}`);
         const grp = RO.group(notes.join(' '));
@@ -470,7 +480,7 @@
         if (e.face === 'surge') { sfx('crit'); VIEW.flashScreen(); }
         const fx = {
           taunt: () => sfx('horn'), defend: () => sfx('select'), interpose: () => sfx('select'), hide: () => sfx('throw'), poison: () => sfx('zap'),
-          weaken: () => VIEW.bolt(null, e.target, 0xb070ff, .3), slow: () => VIEW.bolt(null, e.target, 0x70c0ff, .3), curse: () => VIEW.bolt(e.id, null, 0xb070ff, .3),
+          frostbite: () => VIEW.bolt(null, e.target, 0x9fd8ff, .32), slow: () => VIEW.bolt(null, e.target, 0x70c0ff, .3), curse: () => VIEW.bolt(e.id, null, 0xb070ff, .3),
           heal: () => sfx('heal'), bless: () => sfx('heal'), prayer: () => sfx('heal'),
         }[e.act];
         if (fx) await fx();
@@ -488,7 +498,7 @@
         const big = e.kind === 'surge' && e.amount >= 6;
         if (u.side === 'foe') VIEW.hurt(e.id, e.kind === 'poison' ? { colors: [0x70d040, 0xc0ff80] } : { crit: big });
         else { cardFx(e.id, 'hit', 400); VIEW.shake(big ? .12 : .06); sfx('hit'); }
-        floatOn(e.id, e.amount ? `−${e.amount}` : 'Blocked', e.amount ? (big ? 'dmg big' : 'dmg') : 'miss');
+        floatOn(e.id, e.amount ? `−${e.amount}` : e.raw === 0 ? 'Miss' : 'Blocked', e.amount ? (big ? 'dmg big' : 'dmg') : 'miss');
         drawUnit(e.id);
         const why = e.kind === 'poison' ? ' (poison)' : e.kind === 'arc' ? ' (arc)' : e.kind === 'backlash' ? ` (${DV.SETBACKS[u.setback].name.toLowerCase()})` : '';
         const gd = (e.guarded ? ` <span class="dim">(guard −${e.guarded})</span>` : '') + (e.exposed ? ` <span class="dim">(off balance +${e.exposed})</span>` : '');
@@ -506,6 +516,14 @@
         await wait(240);
         break;
       }
+      case 'press':
+        floatOn(e.id, '❄️ Press! +1 action', 'note'); sfx('crit'); VIEW.flashScreen('radial-gradient(circle, rgba(150,210,255,.45), rgba(80,140,255,.12) 60%, transparent 80%)');
+        if (U(e.id).side === 'hero') cardFx(e.id, 'glint', 650);
+        banner('Press!', `${short(u.name)} hits a brittle ${short(U(e.target).name)}: +1 action`);
+        RO.text(`❄️ Press: +1 action`, 'gold'); $('#roSub').textContent = `${e.left} ${e.left === 1 ? 'action' : 'actions'} left`;
+        log(`❄️ <b>Press!</b> ${nm(e.id)} hits a brittle ${nm(e.target)} and gains an action.`, lcls(e.id));
+        await wait(420);
+        break;
       case 'setback': {
         const B = DV.SETBACKS[e.setback];
         floatOn(e.id, `${SYM.negN} ${esc(B.name)}`, 'note'); sfx('nope');
@@ -600,7 +618,7 @@
       <div class="stats">
         <div class="stat hp"><small>HP</small><b>${Math.max(0, u.hp)}<span style="font-size:14px;color:var(--parch-dim)">/${u.max}</span></b><span class="bar"><u></u><i></i></span><span class="step"><button type="button" data-f="hp" data-d="-1" aria-label="Less max HP">−</button><button type="button" data-f="hp" data-d="1" aria-label="More max HP">+</button></span></div>
         <div class="stat"><small>Speed</small><b>${u.speed}</b><span class="note">initiative</span><span class="step"><button type="button" data-f="speed" data-d="-1" aria-label="Slower">−</button><button type="button" data-f="speed" data-d="1" aria-label="Faster">+</button></span></div>
-        <div class="stat"><small>Attack</small><b>${avg === Infinity ? '∞' : avg.toFixed(1)}</b><span class="note">average for ${DV.TUNE.dice} dice</span></div>
+        <div class="stat"><small>Attack</small><b>${avg === Infinity ? '∞' : avg.toFixed(1)}</b><span class="note">average a die</span></div>
       </div>
       <section><h3>Die · d6</h3>
         <div class="faces">${u.faces.map((f, i) => { const n = String(DV.FACE_VALUE[f]); return `<button type="button" class="face num f-${f}" data-i="${i}" title="${DV.FACE_NAME[f]} ${n}" aria-label="Face ${i + 1}: ${n}, ${DV.FACE_NAME[f]}">${SYM[f + 'N']}<b>${n}</b></button>`; }).join('')}</div>
@@ -611,7 +629,7 @@
         <div class="act facedo"><span class="ai syms">${faceChip('neg', '', attackLabel(u, 'neg'))}</span><div><b>1 · Setback · ${esc(B.name)}</b><p>${u.setback === 'miss' ? 'No damage.' : '1 damage.'} ${esc(B.text)}</p></div></div>
         <div class="act facedo"><span class="ai syms">${faceChip('plain', '', '2')}</span><div><b>2</b><p>2 damage.</p></div></div>
         <div class="act facedo"><span class="ai syms">${faceChip('surge', '', attackLabel(u, 'surge'))}</span><div><b>3 · Surge · ${esc(K.name)}</b><p>3 damage. ${esc(K.text)}</p></div></div>
-        <p class="legend">Setbacks and surges count on attacks. A power reads its dice as its card says.</p>
+        <p class="legend">An attack rolls 1 die; each attack after the first in a turn has disadvantage (2 dice, keep the lowest; then 3). Only the kept die counts, for its number and for its surge or setback. A power reads its dice as its card says.</p>
       </section>
       <section><h3>Actions · ${DV.TUNE.actions} a turn</h3><div class="acts">${u.actions.map(actRow).join('')}</div></section>
       ${sts.length || cds.length || u.down || when ? `<section><h3>Right now</h3><div class="tags">${u.down ? `<span class="tagc">${u.side === 'hero' ? 'Down' : 'Slain'}</span>` : ''}${when ? `<span class="tagc">${when}</span>` : ''}${sts.join('')}${cds.join('')}</div></section>` : ''}
@@ -661,7 +679,7 @@
     const changed = Object.keys(TUNING.units).length + Object.keys(TUNING.tune || {}).filter(k => TUNING.tune[k] !== DV.TUNE0[k]).length;
     const card = openModal(`
       <h2>Goblin Delve</h2>
-      <p>A test bench for dice combat: two actions a turn, one d6 for everyone (1, 1, 2, 2, 3, 3) with a surge and a setback that differ by character, powers that roll too, initiative by speed, three goblins and their shaman.</p>
+      <p>A test bench for dice combat: two actions a turn, one d6 for everyone (1, 1, 2, 2, 3, 3) with a surge and a setback that differ by character, disadvantage on repeated attacks, presses for hitting brittle goblins, initiative by speed, three goblins and their shaman.</p>
       <div class="row"><button class="btn gold" type="button" id="mNew">New fight</button><button class="btn" type="button" id="mSim">Simulate 1,000 fights</button><button class="btn" type="button" id="mLog">Combat log</button></div>
       <section><h3>Play</h3>
         <div class="set"><div><b>Auto-play the party</b><small>The heroes choose for themselves, so you can watch the rules run.</small></div>${sw('mAuto', SET.auto)}</div>
@@ -669,15 +687,16 @@
         <div class="set"><div><b>Sound</b><small>Dice, blows and spells.</small></div>${sw('mSound', !SET.mute)}</div>
       </section>
       <section><h3>House rules</h3>
-        <div class="set"><div><b>Every surge explodes</b><small>On an attack, every 3 rolls one more die, for everyone. Vex's always do.</small></div>${sw('mExplode', DV.TUNE.explode)}</div>
+        <div class="set"><div><b>Every surge explodes</b><small>On an attack, a kept 3 rolls one more die, for everyone. Vex's always do.</small></div>${sw('mExplode', DV.TUNE.explode)}</div>
         <div class="set"><div><b>Tuned numbers</b><small>${changed ? `${changed} change${changed > 1 ? 's' : ''} from the defaults, kept on this device.` : 'Open any sheet and tap Tune to change stats and die faces.'}</small></div>${changed ? `<button class="btn small" type="button" id="mReset">Reset all</button>` : ''}</div>
       </section>
       <details><summary>How a fight works</summary><ul>
         <li>Initiative is speed: the fastest acts first, every round. A hero and a goblin on the same speed: the hero goes first. Heroes on the same speed: you choose which goes first (tap a ready portrait). Goblins on the same speed: the one with the most HP left goes first, so wounding a goblin also slows it down.</li>
         <li>A turn is ${DV.TUNE.actions} actions: typically an attack and a power. Big spells take both. End the turn early with End.</li>
         <li>Everyone rolls the same d6: 1, 1, 2, 2, 3, 3. ${SYM.neg} marks the 1s, a setback; ${SYM.surge} marks the 3s, a surge.</li>
-        <li>An attack rolls ${DV.TUNE.dice} dice and adds them up: that is its damage. On an attack every 3 triggers the character’s surge and every 1 their setback; each character’s are different (see their sheet). A second attack in the same turn rolls ${DV.TUNE.laterDice} die.</li>
-        <li>Heals roll 2 dice and heal the total. Other powers roll 1 die: a 1 gives the weakest result, a 3 the strongest, and on Defend, Weaken and Curse the number is the amount.</li>
+        <li>An attack rolls 1 die: the number is the damage, a 3 triggers the character’s surge and a 1 their setback (each character’s are different: see their sheet). Each attack after the first in a turn has disadvantage: roll 2 dice and keep the lowest, then 3. Advantage (from Bless, or Fireball) rolls extra dice and keeps the highest; the two cancel, and no roll uses more than ${DV.TUNE.maxDice} dice.</li>
+        <li>Press: Orlen’s Frostbite makes a goblin Brittle. A hero whose attack hits a Brittle goblin gains an extra action that turn (once a turn); each press uses up one of the Brittle hits.</li>
+        <li>Heals roll 2 dice and heal the total. Other powers roll 1 die: a 1 gives the weakest result, a 3 the strongest, and on Defend, Frostbite and Curse the number is the amount.</li>
         <li>The action a hero used last stays chosen for them.</li>
         <li>Melee reaches only the front rank while anyone stands in it. Ranged attacks and spells reach anyone. Goblins cannot attack a hidden hero.</li>
         <li>A power can be used once a turn; one that recharges waits that many rounds.</li>

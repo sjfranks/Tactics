@@ -68,9 +68,9 @@ const fail = m => { failures++; console.log('FAIL', m); };
       if (acts === 2) { await p.waitForTimeout(500); await shot(`fight${f}-1-roll`); }
     }
     await p.waitForSelector('#rAgain', { timeout: 20000 });
-    const r = await p.evaluate(() => ({ over: DELVE.S.over, round: DELVE.S.round }));
+    const r = await p.evaluate(() => ({ over: DELVE.S.over, round: DELVE.S.round, presses: Object.values(DELVE.S.units).reduce((n, u) => n + u.stats.presses, 0) }));
     const bad = await checkBars(); if (bad.length) fail('at the end: ' + bad.join('; '));
-    console.log(`fight ${f + 1}: ${r.over === 'hero' ? 'the party wins' : 'the goblins win'} in round ${r.round}, ${acts} hero actions through the hotbar (${powers} powers), ${ends} turns ended early, ${picks} heroes picked out of turn, ${kept} times the last action was still chosen`);
+    console.log(`fight ${f + 1}: ${r.over === 'hero' ? 'the party wins' : 'the goblins win'} in round ${r.round}, ${acts} hero actions through the hotbar (${powers} powers), ${ends} turns ended early, ${picks} heroes picked out of turn, ${kept} times the last action was still chosen, ${r.presses} presses`);
     await shot(`fight${f}-2-result`);
   }
 
