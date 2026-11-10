@@ -41,7 +41,7 @@ const fail = m => { failures++; console.log('FAIL', m); };
   for (let f = 0; f < fights; f++) {
     if (f) { await p.click('#rAgain'); await p.waitForSelector('#hotbar .abtn'); }
     await shot(`fight${f}-0-start`);
-    let acts = 0, picks = 0, powers = 0, ends = 0;
+    let acts = 0, picks = 0, powers = 0, ends = 0, kept = 0;
     for (let i = 0; i < 2000; i++) {
       const st = await p.evaluate(() => ({ phase: DELVE.ui.phase, busy: DELVE.ui.busy, modal: !document.querySelector('#modal').hidden }));
       if (st.phase === 'over') break;
@@ -56,7 +56,10 @@ const fail = m => { failures++; console.log('FAIL', m); };
       }
       if (c.end) { await p.click('#endTurn'); ends++; continue; }
       const btn = `#hotbar .abtn:nth-child(${c.i + 1})`;
-      await p.click(btn);
+      // the action a hero used last stays chosen: when it is already chosen, one tap (or the target) is enough
+      const pre = await p.evaluate(() => ({ sel: DELVE.ui.sel, last: DELVE.ui.last[DELVE.ui.hero] }));
+      if (pre.sel && pre.sel === pre.last) kept++;
+      if (pre.sel !== c.act) await p.click(btn);
       if (!c.target) await p.click(btn);
       else if (c.foe) { const box = await p.locator(`.tag[data-id="${c.target}"]`).boundingBox(); await p.mouse.click(box.x + box.width / 2, box.y + box.height * .6); }
       else await p.click(`.pc[data-id="${c.target}"]`);
@@ -67,7 +70,7 @@ const fail = m => { failures++; console.log('FAIL', m); };
     await p.waitForSelector('#rAgain', { timeout: 20000 });
     const r = await p.evaluate(() => ({ over: DELVE.S.over, round: DELVE.S.round }));
     const bad = await checkBars(); if (bad.length) fail('at the end: ' + bad.join('; '));
-    console.log(`fight ${f + 1}: ${r.over === 'hero' ? 'the party wins' : 'the goblins win'} in round ${r.round}, ${acts} hero actions through the hotbar (${powers} powers), ${ends} turns ended early, ${picks} heroes picked out of turn`);
+    console.log(`fight ${f + 1}: ${r.over === 'hero' ? 'the party wins' : 'the goblins win'} in round ${r.round}, ${acts} hero actions through the hotbar (${powers} powers), ${ends} turns ended early, ${picks} heroes picked out of turn, ${kept} times the last action was still chosen`);
     await shot(`fight${f}-2-result`);
   }
 
@@ -88,7 +91,8 @@ const fail = m => { failures++; console.log('FAIL', m); };
   if (first.hero !== first.top) fail(`the fastest should act first: ${JSON.stringify(first)}`);
   // End: one action, then End passes the second; End straight away passes a whole turn
   const h1 = first.hero;
-  await p.click('#hotbar .abtn:nth-child(2)'); await p.click('#hotbar .abtn:nth-child(2)'); // a self power (Vex: Hide)
+  if (await p.evaluate(() => DELVE.ui.sel !== 'hide')) await p.click('#hotbar .abtn:nth-child(2)');
+  await p.click('#hotbar .abtn:nth-child(2)'); // a self power (Vex: Hide)
   await p.waitForFunction(() => !DELVE.ui.busy && DELVE.S.turn && DELVE.S.turn.left === 1, null, { timeout: 20000 });
   await p.click('#endTurn');
   await p.waitForFunction(() => !DELVE.ui.busy && DV.ready(DELVE.S).side === 'hero', null, { timeout: 30000 });

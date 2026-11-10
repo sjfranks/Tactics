@@ -380,7 +380,7 @@ const VIEW = (() => {
     await Promise.all(firsts.map((f, k) => {
       const aim = aims ? aims[f.gi] : { x: (k - (firsts.length - 1) / 2) * .56, z: .05 };
       const spot = spotNear(aim.x, aim.z);
-      return wait(k * 70).then(() => throwDie(kit, mats, f.d.side, start(), spot)).then(m => { f.d.mesh = m; spec.onLand && spec.onLand(f.d, f.g); return f.d.face === 'crit' && !f.d.dropped && spec.explode !== false ? critFlare(m) : null; });
+      return wait(k * 70).then(() => throwDie(kit, mats, f.d.side, start(), spot)).then(m => { f.d.mesh = m; spec.onLand && spec.onLand(f.d, f.g); return f.d.face === 'surge' && spec.flare ? critFlare(m) : null; });
     }));
     // explosions, in the order they were rolled
     for (const g of spec.groups) {
@@ -391,7 +391,7 @@ const VIEW = (() => {
         const from = p.clone().add(new V3(0, .7, 0));
         d.mesh = await throwDie(kit, mats, d.side, from, spot, 480);
         spec.onLand && spec.onLand(d, g);
-        if (d.face === 'crit') await critFlare(d.mesh);
+        if (d.face === 'surge' && spec.flare) await critFlare(d.mesh);
       }
     }
     spec.groups.forEach(g => g.dice.forEach(d => { if (d.dropped && d.mesh) dim(d.mesh); }));
@@ -467,5 +467,6 @@ const VIEW = (() => {
     init, setUnits, boxOf, mark, roll, clearDice, dieAt, hurt, kill, lunge, hop, cast, bolt, slash, sparkle, fireball, shake, flashScreen, sfx, audio, wait, tween, ease,
     set speed(v) { speed = v; }, get speed() { return speed; }, set muted(v) { muted = v; }, get muted() { return muted; }, set onFrame(f) { onFrame = f; },
     alive: id => U[id] && U[id].alive,
+    debug: () => ({ cam: camera.position.toArray().map(v => +v.toFixed(2)), shake: shakeAmt, live: live.length, fx: fx.length, d: dscene.children.length }),
   };
 })();
