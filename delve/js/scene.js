@@ -445,7 +445,7 @@ const VIEW = (() => {
   // Throw a unit's dice: every target's first dice together, then each crit's extra die out of the die that crit.
   // spec: { style, sides, mark (the top number has the burst), from (a goblin's id, or null for the party),
   //   groups: [{ target, dice: [{ n, from, dropped }] }], flare (a kept top number flares), onLand(die, group) }
-  // keep: leave the dice already down (a defence roll lands beside the attack's) · aim: where on the floor to land
+  // keep: leave the dice already down · aim: where on the floor to land
   async function roll(spec) {
     if (!spec.keep) { clearDice(); await wait(170); }
     const kit = dieKit(spec.style, spec.sides, spec.mark !== false), mats = kit.mats;

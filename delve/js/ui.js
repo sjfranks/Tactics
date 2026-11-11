@@ -22,7 +22,7 @@
   const ui = { phase: 'fight', sel: null, busy: false, gen: 0, log: [], hp: {}, active: null, hero: null, floaters: {}, last: {} };
   // statuses, shown as icons on portraits and nameplates
   const ST = {
-    guard: { icon: '🛡️', name: 'Guard', on: u => u.guard > 0, n: u => u.guard },
+    guard: { icon: '🛡️', name: 'Guard (+armour)', on: u => u.guard > 0, n: u => u.guard },
     taunt: { icon: '📯', name: 'Taunting', on: u => !!u.taunt },
     ward: { icon: '🔰', name: 'Shielded', on: u => !!u.ward },
     hidden: { icon: '🌫️', name: 'Hidden', on: u => !!u.hidden },
@@ -183,8 +183,9 @@
   const diceLabel = (u, A) => { if (A.kind !== 'attack') return diceName(1, DV.dieOf(u, A)); const D = DV.attackDice(S, u, A); return diceName(D.n, D.sides) + keepMark(D.keep); };
   // how an attack's dice will be read, in words
   function rollWords(D) {
-    if (!D.keep) return `Roll a d${D.sides}`;
-    const how = D.keep === 'low' ? 'keep the lowest' : 'keep the highest';
+    if (D.n === 1) return `Roll a d${D.sides}`;
+    if (!D.keep) return `Roll 2d${D.sides} to hit`;
+    const how = D.keep === 'low' ? 'keep the lowest 2' : 'keep the highest 2';
     return `Roll ${D.n}d${D.sides} and ${how} (${Math.abs(D.edge) > 1 ? 'double ' : ''}${D.keep === 'low' ? 'disadvantage' : 'advantage'})`;
   }
   function renderHotbar() {
@@ -219,10 +220,11 @@
 
   // ---------------- the card over the dungeon: what the chosen action does ----------------
   // an attack's die: the number is the damage, the top number the surge
+  // an attack's dice: a hit's damage, a crit on doubles, the surge on a top number, going again on two
   function faceLine(u, A) {
     const N = DV.dieOf(u, A);
-    if (A.flat) return `<span class="fl">1 to ${N} damage</span>`;
-    return `<span class="fl">1 to ${N} damage</span><span class="fl">${numChip(N, true)} ${esc(DV.SURGES[u.surge].name)}</span>`;
+    if (A.flat) return `<span class="fl">1 to ${N} damage, no roll to hit</span>`;
+    return `<span class="fl">Hit: ${u.dmg} damage</span><span class="fl">${numChip(3, false)}${numChip(3, false)} crit ×2</span><span class="fl">${numChip(N, true)} ${esc(DV.SURGES[u.surge].name)}</span><span class="fl">${numChip(N, true)}${numChip(N, true)} both, and again</span>`;
   }
   // a band of numbers on a power's die: 1–2, 3–5, or the top number
   const bandChip = ([a, b], N) => a === N ? numChip(N, true) : `<span class="band num">${a === b ? a : `${a}–${b}`}</span>`;
@@ -241,9 +243,9 @@
       if (u.blessed) mods.push('blessed');
       if (u.hidden) mods.push(`from hiding ×${u.hidden.mult}`);
       if (u.weak) mods.push(`weakened −${u.weak.n}`);
-      if (DV.explodes(u) && !A.flat) mods.push(`${D.sides}s crit`);
       const brittle = DV.targets(S, u.id, A.id).some(id => DV.pressable(S, u, U(id)));
-      const def = DV.opposed(A) ? `<p class="tx">The target rolls its own die to defend: match or beat it to land.</p>` : '';
+      const arms = [...new Set(DV.targets(S, u.id, A.id).map(id => DV.armourOf(U(id))))].sort((a, b) => a - b);
+      const def = A.flat ? '' : `<p class="tx">Reach the target's armour to hit (🛡 ${arms.join(' or ')})${DV.TUNE.critHits ? '; doubles always hit' : ''}. 🎯 over each goblin: your chance.</p>`;
       body = `<p class="tl">${rollWords(D)}${A.target === 'all' ? '; every goblin takes it' : ''}${mods.length ? ` · ${esc(mods.join(' · '))}` : ''}</p><p class="faces-line">${faceLine(u, A)}</p>${def}`
         + (brittle ? `<p class="press-tip">❄️ A hit on a Brittle goblin presses: +1 action this turn.</p>` : '');
     } else body = powerRows(u, A);
@@ -278,7 +280,7 @@
   }
   function describeAction(u, A) {
     const parts = [A.cost > 1 ? 'both actions' : '1 action'];
-    parts.push(A.kind === 'attack' ? (A.flat ? `a d${DV.dieOf(u, A)}, every goblin` : `a d${u.die}, disadvantage on later attacks`) : `a d${DV.dieOf(u, A)}`);
+    parts.push(A.kind === 'attack' ? (A.flat ? `a d${DV.dieOf(u, A)}, every goblin, no roll to hit` : `2d${u.die} to hit, disadvantage on later attacks`) : `a d${DV.dieOf(u, A)}`);
     if (A.target === 'foe') parts.push(A.reach === 'unit' ? u.reach : A.reach);
     if (A.recharge) parts.push(`recharges in ${A.recharge} rounds`);
     return parts.join(' · ');
@@ -309,7 +311,7 @@
     if (A.kind === 'attack') tg.forEach(id => {
       const o = DV.odds(S, u.id, ui.sel, id); if (!o) return;
       const t = $(`.tag[data-id="${id}"] .odds`);
-      if (t) t.textContent = `${o.opposed ? `🎯${Math.round(o.hit * 100)}% ` : ''}≈${o.avg.toFixed(1)}${o.kill > .005 ? ` · ☠${Math.round(o.kill * 100)}%` : ''}${o.press ? ' · ❄+1' : ''}`;
+      if (t) t.textContent = `${A.flat ? '' : `🎯${Math.round(o.hit * 100)}% `}≈${o.avg.toFixed(1)}${o.kill > .005 ? ` · ☠${Math.round(o.kill * 100)}%` : ''}${o.press ? ' · ❄+1' : ''}`;
     });
     RO.retitle(`<span class="emo">${actIcon(u, ui.sel)}</span> ${esc(A.name)}`, `${A.cost > 1 ? 'both actions' : '1 action'}${A.recharge ? ` · recharges in ${A.recharge}` : ''}`);
     const melee = A.reach === 'melee' || (A.reach === 'unit' && u.reach === 'melee');
@@ -444,7 +446,7 @@
         break;
       }
       case 'roll': {
-        const sum = e.mode === 'sum', chip = d => numChip(d.n, e.mark && d.n === e.sides, (d.extra ? 'extra ' : '') + (d.dropped ? 'dropped' : ''));
+        const sum = e.mode === 'sum' || e.mode === 'hit', chip = d => numChip(d.n, e.mark && d.n === e.sides, (d.extra ? 'extra ' : '') + (d.dropped ? 'dropped' : ''));
         const notes = [];
         if (e.keep) notes.push(e.keep === 'low' ? 'lowest' : 'highest');
         if (e.blessed) notes.push('🙏');
@@ -455,10 +457,18 @@
           onLand: d => grp.insertAdjacentHTML('beforeend', chip(d)),
         });
         const dice = e.groups[0].dice, plain = dice.length === 1 && dice[0].n === e.total;
-        if (sum && !plain) grp.insertAdjacentHTML('beforeend', `<em class="tot">= ${e.total}</em>`);
-        log(`${dice.map(chip).join(' ')}${sum && !plain ? ` = <b>${e.total}</b>` : ''}`, lcls(e.id));
+        if (e.mode === 'hit') {
+          grp.insertAdjacentHTML('beforeend', `<em class="tot">= ${e.total} <span class="vs">vs 🛡${e.armour}</span></em>`);
+          const what = !e.hit ? 'Miss' : e.crit ? `Crit! ${e.dmg}` : `Hit: ${e.dmg}`;
+          RO.text(`${e.match && e.hit && e.total < e.armour ? 'Doubles: ' : ''}${what}`, !e.hit ? 'dim' : e.crit ? 'gold' : '');
+          log(`${dice.map(chip).join(' ')} = <b>${e.total}</b> vs 🛡${e.armour}: ${e.hit ? (e.crit ? '<b>crit</b>' : 'hit') : 'miss'}`, lcls(e.id));
+          if (e.crit && e.hit) { sfx('crit'); VIEW.flashScreen(); }
+        } else {
+          if (sum && !plain) grp.insertAdjacentHTML('beforeend', `<em class="tot">= ${e.total}</em>`);
+          log(`${dice.map(chip).join(' ')}${sum && !plain ? ` = <b>${e.total}</b>` : ''}`, lcls(e.id));
+        }
         await wait(220);
-        if (e.mode !== 'sum') break;
+        if (!sum || (e.mode === 'hit' && !e.hit)) break;
         // the blow lands as the dice fell
         const A = DV.ACTIONS[e.act], tgt = e.targets || [e.groups[0].target];
         if (u.side === 'foe') { if (u.reach === 'ranged') await VIEW.bolt(u.id, null, 0xc070ff, .3); else await VIEW.lunge(u.id); }
@@ -509,20 +519,16 @@
         await wait(240);
         break;
       }
-      case 'defend': {
-        const grp = RO.group('vs 🛡');
-        await VIEW.roll({ style: u.type, sides: e.sides, mark: false, keep: true, from: u.side === 'foe' ? u.id : null, aim: { x: 0, z: u.side === 'foe' ? -.5 : .5 }, groups: [{ target: null, dice: e.dice }],
-          onLand: d => grp.insertAdjacentHTML('beforeend', numChip(d.n, false)) });
-        const vs = `${e.vs} vs ${e.total}`;
-        if (e.held) {
-          floatOn(e.id, '🛡 Parried', 'miss'); sfx('nope');
-          if (u.side === 'hero') cardFx(e.id, 'glint', 650);
-          RO.text(`${esc(short(u.name))} parries (${vs})`, u.side === 'hero' ? 'good' : '');
-        }
-        log(`${nm(e.id)} defends: ${numChip(e.total, false)} ${e.held ? `<b>parried</b> (${vs})` : `hit (${vs})`}.`, lcls(e.id));
-        await wait(e.held ? 320 : 120);
+      case 'miss':
+        floatOn(e.id, 'Miss', 'miss'); sfx('nope');
+        RO.text(`${esc(short(U(e.src).name))} misses ${esc(short(u.name))} (${e.total} vs 🛡${e.armour})`, u.side === 'hero' ? 'good' : 'dim');
+        await wait(260);
         break;
-      }
+      case 'again':
+        banner('Again!', `${short(u.name)} rolls two top numbers`); floatOn(e.id, '🔁 Again!', 'note');
+        log(`🔁 <b>Again!</b> ${nm(e.id)} rolled two top numbers and attacks again.`, lcls(e.id));
+        await wait(520);
+        break;
       case 'press':
         floatOn(e.id, '❄️ Press! +1 action', 'note'); sfx('crit'); VIEW.flashScreen('radial-gradient(circle, rgba(150,210,255,.45), rgba(80,140,255,.12) 60%, transparent 80%)');
         if (U(e.id).side === 'hero') cardFx(e.id, 'glint', 650);
@@ -596,7 +602,6 @@
     if (!S) return;
     if (!keepTuning) sheetTuning = false;
     const u = U(id), T = DV.UNITS[u.type], K = DV.SURGES[u.surge], N = u.die;
-    const avg = DV.perDie(u, S);
     const sts = Object.values(ST).filter(st => st.on(u)).map(st => `<span class="tagc"><span class="emo">${st.icon}</span> ${st.name}${st.n ? ' ' + st.n(u) : ''}</span>`);
     const cds = u.actions.filter(a => u.cd[a] > 0).map(a => `<span class="tagc dim">${esc(DV.ACTIONS[a].name)} ready in ${u.cd[a]}</span>`);
     const kin = Object.values(S.units).filter(x => x.type === u.type).length;
@@ -614,20 +619,23 @@
       <div class="stats">
         <div class="stat hp"><small>HP</small><b>${Math.max(0, u.hp)}<span style="font-size:14px;color:var(--parch-dim)">/${u.max}</span></b><span class="bar"><u></u><i></i></span><span class="step"><button type="button" data-f="hp" data-d="-1" aria-label="Less max HP">−</button><button type="button" data-f="hp" data-d="1" aria-label="More max HP">+</button></span></div>
         <div class="stat"><small>Speed</small><b>${u.speed}</b><span class="note">${u.side === 'foe' ? 'goblins go fastest first' : 'offered first'}</span><span class="step"><button type="button" data-f="speed" data-d="-1" aria-label="Slower">−</button><button type="button" data-f="speed" data-d="1" aria-label="Faster">+</button></span></div>
-        <div class="stat"><small>Attack</small><b>${avg.toFixed(1)}</b><span class="note">first, on average</span></div>
+        <div class="stat"><small>Armour</small><b>${u.armour}${u.guard ? `<span style="font-size:14px;color:var(--brass-hi)">+${u.guard}</span>` : ''}</b><span class="note">to hit them</span><span class="step"><button type="button" data-f="armour" data-d="-1" aria-label="Less armour">−</button><button type="button" data-f="armour" data-d="1" aria-label="More armour">+</button></span></div>
+        <div class="stat"><small>Damage</small><b>${u.dmg}</b><span class="note">a hit</span><span class="step"><button type="button" data-f="dmg" data-d="-1" aria-label="Less damage">−</button><button type="button" data-f="dmg" data-d="1" aria-label="More damage">+</button></span></div>
       </div>
       <section><h3>Die · d${N}</h3>
         <div class="faces${N > 6 ? ' many' : ''}">${Array.from({ length: N }, (_, i) => numChip(i + 1, i + 1 === N)).join('')}</div>
         <div class="row dies tune-only" ${sheetTuning ? '' : 'hidden'}>${DV.SIZES.map(n => `<button class="btn small" type="button" data-s="${n}" aria-pressed="${n === N}">d${n}</button>`).join('')}</div>
       </section>
-      <section><h3>On an attack · the number is the damage</h3>
-        <div class="act facedo"><span class="ai syms"><span class="band num">1–${N - 1}</span></span><div><b>1 to ${N - 1}</b><p>That much damage.</p></div></div>
-        <div class="act facedo"><span class="ai syms">${numChip(N, true)}</span><div><b>${N} · Surge · ${esc(K.name)}</b><p>${N} damage. ${esc(K.text)}</p></div></div>
-        <p class="legend">An attack rolls 1 die; each attack after the first in a turn has disadvantage (2 dice, keep the lowest; then 3). Only the kept die counts, for its number and for its surge. A power rolls 1 die, never with advantage or disadvantage.${DV.TUNE.defence ? ' Attacked, you roll your die to defend: an attack that falls short of it is parried.' : ''}</p>
+      <section><h3>On an attack · roll 2d${N}</h3>
+        <div class="act facedo"><span class="ai syms"><span class="band num">2d${N}</span></span><div><b>Reach their armour</b><p>Add the 2 dice: reach the target's armour to hit for ${u.dmg} damage; fall short and it misses.</p></div></div>
+        <div class="act facedo"><span class="ai syms">${numChip(3, false)}${numChip(3, false)}</span><div><b>Doubles · Crit</b><p>Matching dice: double damage${DV.TUNE.critHits ? ', and always a hit' : ''}.</p></div></div>
+        <div class="act facedo"><span class="ai syms">${numChip(N, true)}</span><div><b>${N === 8 ? 'An' : 'A'} ${N} · Surge · ${esc(K.name)}</b><p>${esc(K.text)} Hit or miss.</p></div></div>
+        <div class="act facedo"><span class="ai syms">${numChip(N, true)}${numChip(N, true)}</span><div><b>Two ${N}s · both, and again</b><p>Crit and surge, then roll to attack again.</p></div></div>
+        <p class="legend">Each attack after the first in a turn has disadvantage: roll 3, keep the lowest 2 (then 4). A power rolls 1 die, never with advantage or disadvantage.</p>
       </section>
       <section><h3>Actions · ${DV.TUNE.actions} a turn</h3><div class="acts">${u.actions.map(actRow).join('')}</div></section>
       ${sts.length || cds.length || u.down || when ? `<section><h3>Right now</h3><div class="tags">${u.down ? `<span class="tagc">${u.side === 'hero' ? 'Down' : 'Slain'}</span>` : ''}${when ? `<span class="tagc">${when}</span>` : ''}${sts.join('')}${cds.join('')}</div></section>` : ''}
-      <section><h3>This fight</h3><div class="tags"><span class="tagc">Dealt ${u.stats.dealt}</span><span class="tagc">Taken ${u.stats.taken}</span>${u.stats.healed ? `<span class="tagc">Healed ${u.stats.healed}</span>` : ''}<span class="tagc">Dice ${u.stats.dice}</span><span class="tagc">Surges ${u.stats.surges}</span>${u.stats.parries ? `<span class="tagc">Parries ${u.stats.parries}</span>` : ''}${u.stats.kills ? `<span class="tagc">Kills ${u.stats.kills}</span>` : ''}</div></section>
+      <section><h3>This fight</h3><div class="tags"><span class="tagc">Dealt ${u.stats.dealt}</span><span class="tagc">Taken ${u.stats.taken}</span>${u.stats.healed ? `<span class="tagc">Healed ${u.stats.healed}</span>` : ''}<span class="tagc">Dice ${u.stats.dice}</span><span class="tagc">Surges ${u.stats.surges}</span><span class="tagc">Hits ${u.stats.hits}</span><span class="tagc">Misses ${u.stats.misses}</span>${u.stats.crits ? `<span class="tagc">Crits ${u.stats.crits}</span>` : ''}${u.stats.kills ? `<span class="tagc">Kills ${u.stats.kills}</span>` : ''}</div></section>
       <section><h3>Tune</h3>
         <p class="legend">${sheetTuning ? `Changes apply to ${kin > 1 ? `all ${kin} ${esc(u.cls.toLowerCase())}s` : esc(short(u.name))} now and in later fights, and are kept on this device.` : 'Try other numbers: change HP, speed and the size of the die.'}</p>
         <div class="row"><button class="btn small" type="button" id="tuneBtn" aria-pressed="${sheetTuning}">${sheetTuning ? 'Done tuning' : 'Tune'}</button>${TUNING.units[u.type] ? `<button class="btn small" type="button" id="tuneReset">Back to defaults</button>` : ''}</div>
@@ -656,11 +664,13 @@
   // push a type's new numbers into its template and into everyone of that type in this fight
   function retune(type, D) {
     const T = DV.UNITS[type];
-    ['hp', 'speed', 'die'].forEach(f => { if (D[f] != null) T[f] = D[f]; });
+    ['hp', 'speed', 'die', 'armour', 'dmg'].forEach(f => { if (D[f] != null) T[f] = D[f]; });
     Object.values(S.units).filter(u => u.type === type).forEach(u => {
       if (D.hp != null && D.hp !== u.max) { const dh = D.hp - u.max; u.max = D.hp; if (!u.down) u.hp = Math.max(1, Math.min(u.max, u.hp + dh)); ui.hp[u.id] = u.hp; }
       if (D.speed != null) u.speed = D.speed;
       if (D.die != null) u.die = D.die;
+      if (D.armour != null) u.armour = D.armour;
+      if (D.dmg != null) u.dmg = D.dmg;
     });
     drawAll(); if (partyPick()) showSelection();
   }
@@ -671,7 +681,7 @@
     const changed = Object.keys(TUNING.units).length + Object.keys(TUNING.tune || {}).filter(k => TUNING.tune[k] !== DV.TUNE0[k]).length;
     const card = openModal(`
       <h2>Goblin Delve</h2>
-      <p>A test bench for dice combat: two actions a turn, a die for each character whose top number surges (a different surge for each), disadvantage on repeated attacks, flat rolls for powers, presses for hitting brittle goblins, the heroes then the goblins each round, three goblins and their shaman.</p>
+      <p>A test bench for dice combat: two actions a turn, a die for each character, 2 rolled to hit against armour (doubles crit, a top number surges), disadvantage on repeated attacks, flat rolls for powers, presses for hitting brittle goblins, the heroes then the goblins each round, three goblins and their shaman.</p>
       <div class="row"><button class="btn gold" type="button" id="mNew">New fight</button><button class="btn" type="button" id="mSim">Simulate 1,000 fights</button><button class="btn" type="button" id="mLog">Combat log</button></div>
       <section><h3>Play</h3>
         <div class="set"><div><b>Auto-play the party</b><small>The heroes choose for themselves, so you can watch the rules run.</small></div>${sw('mAuto', SET.auto)}</div>
@@ -679,22 +689,21 @@
         <div class="set"><div><b>Sound</b><small>Dice, blows and spells.</small></div>${sw('mSound', !SET.mute)}</div>
       </section>
       <section><h3>House rules</h3>
-        <div class="set"><div><b>Defence rolls</b><small>Whoever is attacked rolls their own die: the attack must match or beat it to land. Spells are not opposed.</small></div>${sw('mDefence', DV.TUNE.defence)}</div>
-        <div class="set"><div><b>Everyone crits</b><small>On an attack, a kept top number rolls one more die, for everyone, on top of their surge. Vex's always do.</small></div>${sw('mExplode', DV.TUNE.explode)}</div>
+        <div class="set"><div><b>Doubles always hit</b><small>Matching dice are a crit even below the target's armour. Off: they still have to reach it.</small></div>${sw('mCritHits', DV.TUNE.critHits)}</div>
         <div class="set"><div><b>Tuned numbers</b><small>${changed ? `${changed} change${changed > 1 ? 's' : ''} from the defaults, kept on this device.` : 'Open any sheet and tap Tune to change stats and die sizes.'}</small></div>${changed ? `<button class="btn small" type="button" id="mReset">Reset all</button>` : ''}</div>
       </section>
       <details><summary>How a fight works</summary><ul>
         <li>Each round, every hero acts first, in any order you like (tap a ready portrait to send them), then every goblin. The goblins go fastest first; on the same speed, the one with the most HP left goes first, so wounding a goblin also slows it down.</li>
         <li>A turn is ${DV.TUNE.actions} actions: typically an attack and a power. Big spells take both. End the turn early with End.</li>
-        <li>Each character rolls a die of their own: ${DV.PARTY.map(k => `${esc(short(DV.UNITS[k].name))} a d${DV.UNITS[k].die}`).join(', ')}; the goblins a d${DV.UNITS.goblin.die}, the shaman a d${DV.UNITS.shaman.die}. ${SYM.top} marks the top number: the surge.</li>
-        <li>An attack rolls 1 die: the number is the damage, and the top number triggers the character’s surge (each character’s is different: see their sheet). Each attack after the first in a turn has disadvantage: roll 2 dice and keep the lowest, then 3. Advantage (from Bless) rolls extra dice and keeps the highest; the two cancel, and no roll uses more than ${DV.TUNE.maxDice} dice.</li>
-        <li>Defence: whoever an attack falls on rolls their own die. An attack whose total matches or beats it lands for its full number; one that falls short is parried. Fireball is a spell, and is not opposed. (A house rule switches this off.)</li>
+        <li>Each character rolls a die of their own: ${DV.PARTY.map(k => `${esc(short(DV.UNITS[k].name))} a d${DV.UNITS[k].die}`).join(', ')}; the goblins a d${DV.UNITS.goblin.die}, the shaman a d${DV.UNITS.shaman.die}. ${SYM.top} marks the top number.</li>
+        <li>An attack rolls 2 of your dice and adds them: reach the target's armour to hit for your damage, fall short and it misses. Matching dice are a crit: double damage${DV.TUNE.critHits ? ', and always a hit' : ''}. A die on its top number is a surge: your surge triggers, hit or miss (each character’s is different: see their sheet). Both dice on the top number: crit and surge, and you attack again.</li>
+        <li>Each attack after the first in a turn has disadvantage: roll 3 dice and keep the lowest 2, then 4. Advantage (from Bless) rolls extra dice and keeps the highest 2; the two cancel. Guard is extra armour.</li>
         <li>Press: Orlen’s Frostbite makes a goblin Brittle. A hero whose attack hits a Brittle goblin gains an extra action that turn (once a turn); each press uses up one of the Brittle hits.</li>
         <li>A power rolls 1 die, never with advantage or disadvantage. A heal heals the number, and Frostbite’s number is its presses. Other powers read the band the number falls in: the low numbers (1–2 on a d6) give the weakest result, the top number the strongest. Fireball rolls a d6, flat, against every goblin.</li>
         <li>The action a hero used last stays chosen for them.</li>
         <li>Melee reaches only the front rank while anyone stands in it. Ranged attacks and spells reach anyone. Goblins cannot attack a hidden hero.</li>
         <li>A power can be used once a turn; one that recharges waits that many rounds.</li>
-        <li>Over each goblin in reach of an attack: the chance to land (🎯), the average damage and the chance to finish it.</li>
+        <li>Over each goblin in reach of an attack: its armour (🛡), the chance to hit (🎯), the average damage and the chance to finish it.</li>
         <li>A hero at 0 HP is down until healed. The fight ends when one side has no one standing.</li>
       </ul></details>`);
     $('#mNew', card).onclick = newFight;
@@ -703,8 +712,7 @@
     const toggle = (id, fn) => { const b = $('#' + id, card); b.onclick = () => { const v = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', v); fn(v); }; };
     toggle('mAuto', v => { SET.auto = v; saveSet(); ui.sel = null; VIEW.mark({}); if (v && ui.phase === 'fight' && !ui.busy) proceed(); else { drawAll(); renderHotbar(); } });
     toggle('mSound', v => { SET.mute = !v; VIEW.muted = SET.mute; saveSet(); if (v) VIEW.audio(); });
-    toggle('mDefence', v => { DV.TUNE.defence = v; TUNING.tune = { ...(TUNING.tune || {}), defence: v }; saveTuning(); });
-    toggle('mExplode', v => { DV.TUNE.explode = v; TUNING.tune = { ...(TUNING.tune || {}), explode: v }; saveTuning(); });
+    toggle('mCritHits', v => { DV.TUNE.critHits = v; TUNING.tune = { ...(TUNING.tune || {}), critHits: v }; saveTuning(); });
     $$('[data-sp]', card).forEach(b => b.onclick = () => { SET.speed = b.dataset.sp; saveSet(); applySpeed(); $$('[data-sp]', card).forEach(x => x.setAttribute('aria-pressed', x === b)); });
     const rs = $('#mReset', card); if (rs) rs.onclick = () => { TUNING = { units: {}, tune: {} }; saveTuning(); DV.applyTuning(null); Object.keys(DV.UNITS).forEach(t => retune(t, DV.UNITS[t])); openMenu(); };
   }
@@ -720,9 +728,9 @@
       card.innerHTML = `<button class="x" type="button" aria-label="Close">×</button><h2>1,000 fights</h2>
         <p>The party plays with a simple bot (it ignores the odds), so a person usually does better.</p>
         <div class="kpis"><div class="stat"><small>Party wins</small><b>${pct(r.winRate)}</b></div><div class="stat"><small>Rounds</small><b>${f1(r.avgRounds)}</b><span class="note">on average</span></div><div class="stat"><small>No one fell</small><b>${pct(r.flawlessRate)}</b><span class="note">of fights</span></div></div>
-        <div class="kpis"><div class="stat"><small>Heroes up</small><b>${r.avgHeroesUp.toFixed(1)}</b><span class="note">at the end</span></div><div class="stat"><small>Party HP</small><b>${f1(r.avgHeroHp)}</b><span class="note">left of ${DV.PARTY.reduce((s, k) => s + DV.UNITS[k].hp, 0)}</span></div><div class="stat"><small>Longest chain</small><b>${r.maxChain}</b><span class="note">crit dice</span></div></div>
+        <div class="kpis"><div class="stat"><small>Heroes up</small><b>${r.avgHeroesUp.toFixed(1)}</b><span class="note">at the end</span></div><div class="stat"><small>Party HP</small><b>${f1(r.avgHeroHp)}</b><span class="note">left of ${DV.PARTY.reduce((s, k) => s + DV.UNITS[k].hp, 0)}</span></div><div class="stat"><small>Longest run</small><b>${r.maxChain}</b><span class="note">attacks again</span></div></div>
         <div class="tablewrap"><table class="t"><thead><tr><th>Per fight</th><th>Dealt</th><th>Taken</th><th>Healed</th><th>Fell</th><th>Surges</th></tr></thead><tbody>${rows}</tbody></table></div>
-        <p class="legend">${ms} ms · House rules: ${DV.TUNE.defence ? 'defence rolls' : 'no defence rolls'}, ${DV.TUNE.explode ? 'everyone crits' : 'only Vex crits'}.</p>
+        <p class="legend">${ms} ms · House rules: ${DV.TUNE.critHits ? 'doubles always hit' : 'doubles must reach armour'}.</p>
         <div class="row"><button class="btn gold" type="button" id="sAgain">Run again</button><button class="btn" type="button" id="sBack">Back to the fight</button></div>`;
       $('.x', card).onclick = closeModal; $('#sBack', card).onclick = closeModal; $('#sAgain', card).onclick = openSim;
     }, 60);

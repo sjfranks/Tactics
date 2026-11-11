@@ -8,30 +8,34 @@ Open `delve/index.html` in a browser (there is no build step). Once this is on `
 
 - **Heroes, then goblins.** Each round every hero acts first, in any order you like: tap a ready portrait to send that hero next (the round strip marks the heroes still to act "pick"). Then every goblin acts, fastest first: the goblin fighters (speed 3), then the shaman (2). Goblins on the same speed: the one with the most HP left goes first, so wounding a goblin also slows it down; still tied, front rank before back rank, left to right. A hero's speed only decides who is offered first.
 - **A turn is two actions**, for heroes and goblins alike: typically an attack and a power. Big spells (Fireball, Prayer of Healing) take both. **End** finishes a turn early.
-- **The dice:** each character rolls a die of their own, numbered the usual way: Brakka a **d8**, Vex and Wenna a **d6**, Orlen a **d4**, the goblins d6s. The top number is the **surge** and carries its burst. The die's colour says whose it is.
-- **Attacks roll one die.** The number is the damage, and the top number triggers the character's surge, different for each character. Each attack after the first in the same turn has **disadvantage**: the second rolls 2 dice and keeps the lowest, the third 3. **Advantage** rolls extra dice and keeps the highest (Bless gives it). The two cancel, and no roll uses more than 3 dice. Only the kept die counts, for its number and for its surge.
-- **Defence rolls.** Whoever an attack falls on rolls their own die, flat. An attack whose total (crits, Bless and hiding included) matches or beats it lands for its full number, less any Guard; one that falls short is **parried**. Fireball is a spell, and is not opposed. So die size matters on both sides: Brakka's d8 turns away most goblin blows, and Orlen's d4 lands only 42% of his bolts on a goblin's d6. A house rule in the menu switches defence off.
-- **Powers roll one die, flat:** never with advantage or disadvantage. A heal heals the number rolled, and Frostbite's number is how many presses it gives. Every other power reads the band the number falls in: the low numbers (1 on a d4, 1–2 on a d6 or d8) give its weakest result, the top number its strongest, everything between the normal one. **Fireball** rolls a d6, flat, and every goblin takes it. A power can be used once a turn.
+- **The dice:** each character rolls a die of their own, numbered the usual way: Brakka a **d8**, Vex and Wenna a **d6**, Orlen a **d4**, the goblins d6s. The top number carries the surge's burst. The die's colour says whose it is.
+- **Attacks roll to hit.** Roll 2 of your dice and add them: reach the target's **armour** and it's a hit, dealing your **damage**; fall short and it misses.
+  - **Doubles** (matching dice) are a **crit**: double damage, and always a hit (a house rule makes them reach armour like any roll).
+  - **A top number** on either die is a **surge**: the character's surge triggers, hit or miss.
+  - **Both dice on the top number:** crit and surge, and the attack goes **again**.
+  - Each attack after the first in the same turn has **disadvantage**: roll 3 and keep the lowest 2, the third 4. **Advantage** (Bless) keeps the highest 2. The two cancel.
+  - **Guard** (Defend, Brakka's surge, Interpose's best result) is extra armour until the guarded one's next turn.
+- **Powers roll one die, flat:** never with advantage or disadvantage. A heal heals the number rolled, and Frostbite's number is how many presses it gives. Every other power reads the band the number falls in: the low numbers (1 on a d4, 1–2 on a d6 or d8) give its weakest result, the top number its strongest, everything between the normal one. **Fireball** rolls a d6, with no roll to hit, and every goblin takes it. A power can be used once a turn.
 - **Press.** Orlen's **Frostbite** makes a goblin **Brittle** (❄️) for as many presses as the roll. A hero whose attack lands on a Brittle goblin presses: they gain an extra action that turn (once a turn), and the goblin loses one of its presses. Brittle ends when Orlen's next turn starts. Since a further attack has disadvantage, the extra action is usually best spent on a power.
 
-| Character | Speed | HP | Die | Surge (the top number on an attack) | Powers |
-| --- | --- | --- | --- | --- | --- |
-| Vex, rogue | 4 | 12 | d6 | **Critical Hit:** roll one more die and add it; it can crit again | **Hide** (goblins cannot attack you; your next strike doubles its roll), **Poison Blade** (your next attacks poison), **Throwing Knives** (an attack that reaches the back rank) |
-| Brakka, fighter | 3 | 16 | d8 | **Shield Up:** +2 Guard until his next turn | **Defend** (Guard 1, 2 or 3), **Taunt** (goblins must attack him), **Interpose** (attacks on another hero hit him) |
-| Orlen, wizard | 2 | 10 | d4 | **Arc:** 1 damage to every other goblin | **Fireball** (both actions: a d6 to every goblin), **Frostbite** (Brittle: hits on it press), **Slow** (it loses actions) |
-| Sister Wenna, cleric | 2 | 14 | d6 | **Mercy:** the most wounded hero heals 3 | Attacks at range. **Heal** (heals the roll; raises the fallen), **Bless** (advantage on a hero's next attack), **Prayer of Healing** (both actions: every hero heals the roll) |
-| Goblin fighter | 3 | 18 | d6 | **Gang Up:** +1 per other goblin fighter standing | Two attacks a turn. |
-| Goblin shaman | 2 | 14 | d6 | **Mend:** the most wounded goblin heals 3 | **Mending Chant**, **Curse** (a hero's attacks deal 1 to 3 less; Heal lifts it), then a hex bolt. |
+| Character | Speed | HP | Armour | Damage | Die | Surge (a top number on an attack) | Powers |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Vex, rogue | 4 | 12 | 6 | 4 | d6 | **Critical Hit:** a 6 crits too (double damage) | **Hide** (goblins cannot attack you; your next hit from hiding deals double), **Poison Blade** (your next attacks poison), **Throwing Knives** (an attack that reaches the back rank) |
+| Brakka, fighter | 3 | 16 | 8 | 5 | d8 | **Shield Up:** Guard 2 (+2 armour) until his next turn | **Defend** (Guard 1, 2 or 3), **Taunt** (goblins must attack him), **Interpose** (attacks on another hero hit him) |
+| Orlen, wizard | 2 | 10 | 5 | 3 | d4 | **Arc:** 1 damage to every other goblin | **Fireball** (both actions: a d6 to every goblin), **Frostbite** (Brittle: hits on it press), **Slow** (it loses actions) |
+| Sister Wenna, cleric | 2 | 14 | 7 | 3 | d6 | **Mercy:** the most wounded hero heals 3 | Attacks at range. **Heal** (heals the roll; raises the fallen), **Bless** (advantage on a hero's next attack), **Prayer of Healing** (both actions: every hero heals the roll) |
+| Goblin fighter | 3 | 18 | 7 | 3 | d6 | **Gang Up:** +1 damage per other goblin fighter standing | Two attacks a turn. |
+| Goblin shaman | 2 | 14 | 6 | 2 | d6 | **Mend:** the most wounded goblin heals 3 | **Mending Chant**, **Curse** (a hero's hits deal 1 to 3 less; Heal lifts it), then a hex bolt. |
 
 - **Ranks:** melee reaches only the front rank while anyone stands in it; ranged attacks and spells reach anyone. Brakka and Wenna are the party's front rank.
 - **Down and out:** a hero at 0 HP is down until healed. The fight ends when one side has no one standing.
 
-Choosing an action opens a card over the dungeon that says what it does: for an attack, the dice it will roll and the surge on its top number (each goblin in reach shows the chance to land 🎯, the average damage, the chance to finish it, and ❄+1 if hitting it would press); for a power, each band of numbers with its result and its chance. **The action a hero used last stays chosen for them**, on their next turn too, so repeating it takes one tap. Tap any goblin, or any hero you aren't picking between, for its **sheet**: stats (speed among them), its die, its surge, every action with its results and their odds, its statuses, and what it has done this fight. Press and hold opens any sheet.
+Choosing an action opens a card over the dungeon that says what it does: for an attack, the dice it will roll and the surge on its top number (each goblin in reach shows the chance to hit 🎯, the average damage, the chance to finish it, and ❄+1 if hitting it would press); for a power, each band of numbers with its result and its chance. **The action a hero used last stays chosen for them**, on their next turn too, so repeating it takes one tap. Tap any goblin, or any hero you aren't picking between, for its **sheet**: stats (speed among them), its die, its surge, every action with its results and their odds, its statuses, and what it has done this fight. Press and hold opens any sheet.
 
 ## Testing rule changes
 
-- **Tune** (on any sheet) changes max HP, speed and the size of the die (d4, d6, d8 or d10). Changes apply to every unit of that type, now and in later fights, and are kept in the browser. The menu resets them.
-- **House rules** in the menu: defence rolls on or off, and whether everyone crits, a kept top number rolling one more die on top of their surge (Vex's always do).
+- **Tune** (on any sheet) changes max HP, speed, armour, damage and the size of the die (d4, d6, d8 or d10). Changes apply to every unit of that type, now and in later fights, and are kept in the browser. The menu resets them.
+- **House rules** in the menu: whether doubles always hit.
 - **Auto-play the party** lets the heroes play themselves, so you can watch a rule set run.
 - **Simulate 1,000 fights** plays whole fights with a simple party bot against the goblins, using the numbers as they stand, and reports win rate, length, how often each hero falls, and damage dealt, taken and healed per character.
 
@@ -39,11 +43,11 @@ For changes beyond those, every number and rule lives in tables at the top of `j
 
 | Table | What it holds |
 | --- | --- |
-| `TUNE` | House rules: defence rolls, actions a turn, the most dice advantage or disadvantage can roll, presses a turn, whether everyone crits. |
+| `TUNE` | House rules: whether doubles always hit, actions a turn, the most dice advantage or disadvantage can roll, presses a turn, how many times one attack can go again. |
 | `SIZES`, `tierRange` | The dice the tray can throw, and how a power's die splits into low, middle and top. |
-| `SURGES` | What the top number does on each character's attack. The effects are in `surge()`. |
+| `SURGES` | What a top number does on each character's attack. The roll to hit is read in `readHit()`, the surges' effects are in `surge()`. |
 | `ACTIONS` | Every hotbar action: attack or power, action cost, target, reach, recharge, a die of its own (`die`) and whether it ignores advantage (`flat`); for powers how the die is read (`tier`: low, middle or top picks a line of `rows`; or `amount`: the number). The effects themselves are in `power()`. |
-| `UNITS` | Each character's HP, speed, die, rank, reach, surge and actions. |
+| `UNITS` | Each character's HP, speed, die, armour, damage, rank, reach, surge and actions. |
 | `PARTY`, `ENCOUNTER` | Who fights. The order is `nextUp()`: every hero in your order, then the goblins by speed and HP. |
 
 ## Code
@@ -60,7 +64,7 @@ The rules decide everything and know nothing of the screen; the view shows what 
 
 | Command | What it does |
 | --- | --- |
-| `node delve/tools/sim.js 2000` | Plays 2,000 fights in Node and prints the same report as the in-page simulator. `EXPLODE=1` makes everyone crit for the run, `DEFENCE=0` turns defence rolls off. |
+| `node delve/tools/sim.js 2000` | Plays 2,000 fights in Node and prints the same report as the in-page simulator. `CRITHITS=0` makes doubles reach armour like any roll. |
 | `node delve/tools/test.js 3` | Browser test (Playwright with Chromium): plays 3 fights through real taps (picking heroes by their portraits, both actions of each turn, powers, the last action kept chosen, presses, early ends), checking after every action that the bars show the HP the rules hold; then checks that the heroes' phase comes first, that End passes a turn, that the heroes still to act are marked and picked by a tap, that tuning survives a reload and resets, and that the simulator runs. `--shots` keeps screenshots. |
 
-With the default numbers, the bot party wins about 94% of fights, in about 5.6 rounds, and someone falls in about 42% of them (most often Brakka, who draws the blows); it presses about 3 times a fight. Without defence rolls the same numbers give about 90% in 4.7 rounds.
+With the default numbers, the bot party wins about 93% of fights, in about 4.6 rounds, and someone falls in about 47% of them (most often Brakka, who draws the blows).
