@@ -445,8 +445,9 @@ const VIEW = (() => {
   // Throw a unit's dice: every target's first dice together, then each crit's extra die out of the die that crit.
   // spec: { style, sides, mark (the top number has the burst), from (a goblin's id, or null for the party),
   //   groups: [{ target, dice: [{ n, from, dropped }] }], flare (a kept top number flares), onLand(die, group) }
+  // keep: leave the dice already down (a defence roll lands beside the attack's) · aim: where on the floor to land
   async function roll(spec) {
-    clearDice(); await wait(170);
+    if (!spec.keep) { clearDice(); await wait(170); }
     const kit = dieKit(spec.style, spec.sides, spec.mark !== false), mats = kit.mats;
     const flares = d => spec.flare && d.n === spec.sides && !d.dropped;
     const start = () => spec.from ? foeHand(spec.from) : partyHand();
@@ -455,7 +456,7 @@ const VIEW = (() => {
     const firsts = [];
     spec.groups.forEach((g, gi) => g.dice.forEach((d, di) => { if (d.from < 0) firsts.push({ g, gi, d, di }); }));
     await Promise.all(firsts.map((f, k) => {
-      const aim = aims ? aims[f.gi] : { x: (k - (firsts.length - 1) / 2) * .56, z: .05 };
+      const aim = spec.aim || (aims ? aims[f.gi] : { x: (k - (firsts.length - 1) / 2) * .56, z: .05 });
       const spot = spotNear(aim.x, aim.z);
       return wait(k * 70).then(() => throwDie(kit, mats, f.d.n, start(), spot)).then(m => { f.d.mesh = m; spec.onLand && spec.onLand(f.d, f.g); return flares(f.d) ? critFlare(m) : null; });
     }));

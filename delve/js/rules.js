@@ -11,6 +11,7 @@ const DV = (() => {
     maxDice: 3,          // most dice advantage or disadvantage can roll (keep the best, or the worst)
     presses: 1,          // extra actions a hero can win in one turn by hitting a Brittle foe
     explode: false,      // everyone's top number crits on an attack (one more die); Vex's always does
+    defence: true,       // the target of an attack rolls its own die to defend: the attack must match or beat it to land
     maxChain: 12,        // most extra dice one roll can crit into
   };
 
@@ -22,6 +23,8 @@ const DV = (() => {
   // keeps the highest; the two cancel, and no roll uses more than TUNE.maxDice dice.
   // A power rolls 1 die, never with advantage or disadvantage. It reads the number as its amount (a heal), or reads the
   // band the number falls in: low, middle or the top number.
+  // Defence: whoever an attack falls on rolls their own die, flat. An attack whose total matches or beats it lands and
+  // deals its full number; one that falls short is parried. Spells (Fireball) are not opposed.
   // Press: a hero whose attack hits a Brittle goblin (Orlen's Frostbite) gains an extra action that turn.
   const SIZES = [4, 6, 8, 10]; // the dice the tray can throw
   const TIERS = ['low', 'mid', 'top'];
@@ -97,12 +100,12 @@ const DV = (() => {
   // rank: front or back · speed: the order the goblins act in (a hero's only says who is offered first) · die: the size of their die · surge: what its top number
   // does on an attack
   const UNITS = {
-    fighter: { name: 'Brakka', cls: 'Fighter', side: 'hero', rank: 'front', hp: 26, speed: 3, die: 8, reach: 'melee', hitIcon: '⚔️', weapon: 'Longsword', surge: 'shieldUp', actions: ['attack', 'defend', 'taunt', 'interpose'], blurb: 'Shield first, questions later. Holds the line so nobody else has to.' },
-    mage: { name: 'Orlen', cls: 'Wizard', side: 'hero', rank: 'back', hp: 16, speed: 2, die: 4, reach: 'ranged', hitIcon: '✨', weapon: 'Arcane bolt', surge: 'arc', actions: ['attack', 'fireball', 'frostbite', 'slow'], blurb: 'Old, frail and very hard to argue with from range.' },
-    cleric: { name: 'Sister Wenna', cls: 'Cleric', side: 'hero', rank: 'front', hp: 22, speed: 2, die: 6, reach: 'ranged', hitIcon: '🌟', weapon: 'Holy light', surge: 'mercy', actions: ['attack', 'heal', 'bless', 'prayer'], blurb: 'Mends the living and smites the rest from a safe distance.' },
-    rogue: { name: 'Vex', cls: 'Rogue', side: 'hero', rank: 'back', hp: 18, speed: 4, die: 6, reach: 'melee', hitIcon: '🗡️', weapon: 'Dagger', surge: 'crit', actions: ['attack', 'hide', 'poison', 'knives'], blurb: 'Quick, quiet, and always looking for the soft spot.' },
-    goblin: { name: 'Goblin', cls: 'Goblin fighter', side: 'foe', rank: 'front', hp: 25, speed: 3, die: 6, reach: 'melee', hitIcon: '🪓', weapon: 'Hatchet', surge: 'gangUp', actions: ['attack'], blurb: 'Brave in a crowd. Braver in a bigger one.' },
-    shaman: { name: 'Goblin Shaman', cls: 'Goblin shaman', side: 'foe', rank: 'back', hp: 16, speed: 2, die: 6, reach: 'ranged', hitIcon: '💀', weapon: 'Hex bolt', surge: 'mend', actions: ['attack', 'chant', 'curse'], blurb: 'Keeps the others standing, and keeps well behind them.' },
+    fighter: { name: 'Brakka', cls: 'Fighter', side: 'hero', rank: 'front', hp: 16, speed: 3, die: 8, reach: 'melee', hitIcon: '⚔️', weapon: 'Longsword', surge: 'shieldUp', actions: ['attack', 'defend', 'taunt', 'interpose'], blurb: 'Shield first, questions later. Holds the line so nobody else has to.' },
+    mage: { name: 'Orlen', cls: 'Wizard', side: 'hero', rank: 'back', hp: 10, speed: 2, die: 4, reach: 'ranged', hitIcon: '✨', weapon: 'Arcane bolt', surge: 'arc', actions: ['attack', 'fireball', 'frostbite', 'slow'], blurb: 'Old, frail and very hard to argue with from range.' },
+    cleric: { name: 'Sister Wenna', cls: 'Cleric', side: 'hero', rank: 'front', hp: 14, speed: 2, die: 6, reach: 'ranged', hitIcon: '🌟', weapon: 'Holy light', surge: 'mercy', actions: ['attack', 'heal', 'bless', 'prayer'], blurb: 'Mends the living and smites the rest from a safe distance.' },
+    rogue: { name: 'Vex', cls: 'Rogue', side: 'hero', rank: 'back', hp: 12, speed: 4, die: 6, reach: 'melee', hitIcon: '🗡️', weapon: 'Dagger', surge: 'crit', actions: ['attack', 'hide', 'poison', 'knives'], blurb: 'Quick, quiet, and always looking for the soft spot.' },
+    goblin: { name: 'Goblin', cls: 'Goblin fighter', side: 'foe', rank: 'front', hp: 18, speed: 3, die: 6, reach: 'melee', hitIcon: '🪓', weapon: 'Hatchet', surge: 'gangUp', actions: ['attack'], blurb: 'Brave in a crowd. Braver in a bigger one.' },
+    shaman: { name: 'Goblin Shaman', cls: 'Goblin shaman', side: 'foe', rank: 'back', hp: 14, speed: 2, die: 6, reach: 'ranged', hitIcon: '💀', weapon: 'Hex bolt', surge: 'mend', actions: ['attack', 'chant', 'curse'], blurb: 'Keeps the others standing, and keeps well behind them.' },
   };
   const DEFAULTS = JSON.parse(JSON.stringify(UNITS)), TUNE0 = { ...TUNE };
 
@@ -130,7 +133,7 @@ const DV = (() => {
       // statuses: guard (number), taunt, ward (protected by an Interpose), hidden, coat (poisoned blade), poison, weak,
       // slow, blessed, brittle (Frostbite: hits on it press)
       guard: 0, taunt: null, ward: null, hidden: null, coat: null, poison: null, weak: null, slow: null, blessed: null, brittle: null,
-      stats: { dealt: 0, taken: 0, healed: 0, rolls: 0, dice: 0, surges: 0, kills: 0, falls: 0, presses: 0 },
+      stats: { dealt: 0, taken: 0, healed: 0, rolls: 0, dice: 0, surges: 0, kills: 0, falls: 0, presses: 0, parries: 0 },
     };
   }
   function newBattle(opts = {}) {
@@ -314,6 +317,8 @@ const DV = (() => {
   }
   // would a hit on t press for u now? Not if u has pressed this turn, nor on a Brittle that ends when u's turn starts
   const pressable = (S, u, t) => !!t.brittle && turnOf(S, u).presses < TUNE.presses && !(t.brittle.by === u.id && !(S.turn && S.turn.id === u.id));
+  // is this attack met with a defence roll? (not a spell, and only under the house rule)
+  const opposed = A => TUNE.defence && A.kind === 'attack' && !A.flat;
   // the die an action rolls: its own (Fireball's d6), or the character's
   const dieOf = (u, A) => (A && A.die) || u.die;
   // the dice an attack would roll right now: how many, of what size, and whether the best or the worst one counts
@@ -407,12 +412,19 @@ const DV = (() => {
         t.ward.uses--; if (t.ward.uses <= 0) { t.ward = null; ev.push(status(t.id, 'ward', false)); }
         t = by;
       }
+      // the defence roll: fall short of it and the blow is parried
+      if (opposed(A)) {
+        const dd = rollPool(S, t.die, 1, null, false)[0], held = r.dmg < dd.n;
+        t.stats.dice++; if (held) t.stats.parries++;
+        ev.push({ t: 'defend', id: t.id, src: u.id, sides: t.die, dice: [dd], total: dd.n, vs: r.dmg, held });
+        if (held) return;
+      }
       const amt = Math.max(0, r.dmg - t.guard);
       ev.push(...hurt(S, u, t, amt, r.surges ? 'surge' : 'hit', { raw: r.dmg, guarded: Math.min(r.dmg, t.guard), from: mult }));
       // a coated blade poisons what it lands on
       if (u.coat && !t.down && amt > 0) { t.poison = { ticks: 2, dmg: u.coat.dmg }; ev.push(status(t.id, 'poison', true, { n: u.coat.dmg })); }
       // press: a blow that lands on a Brittle foe wins the attacker an extra action (once a turn)
-      if (t.brittle && r.dmg > 0 && !pressed && T.presses < TUNE.presses) {
+      if (t.brittle && amt > 0 && !pressed && T.presses < TUNE.presses) {
         pressed = true; T.presses++; T.left++; u.stats.presses++;
         ev.push({ t: 'press', id: u.id, target: t.id, left: T.left });
         t.brittle.n--; if (t.brittle.n <= 0 || t.down) { t.brittle = null; ev.push(status(t.id, 'brittle', false)); }
@@ -508,12 +520,15 @@ const DV = (() => {
     const u = S.units[id], A = ACTIONS[actId], t = S.units[targetId];
     if (!u || !A || !t || A.kind !== 'attack') return null;
     const T = { rs: (S.rs ^ 0x5bd1e995) | 0, units: S.units }, D = attackDice(S, u, A);
-    let sum = 0, killN = 0;
+    let sum = 0, killN = 0, hitN = 0;
     for (let i = 0; i < n; i++) {
-      const d = Math.max(0, tally(S, u, A, rollPool(T, D.sides, D.n, D.keep, !A.flat && explodes(u), false), D.sides).dmg - t.guard);
+      const a = tally(S, u, A, rollPool(T, D.sides, D.n, D.keep, !A.flat && explodes(u), false), D.sides).dmg;
+      if (opposed(A) && a < die(T, t.die)) continue;
+      hitN++;
+      const d = Math.max(0, a - t.guard);
       sum += d; if (d >= t.hp) killN++;
     }
-    return { avg: sum / n, kill: killN / n, dice: D.n, keep: D.keep, sides: D.sides, press: pressable(S, u, t) };
+    return { avg: sum / n, kill: killN / n, hit: hitN / n, opposed: opposed(A), dice: D.n, keep: D.keep, sides: D.sides, press: pressable(S, u, t) };
   }
   // what one attack die is worth on average (crits and Gang Up included; other surges left out)
   function perDie(u, S, sides = u.die) {
@@ -642,7 +657,7 @@ const DV = (() => {
 
   return {
     TUNE, TUNE0, SIZES, TIERS, TIER_NAME, SURGES, ACTIONS, UNITS, DEFAULTS, PARTY, ENCOUNTER,
-    newBattle, start, ready, queue, act, endTurn, obey, targets, canUse, turnOf, attackDice, attackEdge, dieOf, pressable, tierOf, tierRange, tierOdds, standing, reachable, odds, perDie, explodes,
+    newBattle, start, ready, queue, act, endTurn, obey, targets, canUse, turnOf, attackDice, attackEdge, dieOf, pressable, opposed, tierOf, tierRange, tierOdds, standing, reachable, odds, perDie, explodes,
     mind, simulate, playOut, applyTuning, mostWounded,
   };
 })();

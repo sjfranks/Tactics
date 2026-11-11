@@ -243,7 +243,8 @@
       if (u.weak) mods.push(`weakened −${u.weak.n}`);
       if (DV.explodes(u) && !A.flat) mods.push(`${D.sides}s crit`);
       const brittle = DV.targets(S, u.id, A.id).some(id => DV.pressable(S, u, U(id)));
-      body = `<p class="tl">${rollWords(D)}${A.target === 'all' ? '; every goblin takes it' : ''}${mods.length ? ` · ${esc(mods.join(' · '))}` : ''}</p><p class="faces-line">${faceLine(u, A)}</p>`
+      const def = DV.opposed(A) ? `<p class="tx">The target rolls its own die to defend: match or beat it to land.</p>` : '';
+      body = `<p class="tl">${rollWords(D)}${A.target === 'all' ? '; every goblin takes it' : ''}${mods.length ? ` · ${esc(mods.join(' · '))}` : ''}</p><p class="faces-line">${faceLine(u, A)}</p>${def}`
         + (brittle ? `<p class="press-tip">❄️ A hit on a Brittle goblin presses: +1 action this turn.</p>` : '');
     } else body = powerRows(u, A);
     tip.innerHTML = `<b>${actIcon(u, A.id)} ${esc(A.name)} <span class="pp">${pips(A.cost)}</span></b><p class="tx">${esc(A.text)}</p>${body}`;
@@ -308,7 +309,7 @@
     if (A.kind === 'attack') tg.forEach(id => {
       const o = DV.odds(S, u.id, ui.sel, id); if (!o) return;
       const t = $(`.tag[data-id="${id}"] .odds`);
-      if (t) t.textContent = `≈${o.avg.toFixed(1)}${o.kill > .005 ? ` · ☠${Math.round(o.kill * 100)}%` : ''}${o.press ? ' · ❄+1' : ''}`;
+      if (t) t.textContent = `${o.opposed ? `🎯${Math.round(o.hit * 100)}% ` : ''}≈${o.avg.toFixed(1)}${o.kill > .005 ? ` · ☠${Math.round(o.kill * 100)}%` : ''}${o.press ? ' · ❄+1' : ''}`;
     });
     RO.retitle(`<span class="emo">${actIcon(u, ui.sel)}</span> ${esc(A.name)}`, `${A.cost > 1 ? 'both actions' : '1 action'}${A.recharge ? ` · recharges in ${A.recharge}` : ''}`);
     const melee = A.reach === 'melee' || (A.reach === 'unit' && u.reach === 'melee');
@@ -508,6 +509,20 @@
         await wait(240);
         break;
       }
+      case 'defend': {
+        const grp = RO.group('vs 🛡');
+        await VIEW.roll({ style: u.type, sides: e.sides, mark: false, keep: true, from: u.side === 'foe' ? u.id : null, aim: { x: 0, z: u.side === 'foe' ? -.5 : .5 }, groups: [{ target: null, dice: e.dice }],
+          onLand: d => grp.insertAdjacentHTML('beforeend', numChip(d.n, false)) });
+        const vs = `${e.vs} vs ${e.total}`;
+        if (e.held) {
+          floatOn(e.id, '🛡 Parried', 'miss'); sfx('nope');
+          if (u.side === 'hero') cardFx(e.id, 'glint', 650);
+          RO.text(`${esc(short(u.name))} parries (${vs})`, u.side === 'hero' ? 'good' : '');
+        }
+        log(`${nm(e.id)} defends: ${numChip(e.total, false)} ${e.held ? `<b>parried</b> (${vs})` : `hit (${vs})`}.`, lcls(e.id));
+        await wait(e.held ? 320 : 120);
+        break;
+      }
       case 'press':
         floatOn(e.id, '❄️ Press! +1 action', 'note'); sfx('crit'); VIEW.flashScreen('radial-gradient(circle, rgba(150,210,255,.45), rgba(80,140,255,.12) 60%, transparent 80%)');
         if (U(e.id).side === 'hero') cardFx(e.id, 'glint', 650);
@@ -608,11 +623,11 @@
       <section><h3>On an attack · the number is the damage</h3>
         <div class="act facedo"><span class="ai syms"><span class="band num">1–${N - 1}</span></span><div><b>1 to ${N - 1}</b><p>That much damage.</p></div></div>
         <div class="act facedo"><span class="ai syms">${numChip(N, true)}</span><div><b>${N} · Surge · ${esc(K.name)}</b><p>${N} damage. ${esc(K.text)}</p></div></div>
-        <p class="legend">An attack rolls 1 die; each attack after the first in a turn has disadvantage (2 dice, keep the lowest; then 3). Only the kept die counts, for its number and for its surge. A power rolls 1 die, never with advantage or disadvantage.</p>
+        <p class="legend">An attack rolls 1 die; each attack after the first in a turn has disadvantage (2 dice, keep the lowest; then 3). Only the kept die counts, for its number and for its surge. A power rolls 1 die, never with advantage or disadvantage.${DV.TUNE.defence ? ' Attacked, you roll your die to defend: an attack that falls short of it is parried.' : ''}</p>
       </section>
       <section><h3>Actions · ${DV.TUNE.actions} a turn</h3><div class="acts">${u.actions.map(actRow).join('')}</div></section>
       ${sts.length || cds.length || u.down || when ? `<section><h3>Right now</h3><div class="tags">${u.down ? `<span class="tagc">${u.side === 'hero' ? 'Down' : 'Slain'}</span>` : ''}${when ? `<span class="tagc">${when}</span>` : ''}${sts.join('')}${cds.join('')}</div></section>` : ''}
-      <section><h3>This fight</h3><div class="tags"><span class="tagc">Dealt ${u.stats.dealt}</span><span class="tagc">Taken ${u.stats.taken}</span>${u.stats.healed ? `<span class="tagc">Healed ${u.stats.healed}</span>` : ''}<span class="tagc">Dice ${u.stats.dice}</span><span class="tagc">Surges ${u.stats.surges}</span>${u.stats.kills ? `<span class="tagc">Kills ${u.stats.kills}</span>` : ''}</div></section>
+      <section><h3>This fight</h3><div class="tags"><span class="tagc">Dealt ${u.stats.dealt}</span><span class="tagc">Taken ${u.stats.taken}</span>${u.stats.healed ? `<span class="tagc">Healed ${u.stats.healed}</span>` : ''}<span class="tagc">Dice ${u.stats.dice}</span><span class="tagc">Surges ${u.stats.surges}</span>${u.stats.parries ? `<span class="tagc">Parries ${u.stats.parries}</span>` : ''}${u.stats.kills ? `<span class="tagc">Kills ${u.stats.kills}</span>` : ''}</div></section>
       <section><h3>Tune</h3>
         <p class="legend">${sheetTuning ? `Changes apply to ${kin > 1 ? `all ${kin} ${esc(u.cls.toLowerCase())}s` : esc(short(u.name))} now and in later fights, and are kept on this device.` : 'Try other numbers: change HP, speed and the size of the die.'}</p>
         <div class="row"><button class="btn small" type="button" id="tuneBtn" aria-pressed="${sheetTuning}">${sheetTuning ? 'Done tuning' : 'Tune'}</button>${TUNING.units[u.type] ? `<button class="btn small" type="button" id="tuneReset">Back to defaults</button>` : ''}</div>
@@ -664,6 +679,7 @@
         <div class="set"><div><b>Sound</b><small>Dice, blows and spells.</small></div>${sw('mSound', !SET.mute)}</div>
       </section>
       <section><h3>House rules</h3>
+        <div class="set"><div><b>Defence rolls</b><small>Whoever is attacked rolls their own die: the attack must match or beat it to land. Spells are not opposed.</small></div>${sw('mDefence', DV.TUNE.defence)}</div>
         <div class="set"><div><b>Everyone crits</b><small>On an attack, a kept top number rolls one more die, for everyone, on top of their surge. Vex's always do.</small></div>${sw('mExplode', DV.TUNE.explode)}</div>
         <div class="set"><div><b>Tuned numbers</b><small>${changed ? `${changed} change${changed > 1 ? 's' : ''} from the defaults, kept on this device.` : 'Open any sheet and tap Tune to change stats and die sizes.'}</small></div>${changed ? `<button class="btn small" type="button" id="mReset">Reset all</button>` : ''}</div>
       </section>
@@ -672,12 +688,13 @@
         <li>A turn is ${DV.TUNE.actions} actions: typically an attack and a power. Big spells take both. End the turn early with End.</li>
         <li>Each character rolls a die of their own: ${DV.PARTY.map(k => `${esc(short(DV.UNITS[k].name))} a d${DV.UNITS[k].die}`).join(', ')}; the goblins a d${DV.UNITS.goblin.die}, the shaman a d${DV.UNITS.shaman.die}. ${SYM.top} marks the top number: the surge.</li>
         <li>An attack rolls 1 die: the number is the damage, and the top number triggers the character’s surge (each character’s is different: see their sheet). Each attack after the first in a turn has disadvantage: roll 2 dice and keep the lowest, then 3. Advantage (from Bless) rolls extra dice and keeps the highest; the two cancel, and no roll uses more than ${DV.TUNE.maxDice} dice.</li>
+        <li>Defence: whoever an attack falls on rolls their own die. An attack whose total matches or beats it lands for its full number; one that falls short is parried. Fireball is a spell, and is not opposed. (A house rule switches this off.)</li>
         <li>Press: Orlen’s Frostbite makes a goblin Brittle. A hero whose attack hits a Brittle goblin gains an extra action that turn (once a turn); each press uses up one of the Brittle hits.</li>
         <li>A power rolls 1 die, never with advantage or disadvantage. A heal heals the number, and Frostbite’s number is its presses. Other powers read the band the number falls in: the low numbers (1–2 on a d6) give the weakest result, the top number the strongest. Fireball rolls a d6, flat, against every goblin.</li>
         <li>The action a hero used last stays chosen for them.</li>
         <li>Melee reaches only the front rank while anyone stands in it. Ranged attacks and spells reach anyone. Goblins cannot attack a hidden hero.</li>
         <li>A power can be used once a turn; one that recharges waits that many rounds.</li>
-        <li>Over each goblin in reach of an attack: the average damage and the chance to finish it.</li>
+        <li>Over each goblin in reach of an attack: the chance to land (🎯), the average damage and the chance to finish it.</li>
         <li>A hero at 0 HP is down until healed. The fight ends when one side has no one standing.</li>
       </ul></details>`);
     $('#mNew', card).onclick = newFight;
@@ -686,6 +703,7 @@
     const toggle = (id, fn) => { const b = $('#' + id, card); b.onclick = () => { const v = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', v); fn(v); }; };
     toggle('mAuto', v => { SET.auto = v; saveSet(); ui.sel = null; VIEW.mark({}); if (v && ui.phase === 'fight' && !ui.busy) proceed(); else { drawAll(); renderHotbar(); } });
     toggle('mSound', v => { SET.mute = !v; VIEW.muted = SET.mute; saveSet(); if (v) VIEW.audio(); });
+    toggle('mDefence', v => { DV.TUNE.defence = v; TUNING.tune = { ...(TUNING.tune || {}), defence: v }; saveTuning(); });
     toggle('mExplode', v => { DV.TUNE.explode = v; TUNING.tune = { ...(TUNING.tune || {}), explode: v }; saveTuning(); });
     $$('[data-sp]', card).forEach(b => b.onclick = () => { SET.speed = b.dataset.sp; saveSet(); applySpeed(); $$('[data-sp]', card).forEach(x => x.setAttribute('aria-pressed', x === b)); });
     const rs = $('#mReset', card); if (rs) rs.onclick = () => { TUNING = { units: {}, tune: {} }; saveTuning(); DV.applyTuning(null); Object.keys(DV.UNITS).forEach(t => retune(t, DV.UNITS[t])); openMenu(); };
@@ -704,7 +722,7 @@
         <div class="kpis"><div class="stat"><small>Party wins</small><b>${pct(r.winRate)}</b></div><div class="stat"><small>Rounds</small><b>${f1(r.avgRounds)}</b><span class="note">on average</span></div><div class="stat"><small>No one fell</small><b>${pct(r.flawlessRate)}</b><span class="note">of fights</span></div></div>
         <div class="kpis"><div class="stat"><small>Heroes up</small><b>${r.avgHeroesUp.toFixed(1)}</b><span class="note">at the end</span></div><div class="stat"><small>Party HP</small><b>${f1(r.avgHeroHp)}</b><span class="note">left of ${DV.PARTY.reduce((s, k) => s + DV.UNITS[k].hp, 0)}</span></div><div class="stat"><small>Longest chain</small><b>${r.maxChain}</b><span class="note">crit dice</span></div></div>
         <div class="tablewrap"><table class="t"><thead><tr><th>Per fight</th><th>Dealt</th><th>Taken</th><th>Healed</th><th>Fell</th><th>Surges</th></tr></thead><tbody>${rows}</tbody></table></div>
-        <p class="legend">${ms} ms · House rules: ${DV.TUNE.explode ? 'everyone crits' : 'only Vex crits'}.</p>
+        <p class="legend">${ms} ms · House rules: ${DV.TUNE.defence ? 'defence rolls' : 'no defence rolls'}, ${DV.TUNE.explode ? 'everyone crits' : 'only Vex crits'}.</p>
         <div class="row"><button class="btn gold" type="button" id="sAgain">Run again</button><button class="btn" type="button" id="sBack">Back to the fight</button></div>`;
       $('.x', card).onclick = closeModal; $('#sBack', card).onclick = closeModal; $('#sAgain', card).onclick = openSim;
     }, 60);
