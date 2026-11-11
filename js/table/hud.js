@@ -15,7 +15,7 @@ function refreshHL() {
   computeForecast(); renderFc();
   if (UI.phase !== 'player' || UI.over || UI.busy || !G) return;
   if (showThreat) for (const k of G.threat()) { const q = GC.parseKey(k); setHL(q.c, q.r, 'threat', q.l); }
-  const u = myHero(); if (!u) return;
+  const u = myHero(); if (!u || UI.facePick) return; // the facing step: only its arrows
   const r = ru(u), card = UI.card && G.cardOf(r, UI.card), blk = card ? G.block(r, UI.card) : '';
   const zone = card && card.range > 1 && !blk ? G.rangeCells(r, G.reachOf(r, card), !!card.reach) : null;
   if (zone) { for (const k of zone) { const q = GC.parseKey(k); setHL(q.c, q.r, 'range', q.l); } outline(zone, rangeEdgeMat, .44); }
@@ -41,7 +41,7 @@ function refreshHL() {
 const fcCache = new Map(); // the odds hold still until the board changes: cleared after every order
 function computeForecast() {
   UI.fc.clear();
-  const u = myHero(), id = UI.card; if (!u || !id || UI.busy) return;
+  const u = myHero(), id = UI.card; if (!u || !id || UI.busy || UI.facePick) return;
   const r = ru(u), card = G.cardOf(r, id); if (!card || G.block(r, id)) return;
   const put = (t, from) => { const k = `${id}|${t.id}|${key(from.c, from.r, from.l)}`; let f = fcCache.get(k); if (f === undefined) { f = G.forecast(r, id, t, from, 900); fcCache.set(k, f); } if (f) UI.fc.set(t.id, f); };
   if (card.atk || card.heal) { for (const e of G.targets(r, id).values()) if (e.unit != null) put(G.U(e.unit), e.path ? e.path[e.path.length - 1] : r); }
@@ -77,7 +77,7 @@ function renderDock() {
   else if (UI.phase !== 'player') hint = (UI.active ? shortName(UI.active) + "'s turn" : "Goblins' turn") + (ffwd ? ' · <b>fast-forward</b>' : ' · <b>tap</b> to speed up');
   else if (UI.confirm) hint = 'Tap <b>Confirm?</b> or the target again to go';
   else if (UI.busy) hint = '';
-  else if (h && UI.facePick === h) hint = 'Tap an <b>arrow</b> to pick which way to face';
+  else if (h && UI.facePick === h) hint = 'Tap where to <b>face</b> to end the turn · <b>End</b> keeps this way';
   else if (h && UI.card) { const cd = CARDS[UI.card]; hint = cd.target === 'grab' && grabbedId() != null ? HINTS.grabTo : HINTS[cd.spot ? 'spot' : cd.target]; }
   else if (h) hint = hr.ap > 0 ? 'Tap a <b>blue</b> square or drag to move · 1 action' + (UI.climbShown ? ' · <b>chevrons</b> mark a climb' : '') : '';
   else if (UI.sel && UI.sel.down) hint = `${UI.sel.name} is down`;
@@ -138,7 +138,7 @@ $('#hbWrap').addEventListener('scroll', hbFades, { passive: true });
   window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
 })();
 function hotTap(h, id) {
-  ac(); if (UI.facePick) closeFacing();
+  ac(); if (UI.facePick) { if (ru(UI.facePick).ap <= 0) return; closeFacing(); }
   if (UI.confirm) { UI.confirm(false); return; }
   if (UI.busy || UI.phase !== 'player' || UI.over) return;
   const block = G.block(ru(h), id);
@@ -151,6 +151,7 @@ window.addEventListener('keydown', e => { // 1–9 pick abilities, Escape puts t
   const h = myHero(); if (e.ctrlKey || e.metaKey || e.altKey || !h || ovOpen() || !$('#menu').hidden) return; // not under a sheet or the open menu
   const AK = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
   if (UI.facePick && AK[e.key]) { e.preventDefault(); pickFacing(AK[e.key]); return; }
+  if (UI.facePick && e.key === 'Escape' && ru(UI.facePick).ap > 0) { e.preventDefault(); closeFacing(); return; }
   const k = +e.key, id = k >= 1 && k <= 9 ? G.cardsOf(ru(h))[k - 1] : null;
   if (id) { e.preventDefault(); hotTap(h, id); const b = document.querySelector(`.hk[data-id="${id}"]`); if (b) b.scrollIntoView({ inline: 'nearest', block: 'nearest' }); }
   else if (e.key === ']' || e.key === '[') { e.preventDefault(); hbPage(e.key === ']' ? 1 : -1); }

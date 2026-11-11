@@ -13,7 +13,7 @@ A tabletop tactics game on a 3D board. Four heroes (Brakka the fighter, Sister W
 - **Turns:** every piece rolls initiative once at the start of the battle, and heroes and goblins alternate. Heroes have 3 actions, goblins 2; moving is an action and so is each ability.
 - **Dice:** real dice, thrown on the table. A 1 misses, a top face is a crit that explodes and cuts through armour, and the target's armour (the shield on its nameplate) takes a fixed amount off the rest. Each attack after the first in a turn rolls with disadvantage.
 - **Planning:** foe intent arrows show whom each goblin means to strike or where it would walk; the odds over each target show the damage to expect and the chance to finish it.
-- **Facing:** every figure faces one of four ways (a wedge on its base). A blow from behind takes +1 die. After each move the hero picks a way to face with four arrows, for no action; goblins end their turn facing the nearest hero.
+- **Facing:** every figure faces one of four ways (a wedge on its base). A blow from behind takes +1 die. The last step of a hero's turn is picking which way to face (tap a square toward it, or End to keep it); goblins end their turn facing the nearest hero.
 - **Down, not dead:** a hero at 0 HP lies where they fell until Heal raises them. Sister Wenna can cast Heal once a turn. The battle is lost only when every hero is down.
 - **Undo** takes back moves and abilities that rolled no dice. Dice are final.
 - **Experience:** in the campaign, heroes earn a little XP for every action (a hit, a kill, a heal, a helping spell) and for standing at a victory. Each 100 XP is a level (+2 max HP). A hero's sheet shows how close the next level is.

@@ -255,11 +255,11 @@ async function useCard(u, id, target, path, dropped) {
 async function moveHero(u, path, dropped) {
   const done = await order(() => G.move(u.id, path, dropped ? 'drop' : undefined));
   if (!done && dropped) { await dropTo(u, [here(u)]); refresh(); }
-  if (done && UI.active === u && UI.phase === 'player' && !UI.over && G.up(G.U(u.id))) openFacing(u); // the end of a move: pick a facing
 }
-// ---------------- facing: at the end of a move the hero picks which way to face ----------------
-// four arrows around the hero; a tap turns them that way (no action spent). Anything else keeps the way they walked.
-// A blow from behind a figure takes +1 die, for the heroes and the goblins alike
+// ---------------- facing: the last thing a hero does on their turn is pick which way to face ----------------
+// Ending the turn (End, E, or the last action spent) lays four faint arrows on the ground round the hero. A tap on any
+// square turns them toward it and ends the turn; End again, or a tap on the hero, keeps the way they face. A blow from
+// behind a figure takes +1 die, for the heroes and the goblins alike
 const yawOf = f => Math.atan2(f[0], f[1]);
 const FACE_DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 function faceRule(u, instant) { // a piece turns to the way the rules say it faces
@@ -268,26 +268,33 @@ function faceRule(u, instant) { // a piece turns to the way the rules say it fac
   if (instant || QUIET) { u.piece.rotation.y = a0 + d; return; }
   tween(220, t => { if (u.alive) u.piece.rotation.y = a0 + d * t; });
 }
-function openFacing(u) { UI.facePick = u; $('#facePick').hidden = false; markFacing(); refresh(); }
-function closeFacing() { if (!UI.facePick) return; const u = UI.facePick; UI.facePick = null; $('#facePick').hidden = true; refresh(); return u; }
-function markFacing() { const u = UI.facePick, f = u && G.fcOf(G.U(u.id)); document.querySelectorAll('#facePick button').forEach(b => { const d = b.dataset.d.split(',').map(Number); b.classList.toggle('on', !!f && d[0] === f[0] && d[1] === f[1]); }); }
+// the arrows: thin chevrons lying on the ground just past the edges of the hero's square, the way they face now in gold
+const faceArrows = (() => {
+  const g = new THREE.Group(), geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute([-.17, 0, -.05, 0, 0, .09, 0, 0, .14, -.17, 0, .0, .17, 0, -.05, .17, 0, 0], 3));
+  geo.setIndex([0, 1, 3, 3, 1, 2, 1, 4, 2, 2, 4, 5]);
+  FACE_DIRS.forEach(d => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xe8dcc0, transparent: true, opacity: .4, depthWrite: false, side: THREE.DoubleSide })); m.userData.d = d; m.renderOrder = 4; g.add(m); });
+  g.visible = false; scene.add(g); return g;
+})();
+function openFacing(u) { if (!u || UI.facePick) return; UI.facePick = u; faceArrows.visible = true; sfx('select'); refresh(); }
+function closeFacing() { if (!UI.facePick) return; const u = UI.facePick; UI.facePick = null; faceArrows.visible = false; refresh(); return u; }
+// the end of the turn: face d (a step), or keep the way they face, then the turn passes
 async function pickFacing(d) {
-  const u = UI.facePick; if (!u || UI.busy) return; ac(); sfx('pick');
-  const r = G.U(u.id), f = G.fcOf(r), same = f[0] === d[0] && f[1] === d[1];
-  closeFacing();
-  if (!same) await order(() => G.turn(u.id, d)); else afterAction(); // the same way: just confirm (a spent hero's turn then ends)
+  const u = UI.facePick; if (!u || UI.busy) return; ac();
+  const r = G.U(u.id), f = G.fcOf(r); closeFacing();
+  if (d && (f[0] !== d[0] || f[1] !== d[1])) { sfx('pick'); await order(() => G.turn(u.id, d)); }
+  endTurn();
 }
-document.querySelectorAll('#facePick button').forEach(b => { b.onclick = e => { e.stopPropagation(); pickFacing(b.dataset.d.split(',').map(Number)); }; b.addEventListener('pointerdown', e => e.stopPropagation()); });
-// each frame: the arrows sit on the edges of the hero's own square, pointing out (the squares beside stay free to tap)
+// each frame: the arrows lie round the hero, pointing out; the way they face glows
 function placeFacing() {
   const u = UI.facePick; if (!u) return;
-  const c = project(u.root.position);
-  document.querySelectorAll('#facePick button').forEach(b => {
-    const [dc, dr] = b.dataset.d.split(',').map(Number), p = project(tmpF.copy(u.root.position).add(new V3(dc * .36, .04, dr * .36)));
-    b.style.transform = `translate(${p[0]}px,${p[1]}px) translate(-50%,-50%)`; b.firstElementChild.style.transform = `rotate(${Math.atan2(p[1] - c[1], p[0] - c[0])}rad)`;
-  });
+  const r = G.U(u.id), f = r && G.fcOf(r), p = u.root.position, k = .5 + .5 * Math.sin(now * .006);
+  for (const m of faceArrows.children) {
+    const [dc, dr] = m.userData.d, on = f && dc === f[0] && dr === f[1];
+    m.position.set(p.x + dc * .66, p.y + .045, p.z + dr * .66); m.rotation.y = yawOf(m.userData.d);
+    m.material.color.setHex(on ? 0xf0c060 : 0xe8dcc0); m.material.opacity = on ? .75 + .2 * k : .28 + .14 * k;
+  }
 }
-const tmpF = new V3();
 function endTurn() { if (UI.busy || UI.phase !== 'player' || UI.over) return; closeFacing(); return order(() => G.endTurn(), true); }
 function faceViewer(u) { // idle pieces turn back toward the player, like Fire Emblem units
   if (!u || !u.alive || u.down) return;
@@ -303,7 +310,7 @@ function afterAction() {
   }
   computeIntents(); refresh(); renderTools(); saveTurn();
   // the turn passes on by itself once the hero has no actions left (or has fallen)
-  if (mine && (r.ap <= 0 || !G.up(r)) && UI.facePick !== u) setTimeout(() => { const r2 = G.U(u.id); if (UI.phase === 'player' && !UI.busy && !UI.over && UI.active === u && UI.facePick !== u && (r2.ap <= 0 || !G.up(r2))) endTurn(); }, 450); // a facing to pick waits
+  if (mine && (r.ap <= 0 || !G.up(r)) && UI.facePick !== u) setTimeout(() => { const r2 = G.U(u.id); if (UI.phase === 'player' && !UI.busy && !UI.over && UI.active === u && UI.facePick !== u && (r2.ap <= 0 || !G.up(r2))) { if (G.up(r2)) openFacing(u); else endTurn(); } }, 450); // spent: the facing, then the turn passes
 }
 function setSel(u, quiet) {
   UI.peek = null; UI.sel = u; UI.aim = null; UI.inspect = null;

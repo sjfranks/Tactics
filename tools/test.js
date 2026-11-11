@@ -286,20 +286,22 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     await p.evaluate(() => { CAMP = freshCamp(); saveCamp(); });
   }
 
-  console.log('facing: after a move the hero picks a way to face; a blow from behind takes +1 die');
+  console.log('facing: the last thing on a turn is the way the hero faces; a blow from behind takes +1 die');
   {
     await setup(0, 'thief');
     const r0 = await hero('thief');
-    await p.evaluate(([c, r]) => moveHero(UI.active, [{ c, r, l: 0 }, { c, r: r - 1, l: 0 }]), [r0.c, r0.r]); await idle();
-    const f1 = await p.evaluate(() => ({ open: !$('#facePick').hidden, on: document.querySelector('#facePick button.on').dataset.d, fc: G.fcOf(G.U(UI.active.id)).join(), hint: $('#hbInfo .tx3').textContent }));
-    ok(f1.open && f1.on === '0,-1' && f1.fc === '0,-1' && /pick which way to face/.test(f1.hint), 'after the move four arrows ring Vex, the way she walked lit');
-    await p.click('#facePick button[data-d="1,0"]'); await idle();
-    const f2 = await p.evaluate(() => ({ open: !$('#facePick').hidden, fc: G.fcOf(G.U(UI.active.id)).join(), ap: G.U(UI.active.id).ap, yaw: UI.active.piece.rotation.y }));
-    ok(!f2.open && f2.fc === '1,0' && f2.ap === 2 && Math.abs(f2.yaw - Math.PI / 2) < .1, 'an arrow turns her to face right, for no action');
-    const rear = await p.evaluate(() => { const r = G.U(UI.active.id), g = G.S.units.find(u => u.kind === 'cutter' && u.alive); const S0 = G.snapshot(); g.c = r.c + 1; g.r = r.r; g.fc = [1, 0]; const a = G.forecast(r, 't_attack', g).tags; g.fc = [-1, 0]; const b = G.forecast(r, 't_attack', g).tags; return [a.includes('Rear +1d'), b.includes('Rear +1d')]; });
+    await tapCell(r0.c, r0.r - 1); await idle();
+    ok(await p.evaluate(() => !UI.facePick && !faceArrows.visible), 'a move asks nothing: no arrows');
+    await p.evaluate(() => { askEndTurn(); }); await p.waitForTimeout(250);
+    if (await p.isVisible('#confirm')) { await p.click('#cfEnd'); await p.waitForTimeout(250); }
+    const f1 = await p.evaluate(() => ({ open: !!UI.facePick && faceArrows.visible, phase: G.S.phase, active: UI.active.kind, hint: $('#hbInfo').textContent }));
+    ok(f1.open && f1.phase === 'player' && f1.active === 'thief' && /Tap where to face/.test(f1.hint), 'ending the turn first lays faint arrows round Vex, and waits');
+    const v = await hero('thief');
+    await tapCell(v.c + 1, v.r); await idle();
+    const f2 = await p.evaluate(id => ({ fc: G.fcOf(G.U(id)).join(), open: !!UI.facePick, gone: G.S.active !== id }), v.id);
+    ok(f2.fc === '1,0' && !f2.open && f2.gone, 'a tap to her right turns her that way, and the turn passes');
+    const rear = await p.evaluate(id => { const r = G.U(id), g = G.S.units.find(u => u.kind === 'cutter' && u.alive), c0 = g.c, r0 = g.r, f0 = g.fc; g.c = r.c + 1; g.r = r.r; g.fc = [1, 0]; const a = G.forecast(r, 't_attack', g).tags; g.fc = [-1, 0]; const b = G.forecast(r, 't_attack', g).tags; g.c = c0; g.r = r0; g.fc = f0; return [a.includes('Rear +1d'), b.includes('Rear +1d')]; }, v.id);
     ok(rear[0] && !rear[1], 'a cutter with its back to her: the odds say Rear +1d; facing her, not');
-    const gob = await p.evaluate(async () => { await endTurn(); for (let t = 0; t < 400 && !(UI.phase === 'player' && !UI.busy); t++) await new Promise(r => setTimeout(r, 50)); return G.S.units.filter(g => g.side === 'gob' && g.alive && !g.asleep).every(g => { const h = G.S.units.filter(x => x.side === 'hero' && G.up(x) && !x.st.hidden).sort((a, b) => G.dist(g, a) - G.dist(g, b))[0]; if (!h) return true; const f = G.fcOf(g); return G.S.units.filter(x => x.side === 'hero' && G.up(x) && !x.st.hidden && G.dist(g, x) === G.dist(g, h)).some(x => { const d = G.dirTo(g, x); return f[0] === d[0] && f[1] === d[1]; }); }); });
-    ok(gob, 'the goblins have had their turn, each ending it facing a hero');
   }
 
   console.log('a close-up when the blow is locked in');

@@ -42,7 +42,10 @@ function floorY(x, z) { const c = toCell({ x, z }); if (!c) return TOP; const l 
 
 function onTap(hit) {
   if (UI.over) return;
-  if (UI.facePick && !UI.busy) { closeFacing(); afterAction(); } // a tap elsewhere keeps the way the hero walked
+  if (UI.facePick) { // the facing step: a tap turns the hero toward that square (on the hero: keep it), and the turn ends
+    if (UI.busy) return; const r = ru(UI.facePick), q = hit.unit ? { c: hit.unit.c, r: hit.unit.r } : hit.cell;
+    if (!q) return; pickFacing(q.c === r.c && q.r === r.r ? null : G.dirTo(r, q)); return;
+  }
   const t = hit.unit || (hit.cell && occ(hit.cell.c, hit.cell.r, hit.cell.l));
   if (UI.confirm) { const e = UI.confirmEnd, h = hit.cell; UI.confirm((!!t && t === UI.confirmT) || (!!h && !!e && h.c === e.c && h.r === e.r && (h.l || 0) === (e.l || 0))); return; }
   if (UI.busy || UI.phase !== 'player') { if (t && t.deployed) { UI.inspect = t; renderDock(); } return; }
@@ -151,6 +154,7 @@ function hover(x, y) {
 
 // drag a hero to walk: the path follows the finger square by square; let go over a foe to walk there and strike
 function startDrag(u, touch) {
+  if (UI.facePick) return; // the facing step takes taps, not drags
   if (UI.sel !== u) setSel(u, true);
   sfx('lift');
   const r = ru(u);
@@ -252,8 +256,9 @@ function ask(title, html, yes, no) {
 }
 async function askEndTurn() {
   if (UI.busy || UI.phase !== 'player' || UI.over || !$('#confirm').hidden) return;
+  if (UI.facePick) return pickFacing(null); // End again: keep the way they face
   const h = UI.active, ap = h ? ru(h).ap : 0;
-  if (!h || ap <= 0 || await ask('End this turn?', `<b>${h.name}</b> still has ${ap} action${ap > 1 ? 's' : ''}.`, 'End turn', 'Keep playing')) endTurn();
+  if (!h || ap <= 0 || await ask('End this turn?', `<b>${h.name}</b> still has ${ap} action${ap > 1 ? 's' : ''}.`, 'End turn', 'Keep playing')) { if (h && G.up(ru(h))) openFacing(h); else endTurn(); }
 }
 $('#endBtn').onclick = () => { ac(); askEndTurn(); };
 // keys: E or Enter ends the turn, Z (or Ctrl+Z) undoes; Enter answers the open question or sheet, Escape backs out

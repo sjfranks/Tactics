@@ -611,14 +611,6 @@ body{font-family:var(--body)}
 #callout b{display:block;font:400 16px/1.1 var(--display);color:var(--bone)}
 #coX{display:block;margin-top:2px;font-size:12.5px;line-height:1.35;color:var(--bone-dim)}
 @media (prefers-reduced-motion:reduce){#callout{animation:none}}
-/* facing: after a move, four arrows on the ground round the hero; the way they face now is lit */
-#facePick{position:absolute;inset:0;z-index:4;pointer-events:none}
-#facePick button{position:absolute;left:0;top:0;width:32px;height:32px;padding:0;border:none;border-radius:50%;display:grid;place-items:center;pointer-events:auto;background:rgba(14,11,9,.82);box-shadow:inset 0 0 0 1.5px var(--tarnish),0 4px 10px rgba(0,0,0,.6);animation:fpIn .2s ease-out;touch-action:manipulation}
-#facePick button svg{width:17px;height:17px;stroke:var(--bone);fill:none;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round}
-#facePick button.on{background:linear-gradient(180deg,#f0c870,#9a6a24);box-shadow:0 0 0 1.5px #ffe3a0,0 0 14px rgba(240,190,90,.7)}
-#facePick button.on svg{stroke:#1a1208}
-#facePick button:active{filter:brightness(1.3)}
-@keyframes fpIn{from{opacity:0}to{opacity:1}}
 /* key numbers only where there is a keyboard to press them */
 @media (hover:none) and (pointer:coarse){.hk .key{display:none}}
 /* palette: the open menu wears brass, not blue; every switch is iron when off and brass when on */
@@ -693,7 +685,6 @@ details.repd .rep{margin-top:4px}
   <div id="roll" hidden><div class="rl" id="rollLbl"></div><div class="notes" id="rollNotes"></div><div class="chips" id="rollChips"></div><div class="res" id="rollRes"></div></div>
   <div id="combos"></div>
   <div id="banner"><span id="bannerTxt"></span></div>
-  <div id="facePick" hidden><button data-d="0,-1" aria-label="Face up the board"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button><button data-d="1,0" aria-label="Face right"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button><button data-d="0,1" aria-label="Face down the board"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button><button data-d="-1,0" aria-label="Face left"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button></div>
   <div id="callout" hidden role="status" aria-live="polite"><i id="coIc"></i><span><b id="coT"></b><span id="coX"></span></span></div>
   <div id="talk" hidden role="dialog" aria-live="polite"><div class="tk"><span id="talkFace" class="ubadge"></span><div class="tb"><b id="talkName"></b><p id="talkText"></p></div><button id="talkSkip">Skip</button></div><i class="tnext">Tap to go on</i></div>
 
@@ -804,7 +795,7 @@ details.repd .rep{margin-top:4px}
         <li><b>Disadvantage:</b> each attack after a piece's first in a turn throws one more die for every attack it has already made, and the highest are set aside.</li>
         <li>A hero at 0 HP is <b>down</b>, not dead: they lie where they fell, and goblins leave the body be. Sister Wenna's <b>Heal</b> raises them with whatever it rolls. She can cast it once a turn. If every hero is down, the battle is lost.</li>
         <li>A <b>Prone</b> hero spends an action to stand up.</li>
-        <li><b>Facing:</b> every figure faces one way, shown by the wedge at the front of its base. A blow from behind it takes <b>+1 die</b> (the odds say <b>Rear +1d</b>). After each move, four arrows ring the hero: tap one to turn that way, for no action (arrow keys too); anything else keeps the way they walked. Striking or casting turns a figure to its mark, and goblins end their turn facing the nearest hero, so two heroes can get behind one.</li>
+        <li><b>Facing:</b> every figure faces one way, shown by the wedge at the front of its base. A blow from behind it takes <b>+1 die</b> (the odds say <b>Rear +1d</b>). The last thing on a hero's turn is which way they face: ending the turn (End, E, or the last action spent) lays faint arrows on the ground round them; tap any square to face toward it and the turn passes (arrow keys too), or tap End again to keep the way they face. Striking or casting turns a figure to its mark, and goblins end their turn facing the nearest hero, so two heroes can get behind one.</li>
       </ul>
       <h3>Attack and armour</h3>
       <ul>
