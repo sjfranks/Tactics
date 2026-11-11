@@ -8,118 +8,102 @@ const DV = (() => {
   // ---------------- house rules ----------------
   const TUNE = {
     actions: 2,          // actions in a turn
-    dice: 1,             // dice an attack rolls, before advantage and disadvantage
     maxDice: 3,          // most dice advantage or disadvantage can roll (keep the best, or the worst)
     presses: 1,          // extra actions a hero can win in one turn by hitting a Brittle foe
-    explode: false,      // every surge on an attack rolls one more die (the rogue's always do)
-    maxChain: 12,        // most extra dice one roll can explode into
+    explode: false,      // everyone's top number crits on an attack (one more die); Vex's always does
+    maxChain: 12,        // most extra dice one roll can crit into
   };
 
   // ---------------- the dice ----------------
-  // Everyone rolls the same d6: 1, 1, 2, 2, 3, 3. The 3s carry the surge mark, the 1s the setback mark, the 2s are plain.
-  // An attack rolls 1 die: its number is the damage, a 3 triggers the character's surge and a 1 their setback. Each attack
-  // after the first in a turn has disadvantage (roll 2, keep the lowest; the third, 3). Advantage rolls extra dice and
-  // keeps the highest; the two cancel, and no roll uses more than TUNE.maxDice dice. Powers read their dice as their
-  // card says.
+  // Each character rolls a die of their own size, numbered the usual way: Brakka a d8, Vex and Wenna d6s, Orlen a d4,
+  // the goblins d6s. The top number is the surge.
+  // An attack rolls 1 die: the number is the damage, and the top number triggers the character's surge. Each attack after
+  // the first in a turn has disadvantage: roll 2, keep the lowest (the third, 3). Advantage (Bless) rolls extra dice and
+  // keeps the highest; the two cancel, and no roll uses more than TUNE.maxDice dice.
+  // A power rolls 1 die, never with advantage or disadvantage. It reads the number as its amount (a heal), or reads the
+  // band the number falls in: low, middle or the top number.
   // Press: a hero whose attack hits a Brittle goblin (Orlen's Frostbite) gains an extra action that turn.
-  const SIDES = 6;
-  const FACE_KINDS = ['neg', 'plain', 'surge'];
-  const FACE_NAME = { neg: 'Setback', plain: 'Plain', surge: 'Surge' };
-  const FACE_RANK = { neg: 0, plain: 1, surge: 2 };
-  const FACE_VALUE = { neg: 1, plain: 2, surge: 3 };
-  const DIE = { neg: 2, plain: 2, surge: 2 };
-  function dieOf(n) { // the faces spread round the die, so twins are not on opposite sides
-    const bag = FACE_KINDS.flatMap(k => Array(n[k] || 0).fill(k)), out = [], order = [0, 2, 4, 1, 3, 5];
-    bag.forEach((k, i) => out[order[i]] = k);
-    return out;
-  }
-  const counts = faces => Object.fromEntries(FACE_KINDS.map(k => [k, faces.filter(f => f === k).length]));
+  const SIZES = [4, 6, 8, 10]; // the dice the tray can throw
+  const TIERS = ['low', 'mid', 'top'];
+  const TIER_NAME = { low: 'Low', mid: 'Middle', top: 'Top' };
+  const lowTop = sides => Math.max(1, Math.floor(sides / 3)); // the low band: 1 on a d4, 1–2 on a d6 or d8, 1–3 on a d10
+  const tierRange = sides => ({ low: [1, lowTop(sides)], mid: [lowTop(sides) + 1, sides - 1], top: [sides, sides] });
+  const tierOf = (n, sides) => n >= sides ? 'top' : n <= lowTop(sides) ? 'low' : 'mid';
+  const tierOdds = sides => { const r = tierRange(sides); return Object.fromEntries(TIERS.map(k => [k, (r[k][1] - r[k][0] + 1) / sides])); };
 
-  // ---------------- surges and setbacks: what a 3 and a 1 do on an attack, by character ----------------
+  // ---------------- surges: what the top number does on an attack, by character ----------------
   const SURGES = {
-    shieldUp: { name: 'Shield Up', text: '+1 Guard until your next turn.' },
-    explode: { name: 'Explode', text: 'Roll one more die and add it. It can explode too.' },
-    arc: { name: 'Arc', text: '1 damage to every other goblin.' },
-    mercy: { name: 'Mercy', text: 'The most wounded hero still standing heals 2.' },
+    shieldUp: { name: 'Shield Up', n: 2, text: '+2 Guard until your next turn.' },
+    crit: { name: 'Critical Hit', text: 'Roll one more die and add it. It can crit again.' },
+    arc: { name: 'Arc', n: 1, text: '1 damage to every other goblin.' },
+    mercy: { name: 'Mercy', n: 3, text: 'The most wounded hero still standing heals 3.' },
     gangUp: { name: 'Gang Up', text: '1 more damage for each other goblin fighter still standing.' },
-    mend: { name: 'Mend', text: 'The most wounded goblin still standing heals 2.' },
-  };
-  const SETBACKS = {
-    offBalance: { name: 'Off Balance', text: 'The next attack on you deals 1 more.' },
-    miss: { name: 'Miss', text: 'That die deals nothing.' },
-    backlash: { name: 'Backlash', text: 'You take 1 damage.' },
-    spent: { name: 'Spent', text: 'Your next heal is 1 less.' },
-    fumble: { name: 'Fumble', text: 'It loses its next action this turn.' },
-    backfire: { name: 'Backfire', text: 'It takes 1 damage.' },
+    mend: { name: 'Mend', n: 3, text: 'The most wounded goblin still standing heals 3.' },
   };
 
   // ---------------- actions ----------------
-  // kind: attack (rolls TUNE.dice and adds them up; a 3 triggers the surge, a 1 the setback) | power
-  // A power rolls `dice` dice. read 'total': the dice add up to the amount (healing). read 'die': one die, and its face
-  // picks the result in `rows` (setback, plain, surge). amount: the number on that die is the amount (Guard, a penalty),
-  // so it is printed on the dice; other powers show their faces' marks alone.
+  // kind: attack (the die is the damage; the top number triggers the surge) | power (1 die, read as its card says)
+  // read: tier (the band the number falls in, low, middle or top, picks the result in `rows`) | amount (the number is
+  // the amount) · die: a die of its own rather than the character's · flat: no advantage or disadvantage, and not one of
+  // the turn's attacks (Fireball)
   // cost: actions it takes · target: foe | all (every foe) | ally (a friend; heals reach the fallen) | other (a friend
   // not yourself) | self | none · reach: melee (only the front rank while anyone stands in it) | ranged | unit (the
   // unit's own) · recharge: rounds before it can be used again. A power can be used once a turn; Attack as often as
   // you have actions.
   const ACTIONS = {
-    attack: { name: 'Attack', kind: 'attack', cost: 1, target: 'foe', reach: 'unit', text: 'Roll a die against one foe: the number is the damage. Each attack after your first this turn has disadvantage.' },
+    attack: { name: 'Attack', kind: 'attack', cost: 1, target: 'foe', reach: 'unit', text: 'Roll your die against one foe: the number is the damage. Each attack after your first this turn has disadvantage.' },
     knives: { name: 'Throwing Knives', icon: '🎯', kind: 'attack', cost: 1, target: 'foe', reach: 'ranged', text: 'An attack that reaches any goblin, even in the back rank. Counts as an attack.' },
-    fireball: { name: 'Fireball', icon: '🔥', kind: 'attack', cost: 2, target: 'all', reach: 'ranged', recharge: 2, edge: 1, text: 'Both actions. Roll with advantage; every goblin takes the result.' },
+    fireball: { name: 'Fireball', icon: '🔥', kind: 'attack', cost: 2, target: 'all', reach: 'ranged', recharge: 2, die: 6, flat: true, text: 'Both actions. Roll a d6: every goblin takes that much. A spell, so no advantage or disadvantage.' },
     defend: {
-      name: 'Defend', icon: '🛡️', kind: 'power', cost: 1, target: 'self', dice: 1, read: 'die', amount: true, text: 'Guard: until your next turn, each attack on you deals that much less damage.',
-      rows: { neg: 'Guard 1.', plain: 'Guard 2.', surge: 'Guard 3.' },
+      name: 'Defend', icon: '🛡️', kind: 'power', cost: 1, target: 'self', read: 'tier', text: 'Guard: until your next turn, each attack on you deals that much less damage.',
+      rows: { low: 'Guard 1.', mid: 'Guard 2.', top: 'Guard 3.' }, guard: { low: 1, mid: 2, top: 3 },
     },
     taunt: {
-      name: 'Taunt', icon: '📯', kind: 'power', cost: 1, target: 'none', dice: 1, read: 'die', text: 'Until your next turn, goblins that can reach you must attack you.',
-      rows: { neg: 'The next goblin fighter to act must attack you.', plain: 'Every goblin fighter must attack you.', surge: 'Every goblin, the shaman too, must attack you.' },
+      name: 'Taunt', icon: '📯', kind: 'power', cost: 1, target: 'none', read: 'tier', text: 'Until your next turn, goblins that can reach you must attack you.',
+      rows: { low: 'The next goblin fighter to act must attack you.', mid: 'Every goblin fighter must attack you.', top: 'Every goblin, the shaman too, must attack you.' },
     },
     interpose: {
-      name: 'Interpose', icon: '🔰', kind: 'power', cost: 1, target: 'other', dice: 1, read: 'die', text: 'Until your next turn, you step in front of another hero: attacks on them hit you.',
-      rows: { neg: 'The next attack on them hits you instead.', plain: 'Every attack on them hits you instead.', surge: 'Every attack on them hits you instead, and you gain Guard 1.' },
+      name: 'Interpose', icon: '🔰', kind: 'power', cost: 1, target: 'other', read: 'tier', text: 'Until your next turn, you step in front of another hero: attacks on them hit you.',
+      rows: { low: 'The next attack on them hits you instead.', mid: 'Every attack on them hits you instead.', top: 'Every attack on them hits you instead, and you gain Guard 1.' },
     },
     hide: {
-      name: 'Hide', icon: '🌫️', kind: 'power', cost: 1, target: 'self', dice: 1, read: 'die', text: 'While hidden, goblins cannot attack you, and your next strike doubles its roll.',
-      rows: { neg: 'Hidden until your next turn starts; a strike from hiding deals half as much again.', plain: 'Hidden until you strike; that strike doubles its roll.', surge: 'Hidden for two strikes, each doubling its roll.' },
+      name: 'Hide', icon: '🌫️', kind: 'power', cost: 1, target: 'self', read: 'tier', text: 'While hidden, goblins cannot attack you, and your next strike doubles its roll.',
+      rows: { low: 'Hidden until your next turn starts; a strike from hiding deals half as much again.', mid: 'Hidden until you strike; that strike doubles its roll.', top: 'Hidden for two strikes, each doubling its roll.' },
     },
     poison: {
-      name: 'Poison Blade', icon: '🧪', kind: 'power', cost: 1, target: 'self', dice: 1, read: 'die', text: 'Coat your weapon. A goblin your coated attack lands on is poisoned: it loses HP at the start of each of its next 2 turns.',
-      rows: { neg: 'Your next attack poisons, 1 a turn.', plain: 'Your next 2 attacks poison, 1 a turn.', surge: 'Your next 2 attacks poison, 2 a turn.' },
+      name: 'Poison Blade', icon: '🧪', kind: 'power', cost: 1, target: 'self', read: 'tier', text: 'Coat your weapon. A goblin your coated attack lands on is poisoned: it loses HP at the start of each of its next 2 turns.',
+      rows: { low: 'Your next attack poisons, 1 a turn.', mid: 'Your next 2 attacks poison, 1 a turn.', top: 'Your next 2 attacks poison, 2 a turn.' },
     },
-    frostbite: {
-      name: 'Frostbite', icon: '❄️', kind: 'power', cost: 1, target: 'foe', reach: 'ranged', dice: 1, read: 'die', amount: true, text: 'Make a goblin Brittle until your next turn: a hero whose attack hits it presses, gaining an extra action that turn (once a turn). The roll is how many presses it gives.',
-      rows: { neg: 'Brittle for 1 press.', plain: 'Brittle for 2 presses.', surge: 'Brittle for 3 presses.' },
-    },
+    frostbite: { name: 'Frostbite', icon: '❄️', kind: 'power', cost: 1, target: 'foe', reach: 'ranged', read: 'amount', text: 'Make a goblin Brittle until your next turn: a hero whose attack hits it presses, gaining an extra action that turn (once a turn). The roll is how many presses it gives.' },
     slow: {
-      name: 'Slow', icon: '🐌', kind: 'power', cost: 1, target: 'foe', reach: 'ranged', dice: 1, read: 'die', text: 'Bog a foe down for its next turn.',
-      rows: { neg: 'Its first attack has disadvantage.', plain: 'It loses 1 action.', surge: 'It loses its whole turn.' },
+      name: 'Slow', icon: '🐌', kind: 'power', cost: 1, target: 'foe', reach: 'ranged', read: 'tier', text: 'Bog a foe down for its next turn.',
+      rows: { low: 'Its first attack has disadvantage.', mid: 'It loses 1 action.', top: 'It loses its whole turn.' },
     },
-    heal: { name: 'Heal', icon: '💖', kind: 'power', cost: 1, target: 'ally', dice: 2, read: 'total', text: 'A hero heals the total of the dice, and lifts curses. A fallen hero gets back up.' },
+    heal: { name: 'Heal', icon: '💖', kind: 'power', cost: 1, target: 'ally', read: 'amount', text: 'A hero heals the roll, and curses lift. A fallen hero gets back up.' },
     bless: {
-      name: 'Bless', icon: '🙏', kind: 'power', cost: 1, target: 'ally', dice: 1, read: 'die', text: 'Strengthen a standing hero\'s next attack.',
-      rows: { neg: '+1 damage on their next attack.', plain: 'Advantage on their next attack.', surge: 'Double advantage on their next attack.' },
+      name: 'Bless', icon: '🙏', kind: 'power', cost: 1, target: 'ally', read: 'tier', text: 'Strengthen a standing hero\'s next attack.',
+      rows: { low: '+1 damage on their next attack.', mid: 'Advantage on their next attack.', top: 'Double advantage on their next attack.' },
     },
-    prayer: { name: 'Prayer of Healing', icon: '🕯️', kind: 'power', cost: 2, target: 'none', recharge: 3, dice: 2, read: 'total', text: 'Both actions. Every hero heals the total of the dice, and the fallen get back up.' },
-    chant: { name: 'Mending Chant', icon: '🎶', kind: 'power', cost: 1, target: 'none', dice: 2, read: 'total', text: 'The most wounded goblin heals the total of the dice.' },
+    prayer: { name: 'Prayer of Healing', icon: '🕯️', kind: 'power', cost: 2, target: 'none', recharge: 3, read: 'amount', text: 'Both actions. Every hero heals the roll, and the fallen get back up.' },
+    chant: { name: 'Mending Chant', icon: '🎶', kind: 'power', cost: 1, target: 'none', read: 'amount', text: 'The most wounded goblin heals the roll.' },
     curse: {
-      name: 'Curse', icon: '🪬', kind: 'power', cost: 1, target: 'foe', reach: 'ranged', dice: 1, read: 'die', amount: true, text: 'Hex a hero: on their next turn, their attacks deal the roll less. Heal lifts it.',
-      rows: { neg: '−1 damage on their attacks.', plain: '−2 damage on their attacks.', surge: '−3 damage on their attacks.' },
+      name: 'Curse', icon: '🪬', kind: 'power', cost: 1, target: 'foe', reach: 'ranged', read: 'tier', text: 'Hex a hero: on their next turn, their attacks deal less. Heal lifts it.',
+      rows: { low: '−1 damage on their attacks.', mid: '−2 damage on their attacks.', top: '−3 damage on their attacks.' },
     },
   };
   Object.keys(ACTIONS).forEach(k => ACTIONS[k].id = k);
 
   // ---------------- who fights ----------------
-  // rank: front or back · speed: initiative, the fastest first · surge and setback: what their 3s and 1s do on an attack
-  // faces: their die (everyone's starts as 1, 1, 2, 2, 3, 3; the sheets can change it)
+  // rank: front or back · speed: initiative, the fastest first · die: the size of their die · surge: what its top number
+  // does on an attack
   const UNITS = {
-    fighter: { name: 'Brakka', cls: 'Fighter', side: 'hero', rank: 'front', hp: 16, speed: 3, reach: 'melee', hitIcon: '⚔️', weapon: 'Longsword', surge: 'shieldUp', setback: 'offBalance', actions: ['attack', 'defend', 'taunt', 'interpose'], blurb: 'Shield first, questions later. Holds the line so nobody else has to.' },
-    mage: { name: 'Orlen', cls: 'Wizard', side: 'hero', rank: 'back', hp: 10, speed: 2, reach: 'ranged', hitIcon: '✨', weapon: 'Arcane bolt', surge: 'arc', setback: 'backlash', actions: ['attack', 'fireball', 'frostbite', 'slow'], blurb: 'Old, frail and very hard to argue with from range.' },
-    cleric: { name: 'Sister Wenna', cls: 'Cleric', side: 'hero', rank: 'front', hp: 14, speed: 2, reach: 'ranged', hitIcon: '🌟', weapon: 'Holy light', surge: 'mercy', setback: 'spent', actions: ['attack', 'heal', 'bless', 'prayer'], blurb: 'Mends the living and smites the rest from a safe distance.' },
-    rogue: { name: 'Vex', cls: 'Rogue', side: 'hero', rank: 'back', hp: 11, speed: 4, reach: 'melee', hitIcon: '🗡️', weapon: 'Dagger', surge: 'explode', setback: 'miss', actions: ['attack', 'hide', 'poison', 'knives'], blurb: 'Quick, quiet, and always looking for the soft spot.' },
-    goblin: { name: 'Goblin', cls: 'Goblin fighter', side: 'foe', rank: 'front', hp: 13, speed: 3, reach: 'melee', hitIcon: '🪓', weapon: 'Hatchet', surge: 'gangUp', setback: 'fumble', actions: ['attack'], blurb: 'Brave in a crowd. Braver in a bigger one.' },
-    shaman: { name: 'Goblin Shaman', cls: 'Goblin shaman', side: 'foe', rank: 'back', hp: 11, speed: 2, reach: 'ranged', hitIcon: '💀', weapon: 'Hex bolt', surge: 'mend', setback: 'backfire', actions: ['attack', 'chant', 'curse'], blurb: 'Keeps the others standing, and keeps well behind them.' },
+    fighter: { name: 'Brakka', cls: 'Fighter', side: 'hero', rank: 'front', hp: 26, speed: 3, die: 8, reach: 'melee', hitIcon: '⚔️', weapon: 'Longsword', surge: 'shieldUp', actions: ['attack', 'defend', 'taunt', 'interpose'], blurb: 'Shield first, questions later. Holds the line so nobody else has to.' },
+    mage: { name: 'Orlen', cls: 'Wizard', side: 'hero', rank: 'back', hp: 16, speed: 2, die: 4, reach: 'ranged', hitIcon: '✨', weapon: 'Arcane bolt', surge: 'arc', actions: ['attack', 'fireball', 'frostbite', 'slow'], blurb: 'Old, frail and very hard to argue with from range.' },
+    cleric: { name: 'Sister Wenna', cls: 'Cleric', side: 'hero', rank: 'front', hp: 22, speed: 2, die: 6, reach: 'ranged', hitIcon: '🌟', weapon: 'Holy light', surge: 'mercy', actions: ['attack', 'heal', 'bless', 'prayer'], blurb: 'Mends the living and smites the rest from a safe distance.' },
+    rogue: { name: 'Vex', cls: 'Rogue', side: 'hero', rank: 'back', hp: 18, speed: 4, die: 6, reach: 'melee', hitIcon: '🗡️', weapon: 'Dagger', surge: 'crit', actions: ['attack', 'hide', 'poison', 'knives'], blurb: 'Quick, quiet, and always looking for the soft spot.' },
+    goblin: { name: 'Goblin', cls: 'Goblin fighter', side: 'foe', rank: 'front', hp: 19, speed: 3, die: 6, reach: 'melee', hitIcon: '🪓', weapon: 'Hatchet', surge: 'gangUp', actions: ['attack'], blurb: 'Brave in a crowd. Braver in a bigger one.' },
+    shaman: { name: 'Goblin Shaman', cls: 'Goblin shaman', side: 'foe', rank: 'back', hp: 16, speed: 2, die: 6, reach: 'ranged', hitIcon: '💀', weapon: 'Hex bolt', surge: 'mend', actions: ['attack', 'chant', 'curse'], blurb: 'Keeps the others standing, and keeps well behind them.' },
   };
-  Object.values(UNITS).forEach(T => { T.faces = dieOf(DIE); });
   const DEFAULTS = JSON.parse(JSON.stringify(UNITS)), TUNE0 = { ...TUNE };
 
   const PARTY = ['fighter', 'mage', 'cleric', 'rogue']; // the portraits, top to bottom
@@ -135,20 +119,18 @@ const DV = (() => {
   function rnd(S) { let t = (S.rs = (S.rs + 0x6D2B79F5) | 0); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
   const die = (S, n) => 1 + Math.floor(rnd(S) * n);
   const pick = (S, a) => a[Math.floor(rnd(S) * a.length)];
-  const rollFace = (S, u) => { const side = die(S, u.faces.length) - 1; return { face: u.faces[side], side }; };
 
   // ---------------- a battle ----------------
   function makeUnit(id, type, name, slot) {
     const T = UNITS[type];
     return {
       id, type, name: name || T.name, cls: T.cls, side: T.side, rank: T.rank, slot,
-      hp: T.hp, max: T.hp, speed: T.speed, reach: T.reach, hitIcon: T.hitIcon, weapon: T.weapon,
-      surge: T.surge, setback: T.setback, faces: T.faces.slice(), actions: T.actions.slice(), cd: {}, down: false,
+      hp: T.hp, max: T.hp, speed: T.speed, die: T.die, reach: T.reach, hitIcon: T.hitIcon, weapon: T.weapon,
+      surge: T.surge, actions: T.actions.slice(), cd: {}, down: false,
       // statuses: guard (number), taunt, ward (protected by an Interpose), hidden, coat (poisoned blade), poison, weak,
-      // slow, blessed, exposed (Off Balance: extra damage on the next attack taken), spent (less on the next heal),
-      // brittle (Frostbite: hits on it press)
-      guard: 0, taunt: null, ward: null, hidden: null, coat: null, poison: null, weak: null, slow: null, blessed: null, exposed: 0, spent: 0, brittle: null,
-      stats: { dealt: 0, taken: 0, healed: 0, rolls: 0, dice: 0, surges: 0, setbacks: 0, kills: 0, falls: 0, presses: 0 },
+      // slow, blessed, brittle (Frostbite: hits on it press)
+      guard: 0, taunt: null, ward: null, hidden: null, coat: null, poison: null, weak: null, slow: null, blessed: null, brittle: null,
+      stats: { dealt: 0, taken: 0, healed: 0, rolls: 0, dice: 0, surges: 0, kills: 0, falls: 0, presses: 0 },
     };
   }
   function newBattle(opts = {}) {
@@ -161,7 +143,7 @@ const DV = (() => {
   const standing = (S, side) => all(S).filter(u => u.side === side && !u.down);
   const enemySide = u => u.side === 'hero' ? 'foe' : 'hero';
   const status = (id, key, on, extra) => ({ t: 'status', id, key, on, ...extra });
-  const explodes = u => u.surge === 'explode' || TUNE.explode;
+  const explodes = u => u.surge === 'crit' || TUNE.explode;
 
   // ---------------- turn order ----------------
   // Initiative is the speed stat, the same every round: the fastest acts first. A hero and a goblin on the same speed:
@@ -223,7 +205,6 @@ const DV = (() => {
     const ev = [{ t: 'turn', id: u.id, round: S.round }];
     if (u.guard) { u.guard = 0; ev.push(status(u.id, 'guard', false)); }
     if (u.taunt) { u.taunt = null; ev.push(status(u.id, 'taunt', false)); }
-    if (u.exposed) { u.exposed = 0; ev.push(status(u.id, 'exposed', false)); }
     all(S).forEach(x => { if (x.ward && x.ward.by === u.id) { x.ward = null; ev.push(status(x.id, 'ward', false)); } });
     all(S).forEach(x => { if (x.brittle && x.brittle.by === u.id) { x.brittle = null; ev.push(status(x.id, 'brittle', false)); } });
     if (u.hidden && u.hidden.untilTurn) { u.hidden = null; ev.push(status(u.id, 'hidden', false)); }
@@ -264,7 +245,7 @@ const DV = (() => {
     u.stats.taken += dealt;
     const ev = [{ t: 'dmg', id: u.id, src: src && src.id, amount: Math.max(0, amt), hp: u.hp, kind, ...extra }];
     if (u.hp <= 0) {
-      Object.assign(u, { down: true, guard: 0, taunt: null, ward: null, hidden: null, coat: null, poison: null, weak: null, slow: null, blessed: null, exposed: 0, spent: 0, brittle: null });
+      Object.assign(u, { down: true, guard: 0, taunt: null, ward: null, hidden: null, coat: null, poison: null, weak: null, slow: null, blessed: null, brittle: null });
       u.stats.falls++;
       if (src) src.stats.kills++;
       ev.push({ t: 'down', id: u.id, src: src && src.id, side: u.side });
@@ -320,22 +301,26 @@ const DV = (() => {
     return { ok: true };
   }
   // an attack's edge right now: + is advantage, − disadvantage. Every attack after the first this turn is −1 more; a
-  // blessing adds, Fireball adds, a Slow's weakest result takes one off the first attack. Capped by TUNE.maxDice.
+  // blessing adds, a Slow's weakest result takes one off the first attack. Capped by TUNE.maxDice. A flat roll (Fireball)
+  // has none.
   function attackEdge(S, u, A) {
+    if (A && A.flat) return 0;
     const T = turnOf(S, u);
     let e = -T.attacks;
     if (u.blessed) e += u.blessed.edge || 0;
-    if (A && A.edge) e += A.edge;
     e -= T.dieMinus || 0;
-    const cap = TUNE.maxDice - TUNE.dice;
+    const cap = TUNE.maxDice - 1;
     return Math.max(-cap, Math.min(cap, e));
   }
-  // the dice an attack would roll right now: how many, and whether the best or the worst one counts
+  // would a hit on t press for u now? Not if u has pressed this turn, nor on a Brittle that ends when u's turn starts
+  const pressable = (S, u, t) => !!t.brittle && turnOf(S, u).presses < TUNE.presses && !(t.brittle.by === u.id && !(S.turn && S.turn.id === u.id));
+  // the die an action rolls: its own (Fireball's d6), or the character's
+  const dieOf = (u, A) => (A && A.die) || u.die;
+  // the dice an attack would roll right now: how many, of what size, and whether the best or the worst one counts
   function attackDice(S, u, A) {
     const e = attackEdge(S, u, A);
-    return { n: TUNE.dice + Math.abs(e), keep: e > 0 ? 'high' : e < 0 ? 'low' : null, edge: e };
+    return { n: 1 + Math.abs(e), keep: e > 0 ? 'high' : e < 0 ? 'low' : null, edge: e, sides: dieOf(u, A) };
   }
-  const powerDice = A => A.dice || 1;
 
   // ---------------- orders ----------------
   // id uses actId (on targetId). If its turn has not started, it starts now.
@@ -362,57 +347,55 @@ const DV = (() => {
     return ev;
   }
 
-  // roll n dice; with advantage keep the highest, with disadvantage the lowest; then, for someone whose surges explode,
-  // every kept 3 rolls one more die (which can explode too)
-  function rollPool(S, u, n, keep, boom, track = true) {
+  // roll n dice of a size; with advantage keep the highest, with disadvantage the lowest; then, for a roll that crits,
+  // every kept top number rolls one more die (which can crit too)
+  function rollPool(S, sides, n, keep, boom, track = true) {
     const dice = [];
-    for (let i = 0; i < n; i++) dice.push({ ...rollFace(S, u), from: -1 });
+    for (let i = 0; i < n; i++) dice.push({ n: die(S, sides), from: -1 });
     if (keep && n > 1) {
       let k = 0;
-      dice.forEach((d, i) => { const a = FACE_VALUE[d.face], b = FACE_VALUE[dice[k].face]; if (keep === 'high' ? a > b : a < b) k = i; });
+      dice.forEach((d, i) => { if (keep === 'high' ? d.n > dice[k].n : d.n < dice[k].n) k = i; });
       dice.forEach((d, i) => { if (i !== k) d.dropped = true; });
     }
     if (!boom) return dice;
     let chain = 0;
-    const q = dice.map((d, i) => i).filter(i => dice[i].face === 'surge' && !dice[i].dropped);
+    const q = dice.map((d, i) => i).filter(i => dice[i].n === sides && !dice[i].dropped);
     while (q.length && chain < TUNE.maxChain) {
-      const p = q.shift(); dice.push({ ...rollFace(S, u), from: p, extra: true }); chain++;
-      if (dice[dice.length - 1].face === 'surge') q.push(dice.length - 1);
+      const p = q.shift(); dice.push({ n: die(S, sides), from: p, extra: true }); chain++;
+      if (dice[dice.length - 1].n === sides) q.push(dice.length - 1);
     }
     if (track) S.maxChain = Math.max(S.maxChain || 0, chain);
     return dice;
   }
-  // the damage one face deals on an attack: its number; a rogue's setback deals nothing; Gang Up adds to a surge
-  function faceValue(S, u, kind) {
-    if (kind === 'neg' && u.setback === 'miss') return { n: 0, miss: true };
-    if (kind === 'surge' && u.surge === 'gangUp') return { n: FACE_VALUE.surge + (S ? all(S).filter(x => x.type === u.type && x !== u && !x.down).length : 0), plus: true };
-    return { n: FACE_VALUE[kind] };
-  }
-  // an attack's dice, added up, with what the attacker carries: a blessing, hiding, a weakening
-  function tally(S, u, A, dice) {
-    let dmg = 0, surges = 0, setbacks = 0;
+  // Gang Up: what a goblin fighter's top number adds, one for each other goblin fighter standing
+  const gang = (S, u) => u.surge === 'gangUp' && S ? all(S).filter(x => x.type === u.type && x !== u && !x.down).length : 0;
+  // an attack's dice, added up, with what the attacker carries: a blessing, hiding, a curse
+  function tally(S, u, A, dice, sides) {
+    let dmg = 0, surges = 0;
     dice.forEach(d => {
       if (d.dropped) return;
-      dmg += faceValue(S, u, d.face).n;
-      if (d.face === 'surge') surges++;
-      if (d.face === 'neg') setbacks++;
+      dmg += d.n;
+      if (d.n === sides && !A.flat) { surges++; dmg += gang(S, u); }
     });
-    if (u.blessed) dmg += u.blessed.dmg || 0;
-    if (u.hidden) dmg = Math.ceil(dmg * u.hidden.mult);
+    if (!A.flat) {
+      if (u.blessed) dmg += u.blessed.dmg || 0;
+      if (u.hidden) dmg = Math.ceil(dmg * u.hidden.mult);
+    }
     if (u.weak) dmg -= u.weak.n;
-    return { dmg: Math.max(0, dmg), surges, setbacks };
+    return { dmg: Math.max(0, dmg), surges };
   }
   function strike(S, u, A, ids) {
     const ev = [], T = S.turn, D = attackDice(S, u, A);
-    const dice = rollPool(S, u, D.n, D.keep, explodes(u));
-    const r = tally(S, u, A, dice);
-    u.stats.rolls++; u.stats.dice += dice.length; u.stats.surges += r.surges; u.stats.setbacks += r.setbacks;
-    ev.push({ t: 'roll', id: u.id, act: A.id, mode: 'sum', groups: [{ target: A.target === 'all' ? null : ids[0], dice }], targets: ids, n: D.n, keep: D.keep, edge: D.edge, total: r.dmg, from: u.hidden ? u.hidden.mult : 0, blessed: !!u.blessed, later: T.attacks > 0 });
-    T.attacks++; T.dieMinus = 0;
-    // what this attack used up
-    const wasHidden = u.hidden;
-    if (u.blessed) { u.blessed = null; ev.push(status(u.id, 'blessed', false)); }
-    if (u.hidden) { u.hidden.strikes--; if (u.hidden.strikes <= 0) { u.hidden = null; ev.push(status(u.id, 'hidden', false)); } }
+    const dice = rollPool(S, D.sides, D.n, D.keep, !A.flat && explodes(u));
+    const r = tally(S, u, A, dice, D.sides), mult = !A.flat && u.hidden ? u.hidden.mult : 0;
+    u.stats.rolls++; u.stats.dice += dice.length; u.stats.surges += r.surges;
+    ev.push({ t: 'roll', id: u.id, act: A.id, mode: 'sum', sides: D.sides, mark: !A.flat, groups: [{ target: A.target === 'all' ? null : ids[0], dice }], targets: ids, n: D.n, keep: D.keep, edge: D.edge, total: r.dmg, from: mult, blessed: !A.flat && !!u.blessed, later: !A.flat && T.attacks > 0 });
+    // what this attack used up (a spell uses none of it)
+    if (!A.flat) {
+      T.attacks++; T.dieMinus = 0;
+      if (u.blessed) { u.blessed = null; ev.push(status(u.id, 'blessed', false)); }
+      if (u.hidden) { u.hidden.strikes--; if (u.hidden.strikes <= 0) { u.hidden = null; ev.push(status(u.id, 'hidden', false)); } }
+    }
     let pressed = false;
     ids.forEach(tid => {
       let t = S.units[tid];
@@ -424,10 +407,8 @@ const DV = (() => {
         t.ward.uses--; if (t.ward.uses <= 0) { t.ward = null; ev.push(status(t.id, 'ward', false)); }
         t = by;
       }
-      const open = t.exposed || 0;
-      if (open) { t.exposed = 0; ev.push(status(t.id, 'exposed', false)); }
-      const amt = Math.max(0, r.dmg + open - t.guard);
-      ev.push(...hurt(S, u, t, amt, r.surges ? 'surge' : 'hit', { raw: r.dmg, guarded: Math.min(r.dmg + open, t.guard), exposed: open, from: wasHidden ? wasHidden.mult : 0 }));
+      const amt = Math.max(0, r.dmg - t.guard);
+      ev.push(...hurt(S, u, t, amt, r.surges ? 'surge' : 'hit', { raw: r.dmg, guarded: Math.min(r.dmg, t.guard), from: mult }));
       // a coated blade poisons what it lands on
       if (u.coat && !t.down && amt > 0) { t.poison = { ticks: 2, dmg: u.coat.dmg }; ev.push(status(t.id, 'poison', true, { n: u.coat.dmg })); }
       // press: a blow that lands on a Brittle foe wins the attacker an extra action (once a turn)
@@ -438,53 +419,38 @@ const DV = (() => {
       }
     });
     if (u.coat) { u.coat.attacks--; if (u.coat.attacks <= 0) { u.coat = null; ev.push(status(u.id, 'coat', false)); } }
-    // the 3s and 1s: the attacker's surge and setback
+    // the top numbers: the attacker's surge, once for each
     const first = S.units[ids[0]];
     for (let k = 0; k < r.surges; k++) ev.push(...surge(S, u, first, A));
-    for (let k = 0; k < r.setbacks; k++) ev.push(...setback(S, u, k));
     return ev;
   }
   function surge(S, u, t, A) {
-    const K = u.surge, ev = [{ t: 'surge', id: u.id, surge: K, target: t && t.id }];
-    if (K === 'shieldUp') { if (!u.down) { u.guard += 1; ev.push(status(u.id, 'guard', true, { n: u.guard })); } }
-    else if (K === 'gangUp') { const n = all(S).filter(x => x.type === u.type && x !== u && !x.down).length; ev[0].bonus = n; if (!n) ev[0].fizzle = 'No one to gang up with'; }
-    else if (K === 'explode') ev[0].note = 'one more die';
+    const K = u.surge, G = SURGES[K], ev = [{ t: 'surge', id: u.id, surge: K, target: t && t.id }];
+    if (K === 'shieldUp') { if (!u.down) { u.guard += G.n; ev.push(status(u.id, 'guard', true, { n: u.guard })); } }
+    else if (K === 'gangUp') { const n = gang(S, u); ev[0].bonus = n; if (!n) ev[0].fizzle = 'No one to gang up with'; }
+    else if (K === 'crit') ev[0].note = 'one more die';
     else if (K === 'arc') {
       const os = A.target === 'all' ? [] : standing(S, 'foe').filter(x => x !== t);
-      os.forEach(o => ev.push(...hurt(S, u, o, Math.max(0, 1 - o.guard), 'arc')));
+      os.forEach(o => ev.push(...hurt(S, u, o, Math.max(0, G.n - o.guard), 'arc')));
       if (!os.length) ev[0].fizzle = A.target === 'all' ? 'Everyone is already hit' : 'No one else to arc to';
     } else if (K === 'mercy' || K === 'mend') {
       const w = mostWounded(S, u.side);
-      if (w) ev.push(...mend(S, u, w, 2)); else ev[0].fizzle = 'No one is hurt';
+      if (w) ev.push(...mend(S, u, w, G.n)); else ev[0].fizzle = 'No one is hurt';
     }
     return ev;
   }
-  function setback(S, u, k) {
-    const K = u.setback, ev = [{ t: 'setback', id: u.id, setback: K }];
-    if (u.down) return ev;
-    if (K === 'offBalance') { u.exposed = (u.exposed || 0) + 1; ev.push(status(u.id, 'exposed', true, { n: u.exposed })); }
-    else if (K === 'backlash' || K === 'backfire') ev.push(...hurt(S, null, u, 1, 'backlash'));
-    else if (K === 'spent') { u.spent = (u.spent || 0) + 1; ev.push(status(u.id, 'spent', true, { n: u.spent })); }
-    else if (K === 'fumble') { if (k === 0 && S.turn && S.turn.left > 0) { S.turn.left--; ev[0].lost = 1; } else ev[0].fizzle = 'No action left to lose'; }
-    return ev;
-  }
 
-  // a power: roll its dice and read them as its card says
+  // a power: roll 1 die, flat, and read it as its card says
   function power(S, u, A, targetId) {
-    const dice = rollPool(S, u, powerDice(A), null, false);
-    const total = dice.reduce((s, d) => s + FACE_VALUE[d.face], 0), face = dice[0].face, R = FACE_RANK[face], v = FACE_VALUE[face];
-    u.stats.rolls++; u.stats.dice += dice.length;
-    const ev = [{ t: 'roll', id: u.id, act: A.id, mode: A.read, groups: [{ target: targetId || null, dice }], total, face }];
+    const sides = dieOf(u, A), d = rollPool(S, sides, 1, null, false)[0], v = d.n, tier = tierOf(v, sides), R = TIERS.indexOf(tier);
+    u.stats.rolls++; u.stats.dice++;
+    const ev = [{ t: 'roll', id: u.id, act: A.id, mode: A.read, sides, mark: true, groups: [{ target: targetId || null, dice: [d] }], total: v, tier }];
     const t = targetId && S.units[targetId];
+    const say = text => ev.push({ t: 'tier', id: u.id, act: A.id, tier, n: v, text, target: targetId || null });
     const guard = (x, n) => { if (!x || x.down) return; x.guard += n; ev.push(status(x.id, 'guard', true, { n: x.guard })); };
-    const healed = (x, amt) => {
-      let a = amt;
-      if (u.spent) { a = Math.max(0, a - u.spent); ev.push({ t: 'spent', id: u.id, n: u.spent }); u.spent = 0; ev.push(status(u.id, 'spent', false)); }
-      return a;
-    };
-    if (A.read === 'die') ev.push({ t: 'tier', id: u.id, act: A.id, face, text: A.rows[face], target: targetId || null });
+    if (A.read === 'tier') say(A.rows[tier]);
     switch (A.id) {
-      case 'defend': guard(u, v); break;
+      case 'defend': guard(u, A.guard[tier]); break;
       case 'taunt':
         u.taunt = { scope: R === 2 ? 'all' : 'fighters', once: R === 0 };
         ev.push(status(u.id, 'taunt', true, { scope: u.taunt.scope, once: u.taunt.once }));
@@ -496,19 +462,20 @@ const DV = (() => {
         break;
       case 'hide':
         u.hidden = [{ mult: 1.5, strikes: 1, untilTurn: true }, { mult: 2, strikes: 1 }, { mult: 2, strikes: 2 }][R];
-        ev.push(status(u.id, 'hidden', true, { face }));
+        ev.push(status(u.id, 'hidden', true, { tier }));
         break;
       case 'poison':
         u.coat = [{ attacks: 1, dmg: 1 }, { attacks: 2, dmg: 1 }, { attacks: 2, dmg: 2 }][R];
         ev.push(status(u.id, 'coat', true, { n: u.coat.attacks }));
         break;
       case 'frostbite':
+        say(`Brittle for ${v} ${v > 1 ? 'presses' : 'press'}.`);
         t.brittle = { n: v, by: u.id };
         ev.push(status(t.id, 'brittle', true, { n: v }));
         break;
       case 'curse':
-        t.weak = { n: v };
-        ev.push(status(t.id, 'weak', true, { n: v }));
+        t.weak = { n: R + 1 };
+        ev.push(status(t.id, 'weak', true, { n: t.weak.n }));
         break;
       case 'slow':
         t.slow = [{ actions: 0, dice: 1 }, { actions: 1, dice: 0 }, { actions: 2, dice: 0 }][R];
@@ -516,25 +483,21 @@ const DV = (() => {
         break;
       case 'bless':
         t.blessed = [{ edge: 0, dmg: 1 }, { edge: 1, dmg: 0 }, { edge: 2, dmg: 0 }][R];
-        ev.push(status(t.id, 'blessed', true, { face }));
+        ev.push(status(t.id, 'blessed', true, { tier }));
         break;
-      case 'heal': {
-        ev.push({ t: 'tier', id: u.id, act: A.id, total, text: `Heals ${total}.`, target: targetId });
-        ev.push(...mend(S, u, t, healed(t, total)));
+      case 'heal':
+        say(`Heals ${v}.`);
+        ev.push(...mend(S, u, t, v));
         if (t.weak) { t.weak = null; ev.push(status(t.id, 'weak', false)); }
         break;
-      }
-      case 'prayer': {
-        ev.push({ t: 'tier', id: u.id, act: A.id, total, text: `Every hero heals ${total}.` });
-        const amt = healed(null, total);
-        all(S).filter(x => x.side === u.side).forEach(x => ev.push(...mend(S, u, x, amt)));
+      case 'prayer':
+        say(`Every hero heals ${v}.`);
+        all(S).filter(x => x.side === u.side).forEach(x => ev.push(...mend(S, u, x, v)));
         break;
-      }
-      case 'chant': {
-        ev.push({ t: 'tier', id: u.id, act: A.id, total, text: `Heals ${total}.` });
-        ev.push(...mend(S, u, mostWounded(S, u.side), total));
+      case 'chant':
+        say(`Heals ${v}.`);
+        ev.push(...mend(S, u, mostWounded(S, u.side), v));
         break;
-      }
     }
     return ev;
   }
@@ -547,23 +510,17 @@ const DV = (() => {
     const T = { rs: (S.rs ^ 0x5bd1e995) | 0, units: S.units }, D = attackDice(S, u, A);
     let sum = 0, killN = 0;
     for (let i = 0; i < n; i++) {
-      const d = Math.max(0, tally(S, u, A, rollPool(T, u, D.n, D.keep, explodes(u), false)).dmg + (t.exposed || 0) - t.guard);
+      const d = Math.max(0, tally(S, u, A, rollPool(T, D.sides, D.n, D.keep, !A.flat && explodes(u), false), D.sides).dmg - t.guard);
       sum += d; if (d >= t.hp) killN++;
     }
-    return { avg: sum / n, kill: killN / n, dice: D.n, keep: D.keep, press: !!t.brittle && turnOf(S, u).presses < TUNE.presses };
+    return { avg: sum / n, kill: killN / n, dice: D.n, keep: D.keep, sides: D.sides, press: pressable(S, u, t) };
   }
-  // a one-die power: the chance of each face
-  function tierOdds(u) {
-    const c = counts(u.faces), N = u.faces.length;
-    return Object.fromEntries(FACE_KINDS.map(k => [k, c[k] / N]));
+  // what one attack die is worth on average (crits and Gang Up included; other surges left out)
+  function perDie(u, S, sides = u.die) {
+    let avg = (sides + 1) / 2 + gang(S, u) / sides;
+    if (explodes(u)) avg *= sides / (sides - 1);
+    return avg;
   }
-  // what one attack die is worth on average (explosions included; surges' and setbacks' other effects left out)
-  function perDie(u, S) {
-    const c = counts(u.faces), N = u.faces.length, sum = FACE_KINDS.reduce((s, k) => s + c[k] * faceValue(S, u, k).n, 0);
-    if (!explodes(u)) return sum / N;
-    return c.surge >= N ? Infinity : sum / (N - c.surge);
-  }
-  const avgFace = u => u.faces.reduce((s, f) => s + FACE_VALUE[f], 0) / u.faces.length;
 
   // ---------------- minds ----------------
   // the goblins: fighters swing twice (at the weakest, half the time); the shaman mends or curses, then bolts
@@ -591,7 +548,7 @@ const DV = (() => {
     const strongest = arr => arr.slice().sort((a, b) => b.hp - a.hp || a.slot - b.slot)[0];
     const r = act => ({ id: u.id, ...act });
     const foes = standing(S, 'foe'), heroes = standing(S, 'hero');
-    const attack = () => { const at = tg('attack'); return at.length ? r({ act: 'attack', target: (at.find(x => x.brittle && T.presses < TUNE.presses) || at.find(x => x.hp <= 2) || weakest(at)).id }) : null; };
+    const attack = () => { const at = tg('attack'); return at.length ? r({ act: 'attack', target: (at.find(x => pressable(S, u, x)) || at.find(x => x.hp <= 2) || weakest(at)).id }) : null; };
     if (T.left <= 0) return r({ end: true });
     const plan = [];
     if (u.type === 'fighter') {
@@ -659,8 +616,8 @@ const DV = (() => {
       r.heroHp += hs.reduce((s, u) => s + u.hp, 0); r.heroesUp += hs.filter(u => !u.down).length;
       if (S.over === 'hero' && hs.every(u => !u.stats.falls)) r.flawless++;
       all(S).forEach(u => {
-        const q = r.units[u.id] || (r.units[u.id] = { name: u.name, cls: u.cls, side: u.side, dealt: 0, taken: 0, healed: 0, downs: 0, surges: 0, setbacks: 0, dice: 0, rolls: 0, presses: 0 });
-        q.presses += u.stats.presses; q.dealt += u.stats.dealt; q.taken += u.stats.taken; q.healed += u.stats.healed; q.surges += u.stats.surges; q.setbacks += u.stats.setbacks; q.dice += u.stats.dice; q.rolls += u.stats.rolls;
+        const q = r.units[u.id] || (r.units[u.id] = { name: u.name, cls: u.cls, side: u.side, dealt: 0, taken: 0, healed: 0, downs: 0, surges: 0, dice: 0, rolls: 0, presses: 0 });
+        q.presses += u.stats.presses; q.dealt += u.stats.dealt; q.taken += u.stats.taken; q.healed += u.stats.healed; q.surges += u.stats.surges; q.dice += u.stats.dice; q.rolls += u.stats.rolls;
         q.downs += u.stats.falls ? 1 : 0;
       });
     }
@@ -670,7 +627,7 @@ const DV = (() => {
   }
 
   // ---------------- tuning: the sheets' edits, kept between visits ----------------
-  // { units: { type: { hp, speed, faces } }, tune: { explode, ... } }
+  // { units: { type: { hp, speed, die } }, tune: { explode, ... } }
   function applyTuning(t) {
     Object.keys(UNITS).forEach(k => Object.assign(UNITS[k], JSON.parse(JSON.stringify(DEFAULTS[k]))));
     Object.assign(TUNE, TUNE0);
@@ -678,14 +635,14 @@ const DV = (() => {
     Object.entries(t.units || {}).forEach(([k, v]) => {
       if (!UNITS[k]) return;
       ['hp', 'speed'].forEach(f => { if (Number.isFinite(v[f])) UNITS[k][f] = v[f]; });
-      if (Array.isArray(v.faces) && v.faces.length === SIDES && v.faces.every(f => FACE_KINDS.includes(f))) UNITS[k].faces = v.faces.slice();
+      if (SIZES.includes(v.die)) UNITS[k].die = v.die;
     });
     Object.entries(t.tune || {}).forEach(([k, v]) => { if (k in TUNE && typeof v === typeof TUNE0[k]) TUNE[k] = v; });
   }
 
   return {
-    TUNE, TUNE0, SIDES, FACE_KINDS, FACE_NAME, FACE_RANK, FACE_VALUE, SURGES, SETBACKS, ACTIONS, UNITS, DEFAULTS, PARTY, ENCOUNTER,
-    newBattle, start, ready, queue, act, endTurn, obey, targets, canUse, turnOf, attackDice, attackEdge, powerDice, standing, reachable, odds, tierOdds, perDie, faceValue, avgFace, counts, explodes,
+    TUNE, TUNE0, SIZES, TIERS, TIER_NAME, SURGES, ACTIONS, UNITS, DEFAULTS, PARTY, ENCOUNTER,
+    newBattle, start, ready, queue, act, endTurn, obey, targets, canUse, turnOf, attackDice, attackEdge, dieOf, pressable, tierOf, tierRange, tierOdds, standing, reachable, odds, perDie, explodes,
     mind, simulate, playOut, applyTuning, mostWounded,
   };
 })();

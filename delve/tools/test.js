@@ -77,14 +77,14 @@ const fail = m => { failures++; console.log('FAIL', m); };
   // a sheet: tune Brakka, reload, reset
   await p.click('#rAgain'); await p.waitForSelector('#hotbar .abtn');
   await p.click('.pc[data-id="fighter"]'); await p.click('#tuneBtn');
-  await p.click('.step button[data-f="hp"][data-d="1"]'); await p.click('.faces button[data-i="0"]');
+  await p.click('.step button[data-f="hp"][data-d="1"]'); await p.click('.dies button[data-s="10"]');
   await p.reload(); await p.waitForSelector('#hotbar .abtn');
-  const D = await p.evaluate(() => ({ hp: DV.DEFAULTS.fighter.hp, face: DV.DEFAULTS.fighter.faces[0], next: DV.FACE_KINDS[DV.FACE_KINDS.indexOf(DV.DEFAULTS.fighter.faces[0]) + 1] }));
+  const D = await p.evaluate(() => ({ hp: DV.DEFAULTS.fighter.hp, die: DV.DEFAULTS.fighter.die }));
   let u = await p.evaluate(() => DELVE.S.units.fighter);
-  if (u.max !== D.hp + 1 || u.faces[0] !== D.next) fail(`tuning did not survive a reload: ${u.max} HP, first face ${u.faces[0]}`);
+  if (u.max !== D.hp + 1 || u.die !== 10) fail(`tuning did not survive a reload: ${u.max} HP, a d${u.die}`);
   await p.click('#menuBtn'); await p.click('#mReset');
   u = await p.evaluate(() => DELVE.S.units.fighter);
-  if (u.max !== D.hp || u.faces[0] !== D.face) fail(`reset did not restore the defaults: ${u.max} HP, first face ${u.faces[0]}`);
+  if (u.max !== D.hp || u.die !== D.die) fail(`reset did not restore the defaults: ${u.max} HP, a d${u.die}`);
   await p.keyboard.press('Escape');
   // speed order: the fastest hero is up first
   const first = await p.evaluate(() => { const q = DV.queue(DELVE.S).filter(x => !x.done && !x.out); return { hero: DELVE.ui.hero, top: q[0].id }; });

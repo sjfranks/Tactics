@@ -334,9 +334,8 @@ const ART = (() => {
   }
 
   // ---------------- die faces ----------------
-  // Everyone's d6 reads 1, 1, 2, 2, 3, 3. The 1s carry the setback mark (a cracked red disc), the 3s the surge mark
-  // (the critical's burst), the 2s nothing. The number shows when the roll gives an amount; the die's colour says whose
-  // it is. Drawn smooth: dice are things, not pixel art.
+  // Each character's die is numbered the usual way, in their colour, with the surge's burst behind the top number.
+  // Drawn smooth: dice are things, not pixel art.
   const DICE = {
     fighter: { bg: '#7a1f18', edge: '#3a0c08' }, mage: { bg: '#25336a', edge: '#0e1530' },
     cleric: { bg: '#e6dcc2', edge: '#a8946a' }, rogue: { bg: '#3a3346', edge: '#141018' },
@@ -345,25 +344,19 @@ const ART = (() => {
   // the marks, on a 100×100 grid: [shape, data, fill, stroke, stroke width]
   function burstPts(r0, r1, n, rot) { const o = []; for (let i = 0; i < n * 2; i++) { const a = rot + i * Math.PI / n, r = i % 2 ? r0 : r1 * (i % 4 === 0 ? 1 : .86); o.push([50 + Math.cos(a) * r, 50 + Math.sin(a) * r]); } return o; }
   const SYM = {
-    // the setback: a cracked disc
-    neg: [['circle', [50, 50, 38], '#4a1418', '#e0705e', 7], ['path', 'M52 13L43 37L57 49L41 66L50 88', null, '#ffd3c4', 7], ['path', 'M57 49L74 57', null, '#ffd3c4', 5]],
-    // the surge: the critical's burst, with its exclamation mark when the face carries no number
-    crit: [['poly', burstPts(30, 50, 9, -.2), '#ffb11a', '#7a2a00', 4], ['poly', burstPts(20, 36, 9, .15), '#ff5a1a', null, 0],
-      ['path', 'M42.5 23h15l-3 34h-9z', '#fff6d8', '#5a1000', 4], ['circle', [50, 68, 6.5], '#fff6d8', '#5a1000', 4]],
-    // the setback behind a number: the same disc, its crack faint so the number reads
-    negN: [['circle', [50, 50, 38], '#4a1418', '#e0705e', 7], ['path', 'M52 13L43 37L57 49L41 66L50 88', null, 'rgba(255,211,196,.28)', 6]],
-    // a plain face with no number: a small engraved dot
-    dot: [['circle', [50, 50, 9], 'rgba(255,255,255,.55)', 'rgba(0,0,0,.45)', 4]],
+    // the surge's burst, behind the top number
+    burst: [['poly', burstPts(30, 50, 9, -.2), '#ffb11a', '#7a2a00', 4], ['poly', burstPts(20, 36, 9, .15), '#ff5a1a', null, 0]],
   };
-  SYM.burst = SYM.crit.slice(0, 2);
+  // the burst with an exclamation mark in it: a critical hit
+  SYM.crit = SYM.burst.concat([['path', 'M42.5 23h15l-3 34h-9z', '#fff6d8', '#5a1000', 4], ['circle', [50, 68, 6.5], '#fff6d8', '#5a1000', 4]]);
   const svgOf = kind => `<svg class="sym sym-${kind}" viewBox="0 0 100 100" aria-hidden="true">${SYM[kind].map(([k, d, f, st, w]) => {
     const paint = `fill="${f || 'none'}"${st ? ` stroke="${st}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"` : ''}`;
     if (k === 'path') return `<path d="${d}" ${paint}/>`;
     if (k === 'circle') return `<circle cx="${d[0]}" cy="${d[1]}" r="${d[2]}" ${paint}/>`;
     return `<polygon points="${d.map(p => p.map(v => v.toFixed(1)).join(',')).join(' ')}" ${paint}/>`;
   }).join('')}</svg>`;
-  // for the page: a face's mark with no number (neg, plain, surge), and behind a number (negN, surgeN)
-  const FACE_SVG = { neg: svgOf('neg'), plain: svgOf('dot'), surge: svgOf('crit'), negN: svgOf('negN'), plainN: '', surgeN: svgOf('burst') };
+  // for the page: the burst behind a top number, and the critical hit's mark
+  const FACE_SVG = { top: svgOf('burst'), crit: svgOf('crit') };
   function drawSym(g, kind, cx, cy, size) {
     if (!SYM[kind]) return;
     g.save(); g.translate(cx - size / 2, cy - size / 2); g.scale(size / 100, size / 100); g.lineJoin = 'round'; g.lineCap = 'round';
@@ -377,30 +370,42 @@ const ART = (() => {
     });
     g.restore();
   }
-  // a d6 face: its mark, and in front of it the number when the roll gives an amount
-  function d6Face(style, kind, label) {
+  // A die face, 256 px square. shape: sq (a d6's face), tri (a d8's), tri4 (a d4's: three numbers, one by each corner,
+  // each read when its corner points up), kite (a d10's). labels: the face's number, or a d4's three in corner order
+  // (the corners of a triangle face sit at the picture's bottom left, bottom right and top). topN: the top number, which
+  // gets the burst (0 for none). hi: on a landed d4, the number it reads; the face's other numbers fade.
+  const NUM_FONT = '"Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
+  const TRI = [[0, 256], [256, 256], [128, 34]], TRI_MID = [128, 182];
+  function dieFace(style, shape, labels, topN, hi) {
     const cv = document.createElement('canvas'); cv.width = cv.height = 256; const g = cv.getContext('2d'), s = 256;
-    const num = label != null && label !== '';
     g.fillStyle = style.bg; g.fillRect(0, 0, s, s);
     const gr = g.createRadialGradient(s * .4, s * .36, 10, s * .5, s * .5, s * .74); gr.addColorStop(0, 'rgba(255,255,255,.2)'); gr.addColorStop(1, 'rgba(0,0,0,.3)'); g.fillStyle = gr; g.fillRect(0, 0, s, s);
-    g.lineWidth = 16; g.strokeStyle = style.edge; g.globalAlpha = .7; g.strokeRect(0, 0, s, s); g.globalAlpha = 1;
-    if (kind !== 'plain') {
-      const pool = g.createRadialGradient(s / 2, s / 2, 6, s / 2, s / 2, s * .46); pool.addColorStop(0, 'rgba(0,0,0,.4)'); pool.addColorStop(1, 'rgba(0,0,0,0)');
-      g.fillStyle = pool; g.fillRect(0, 0, s, s);
-    }
-    g.save(); g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 8; g.shadowOffsetY = 3;
-    if (kind === 'neg') drawSym(g, num ? 'negN' : 'neg', s / 2, s / 2, 206);
-    else if (kind === 'surge') drawSym(g, num ? 'burst' : 'crit', s / 2, s / 2, 250);
-    else if (!num) drawSym(g, 'dot', s / 2, s / 2, 120);
-    g.restore();
-    if (num) {
-      const big = String(label).length > 1;
-      g.font = `700 ${big ? 120 : 150}px "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", sans-serif`;
-      g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
-      const y = s / 2 + 10;
-      g.lineWidth = 20; g.strokeStyle = '#120c06'; g.strokeText(label, s / 2, y);
-      g.fillStyle = kind === 'surge' ? '#fff3c4' : '#ffffff'; g.fillText(label, s / 2, y);
-    }
+    // the edge of the face
+    g.lineWidth = 16; g.strokeStyle = style.edge; g.globalAlpha = .7; g.lineJoin = 'round';
+    if (shape === 'sq') g.strokeRect(0, 0, s, s);
+    else { g.beginPath(); (shape === 'kite' ? [[128, 5], [38, 204], [128, 251], [218, 204]] : TRI).forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.stroke(); }
+    g.globalAlpha = 1;
+    const num = (n, x, y, size, rot = 0) => {
+      const top = n === topN;
+      g.save(); g.translate(x, y); g.rotate(rot);
+      if (hi && n !== hi) g.globalAlpha = .28;
+      if (top) {
+        const pool = g.createRadialGradient(0, 0, 4, 0, 0, size * 1.1); pool.addColorStop(0, 'rgba(0,0,0,.4)'); pool.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = pool; g.fillRect(-size * 1.2, -size * 1.2, size * 2.4, size * 2.4);
+        g.save(); g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 8; g.shadowOffsetY = 3; drawSym(g, 'burst', 0, 0, size * 1.6); g.restore();
+      }
+      const fs = String(n).length > 1 ? size * .8 : size;
+      g.font = `700 ${fs}px ${NUM_FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+      g.lineWidth = Math.max(6, fs * .13); g.strokeStyle = '#120c06'; g.strokeText(String(n), 0, fs * .06);
+      g.fillStyle = top ? '#fff3c4' : '#ffffff'; g.fillText(String(n), 0, fs * .06);
+      // on a d10, a bar under the 6 and the 9 tells them apart
+      if (shape === 'kite' && (n === 6 || n === 9)) { g.fillStyle = '#120c06'; g.fillRect(-fs * .26, fs * .5, fs * .52, fs * .14); g.fillStyle = '#fff'; g.fillRect(-fs * .22, fs * .52, fs * .44, fs * .08); }
+      g.restore();
+    };
+    if (shape === 'sq') num(labels[0], s / 2, s / 2, 150);
+    else if (shape === 'tri') num(labels[0], TRI_MID[0], TRI_MID[1], 100);
+    else if (shape === 'kite') num(labels[0], 128, 140, 96);
+    else TRI.forEach((v, i) => { const dx = v[0] - TRI_MID[0], dy = v[1] - TRI_MID[1]; num(labels[i], TRI_MID[0] + dx * .58, TRI_MID[1] + dy * .58, 64, Math.atan2(dx, -dy)); });
     return cv;
   }
 
@@ -418,5 +423,5 @@ const ART = (() => {
   // a portrait as an <canvas> at its own size (the page scales it up, pixelated)
   const portraitCanvas = (type, v) => portrait(type, v).canvas(1);
 
-  return { Pix, sprite, portrait, portraitCanvas, wall, floor, ceiling, backWall, d6Face, DICE, FACE_SVG, drawSym, P };
+  return { Pix, sprite, portrait, portraitCanvas, wall, floor, ceiling, backWall, dieFace, DICE, FACE_SVG, drawSym, P };
 })();
