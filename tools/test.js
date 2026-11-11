@@ -2,33 +2,56 @@
 //   node tools/test.js                 the interaction tests
 //   node tools/test.js --autoplay=0,4  also play those battles through with the simulator's bot, checking after every
 //                                      order that the table shows exactly what the rules say
-// Options: --width=390 --height=844 (the phone it pretends to be), --shots (keep screenshots in tools/shots/)
+// Options: --width=390 --height=844 (the phone it pretends to be), --shots (keep screenshots in tools/shots/),
+//          --stall=90 (seconds with no check reported before the run is called stuck and stopped)
+// A run never hangs: each click or wait gives up after 10 seconds, and a watchdog stops the run when nothing has been
+// reported for --stall seconds, printing the section and check it was on and what the game was doing
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path'), GC = require('../js/rules.js');
 const arg = (k, d) => { const a = process.argv.find(x => x.startsWith('--' + k)); return a ? (a.includes('=') ? a.split('=')[1] : true) : d; };
 const W = +arg('width', 390), H = +arg('height', 844), SHOTS = arg('shots', false), AUTO = arg('autoplay', '');
 const PAGE = 'file://' + path.join(__dirname, '..', 'index.html'), SHOT = path.join(__dirname, 'shots');
 if (SHOTS) fs.mkdirSync(SHOT, { recursive: true });
-let fails = 0;
-const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c) fails++; };
+let fails = 0, stage = 'starting', lastCheck = '', lastAt = Date.now(), page = null, browser = null;
+const T0 = Date.now(), STALL = +arg('stall', 90) * 1000, secs = () => ((Date.now() - T0) / 1000).toFixed(0) + 's';
+const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c) fails++; lastCheck = msg; lastAt = Date.now(); };
+// a section heading: printed with the time so far, and remembered for the watchdog
+const _log = console.log; console.log = (...a) => { if (typeof a[0] === 'string' && !a[0].startsWith(' ') && a.length === 1 && !/^(all passed|\d+ FAILED|no page errors|PAGE ERRORS)/.test(a[0])) { stage = a[0]; lastAt = Date.now(); _log(`${a[0]}  (${secs()})`); return; } _log(...a); };
+// what the game was doing, for a stuck or crashed run
+async function stateNow() {
+  if (!page) return '(no page)';
+  const st = page.evaluate(() => { try { return JSON.stringify({ phase: UI.phase, busy: UI.busy, over: UI.over, active: UI.active && UI.active.kind, facing: !!UI.facePick, confirm: !!UI.confirm, rules: G && G.S.phase, sheets: [...document.querySelectorAll('.ov')].filter(o => !o.hidden).map(o => o.id), talk: !document.querySelector('#talk').hidden }); } catch (e) { return String(e); } });
+  return Promise.race([st, new Promise(r => setTimeout(() => r('(the page did not answer)'), 3000))]).catch(e => String(e));
+}
+let bailing = false;
+async function bail(why, code) {
+  if (bailing) return; bailing = true;
+  _log(`\n${why}\n  section: ${stage}\n  last check: ${lastCheck || '(none yet)'}\n  game: ${await stateNow()}\n  after ${secs()}`);
+  try { await Promise.race([browser && browser.close(), new Promise(r => setTimeout(r, 3000))]); } catch (e) { }
+  process.exit(code);
+}
+setInterval(() => { if (Date.now() - lastAt > STALL) bail(`STUCK: nothing reported for ${STALL / 1000}s`, 2); }, 2000).unref();
+process.on('unhandledRejection', e => bail(`CRASHED: ${String(e && e.message || e).split('\n')[0]}`, 1));
 
 (async () => {
   const b = await chromium.launch(), p = await b.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: true });
+  browser = b; page = p; p.setDefaultTimeout(10000); // a click or a wait gives up after 10s instead of 30
   const errs = []; p.on('pageerror', e => errs.push('pageerror: ' + e.message)); p.on('console', m => { if (m.type() === 'error') errs.push('console: ' + m.text()); });
   await p.route('**fonts.g**', r => r.fulfill({ body: '', contentType: 'text/css' })); // offline: system fonts stand in
   await p.goto(PAGE);
   await p.evaluate(() => { localStorage.clear(); localStorage.setItem('gc-tips', JSON.stringify({ move: 1, odds: 1, intents: 1, down: 1, vents: 1, undo: 1 })); });
   await p.reload(); await p.waitForFunction(() => typeof G !== 'undefined' && G);
-  await p.evaluate(() => { TIME_SCALE = 6; });
+  // a quicker table: half resolution (the tests read the game, not its pixels) and no close-ups, but in their own test
+  await p.evaluate(() => { TIME_SCALE = 6; closeUps = false; pixelRatio = .5; renderer.setPixelRatio(.5); resize(); });
   const shot = name => SHOTS ? p.screenshot({ path: path.join(SHOT, `${name}-${W}.png`) }) : null;
-  const idle = () => p.waitForFunction(() => (UI.phase === 'player' && !UI.busy) || UI.over, null, { timeout: 120000 });
+  const idle = () => p.waitForFunction(() => (UI.phase === 'player' && !UI.busy) || UI.over, null, { timeout: 60000 });
   // a square's middle on screen; d moves the point that far toward its far corner (the camera sees down into a pit
   // only at its far side)
   const scr = (c, r, l = 0, d = 0) => p.evaluate(([c, r, l, d]) => project(cellPos(c, r, l).addScaledVector(camToward(), -d)).slice(0, 2), [c, r, l, d]);
   const tapCell = async (c, r, l = 0, d = 0) => { const [x, y] = await scr(c, r, l, d); await p.touchscreen.tap(x, y); await p.waitForTimeout(150); };
   const hero = kind => p.evaluate(k => { const r = G.S.units.find(u => u.kind === k); return { id: r.id, c: r.c, r: r.r, ap: r.ap, hp: r.hp, maxHp: r.maxHp, down: r.down }; }, kind);
   // tap through any scene until a hero is on turn, or a briefing or the end of the battle shows
-  const tapThrough = async () => { for (let t = Date.now(); Date.now() - t < 120000;) { if (await p.isVisible('#talk')) { await p.click('#talk .tk'); await p.waitForTimeout(200); continue; } if (await p.isVisible('#end') || await p.isVisible('#intro') || await p.evaluate(() => UI.phase === 'player' && !UI.busy)) return; await p.waitForTimeout(250); } };
+  const tapThrough = async () => { for (let t = Date.now(); Date.now() - t < 60000;) { if (await p.isVisible('#talk')) { await p.click('#talk .tk'); await p.waitForTimeout(200); continue; } if (await p.isVisible('#end') || await p.isVisible('#intro') || await p.evaluate(() => UI.phase === 'player' && !UI.busy)) return; await p.waitForTimeout(250); } throw new Error('tapThrough: after 60s still no hero on turn, briefing or end screen'); };
   // a battle laid out for a test: round 1, the chosen hero on turn, nobody having acted; tweak edits the state first
   async function setup(level, first, tweak, opts = {}) {
     await p.evaluate(([lv, first, tweak, opts]) => {
@@ -306,6 +329,7 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
 
   console.log('a close-up when the blow is locked in');
   {
+    await p.evaluate(() => { closeUps = true; });
     await setup(0, 'fighter', "const g = S.units.find(u => u.kind === 'cutter'); g.c = 2; g.r = 5; g.hp = 30; g.maxHp = 30;");
     const pitch0 = await p.evaluate(() => camPitchT);
     await tapCell(2, 5);
@@ -318,6 +342,7 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
     ok(await p.evaluate(p0 => !cine && camPitchT === p0, pitch0), 'and goes back to the play view after');
   }
 
+  await p.evaluate(() => { closeUps = false; });
   console.log('keys');
   await setup(0, 'fighter');
   await p.keyboard.press('e'); await p.waitForTimeout(150);
@@ -390,8 +415,9 @@ const ok = (c, msg) => { console.log((c ? '  ok   ' : '  FAIL ') + msg); if (!c)
       await p.evaluate(lv => { document.querySelectorAll('.ov').forEach(o => o.hidden = true); hideTitle(); const ex = GC.LEVELS[lv].extra; MODE = ex ? 'free' : 'camp'; FREE = { boons: ex ? GC.partyBoons(lv) : [] }; CAMP = { ...freshCamp(), level: ex ? 0 : lv, boons: ex ? [] : GC.offerBoons([]).slice(0, lv) }; loadLevel(lv); }, lv);
       await p.click('#introGo'); const t0 = Date.now();
       for (;;) {
+        lastAt = Date.now(); // each turn played counts as progress for the watchdog
         await tapThrough();
-        await p.waitForFunction(() => (UI.phase === 'player' && !UI.busy) || UI.over, null, { timeout: 300000 });
+        await p.waitForFunction(() => (UI.phase === 'player' && !UI.busy) || UI.over, null, { timeout: 120000 });
         if (await p.evaluate(() => UI.over)) break;
         await p.evaluate(async () => {
           const idle2 = () => new Promise(res => { const f = () => (!UI.busy || UI.confirm) ? res() : setTimeout(f, 30); f(); });

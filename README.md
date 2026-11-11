@@ -43,7 +43,7 @@ The rules decide everything and know nothing of the screen; the table (the view)
 | Command | What it does |
 | --- | --- |
 | `node tools/sim.js 500 all` | Balance simulator: plays whole battles with a greedy hero bot against the real goblin AI, each with the boons a party would have earned by then. Add `DIFF=easy` or `DIFF=hard`, `BOONS=0` to fight without boons, `DMG=1` to split damage to heroes by source. Stops on any broken rule. |
-| `node tools/test.js` | Browser tests (Playwright with Chromium): real taps and drags on the page, from moving and undoing to picking a boon, the save surviving a reload and the campaign's end. `--autoplay=0,4` also plays those battles through the real view with the bot, checking after every order that the table shows what the rules say. `--shots` keeps screenshots. |
+| `node tools/test.js` | Browser tests (Playwright with Chromium): real taps and drags on the page, from moving and undoing to picking a boon, the save surviving a reload and the campaign's end. About 7 minutes; each section prints the time so far. It never hangs: a click or wait gives up after 10 seconds, and if nothing is reported for 90 seconds (`--stall=` to change) it stops and prints the section, the last check and what the game was doing. `--autoplay=0,4` also plays those battles through the real view with the bot, checking after every order that the table shows what the rules say. `--shots` keeps screenshots. |
 | `node tools/smoke.js` | A quick browser check: the game loads and reaches a hero's turn without errors. |
 
 GitHub Actions runs a check on every push and pull request (every script parses; the simulator plays 60 battles of each level) and deploys `index.html` and `js/` from `main` to GitHub Pages.
