@@ -94,14 +94,14 @@ const DV = (() => {
   Object.keys(ACTIONS).forEach(k => ACTIONS[k].id = k);
 
   // ---------------- who fights ----------------
-  // rank: front or back · speed: initiative, the fastest first · die: the size of their die · surge: what its top number
+  // rank: front or back · speed: the order the goblins act in (a hero's only says who is offered first) · die: the size of their die · surge: what its top number
   // does on an attack
   const UNITS = {
     fighter: { name: 'Brakka', cls: 'Fighter', side: 'hero', rank: 'front', hp: 26, speed: 3, die: 8, reach: 'melee', hitIcon: '⚔️', weapon: 'Longsword', surge: 'shieldUp', actions: ['attack', 'defend', 'taunt', 'interpose'], blurb: 'Shield first, questions later. Holds the line so nobody else has to.' },
     mage: { name: 'Orlen', cls: 'Wizard', side: 'hero', rank: 'back', hp: 16, speed: 2, die: 4, reach: 'ranged', hitIcon: '✨', weapon: 'Arcane bolt', surge: 'arc', actions: ['attack', 'fireball', 'frostbite', 'slow'], blurb: 'Old, frail and very hard to argue with from range.' },
     cleric: { name: 'Sister Wenna', cls: 'Cleric', side: 'hero', rank: 'front', hp: 22, speed: 2, die: 6, reach: 'ranged', hitIcon: '🌟', weapon: 'Holy light', surge: 'mercy', actions: ['attack', 'heal', 'bless', 'prayer'], blurb: 'Mends the living and smites the rest from a safe distance.' },
     rogue: { name: 'Vex', cls: 'Rogue', side: 'hero', rank: 'back', hp: 18, speed: 4, die: 6, reach: 'melee', hitIcon: '🗡️', weapon: 'Dagger', surge: 'crit', actions: ['attack', 'hide', 'poison', 'knives'], blurb: 'Quick, quiet, and always looking for the soft spot.' },
-    goblin: { name: 'Goblin', cls: 'Goblin fighter', side: 'foe', rank: 'front', hp: 19, speed: 3, die: 6, reach: 'melee', hitIcon: '🪓', weapon: 'Hatchet', surge: 'gangUp', actions: ['attack'], blurb: 'Brave in a crowd. Braver in a bigger one.' },
+    goblin: { name: 'Goblin', cls: 'Goblin fighter', side: 'foe', rank: 'front', hp: 25, speed: 3, die: 6, reach: 'melee', hitIcon: '🪓', weapon: 'Hatchet', surge: 'gangUp', actions: ['attack'], blurb: 'Brave in a crowd. Braver in a bigger one.' },
     shaman: { name: 'Goblin Shaman', cls: 'Goblin shaman', side: 'foe', rank: 'back', hp: 16, speed: 2, die: 6, reach: 'ranged', hitIcon: '💀', weapon: 'Hex bolt', surge: 'mend', actions: ['attack', 'chant', 'curse'], blurb: 'Keeps the others standing, and keeps well behind them.' },
   };
   const DEFAULTS = JSON.parse(JSON.stringify(UNITS)), TUNE0 = { ...TUNE };
@@ -146,19 +146,19 @@ const DV = (() => {
   const explodes = u => u.surge === 'crit' || TUNE.explode;
 
   // ---------------- turn order ----------------
-  // Initiative is the speed stat, the same every round: the fastest acts first. A hero and a goblin on the same speed:
-  // the hero goes first. Heroes on the same speed: the player chooses which of them goes first. Goblins on the same
-  // speed: the one with the most HP left goes first (a wounded goblin hangs back), then front rank before back rank,
-  // left to right. A turn is two actions by one character.
+  // A round is two phases: every hero acts, in any order the player chooses, then every goblin. The goblins go fastest
+  // first; on the same speed, the one with the most HP left goes first (a wounded goblin hangs back), then front rank
+  // before back rank, left to right. A hero's speed only says who is offered first. A turn is two actions by one
+  // character.
   const foeOrder = (S, a, b) => b.hp - a.hp || (a.rank === b.rank ? 0 : a.rank === 'front' ? -1 : 1) || a.slot - b.slot;
-  // who may act next, given who has already acted this round: { side, ids } (ids are the tied heroes, or one goblin)
+  // who may act next, given who has already acted this round: { side, ids } (ids: every hero still to act, fastest
+  // first, any of whom may go; or the one goblin up next)
   function nextUp(S, acted = S.acted) {
     const w = all(S).filter(u => !u.down && !acted.includes(u.id));
     if (!w.length) return null;
-    const top = Math.max(...w.map(u => u.speed)), at = w.filter(u => u.speed === top);
-    const heroes = at.filter(u => u.side === 'hero').sort((a, b) => a.slot - b.slot);
-    if (heroes.length) return { side: 'hero', ids: heroes.map(u => u.id), speed: top };
-    return { side: 'foe', ids: [at.sort((a, b) => foeOrder(S, a, b))[0].id], speed: top };
+    const heroes = w.filter(u => u.side === 'hero').sort((a, b) => b.speed - a.speed || a.slot - b.slot);
+    if (heroes.length) return { side: 'hero', ids: heroes.map(u => u.id) };
+    return { side: 'foe', ids: [w.sort((a, b) => b.speed - a.speed || foeOrder(S, a, b))[0].id] };
   }
   function ready(S) {
     if (S.over || !S.round) return { side: null, ids: [] };
@@ -184,7 +184,7 @@ const DV = (() => {
   function nextSide(S) {
     const ev = [];
     let n = nextUp(S);
-    if (!n) { // the round is over: recharges tick, and the order starts again from the fastest
+    if (!n) { // the round is over: recharges tick, and the heroes go again
       S.round++; S.acted = [];
       all(S).forEach(u => { for (const k in u.cd) if (u.cd[k] > 0) u.cd[k]--; });
       ev.push({ t: 'round', n: S.round });

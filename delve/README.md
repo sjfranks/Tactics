@@ -6,7 +6,7 @@ Open `delve/index.html` in a browser (there is no build step). Once this is on `
 
 ## How a fight works
 
-- **Initiative is speed.** Every character has a speed stat, and every round the fastest acts first: Vex (4), then Brakka and the goblin fighters (3), then Orlen, Wenna and the shaman (2). A hero and a goblin on the same speed: the hero goes first. Heroes on the same speed: you choose which goes first, by tapping a ready portrait (the round strip marks them "pick"). Goblins on the same speed: the one with the most HP left goes first, so wounding a goblin also slows it down; still tied, front rank before back rank, left to right.
+- **Heroes, then goblins.** Each round every hero acts first, in any order you like: tap a ready portrait to send that hero next (the round strip marks the heroes still to act "pick"). Then every goblin acts, fastest first: the goblin fighters (speed 3), then the shaman (2). Goblins on the same speed: the one with the most HP left goes first, so wounding a goblin also slows it down; still tied, front rank before back rank, left to right. A hero's speed only decides who is offered first.
 - **A turn is two actions**, for heroes and goblins alike: typically an attack and a power. Big spells (Fireball, Prayer of Healing) take both. **End** finishes a turn early.
 - **The dice:** each character rolls a die of their own, numbered the usual way: Brakka a **d8**, Vex and Wenna a **d6**, Orlen a **d4**, the goblins d6s. The top number is the **surge** and carries its burst. The die's colour says whose it is.
 - **Attacks roll one die.** The number is the damage, and the top number triggers the character's surge, different for each character. Each attack after the first in the same turn has **disadvantage**: the second rolls 2 dice and keeps the lowest, the third 3. **Advantage** rolls extra dice and keeps the highest (Bless gives it). The two cancel, and no roll uses more than 3 dice. Only the kept die counts, for its number and for its surge.
@@ -19,7 +19,7 @@ Open `delve/index.html` in a browser (there is no build step). Once this is on `
 | Brakka, fighter | 3 | 26 | d8 | **Shield Up:** +2 Guard until his next turn | **Defend** (Guard 1, 2 or 3), **Taunt** (goblins must attack him), **Interpose** (attacks on another hero hit him) |
 | Orlen, wizard | 2 | 16 | d4 | **Arc:** 1 damage to every other goblin | **Fireball** (both actions: a d6 to every goblin), **Frostbite** (Brittle: hits on it press), **Slow** (it loses actions) |
 | Sister Wenna, cleric | 2 | 22 | d6 | **Mercy:** the most wounded hero heals 3 | Attacks at range. **Heal** (heals the roll; raises the fallen), **Bless** (advantage on a hero's next attack), **Prayer of Healing** (both actions: every hero heals the roll) |
-| Goblin fighter | 3 | 19 | d6 | **Gang Up:** +1 per other goblin fighter standing | Two attacks a turn. |
+| Goblin fighter | 3 | 25 | d6 | **Gang Up:** +1 per other goblin fighter standing | Two attacks a turn. |
 | Goblin shaman | 2 | 16 | d6 | **Mend:** the most wounded goblin heals 3 | **Mending Chant**, **Curse** (a hero's attacks deal 1 to 3 less; Heal lifts it), then a hex bolt. |
 
 - **Ranks:** melee reaches only the front rank while anyone stands in it; ranged attacks and spells reach anyone. Brakka and Wenna are the party's front rank.
@@ -43,7 +43,7 @@ For changes beyond those, every number and rule lives in tables at the top of `j
 | `SURGES` | What the top number does on each character's attack. The effects are in `surge()`. |
 | `ACTIONS` | Every hotbar action: attack or power, action cost, target, reach, recharge, a die of its own (`die`) and whether it ignores advantage (`flat`); for powers how the die is read (`tier`: low, middle or top picks a line of `rows`; or `amount`: the number). The effects themselves are in `power()`. |
 | `UNITS` | Each character's HP, speed, die, rank, reach, surge and actions. |
-| `PARTY`, `ENCOUNTER` | Who fights. Initiative is `nextUp()`: speed, then heroes before goblins, then your pick among heroes and HP among goblins. |
+| `PARTY`, `ENCOUNTER` | Who fights. The order is `nextUp()`: every hero in your order, then the goblins by speed and HP. |
 
 ## Code
 
@@ -60,6 +60,6 @@ The rules decide everything and know nothing of the screen; the view shows what 
 | Command | What it does |
 | --- | --- |
 | `node delve/tools/sim.js 2000` | Plays 2,000 fights in Node and prints the same report as the in-page simulator. `EXPLODE=1` makes everyone crit for the run. |
-| `node delve/tools/test.js 3` | Browser test (Playwright with Chromium): plays 3 fights through real taps (picking between tied heroes by their portraits, both actions of each turn, powers, the last action kept chosen, presses, early ends), checking after every action that the bars show the HP the rules hold; then checks that the fastest acts first, that End passes a turn, that tied heroes are marked and picked by a tap, that tuning survives a reload and resets, and that the simulator runs. `--shots` keeps screenshots. |
+| `node delve/tools/test.js 3` | Browser test (Playwright with Chromium): plays 3 fights through real taps (picking heroes by their portraits, both actions of each turn, powers, the last action kept chosen, presses, early ends), checking after every action that the bars show the HP the rules hold; then checks that the heroes' phase comes first, that End passes a turn, that the heroes still to act are marked and picked by a tap, that tuning survives a reload and resets, and that the simulator runs. `--shots` keeps screenshots. |
 
-With the default numbers, the bot party wins about 93% of fights, in about 5.2 rounds, and someone falls in about 44% of them (most often Brakka, who draws the blows); it presses about 4 times a fight, mostly Orlen hitting the goblin he just froze.
+With the default numbers, the bot party wins about 93% of fights, in about 6 rounds, and someone falls in about half of them (most often Brakka, who draws the blows); it presses about 5 times a fight, mostly Orlen hitting the goblin he just froze.

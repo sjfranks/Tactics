@@ -76,7 +76,7 @@ const fail = m => { failures++; console.log('FAIL', m); };
 
   // a sheet: tune Brakka, reload, reset
   await p.click('#rAgain'); await p.waitForSelector('#hotbar .abtn');
-  await p.click('.pc[data-id="fighter"]'); await p.click('#tuneBtn');
+  await p.click('#order .oc[data-id="fighter"]'); await p.click('#tuneBtn'); // every hero is ready now: a portrait tap would pick him
   await p.click('.step button[data-f="hp"][data-d="1"]'); await p.click('.dies button[data-s="10"]');
   await p.reload(); await p.waitForSelector('#hotbar .abtn');
   const D = await p.evaluate(() => ({ hp: DV.DEFAULTS.fighter.hp, die: DV.DEFAULTS.fighter.die }));
@@ -86,7 +86,7 @@ const fail = m => { failures++; console.log('FAIL', m); };
   u = await p.evaluate(() => DELVE.S.units.fighter);
   if (u.max !== D.hp || u.die !== D.die) fail(`reset did not restore the defaults: ${u.max} HP, a d${u.die}`);
   await p.keyboard.press('Escape');
-  // speed order: the fastest hero is up first
+  // the heroes' phase comes first: the fastest hero is offered first
   const first = await p.evaluate(() => { const q = DV.queue(DELVE.S).filter(x => !x.done && !x.out); return { hero: DELVE.ui.hero, top: q[0].id }; });
   if (first.hero !== first.top) fail(`the fastest should act first: ${JSON.stringify(first)}`);
   // End: one action, then End passes the second; End straight away passes a whole turn
@@ -104,14 +104,14 @@ const fail = m => { failures++; console.log('FAIL', m); };
   acted = await p.evaluate(() => DELVE.S.acted);
   if (!acted.includes(h2)) fail(`End straight away should pass ${h2}'s turn: ${JSON.stringify(acted)}`);
   else console.log(`End: after one action (${h1}), and straight away (${h2}), both pass the turn`);
-  // heroes tied on speed: the strip marks them, and tapping either picks who goes first
+  // the heroes still to act: the strip marks them, and tapping any picks who goes next
   const tie = await p.evaluate(() => DV.ready(DELVE.S).ids);
   if (tie.length > 1) {
     await p.click(`.pc[data-id="${tie[1]}"]`);
     const now = await p.evaluate(() => DELVE.ui.hero);
     const marked = await p.evaluate(() => document.querySelectorAll('#order .oc.pick').length);
     if (now !== tie[1] || marked < 2) fail(`tied heroes ${tie.join(', ')}: picked ${now}, ${marked} marked in the strip`);
-    else console.log(`tied on speed: ${tie.join(' and ')}, marked in the strip, picked by a tap`);
+    else console.log(`heroes still to act: ${tie.join(', ')}, marked in the strip, picked by a tap`);
   }
   await p.click('#menuBtn');
   // the simulator

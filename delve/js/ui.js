@@ -133,21 +133,21 @@
   }
   function drawAll() { Object.keys(S.units).forEach(drawUnit); drawOrder(); $('#roundN').textContent = S.round || '–'; }
   // the round at a glance: the party (any order you like), then the goblins in the order they act
-  // the round at a glance, in speed order: who has acted, who is acting, who comes next. Heroes tied on speed (you
-  // choose which goes first) are marked; a gap falls between speeds.
+  // the round at a glance: who has acted, who is acting, who comes next. The heroes still to act (you choose the order)
+  // are marked; a gap falls between the heroes and the goblins.
   function drawOrder() {
     const ol = $('#order'), q = DV.queue(S);
     ol.innerHTML = '';
     let last = null;
     q.forEach(e => {
       const u = U(e.id);
-      if (last != null && u.speed !== last && !e.out) { const g = el('li', 'osep'); g.setAttribute('aria-hidden', 'true'); ol.appendChild(g); }
-      if (!e.out) last = u.speed;
+      if (last != null && u.side !== last && !e.out) { const g = el('li', 'osep'); g.setAttribute('aria-hidden', 'true'); ol.appendChild(g); }
+      if (!e.out) last = u.side;
       const cur = (e.now || e.id === ui.active) && !e.done && !S.over;
       const li = el('li'), b = el('button', `oc ${u.side}${cur ? ' cur' : ''}${e.done ? ' done' : ''}${e.out ? ' out' : ''}${e.pick ? ' pick' : ''}`);
       b.type = 'button'; b.dataset.id = e.id;
       const m = el('span', 'mini'); m.appendChild(ART.portraitCanvas(u.type, variantOf(u))); b.appendChild(m);
-      b.insertAdjacentHTML('beforeend', `<b>${e.out ? '' : e.done ? '✓' : e.pick ? 'pick' : '⚡' + u.speed}</b>`);
+      b.insertAdjacentHTML('beforeend', `<b>${e.out ? '' : e.done ? '✓' : e.pick ? 'pick' : u.side === 'foe' ? '⚡' + u.speed : ''}</b>`);
       b.setAttribute('aria-label', `${u.name}, speed ${u.speed}${u.down ? ', down' : e.done ? ', has acted' : e.pick ? ', you choose the order' : ''}`);
       b.addEventListener('click', () => openSheet(e.id));
       li.appendChild(b); ol.appendChild(li);
@@ -401,7 +401,7 @@
     switch (e.t) {
       case 'round':
         $('#roundN').textContent = e.n; log(`Round ${e.n}`, 'rd');
-        banner(`Round ${e.n}`, 'fastest first'); drawAll(); await wait(e.n > 1 ? 450 : 300);
+        banner(`Round ${e.n}`, 'heroes first'); drawAll(); await wait(e.n > 1 ? 450 : 300);
         break;
       case 'done':
         drawUnit(e.id); drawOrder();
@@ -598,7 +598,7 @@
         <p class="blurb">${esc(T.blurb || '')}</p></div></div>
       <div class="stats">
         <div class="stat hp"><small>HP</small><b>${Math.max(0, u.hp)}<span style="font-size:14px;color:var(--parch-dim)">/${u.max}</span></b><span class="bar"><u></u><i></i></span><span class="step"><button type="button" data-f="hp" data-d="-1" aria-label="Less max HP">−</button><button type="button" data-f="hp" data-d="1" aria-label="More max HP">+</button></span></div>
-        <div class="stat"><small>Speed</small><b>${u.speed}</b><span class="note">initiative</span><span class="step"><button type="button" data-f="speed" data-d="-1" aria-label="Slower">−</button><button type="button" data-f="speed" data-d="1" aria-label="Faster">+</button></span></div>
+        <div class="stat"><small>Speed</small><b>${u.speed}</b><span class="note">${u.side === 'foe' ? 'goblins go fastest first' : 'offered first'}</span><span class="step"><button type="button" data-f="speed" data-d="-1" aria-label="Slower">−</button><button type="button" data-f="speed" data-d="1" aria-label="Faster">+</button></span></div>
         <div class="stat"><small>Attack</small><b>${avg.toFixed(1)}</b><span class="note">first, on average</span></div>
       </div>
       <section><h3>Die · d${N}</h3>
@@ -656,7 +656,7 @@
     const changed = Object.keys(TUNING.units).length + Object.keys(TUNING.tune || {}).filter(k => TUNING.tune[k] !== DV.TUNE0[k]).length;
     const card = openModal(`
       <h2>Goblin Delve</h2>
-      <p>A test bench for dice combat: two actions a turn, a die for each character whose top number surges (a different surge for each), disadvantage on repeated attacks, flat rolls for powers, presses for hitting brittle goblins, initiative by speed, three goblins and their shaman.</p>
+      <p>A test bench for dice combat: two actions a turn, a die for each character whose top number surges (a different surge for each), disadvantage on repeated attacks, flat rolls for powers, presses for hitting brittle goblins, the heroes then the goblins each round, three goblins and their shaman.</p>
       <div class="row"><button class="btn gold" type="button" id="mNew">New fight</button><button class="btn" type="button" id="mSim">Simulate 1,000 fights</button><button class="btn" type="button" id="mLog">Combat log</button></div>
       <section><h3>Play</h3>
         <div class="set"><div><b>Auto-play the party</b><small>The heroes choose for themselves, so you can watch the rules run.</small></div>${sw('mAuto', SET.auto)}</div>
@@ -668,7 +668,7 @@
         <div class="set"><div><b>Tuned numbers</b><small>${changed ? `${changed} change${changed > 1 ? 's' : ''} from the defaults, kept on this device.` : 'Open any sheet and tap Tune to change stats and die sizes.'}</small></div>${changed ? `<button class="btn small" type="button" id="mReset">Reset all</button>` : ''}</div>
       </section>
       <details><summary>How a fight works</summary><ul>
-        <li>Initiative is speed: the fastest acts first, every round. A hero and a goblin on the same speed: the hero goes first. Heroes on the same speed: you choose which goes first (tap a ready portrait). Goblins on the same speed: the one with the most HP left goes first, so wounding a goblin also slows it down.</li>
+        <li>Each round, every hero acts first, in any order you like (tap a ready portrait to send them), then every goblin. The goblins go fastest first; on the same speed, the one with the most HP left goes first, so wounding a goblin also slows it down.</li>
         <li>A turn is ${DV.TUNE.actions} actions: typically an attack and a power. Big spells take both. End the turn early with End.</li>
         <li>Each character rolls a die of their own: ${DV.PARTY.map(k => `${esc(short(DV.UNITS[k].name))} a d${DV.UNITS[k].die}`).join(', ')}; the goblins a d${DV.UNITS.goblin.die}, the shaman a d${DV.UNITS.shaman.die}. ${SYM.top} marks the top number: the surge.</li>
         <li>An attack rolls 1 die: the number is the damage, and the top number triggers the character’s surge (each character’s is different: see their sheet). Each attack after the first in a turn has disadvantage: roll 2 dice and keep the lowest, then 3. Advantage (from Bless) rolls extra dice and keeps the highest; the two cancel, and no roll uses more than ${DV.TUNE.maxDice} dice.</li>
