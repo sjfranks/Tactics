@@ -28,6 +28,7 @@ const TUNE = {
   armourMax: 4,                   // armour: what each blow loses (Taunt +1, Prone −1, Rebuke −2, Frozen none), at most this
   ward: 2,                        // Ward and Mana Shield: armour added till the caster's next turn
   poison: { damage: 2, rounds: 2 }, // Poisoned Blade: damage at the start of each of the foe's next turns
+  rear: 1,                        // extra dice for a blow landed from behind a figure (see facing)
   // experience: per action that hits, slays (each foe), heals or helps; to every hero standing at a victory; a level's
   // worth, and the max HP each level adds. Every level from 2 upgrades one of the hero's cards (see upgradesDue)
   xp: { hit: 6, kill: 14, heal: 6, help: 4, win: 20, level: 100, hp: 2, max: 6 },
@@ -321,7 +322,7 @@ function slopeAt(B, fx, fz) {
 function makeUnit(S, kind, c, r, l = 0) {
   const d = UNITS[kind], ap = d.ap || TUNE.ap[d.side], k = d.side === 'gob' ? (TUNE.difficulty[S.diff] || TUNE.difficulty.normal).hp : 1, hp = Math.max(1, Math.round(d.hp * k));
   const u = { id: S.units.length, kind, side: d.side, name: d.name, hp, maxHp: hp, c, r, l, size: d.size || 1, ap, apMax: ap, atks: 0, cd: {}, st: {}, alive: true, down: false, asleep: false, init: 0,
-    die: d.die, armour: d.armour || 0, move: d.move, initBonus: d.init || 0, cards: (d.cards || []).slice(), ups: [], mods: {}, uses: {} };
+    die: d.die, armour: d.armour || 0, move: d.move, initBonus: d.init || 0, cards: (d.cards || []).slice(), ups: [], mods: {}, uses: {}, fc: d.side === 'hero' ? [0, -1] : [0, 1] }; // fc: the way it faces, a step [dc, dr]; heroes face up the board, goblins down it
   S.units.push(u); return u;
 }
 // a fresh battle. opts.boons: the boons the party has earned; opts.diff: easy | normal | hard
@@ -509,6 +510,20 @@ function battle(S) {
   // a ring of eight around the fighter, for Cleave
   const aroundFoes = u => S.units.filter(x => up(x) && x.side !== u.side && !x.st.hidden && (x.l || 0) === (u.l || 0) && cheb(x, u) === 1 && Math.abs(hAt(x.c, x.r, x.l) - hAt(u.c, u.r, u.l)) <= 2);
   const flanked = (t, att) => heroes().some(h => h !== att && dist(h, t) === 1);
+  // facing: each figure faces one of the four ways. A blow from the squares behind it (more behind than beside) lands
+  // from the rear. Moving turns a figure the way it last stepped, striking or casting turns it to its mark, goblins
+  // end their turn facing the nearest hero, and a hero picks a way after each move (turn, which costs nothing)
+  const fcOf = u => u.fc || (u.side === 'hero' ? [0, -1] : [0, 1]);
+  function dirTo(u, q) {
+    const o = (sz(u) - 1) / 2, dc = q.c - u.c - o, dr = q.r - u.r - o, f = fcOf(u);
+    if (!dc && !dr) return f;
+    if (Math.abs(dc) === Math.abs(dr)) return Math.sign(dc) === f[0] && f[0] ? f : Math.sign(dr) === f[1] && f[1] ? f : [0, Math.sign(dr)]; // a diagonal: keep the facing if it is one of the two
+    return Math.abs(dc) > Math.abs(dr) ? [Math.sign(dc), 0] : [0, Math.sign(dr)];
+  }
+  function fromBehind(t, from) {
+    const o = (sz(t) - 1) / 2, vc = from.c - t.c - o, vr = from.r - t.r - o, f = fcOf(t), dot = vc * f[0] + vr * f[1], cross = Math.abs(vc * f[1] - vr * f[0]);
+    return dot < 0 && -dot >= cross;
+  }
   // armour: what each blow loses. Taunt adds one, Prone takes one off, Rebuke two, and the frozen have none
   function armourOf(t) {
     if (t.st.frozen) return 0;
@@ -608,6 +623,7 @@ function battle(S) {
     if (t.st.prone) { n += 1; notes.push('Prone +1 die'); }
     if (t.st.frozen) { n += 1; notes.push('Shatter +1 die'); }
     if (ranged && hAt(from.c, from.r, from.l) - hAt(t.c, t.r, t.l) >= 1) { n += 1; notes.push('High ground +1 die'); } // shooting down: melee gets no height bonus
+    if (fromBehind(t, from)) { n += TUNE.rear; notes.push(`Rear +${TUNE.rear} die`); }
     if (u.kind === 'thief' && flanked(t, u)) { const f = o.flank || 1; n += f; notes.push(`Flanking +${f} ${f > 1 ? 'dice' : 'die'}`); }
     if (def(u).pack && S.units.some(x => x !== u && x.alive && x.kind === u.kind && dist(x, t) === 1)) { n += TUNE.pack; notes.push(`Pack +${TUNE.pack} die`); }
     let bonus = o.bonus || 0;
@@ -646,7 +662,7 @@ function battle(S) {
       sum += dmg; if (dmg >= t.hp) kill++;
     }
     // what the team has set up that this blow uses, most telling first: for the odds over the target
-    const TAGS = [[/^Crush \+(\d+)$/, m => `Crush +${m[1]}`], [/^Shatter \+(\d+)$/, m => `Shatter +${m[1]}`], [/^Sneak Attack \+(\d+)/, m => `Sneak +${m[1]}d`], [/^Flanking \+(\d+)/, m => `Flank +${m[1]}d`], [/^Prone \+1/, () => 'Prone +1d'], [/^Shatter \+1 die/, () => 'Frozen +1d'], [/^Blessed/, () => 'Blessed +1d'], [/^High ground/, () => 'High +1d']];
+    const TAGS = [[/^Crush \+(\d+)$/, m => `Crush +${m[1]}`], [/^Shatter \+(\d+)$/, m => `Shatter +${m[1]}`], [/^Rear \+(\d+)/, m => `Rear +${m[1]}d`], [/^Sneak Attack \+(\d+)/, m => `Sneak +${m[1]}d`], [/^Flanking \+(\d+)/, m => `Flank +${m[1]}d`], [/^Prone \+1/, () => 'Prone +1d'], [/^Shatter \+1 die/, () => 'Frozen +1d'], [/^Blessed/, () => 'Blessed +1d'], [/^High ground/, () => 'High +1d']];
     const tags = []; for (const [re, f] of TAGS) for (const nt of spec.notes) { const m = nt.match(re); if (m && !tags.includes(f(m))) tags.push(f(m)); }
     if (t.st.judged && u.side === 'hero') tags.splice(tags.findIndex(x => /Crush|Shatter/.test(x)) + 1, 0, `Judged: heal ${judgedMercy(t)}`);
     return { miss: miss / trials, avg: sum / trials, kill: kill / trials, sides: spec.sides, n: spec.n, dis: spec.dis, armour: spec.armour, crit: !spec.noCrit, tags };
@@ -661,7 +677,8 @@ function battle(S) {
   const sfx = name => ev({ t: 'sfx', name });
   const shake = amt => ev({ t: 'shake', amt });
   const fx = (kind, where) => ev({ t: 'fx', kind, at: where });
-  const face = (u, q) => ev({ t: 'face', id: u.id, c: q.c, r: q.r });
+  const face = (u, q) => { u.fc = dirTo(u, q); ev({ t: 'face', id: u.id, c: q.c, r: q.r }); }; // a figure turns to its mark
+  const turnTo = (u, f) => { u.fc = f; ev({ t: 'faceDir', id: u.id, dir: f }); };
   const cast = (u, hold = false) => ev({ t: 'cast', id: u.id, wait: hold });
   const aim = (u, q, kind) => ev({ t: 'aim', id: u.id, at: q.id != null ? q.id : { c: q.c, r: q.r, l: q.l || 0 }, kind });
   const endAim = () => ev({ t: 'endAim' });
@@ -760,6 +777,8 @@ function battle(S) {
     if (path.length < 2) return up(u);
     const end = path[path.length - 1];
     ev({ t: 'move', id: u.id, path, speed: o.speed || 1, style: o.style || 'walk', arrow: o.arrow || null });
+    const pv = path[path.length - 2], st = [Math.sign(end.c - pv.c), Math.sign(end.r - pv.r)];
+    if (st[0] || st[1]) u.fc = st[0] ? [st[0], 0] : [0, st[1]]; // facing the way it last stepped
     u.c = end.c; u.r = end.r; u.l = end.l || 0;
     if (def(u).trample) kickAside(u);
     const n = path.slice(1).filter(p => burning(p.c, p.r, p.l)).length;
@@ -1127,7 +1146,7 @@ function battle(S) {
   };
   function telegraph(g, plan) {
     g.ap = 0;
-    ev({ t: 'faceDir', id: g.id, dir: plan.dir });
+    g.fc = [plan.dir[0], plan.dir[1]]; ev({ t: 'faceDir', id: g.id, dir: plan.dir });
     S.smash = { g: g.id, dir: plan.dir, cells: plan.cells };
     ev({ t: 'smashMark', id: g.id, dir: plan.dir, cells: plan.cells });
     cast(g); sfx('horn'); shake(.15); combo('Grubnash Smash!', 'red'); note('Clear the marked path before his next turn', 'red');
@@ -1276,6 +1295,10 @@ function battle(S) {
     finishFoe(g);
   }
   function finishFoe(g) {
+    if (up(g) && !g.asleep) { // a goblin ends its turn facing the nearest hero it can see
+      const h = heroes().filter(x => !x.st.hidden).sort((a, b) => dist(g, a) - dist(g, b))[0], f = h && dirTo(g, h);
+      if (f && (f[0] !== fcOf(g)[0] || f[1] !== fcOf(g)[1])) turnTo(g, f);
+    }
     ev({ t: 'idle', id: g.id });
     if (g.alive && g.st.frozen) status(g, 'frozen', false); // the frost holds through its own turn, then lets go
     ev({ t: 'clearDice' });
@@ -1373,6 +1396,14 @@ function battle(S) {
     }
     return ok && cost <= mv ? path.map(p => ({ c: p.c, r: p.r, l: p.l || 0 })) : pathTo(rch, key(end.c, end.r, end.l));
   }
+  // a hero turns to face one of the four ways: no action spent (dir: a step [dc, dr])
+  function turn(id, dir) {
+    return run(() => {
+      const u = U(id); if (!myTurn(u) || !Array.isArray(dir) || !DIRS.some(([a, b]) => a === dir[0] && b === dir[1])) return;
+      const f = fcOf(u); if (f[0] === dir[0] && f[1] === dir[1]) return;
+      turnTo(u, [dir[0], dir[1]]); log(`${nm(u)} turns`, 'hero');
+    });
+  }
   function move(id, path, style) {
     return run(() => {
       const u = U(id); if (!myTurn(u) || u.ap < 1) return;
@@ -1443,7 +1474,8 @@ function battle(S) {
     reach, pathTo, los, targets, block, reachOf, rangeCells, threat, engagers, grabbable, grabCells, wallCells, canIce, blastAt, blastHits, sweepTargets, inCover, flanked,
     attackSpec, forecast, intent,
     // orders: each returns the events of what happened
-    begin, move, act, endTurn,
+    begin, move, act, turn, endTurn,
+    fcOf, dirTo, fromBehind,
     snapshot: () => JSON.stringify(S)
   };
 }

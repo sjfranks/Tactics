@@ -130,6 +130,7 @@ const boonNames = (who) => partyBoonIds().map(id => GC.BOONS[id]).filter(b => !w
 
 // ---------------- laying out a battle ----------------
 function clearBoard() {
+  UI.facePick = null; $('#facePick').hidden = true;
   units.forEach(u => { if (!u) return; scene.remove(u.root); scene.remove(u.ring); u.tag.remove(); });
   units = [];
   [...burnFx.keys()].forEach(clearBurnFx);

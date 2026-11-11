@@ -96,6 +96,7 @@ function frame(t) {
       u.stand.quaternion.copy(yawQ).invert().multiply(leanQ).multiply(yawQ);
     }
     groundFit(u, dv);
+    if (u.facer) { u.facer.rotation.y = u.piece.rotation.y; u.facer.visible = u.alive && !u.down && u.piece.visible && u.deployed; }
     u.ring.position.set(u.root.position.x, u.root.position.y + .035, u.root.position.z); lieFlat(u.ring, u.root.position.x, u.root.position.z, camAz);
     if (u.alive) {
       // turns alternate, so a hero who has acted keeps its full colour on the board; the turn strip shows who has gone
@@ -115,7 +116,8 @@ function frame(t) {
   if (reticle.visible && reticleOn) { const q = reticleOn.root.position; reticle.position.set(q.x, q.y + .07, q.z); lieFlat(reticle, q.x, q.z, t * .0012); reticle.material.opacity = (reticle.userData.op ?? 1) * (.8 + .2 * Math.sin(t * .009)); }
   if (smashMarks) smashMat.opacity = .5 + .35 * Math.sin(t * .009);
   if (G && G.B.vents.length) { const soon = UI.phase !== 'intro' && (G.S.round + 1) % GC.TUNE.vents.every === 0; ventMat.emissiveIntensity = soon ? 1.1 + .9 * (.5 + .5 * Math.sin(t * .01)) : .8; } // vents throb the round before they blow
-  if (!$('#roll').hidden) placeRoll(); // the tally keeps the ability card's place, whatever its size
+  if (!$('#roll').hidden) placeRoll();
+  if (UI.facePick) placeFacing(); // the tally keeps the ability card's place, whatever its size
   updateBubbles(t);
   for (let i = floats.length - 1; i >= 0; i--) {
     const f = floats[i], k = (t - f.t0) / f.dur;

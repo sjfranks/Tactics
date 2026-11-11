@@ -42,6 +42,7 @@ function floorY(x, z) { const c = toCell({ x, z }); if (!c) return TOP; const l 
 
 function onTap(hit) {
   if (UI.over) return;
+  if (UI.facePick && !UI.busy) { closeFacing(); afterAction(); } // a tap elsewhere keeps the way the hero walked
   const t = hit.unit || (hit.cell && occ(hit.cell.c, hit.cell.r, hit.cell.l));
   if (UI.confirm) { const e = UI.confirmEnd, h = hit.cell; UI.confirm((!!t && t === UI.confirmT) || (!!h && !!e && h.c === e.c && h.r === e.r && (h.l || 0) === (e.l || 0))); return; }
   if (UI.busy || UI.phase !== 'player') { if (t && t.deployed) { UI.inspect = t; renderDock(); } return; }

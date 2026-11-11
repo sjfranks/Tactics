@@ -179,7 +179,7 @@ const PLAY = {
     renderTokens(); updateHud(); renderDock();
     return u.side === 'gob' ? wait(60) : null;
   },
-  idle: e => { const u = vu(e.id); if (u) faceViewer(u); return u && u.side === 'gob' ? wait(70) : null; },
+  idle: e => { const u = vu(e.id); if (u) faceRule(u); return u && u.side === 'gob' ? wait(70) : null; },
   clearDice: () => { clearDice(); hideRoll(); },
   round: e => {
     UI.round = e.round; UI.order = e.order.slice(); UI.turn = -1;
@@ -228,6 +228,7 @@ function confirmCombo(u, id, target, path) {
 const undoStack = [];
 async function order(fn, final) {
   if (UI.busy || UI.over || !G) return false;
+  closeFacing();
   const before = G.snapshot(), logAt = combatLog.length;
   const evs = fn();
   if (!evs.length) return false;
@@ -254,8 +255,40 @@ async function useCard(u, id, target, path, dropped) {
 async function moveHero(u, path, dropped) {
   const done = await order(() => G.move(u.id, path, dropped ? 'drop' : undefined));
   if (!done && dropped) { await dropTo(u, [here(u)]); refresh(); }
+  if (done && UI.active === u && UI.phase === 'player' && !UI.over && G.up(G.U(u.id))) openFacing(u); // the end of a move: pick a facing
 }
-function endTurn() { if (UI.busy || UI.phase !== 'player' || UI.over) return; return order(() => G.endTurn(), true); }
+// ---------------- facing: at the end of a move the hero picks which way to face ----------------
+// four arrows around the hero; a tap turns them that way (no action spent). Anything else keeps the way they walked.
+// A blow from behind a figure takes +1 die, for the heroes and the goblins alike
+const yawOf = f => Math.atan2(f[0], f[1]);
+const FACE_DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+function faceRule(u, instant) { // a piece turns to the way the rules say it faces
+  if (!u || !u.alive || u.down || !G) return; const r = G.U(u.id); if (!r || !r.alive) return;
+  const a0 = u.piece.rotation.y, d = angDiff(yawOf(G.fcOf(r)), a0); if (Math.abs(d) < .05) return;
+  if (instant || QUIET) { u.piece.rotation.y = a0 + d; return; }
+  tween(220, t => { if (u.alive) u.piece.rotation.y = a0 + d * t; });
+}
+function openFacing(u) { UI.facePick = u; $('#facePick').hidden = false; markFacing(); refresh(); }
+function closeFacing() { if (!UI.facePick) return; const u = UI.facePick; UI.facePick = null; $('#facePick').hidden = true; refresh(); return u; }
+function markFacing() { const u = UI.facePick, f = u && G.fcOf(G.U(u.id)); document.querySelectorAll('#facePick button').forEach(b => { const d = b.dataset.d.split(',').map(Number); b.classList.toggle('on', !!f && d[0] === f[0] && d[1] === f[1]); }); }
+async function pickFacing(d) {
+  const u = UI.facePick; if (!u || UI.busy) return; ac(); sfx('pick');
+  const r = G.U(u.id), f = G.fcOf(r), same = f[0] === d[0] && f[1] === d[1];
+  closeFacing();
+  if (!same) await order(() => G.turn(u.id, d)); else afterAction(); // the same way: just confirm (a spent hero's turn then ends)
+}
+document.querySelectorAll('#facePick button').forEach(b => { b.onclick = e => { e.stopPropagation(); pickFacing(b.dataset.d.split(',').map(Number)); }; b.addEventListener('pointerdown', e => e.stopPropagation()); });
+// each frame: the arrows sit on the edges of the hero's own square, pointing out (the squares beside stay free to tap)
+function placeFacing() {
+  const u = UI.facePick; if (!u) return;
+  const c = project(u.root.position);
+  document.querySelectorAll('#facePick button').forEach(b => {
+    const [dc, dr] = b.dataset.d.split(',').map(Number), p = project(tmpF.copy(u.root.position).add(new V3(dc * .36, .04, dr * .36)));
+    b.style.transform = `translate(${p[0]}px,${p[1]}px) translate(-50%,-50%)`; b.firstElementChild.style.transform = `rotate(${Math.atan2(p[1] - c[1], p[0] - c[0])}rad)`;
+  });
+}
+const tmpF = new V3();
+function endTurn() { if (UI.busy || UI.phase !== 'player' || UI.over) return; closeFacing(); return order(() => G.endTurn(), true); }
 function faceViewer(u) { // idle pieces turn back toward the player, like Fire Emblem units
   if (!u || !u.alive || u.down) return;
   const a0 = u.piece.rotation.y, d = angDiff(camAz + (u.side === 'hero' ? .35 : -.35), a0);
@@ -264,13 +297,13 @@ function faceViewer(u) { // idle pieces turn back toward the player, like Fire E
 function afterAction() {
   const u = UI.active, r = u && G.U(u.id), mine = UI.phase === 'player' && !UI.over && !!r;
   if (mine) {
-    faceViewer(u); setView(viewFor(u)); // the view goes with the hero, up the stair or down it
+    faceRule(u); setView(viewFor(u)); // the view goes with the hero, up the stair or down it
     if (r.ap <= 0 || !G.up(r)) UI.card = null;
     else if (UI.card && G.block(r, UI.card)) UI.card = G.cardsOf(r)[0];
   }
   computeIntents(); refresh(); renderTools(); saveTurn();
   // the turn passes on by itself once the hero has no actions left (or has fallen)
-  if (mine && (r.ap <= 0 || !G.up(r))) setTimeout(() => { const r2 = G.U(u.id); if (UI.phase === 'player' && !UI.busy && !UI.over && UI.active === u && (r2.ap <= 0 || !G.up(r2))) endTurn(); }, 450);
+  if (mine && (r.ap <= 0 || !G.up(r)) && UI.facePick !== u) setTimeout(() => { const r2 = G.U(u.id); if (UI.phase === 'player' && !UI.busy && !UI.over && UI.active === u && UI.facePick !== u && (r2.ap <= 0 || !G.up(r2))) endTurn(); }, 450); // a facing to pick waits
 }
 function setSel(u, quiet) {
   UI.peek = null; UI.sel = u; UI.aim = null; UI.inspect = null;
@@ -306,6 +339,7 @@ function sync() {
     if (u.c !== r.c || u.r !== r.r || (u.l || 0) !== (r.l || 0)) { u.c = r.c; u.r = r.r; u.l = r.l || 0; u.root.position.copy(posOf(u)); u.viewFaded = undefined; }
     if (u.hp !== r.hp) { u.hp = r.hp; updateTag(u); }
     if (u.down !== r.down) setDownLook(u, r.down);
+    faceRule(u);
     for (const k of STATUSES) if (!!u.st[k] !== !!r.st[k] || (r.st[k] === 2) !== (u.st[k] === 2)) applyStatus(u, k, r.st[k] === 2 ? 2 : !!r.st[k], true);
     if (u.asleep !== r.asleep) { u.asleep = r.asleep; u.tag.classList.toggle('zz', r.asleep); }
     if (u.armour !== G.armourOf(r)) setArmour(u, G.armourOf(r));
@@ -320,6 +354,7 @@ function sync() {
 }
 // undo: back to the state before the last order, as long as no dice have been rolled since
 function undoMove() {
+  closeFacing();
   if (UI.busy || UI.phase !== 'player' || UI.over) return;
   const s0 = undoStack.pop(); if (!s0) { renderTools(); return; }
   G = GC.battle(JSON.parse(s0.state));

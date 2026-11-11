@@ -124,6 +124,11 @@ function positionMove(B, u) { // no good action: walk toward a useful square
   if (best && (B.isRanged(u) ? true : Math.min(...foes.map(g => B.dist(best.path[best.path.length - 1], g))) < here)) return best.path;
   return null;
 }
+// the hero's facing after a move and at the end of its turn: toward the nearest goblin awake
+function faceBest(B, u) {
+  const g = B.gobs().filter(x => !x.asleep).sort((a, b) => B.dist(u, a) - B.dist(u, b))[0]; if (!g || !B.up(u)) return;
+  const evs = B.turn(u.id, B.dirTo(u, g)); if (evs.length) check(B, evs, 'turn');
+}
 function heroTurn(B, stats) {
   const S = B.S, u = B.U(S.active);
   for (let k = 0; k < 8 && S.phase === 'player' && S.active === u.id && u.ap > 0; k++) {
@@ -135,11 +140,12 @@ function heroTurn(B, stats) {
     const opts = options(B, u).sort((a, b) => b.v - a.v), best = opts[0];
     let evs;
     if (best && best.v > .9) { evs = B.act(u.id, best.id, best.target, best.path); stats.uses[best.id] = (stats.uses[best.id] || 0) + 1; }
-    else { const p = positionMove(B, u); if (!p) break; evs = B.move(u.id, p); }
+    else { const p = positionMove(B, u); if (!p) break; evs = B.move(u.id, p); if (evs.length) { check(B, evs, 'move'); faceBest(B, u); continue; } }
     if (!evs.length) break;
     check(B, evs, `${S.level} r${S.round} ${u.name}`);
     if (GC.LEVELS[S.level].rout && !S.kingDied && !S.units.find(x => x.kind === 'king').alive) S.kingDied = S.round;
   }
+  if (S.phase === 'player') faceBest(B, u);
   if (S.phase === 'player') { const evs = B.endTurn(); check(B, evs, `${S.level} r${S.round} end`); }
 }
 

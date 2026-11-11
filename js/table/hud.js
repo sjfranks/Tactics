@@ -77,6 +77,7 @@ function renderDock() {
   else if (UI.phase !== 'player') hint = (UI.active ? shortName(UI.active) + "'s turn" : "Goblins' turn") + (ffwd ? ' · <b>fast-forward</b>' : ' · <b>tap</b> to speed up');
   else if (UI.confirm) hint = 'Tap <b>Confirm?</b> or the target again to go';
   else if (UI.busy) hint = '';
+  else if (h && UI.facePick === h) hint = 'Tap an <b>arrow</b> to pick which way to face';
   else if (h && UI.card) { const cd = CARDS[UI.card]; hint = cd.target === 'grab' && grabbedId() != null ? HINTS.grabTo : HINTS[cd.spot ? 'spot' : cd.target]; }
   else if (h) hint = hr.ap > 0 ? 'Tap a <b>blue</b> square or drag to move · 1 action' + (UI.climbShown ? ' · <b>chevrons</b> mark a climb' : '') : '';
   else if (UI.sel && UI.sel.down) hint = `${UI.sel.name} is down`;
@@ -103,7 +104,7 @@ function renderDock() {
     const c = G.cardOf(hr, show), blk = G.block(hr, show);
     const cdn = G.cardCd(hr, show), dis = c.die && c.target !== 'ally' && !blk && (hr.atks || 0) > 0 ? hr.atks : 0;
     const pills = [c.cost, c.target === 'self' ? 'Self' : c.range > 1 || c.reach ? `Range ${G.reachOf(hr, c)}` : 'Melee', cdn ? `↻ ${cdn}` : '', c.uses != null ? `${hr.uses[show] || 0} left` : ''].filter(Boolean).map(t => `<i>${t}</i>`).join('');
-    const prompt = !blk && hint && show === UI.card ? `<span class="tx3">${hint}</span>` : '';
+    const prompt = (UI.facePick || !blk) && hint && show === UI.card ? `<span class="tx3">${hint}</span>` : '';
     box.innerHTML = `<span class="tx"><b>${c.name}</b><span class="mt">${pills}${dis ? `<i class="dis" title="Each attack after the first this turn throws an extra die and keeps the lowest">Disadvantage${dis > 1 ? ' ×' + dis : ''}</i>` : ''}</span></span><span class="tx2">${focus ? `<span class="odds">${focus}</span>` : `${blk ? `<em class="bl">${blk}.</em> ` : ''}${G.cardText(hr, show)}`}</span>${focus ? '' : prompt}`;
   } else box.innerHTML = `<span class="tx2">${hint || ''}</span>`;
   hbFades(); measure();
@@ -137,7 +138,7 @@ $('#hbWrap').addEventListener('scroll', hbFades, { passive: true });
   window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
 })();
 function hotTap(h, id) {
-  ac();
+  ac(); if (UI.facePick) closeFacing();
   if (UI.confirm) { UI.confirm(false); return; }
   if (UI.busy || UI.phase !== 'player' || UI.over) return;
   const block = G.block(ru(h), id);
@@ -148,6 +149,8 @@ function hotTap(h, id) {
 }
 window.addEventListener('keydown', e => { // 1–9 pick abilities, Escape puts the chosen one down
   const h = myHero(); if (e.ctrlKey || e.metaKey || e.altKey || !h || ovOpen() || !$('#menu').hidden) return; // not under a sheet or the open menu
+  const AK = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
+  if (UI.facePick && AK[e.key]) { e.preventDefault(); pickFacing(AK[e.key]); return; }
   const k = +e.key, id = k >= 1 && k <= 9 ? G.cardsOf(ru(h))[k - 1] : null;
   if (id) { e.preventDefault(); hotTap(h, id); const b = document.querySelector(`.hk[data-id="${id}"]`); if (b) b.scrollIntoView({ inline: 'nearest', block: 'nearest' }); }
   else if (e.key === ']' || e.key === '[') { e.preventDefault(); hbPage(e.key === ']' ? 1 : -1); }

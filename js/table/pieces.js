@@ -101,6 +101,9 @@ function posOf(u, c = u.c, r = u.r, l = u.l || 0) {
 }
 
 const ringGeo = new THREE.PlaneGeometry(1.08, 1.08), blobGeo = new THREE.PlaneGeometry(1, 1);
+// the way a figure faces: a small wedge on the ground at the front of its base
+const chevGeo = (() => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([-.16, 0, 0, 0, 0, .17, .16, 0, 0, -.16, 0, 0, 0, 0, .07, .16, 0, 0], 3)); g.setIndex([0, 1, 4, 4, 1, 2]); return g; })();
+const chevMat = { hero: new THREE.MeshBasicMaterial({ color: 0xffe0a0, transparent: true, opacity: .95, depthWrite: false, side: THREE.DoubleSide }), gob: new THREE.MeshBasicMaterial({ color: 0xff4a38, transparent: true, opacity: .95, depthWrite: false, side: THREE.DoubleSide }) };
 const hitGeo = new THREE.CylinderGeometry(.33, .33, 1.1, 8);
 const hitMat = new THREE.MeshBasicMaterial({ visible: false });
 const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
@@ -109,16 +112,17 @@ function makeUnit(r) {
   const def = GC.UNITS[r.kind], side = def.side;
   const root = new THREE.Group(); scene.add(root);
   const { piece, fig, stand, h, rig } = buildPiece(r.kind); root.add(piece);
-  piece.rotation.y = side === 'hero' ? .35 : -.35;
+  piece.rotation.y = Math.atan2(...(r.fc || (side === 'hero' ? [0, -1] : [0, 1]))); // the way the rules say it faces
   const blob = new THREE.Mesh(blobGeo, blobMat); blob.rotation.x = -Math.PI / 2; blob.position.y = .03; blob.renderOrder = 1; root.add(blob);
   const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ map: ringTex, color: side === 'hero' ? 0xbfcad6 : 0xd0302a, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
   ring.rotation.x = -Math.PI / 2; ring.renderOrder = 2; scene.add(ring);
   const hit = new THREE.Mesh(hitGeo, hitMat); hit.position.y = .55; root.add(hit);
+  const facer = new THREE.Group(), chev = new THREE.Mesh(chevGeo, chevMat[side]); chev.position.set(0, .05, (def.size || 1) > 1 ? 1.08 : .54); chev.renderOrder = 3; facer.add(chev); root.add(facer);
   const tag = document.createElement('div'); tag.className = 'tag ' + side;
   tag.innerHTML = `<div class="fc"></div><div class="hpr"><b class="arm" hidden></b><div class="hp"><i class="trail"></i><i class="fill"></i></div></div><div class="sts"></div>` + (side === 'hero' ? '<div class="ap"></div>' : '');
   if (def.boss) tag.classList.add('boss');
   $('#tags').appendChild(tag);
-  const u = { id: r.id, kind: r.kind, def, side, name: def.name, hp: r.hp, maxHp: r.maxHp, c: r.c, r: r.r, l: r.l || 0, st: {}, alive: true, down: false, asleep: !!r.asleep, init: 0, deployed: false, root, piece, fig, stand, h, rig, ring, hit, tag, blob, size: r.size || 1, fx: {} };
+  const u = { facer, id: r.id, kind: r.kind, def, side, name: def.name, hp: r.hp, maxHp: r.maxHp, c: r.c, r: r.r, l: r.l || 0, st: {}, alive: true, down: false, asleep: !!r.asleep, init: 0, deployed: false, root, piece, fig, stand, h, rig, ring, hit, tag, blob, size: r.size || 1, fx: {} };
   root.position.copy(posOf(u));
   if (u.size > 1) { hit.scale.set(2.5, 2, 2.5); hit.position.y = 1.1; blob.scale.setScalar(2.1); }
   if (u.asleep) tag.classList.add('zz');
