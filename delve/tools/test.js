@@ -86,13 +86,19 @@ const fail = m => { failures++; console.log('FAIL', m); };
   u = await p.evaluate(() => DELVE.S.units.fighter);
   if (u.max !== D.hp || u.die !== D.die) fail(`reset did not restore the defaults: ${u.max} HP, a d${u.die}`);
   await p.keyboard.press('Escape');
-  // the heroes' phase comes first: the fastest hero is offered first
-  const first = await p.evaluate(() => { const q = DV.queue(DELVE.S).filter(x => !x.done && !x.out); return { hero: DELVE.ui.hero, top: q[0].id }; });
-  if (first.hero !== first.top) fail(`the fastest should act first: ${JSON.stringify(first)}`);
+  // initiative: once the goblins that rolled higher have gone, the hero up is the one with the highest total
+  await p.waitForFunction(() => !DELVE.ui.busy && DV.ready(DELVE.S).side === 'hero', null, { timeout: 30000 });
+  const first = await p.evaluate(() => { const S = DELVE.S, q = DV.queue(S).filter(x => !x.done && !x.out); return { hero: DELVE.ui.hero, top: q[0].id, ini: DV.initOf(S, S.units[DELVE.ui.hero]), topIni: DV.initOf(S, S.units[q[0].id]) }; });
+  if (first.ini !== first.topIni) fail(`the highest initiative should act first: ${JSON.stringify(first)}`);
   // End: one action, then End passes the second; End straight away passes a whole turn
   const h1 = first.hero;
-  if (await p.evaluate(() => DELVE.ui.sel !== 'hide')) await p.click('#hotbar .abtn:nth-child(2)');
-  await p.click('#hotbar .abtn:nth-child(2)'); // a self power (Vex: Hide)
+  // a power on oneself or no one, for one action (Hide, Defend, Taunt, ...)
+  const pi = await p.evaluate(() => { const u = DELVE.S.units[DELVE.ui.hero]; return u.actions.findIndex(a => { const A = DV.ACTIONS[a]; return A.kind === 'power' && A.cost === 1 && ['self', 'none'].includes(A.target) && DV.canUse(DELVE.S, u.id, a).ok; }); });
+  if (pi < 0) { const id = await p.evaluate(() => DELVE.ui.hero); await p.click('#hotbar .abtn:nth-child(1)'); await p.click(`.tag[data-id="${await p.evaluate(i => DV.targets(DELVE.S, i, 'attack')[0], id)}"]`); }
+  else {
+    if (await p.evaluate(i => DELVE.ui.sel !== DELVE.S.units[DELVE.ui.hero].actions[i], pi)) await p.click(`#hotbar .abtn:nth-child(${pi + 1})`);
+    await p.click(`#hotbar .abtn:nth-child(${pi + 1})`);
+  }
   await p.waitForFunction(() => !DELVE.ui.busy && DELVE.S.turn && DELVE.S.turn.left === 1, null, { timeout: 20000 });
   await p.click('#endTurn');
   await p.waitForFunction(() => !DELVE.ui.busy && DV.ready(DELVE.S).side === 'hero', null, { timeout: 30000 });
@@ -104,14 +110,14 @@ const fail = m => { failures++; console.log('FAIL', m); };
   acted = await p.evaluate(() => DELVE.S.acted);
   if (!acted.includes(h2)) fail(`End straight away should pass ${h2}'s turn: ${JSON.stringify(acted)}`);
   else console.log(`End: after one action (${h1}), and straight away (${h2}), both pass the turn`);
-  // the heroes still to act: the strip marks them, and tapping any picks who goes next
+  // heroes tied on initiative: the strip marks them, and tapping either picks who goes first
   const tie = await p.evaluate(() => DV.ready(DELVE.S).ids);
   if (tie.length > 1) {
     await p.click(`.pc[data-id="${tie[1]}"]`);
     const now = await p.evaluate(() => DELVE.ui.hero);
     const marked = await p.evaluate(() => document.querySelectorAll('#order .oc.pick').length);
     if (now !== tie[1] || marked < 2) fail(`tied heroes ${tie.join(', ')}: picked ${now}, ${marked} marked in the strip`);
-    else console.log(`heroes still to act: ${tie.join(', ')}, marked in the strip, picked by a tap`);
+    else console.log(`tied on initiative: ${tie.join(' and ')}, marked in the strip, picked by a tap`);
   }
   await p.click('#menuBtn');
   // the simulator

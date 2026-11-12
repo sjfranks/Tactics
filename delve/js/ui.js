@@ -133,22 +133,24 @@
   }
   function drawAll() { Object.keys(S.units).forEach(drawUnit); drawOrder(); $('#roundN').textContent = S.round || '–'; }
   // the round at a glance: the party (any order you like), then the goblins in the order they act
-  // the round at a glance: who has acted, who is acting, who comes next. The heroes still to act (you choose the order)
-  // are marked; a gap falls between the heroes and the goblins.
+  // the round at a glance, in initiative order: who has acted, who is acting, who comes next, each with this round's
+  // initiative. Heroes tied on it (you choose which goes first) are marked; a gap falls between totals.
   function drawOrder() {
     const ol = $('#order'), q = DV.queue(S);
     ol.innerHTML = '';
     let last = null;
     q.forEach(e => {
       const u = U(e.id);
-      if (last != null && u.side !== last && !e.out) { const g = el('li', 'osep'); g.setAttribute('aria-hidden', 'true'); ol.appendChild(g); }
-      if (!e.out) last = u.side;
+      const ini = DV.initOf(S, u);
+      if (last != null && ini !== last && !e.out && !e.done) { const g = el('li', 'osep'); g.setAttribute('aria-hidden', 'true'); ol.appendChild(g); }
+      if (!e.out && !e.done) last = ini;
       const cur = (e.now || e.id === ui.active) && !e.done && !S.over;
       const li = el('li'), b = el('button', `oc ${u.side}${cur ? ' cur' : ''}${e.done ? ' done' : ''}${e.out ? ' out' : ''}${e.pick ? ' pick' : ''}`);
       b.type = 'button'; b.dataset.id = e.id;
       const m = el('span', 'mini'); m.appendChild(ART.portraitCanvas(u.type, variantOf(u))); b.appendChild(m);
-      b.insertAdjacentHTML('beforeend', `<b>${e.out ? '' : e.done ? '✓' : e.pick ? 'pick' : u.side === 'foe' ? '⚡' + u.speed : ''}</b>`);
-      b.setAttribute('aria-label', `${u.name}, speed ${u.speed}${u.down ? ', down' : e.done ? ', has acted' : e.pick ? ', you choose the order' : ''}`);
+      b.insertAdjacentHTML('beforeend', `<b>${e.out ? '' : e.done ? '✓' : e.pick ? 'pick·' + ini : '⚡' + ini}</b>`);
+      const R = S.init && S.init[e.id];
+      b.setAttribute('aria-label', `${u.name}, initiative ${ini}${R ? ` (rolled ${R.roll} + speed ${R.speed})` : ''}${u.down ? ', down' : e.done ? ', has acted' : e.pick ? ', you choose the order' : ''}`);
       b.addEventListener('click', () => openSheet(e.id));
       li.appendChild(b); ol.appendChild(li);
     });
@@ -404,8 +406,14 @@
     switch (e.t) {
       case 'round':
         $('#roundN').textContent = e.n; log(`Round ${e.n}`, 'rd');
-        banner(`Round ${e.n}`, 'heroes first'); drawAll(); await wait(e.n > 1 ? 450 : 300);
+        banner(`Round ${e.n}`, 'roll initiative'); drawAll(); await wait(e.n > 1 ? 450 : 300);
         break;
+      case 'init': {
+        const order = Object.entries(e.rolls).sort((a, b) => b[1].total - a[1].total);
+        log(`Initiative: ${order.map(([id, r]) => `${esc(short(U(id).name))} <b>${r.total}</b> <span class="dim">(${r.roll}+${r.speed})</span>`).join(', ')}.`);
+        drawOrder();
+        break;
+      }
       case 'done':
         drawUnit(e.id); drawOrder();
         break;
@@ -618,7 +626,7 @@
         <p class="blurb">${esc(T.blurb || '')}</p></div></div>
       <div class="stats">
         <div class="stat hp"><small>HP</small><b>${Math.max(0, u.hp)}<span style="font-size:14px;color:var(--parch-dim)">/${u.max}</span></b><span class="bar"><u></u><i></i></span><span class="step"><button type="button" data-f="hp" data-d="-1" aria-label="Less max HP">−</button><button type="button" data-f="hp" data-d="1" aria-label="More max HP">+</button></span></div>
-        <div class="stat"><small>Speed</small><b>${u.speed}</b><span class="note">${u.side === 'foe' ? 'goblins go fastest first' : 'offered first'}</span><span class="step"><button type="button" data-f="speed" data-d="-1" aria-label="Slower">−</button><button type="button" data-f="speed" data-d="1" aria-label="Faster">+</button></span></div>
+        <div class="stat"><small>Speed</small><b>${u.speed}</b><span class="note">+ d${DV.TUNE.initDie} initiative${S.init && S.init[u.id] ? ` (${S.init[u.id].total} now)` : ''}</span><span class="step"><button type="button" data-f="speed" data-d="-1" aria-label="Slower">−</button><button type="button" data-f="speed" data-d="1" aria-label="Faster">+</button></span></div>
         <div class="stat"><small>Armour</small><b>${u.armour}${u.guard ? `<span style="font-size:14px;color:var(--brass-hi)">+${u.guard}</span>` : ''}</b><span class="note">to hit them</span><span class="step"><button type="button" data-f="armour" data-d="-1" aria-label="Less armour">−</button><button type="button" data-f="armour" data-d="1" aria-label="More armour">+</button></span></div>
         <div class="stat"><small>Damage</small><b>${u.dmg}</b><span class="note">a hit</span><span class="step"><button type="button" data-f="dmg" data-d="-1" aria-label="Less damage">−</button><button type="button" data-f="dmg" data-d="1" aria-label="More damage">+</button></span></div>
       </div>
@@ -681,7 +689,7 @@
     const changed = Object.keys(TUNING.units).length + Object.keys(TUNING.tune || {}).filter(k => TUNING.tune[k] !== DV.TUNE0[k]).length;
     const card = openModal(`
       <h2>Goblin Delve</h2>
-      <p>A test bench for dice combat: two actions a turn, a die for each character, 2 rolled to hit against armour (doubles crit, a top number surges), disadvantage on repeated attacks, flat rolls for powers, presses for hitting brittle goblins, the heroes then the goblins each round, three goblins and their shaman.</p>
+      <p>A test bench for dice combat: two actions a turn, a die for each character, 2 rolled to hit against armour (doubles crit, a top number surges), disadvantage on repeated attacks, flat rolls for powers, presses for hitting brittle goblins, initiative rolled each round (a d6 plus speed), three goblins and their shaman.</p>
       <div class="row"><button class="btn gold" type="button" id="mNew">New fight</button><button class="btn" type="button" id="mSim">Simulate 1,000 fights</button><button class="btn" type="button" id="mLog">Combat log</button></div>
       <section><h3>Play</h3>
         <div class="set"><div><b>Auto-play the party</b><small>The heroes choose for themselves, so you can watch the rules run.</small></div>${sw('mAuto', SET.auto)}</div>
@@ -693,7 +701,7 @@
         <div class="set"><div><b>Tuned numbers</b><small>${changed ? `${changed} change${changed > 1 ? 's' : ''} from the defaults, kept on this device.` : 'Open any sheet and tap Tune to change stats and die sizes.'}</small></div>${changed ? `<button class="btn small" type="button" id="mReset">Reset all</button>` : ''}</div>
       </section>
       <details><summary>How a fight works</summary><ul>
-        <li>Each round, every hero acts first, in any order you like (tap a ready portrait to send them), then every goblin. The goblins go fastest first; on the same speed, the one with the most HP left goes first, so wounding a goblin also slows it down.</li>
+        <li>Initiative: at the start of every round, everyone rolls a d${DV.TUNE.initDie} and adds their speed; the highest acts first (the strip at the top shows each total). A hero and a goblin on the same total: the hero goes first. Heroes on the same total: you choose which goes first (tap a ready portrait). Goblins on the same total: the one with the most HP left goes first, so wounding a goblin also slows it down.</li>
         <li>A turn is ${DV.TUNE.actions} actions: typically an attack and a power. Big spells take both. End the turn early with End.</li>
         <li>Each character rolls a die of their own: ${DV.PARTY.map(k => `${esc(short(DV.UNITS[k].name))} a d${DV.UNITS[k].die}`).join(', ')}; the goblins a d${DV.UNITS.goblin.die}, the shaman a d${DV.UNITS.shaman.die}. ${SYM.top} marks the top number.</li>
         <li>An attack rolls 2 of your dice and adds them: reach the target's armour to hit for your damage, fall short and it misses. Matching dice are a crit: double damage${DV.TUNE.critHits ? ', and always a hit' : ''}. A die on its top number is a surge: your surge triggers, hit or miss (each character’s is different: see their sheet). Both dice on the top number: crit and surge, and you attack again.</li>

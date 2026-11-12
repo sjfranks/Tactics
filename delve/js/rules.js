@@ -11,6 +11,7 @@ const DV = (() => {
     maxDice: 4,          // most dice advantage or disadvantage can roll (keeping the best 2, or the worst 2)
     presses: 1,          // extra actions a hero can win in one turn by hitting a Brittle foe
     critHits: true,      // matching dice always hit, whatever the armour
+    initDie: 6,          // initiative: everyone rolls this die and adds their speed, every round
     maxChain: 6,         // most times one attack can go again on double top numbers
   };
 
@@ -98,15 +99,15 @@ const DV = (() => {
   Object.keys(ACTIONS).forEach(k => ACTIONS[k].id = k);
 
   // ---------------- who fights ----------------
-  // rank: front or back · speed: the order the goblins act in (a hero's only says who is offered first) · die: the size
+  // rank: front or back · speed: added to the initiative roll · die: the size
   // of their die · armour: what an attack's 2 dice must reach to hit them · dmg: what their hit deals · surge: what a top
   // number does on their attack
   const UNITS = {
-    fighter: { name: 'Brakka', cls: 'Fighter', side: 'hero', rank: 'front', hp: 16, speed: 3, die: 8, armour: 8, dmg: 5, reach: 'melee', hitIcon: '⚔️', weapon: 'Longsword', surge: 'shieldUp', actions: ['attack', 'defend', 'taunt', 'interpose'], blurb: 'Shield first, questions later. Holds the line so nobody else has to.' },
-    mage: { name: 'Orlen', cls: 'Wizard', side: 'hero', rank: 'back', hp: 10, speed: 2, die: 4, armour: 5, dmg: 3, reach: 'ranged', hitIcon: '✨', weapon: 'Arcane bolt', surge: 'arc', actions: ['attack', 'fireball', 'frostbite', 'slow'], blurb: 'Old, frail and very hard to argue with from range.' },
-    cleric: { name: 'Sister Wenna', cls: 'Cleric', side: 'hero', rank: 'front', hp: 14, speed: 2, die: 6, armour: 7, dmg: 3, reach: 'ranged', hitIcon: '🌟', weapon: 'Holy light', surge: 'mercy', actions: ['attack', 'heal', 'bless', 'prayer'], blurb: 'Mends the living and smites the rest from a safe distance.' },
-    rogue: { name: 'Vex', cls: 'Rogue', side: 'hero', rank: 'back', hp: 12, speed: 4, die: 6, armour: 6, dmg: 4, reach: 'melee', hitIcon: '🗡️', weapon: 'Dagger', surge: 'crit', actions: ['attack', 'hide', 'poison', 'knives'], blurb: 'Quick, quiet, and always looking for the soft spot.' },
-    goblin: { name: 'Goblin', cls: 'Goblin fighter', side: 'foe', rank: 'front', hp: 18, speed: 3, die: 6, armour: 7, dmg: 3, reach: 'melee', hitIcon: '🪓', weapon: 'Hatchet', surge: 'gangUp', actions: ['attack'], blurb: 'Brave in a crowd. Braver in a bigger one.' },
+    fighter: { name: 'Brakka', cls: 'Fighter', side: 'hero', rank: 'front', hp: 20, speed: 3, die: 8, armour: 8, dmg: 5, reach: 'melee', hitIcon: '⚔️', weapon: 'Longsword', surge: 'shieldUp', actions: ['attack', 'defend', 'taunt', 'interpose'], blurb: 'Shield first, questions later. Holds the line so nobody else has to.' },
+    mage: { name: 'Orlen', cls: 'Wizard', side: 'hero', rank: 'back', hp: 12, speed: 2, die: 4, armour: 5, dmg: 3, reach: 'ranged', hitIcon: '✨', weapon: 'Arcane bolt', surge: 'arc', actions: ['attack', 'fireball', 'frostbite', 'slow'], blurb: 'Old, frail and very hard to argue with from range.' },
+    cleric: { name: 'Sister Wenna', cls: 'Cleric', side: 'hero', rank: 'front', hp: 17, speed: 2, die: 6, armour: 7, dmg: 3, reach: 'ranged', hitIcon: '🌟', weapon: 'Holy light', surge: 'mercy', actions: ['attack', 'heal', 'bless', 'prayer'], blurb: 'Mends the living and smites the rest from a safe distance.' },
+    rogue: { name: 'Vex', cls: 'Rogue', side: 'hero', rank: 'back', hp: 14, speed: 4, die: 6, armour: 6, dmg: 4, reach: 'melee', hitIcon: '🗡️', weapon: 'Dagger', surge: 'crit', actions: ['attack', 'hide', 'poison', 'knives'], blurb: 'Quick, quiet, and always looking for the soft spot.' },
+    goblin: { name: 'Goblin', cls: 'Goblin fighter', side: 'foe', rank: 'front', hp: 15, speed: 3, die: 6, armour: 7, dmg: 3, reach: 'melee', hitIcon: '🪓', weapon: 'Hatchet', surge: 'gangUp', actions: ['attack'], blurb: 'Brave in a crowd. Braver in a bigger one.' },
     shaman: { name: 'Goblin Shaman', cls: 'Goblin shaman', side: 'foe', rank: 'back', hp: 14, speed: 2, die: 6, armour: 6, dmg: 2, reach: 'ranged', hitIcon: '💀', weapon: 'Hex bolt', surge: 'mend', actions: ['attack', 'chant', 'curse'], blurb: 'Keeps the others standing, and keeps well behind them.' },
   };
   const DEFAULTS = JSON.parse(JSON.stringify(UNITS)), TUNE0 = { ...TUNE };
@@ -150,19 +151,27 @@ const DV = (() => {
   const status = (id, key, on, extra) => ({ t: 'status', id, key, on, ...extra });
 
   // ---------------- turn order ----------------
-  // A round is two phases: every hero acts, in any order the player chooses, then every goblin. The goblins go fastest
-  // first; on the same speed, the one with the most HP left goes first (a wounded goblin hangs back), then front rank
-  // before back rank, left to right. A hero's speed only says who is offered first. A turn is two actions by one
-  // character.
+  // Initiative: at the start of every round, everyone rolls a d6 (TUNE.initDie) and adds their speed; the highest acts
+  // first. A hero and a goblin on the same total: the hero goes first. Heroes on the same total: the player chooses which
+  // of them goes first. Goblins on the same total: the one with the most HP left goes first (a wounded goblin hangs
+  // back), then front rank before back rank, left to right. A turn is two actions by one character.
   const foeOrder = (S, a, b) => b.hp - a.hp || (a.rank === b.rank ? 0 : a.rank === 'front' ? -1 : 1) || a.slot - b.slot;
-  // who may act next, given who has already acted this round: { side, ids } (ids: every hero still to act, fastest
-  // first, any of whom may go; or the one goblin up next)
+  // a unit's initiative this round
+  const initOf = (S, u) => S.init && S.init[u.id] ? S.init[u.id].total : u.speed;
+  // everyone rolls initiative for the round: { id: { roll, speed, total } }
+  function rollInit(S) {
+    S.init = {};
+    all(S).forEach(u => { const roll = die(S, TUNE.initDie); S.init[u.id] = { roll, speed: u.speed, total: roll + u.speed }; });
+    return { t: 'init', round: S.round, rolls: JSON.parse(JSON.stringify(S.init)), sides: TUNE.initDie };
+  }
+  // who may act next, given who has already acted this round: { side, ids } (ids are the tied heroes, or one goblin)
   function nextUp(S, acted = S.acted) {
     const w = all(S).filter(u => !u.down && !acted.includes(u.id));
     if (!w.length) return null;
-    const heroes = w.filter(u => u.side === 'hero').sort((a, b) => b.speed - a.speed || a.slot - b.slot);
-    if (heroes.length) return { side: 'hero', ids: heroes.map(u => u.id) };
-    return { side: 'foe', ids: [w.sort((a, b) => b.speed - a.speed || foeOrder(S, a, b))[0].id] };
+    const top = Math.max(...w.map(u => initOf(S, u))), at = w.filter(u => initOf(S, u) === top);
+    const heroes = at.filter(u => u.side === 'hero').sort((a, b) => a.slot - b.slot);
+    if (heroes.length) return { side: 'hero', ids: heroes.map(u => u.id), init: top };
+    return { side: 'foe', ids: [at.sort((a, b) => foeOrder(S, a, b))[0].id], init: top };
   }
   function ready(S) {
     if (S.over || !S.round) return { side: null, ids: [] };
@@ -182,16 +191,16 @@ const DV = (() => {
   }
   function start(S) {
     S.round = 1; S.acted = []; S.turn = null;
-    const n = nextUp(S); S.side = n.side;
-    return [{ t: 'round', n: 1 }, { t: 'side', side: n.side, ids: n.ids }];
+    const roll = rollInit(S), n = nextUp(S); S.side = n.side;
+    return [{ t: 'round', n: 1 }, roll, { t: 'side', side: n.side, ids: n.ids }];
   }
   function nextSide(S) {
     const ev = [];
     let n = nextUp(S);
-    if (!n) { // the round is over: recharges tick, and the heroes go again
+    if (!n) { // the round is over: recharges tick, and everyone rolls initiative again
       S.round++; S.acted = [];
       all(S).forEach(u => { for (const k in u.cd) if (u.cd[k] > 0) u.cd[k]--; });
-      ev.push({ t: 'round', n: S.round });
+      ev.push({ t: 'round', n: S.round }, rollInit(S));
       n = nextUp(S);
     }
     S.side = n.side;
@@ -651,7 +660,7 @@ const DV = (() => {
 
   return {
     TUNE, TUNE0, SIZES, TIERS, TIER_NAME, SURGES, ACTIONS, UNITS, DEFAULTS, PARTY, ENCOUNTER,
-    newBattle, start, ready, queue, act, endTurn, obey, targets, canUse, turnOf, attackDice, attackEdge, dieOf, pressable, armourOf, tierOf, tierRange, tierOdds, standing, reachable, odds,
+    newBattle, start, ready, queue, initOf, act, endTurn, obey, targets, canUse, turnOf, attackDice, attackEdge, dieOf, pressable, armourOf, tierOf, tierRange, tierOdds, standing, reachable, odds,
     mind, simulate, playOut, applyTuning, mostWounded,
   };
 })();
