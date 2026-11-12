@@ -58,14 +58,14 @@ On Normal, with 400 battles per level and the levels a party would have reached 
 
 ## Tactics Chess
 
-A second game in `chess/`: [play it](https://sjfranks.github.io/Tactics/chess/), or open `chess/index.html`. Chess pieces with tactics-game rules, on a 3D table in Goblin Crypt's style. Each side places its army on its back two rows. On a turn, every piece may move up to 3 squares orthogonally and take one action. Strikes roll 2d6 against a target number, and the side of the foe you hit (front, flank or behind) sets the damage. The arrow on the ground under each piece shows its facing, which is set at the end of each turn. Kill the enemy king, or, with no kings, the whole enemy army. You can play against the computer or pass and play.
+A second game in `chess/`: [play it](https://sjfranks.github.io/Tactics/chess/), or open `chess/index.html`. Chess pieces with tactics-game rules, on a 3D table in Goblin Crypt's style. Each side places its army on its back two rows. White and Black alternate turns, and each turn one piece moves up to 3 squares orthogonally and takes one action, then that piece (and only it) may change its facing. Strikes roll 2d6 against a target number, and the side of the foe you hit (front, flank or behind) sets the damage. The arrow on the ground under each piece shows its facing. Kill the enemy king, or, with no kings, the whole enemy army. You can play against the computer or pass and play.
 
 | Piece | HP | Move | Actions |
 | --- | --- | --- | --- |
 | Pawn | 10 | 3 | Attack, 7+: 5 from the flank, 10 from behind, never from the front. Grapple, 8+: move the foe one square. |
 | King | 10 | 3 | Attack, 7+: 5 from the front or the flank, 10 from behind. |
 
-**Playing:** the next piece that can act is already picked. Tap a pale square (or drag the piece) to move. Choose Attack or Grapple on the hotbar, then tap a red foe; the odds show over its head, and a strike that needs a walk asks **Confirm?** first. The dice land on the board. End the turn, turn your pieces with the arrows round them (or a swipe), and tap Done.
+**Playing:** a piece is already picked; tap another to use it instead. Tap a pale square (or drag the piece) to move. Choose Attack or Grapple on the hotbar, then tap a red foe; the odds show over its head, and a strike that needs a walk asks **Confirm?** first. The dice land on the board. After it strikes, turn the piece with the arrows round it (or a swipe) and tap Done.
 
 | File | What it is |
 | --- | --- |

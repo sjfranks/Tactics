@@ -53,6 +53,7 @@
       pieces: [],
       nextId: 1,
       pending: null,        // { type: 'grapple', by, target, options: [{x,y}] }
+      active: null,         // the one piece this turn belongs to, once it moves, acts or turns
       winner: null,
     };
   }
@@ -194,6 +195,7 @@
     if (s.pending) fail('finish the grapple first');
     if (!p) fail('no such piece');
     if (p.side !== s.turn) fail('not your piece');
+    if (s.active != null && s.active !== p.id) fail('one piece a turn: this turn belongs to another piece');
   }
 
   function move(s, id, x, y) {
@@ -208,6 +210,7 @@
     p.x = x; p.y = y;
     p.facing = dirBetween(lx, ly, x, y);  // a moving piece faces the way it walked; set it at the end of the turn
     p.moved = true;
+    s.active = id;
     return { type: 'move', piece: id, path: r.path };
   }
 
@@ -219,6 +222,7 @@
     if (pieceAt(s, p.from.x, p.from.y)) fail('the square is taken');
     p.x = p.from.x; p.y = p.from.y; p.facing = p.from.facing;
     p.from = null; p.moved = false;
+    s.active = null;   // nothing has happened yet: any piece may take the turn
     return { type: 'undo', piece: id };
   }
 
@@ -347,6 +351,7 @@
     if (s.pending) fail('finish the grapple first');
     s.phase = 'facing';
     for (const p of alive(s, s.turn)) p.from = null;
+    if (s.active != null && !piece(s, s.active)) s.active = null;
     return { type: 'facing', side: s.turn };
   }
 
@@ -356,6 +361,11 @@
     if (!(dir >= 0 && dir < 4)) fail('bad direction');
     const ok = (s.phase === 'setup' && !s.ready[p.side]) || (s.phase === 'facing' && p.side === s.turn);
     if (!ok) fail('facing is set at the end of your turn');
+    // only the piece that took the turn turns; after a turn with no piece used, one piece may turn
+    if (s.phase === 'facing') {
+      if (s.active != null && s.active !== id) fail('only the piece that took the turn can turn');
+      s.active = id;
+    }
     p.facing = dir;
     return { type: 'face', piece: id, facing: dir };
   }
@@ -365,6 +375,7 @@
     s.turn = other(s.turn);
     if (s.turn === 'white') s.turnNo++;
     s.phase = 'play';
+    s.active = null;
     for (const p of alive(s, s.turn)) { p.moved = false; p.acted = false; p.from = null; }
     return { type: 'turn', side: s.turn, turnNo: s.turnNo };
   }
@@ -433,7 +444,7 @@
   function planFor(s, p) {
     const isKing = p.type === 'king';
     const foesKing = alive(s, other(p.side)).find((e) => e.type === 'king');
-    let best = null;
+    let best = null, stay = 0;
     for (const r of reachable(s, p.id).values()) {
       const face = facingToward(s, p, r.x, r.y);
       const risk = danger(s, p, r.x, r.y, face) * (isKing ? 6 : 1);
@@ -449,6 +460,7 @@
       const base = approach * daring - risk * 0.6 - r.dist * 0.01;
       const consider = (action, target, gain) => {
         const score = base + gain;
+        if (r.dist === 0 && action === 'wait') stay = score;
         if (!best || score > best.score) best = { id: p.id, x: r.x, y: r.y, action, target, score };
       };
       consider('wait', null, 0);
@@ -461,16 +473,15 @@
         consider('attack', e.id, gain);
       }
     }
+    if (best) best.gain = best.score - stay;
     return best;
   }
 
   // The computer's next order for the side whose turn it is, or null when it has nothing left to do.
   function aiNext(s) {
     if (s.phase === 'facing') {
-      for (const p of alive(s, s.turn)) {
-        const f = facingToward(s, p, p.x, p.y);
-        if (f !== p.facing) return { type: 'face', id: p.id, dir: f };
-      }
+      const p = s.active != null ? piece(s, s.active) : null;
+      if (p) { const f = facingToward(s, p, p.x, p.y); if (f !== p.facing) return { type: 'face', id: p.id, dir: f }; }
       return { type: 'confirm' };
     }
     if (s.phase !== 'play') return null;
@@ -479,11 +490,12 @@
       const g = s.pending, t = piece(s, g.target);
       return { type: 'shove', x: g.options[0].x, y: g.options[0].y, target: t && t.id };
     }
+    // one piece a turn: the one already in play, or else the one whose best plan improves most on standing still
     let best = null;
     for (const p of alive(s, s.turn)) {
-      if (p.acted) continue;
+      if (p.acted || (s.active != null && s.active !== p.id)) continue;
       const plan = planFor(s, p);
-      if (plan && (!best || plan.score > best.score)) best = plan;
+      if (plan && (!best || plan.gain > best.gain)) best = plan;
     }
     if (!best) return { type: 'end' };
     const p = piece(s, best.id);

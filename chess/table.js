@@ -574,7 +574,11 @@
     if (UI.busy) return null;
     UI.busy = true; UI.aim = null; refresh();
     let ev = null;
-    try { ev = fn(); await show(ev); }
+    try {
+      ev = fn(); await show(ev);
+      const a = S.active != null ? TC.piece(S, S.active) : null;
+      if (S.phase === 'play' && !S.pending && a && a.acted && !UI.ai[S.turn]) { await wait(250); await show(TC.endTurn(S)); }
+    }
     catch (e) { say(e.message); sfx('no'); }
     finally { UI.busy = false; }
     sync(); refresh();
@@ -626,7 +630,10 @@
 
   // On your turn a piece is always picked: the one you chose, or else the next that can still do something, front first.
   function autoSelect() {
-    if (!S || S.phase !== 'play' || S.pending || UI.ai[S.turn]) return;
+    if (!S || (S.phase !== 'play' && S.phase !== 'facing') || S.pending || UI.ai[S.turn]) return;
+    // one piece a turn: once a piece has taken the turn, it stays picked
+    if (S.active != null && TC.piece(S, S.active)) { UI.sel = S.active; return; }
+    if (S.phase === 'facing') return;
     const p = selPiece();
     if (p && p.side === S.turn && (hasWork(p) || (UI.picked === p.id && !p.acted))) return;
     const ready = TC.alive(S, S.turn).filter(hasWork).sort((a, b) => (S.turn === 'white' ? a.y - b.y : b.y - a.y) || a.x - b.x);
@@ -779,10 +786,9 @@
       const sp = p;
       hotActions.push({ icon: 'left', label: 'Turn left', off: sp ? null : 'Tap one of your pieces first', run: () => face(sp, (sp.facing + 3) % 4) });
       hotActions.push({ icon: 'right', label: 'Turn right', off: sp ? null : 'Tap one of your pieces first', run: () => face(sp, (sp.facing + 1) % 4) });
-      hotActions.push({ icon: 'foes', label: 'Face foes', run: () => { for (let o = TC.aiNext(S); o && o.type === 'face'; o = TC.aiNext(S)) TC.setFacing(S, o.id, o.dir); sync(); refresh(); } });
-      hotActions.push({ icon: 'next', label: 'Next', run: () => cycle(1) });
+      hotActions.push({ icon: 'foes', label: 'Face foe', off: sp ? null : 'Tap one of your pieces first', run: () => { const e = nearestFoe(sp); if (e) face(sp, dirTo(sp, e)); } });
       end.disabled = false; $('#endLbl').textContent = 'Done'; end.classList.add('go');
-      text = sp ? `<i>Tap an <b>arrow</b> round ${pName(sp).toLowerCase()} or swipe from it to turn it. Foes strike hardest from behind.</i>` : '<i>Tap one of your pieces to turn it, then tap <b>Done</b>.</i>';
+      text = sp ? `<i>Tap an <b>arrow</b> round ${pName(sp).toLowerCase()} or swipe from it to turn it, then <b>Done</b>. Foes strike hardest from behind.</i>` : '<i>No piece took the turn. You may tap one piece to turn it, then tap <b>Done</b>.</i>';
     } else if (S.phase === 'play') {
       end.disabled = !!S.pending;
       if (S.pending) { title = 'Grapple'; meta = 'Caught'; text = '<i>Tap a <b>yellow</b> square to drag the foe there.</i>'; hotActions.push({ icon: 'undo', label: 'Leave it', run: () => order(() => TC.resolveGrapple(S, null)) }); }
@@ -793,7 +799,7 @@
         hotActions.push({ icon: 'grapple', label: 'Grapple', dv: gr ? gr.target + '+' : null, sel: UI.mode === 'grapple' && !p.acted, off: acted || (gr ? null : `A ${u.name.toLowerCase()} cannot grapple`), run: () => { UI.mode = 'grapple'; UI.aim = null; refresh(); } });
         hotActions.push({ icon: 'wait', label: 'Wait', off: acted, run: () => { UI.picked = null; order(() => TC.wait(S, p.id)); } });
         hotActions.push({ icon: 'undo', label: 'Undo', off: p.moved && p.from && !p.acted ? null : 'Nothing to undo: a move can be taken back until the piece rolls', run: () => order(() => TC.undoMove(S, p.id)) });
-        hotActions.push({ icon: 'next', label: 'Next', run: () => cycle(1) });
+        hotActions.push({ icon: 'next', label: 'Next', off: S.active != null ? 'One piece a turn: undo the move to pick another' : null, run: () => cycle(1) });
         if (UI.mode === 'attack') {
           const d = act.damage;
           title = 'Attack'; meta = `Action · ${act.target}+ on 2d6 · ${pct(TC.chance2d6(act.target))}`;
@@ -801,16 +807,16 @@
         } else { title = 'Grapple'; meta = `Action · ${gr.target}+ on 2d6 · ${pct(TC.chance2d6(gr.target))}`; text = 'Catch a foe and drag it one square.'; }
         const n = targets().size;
         let hint;
-        if (p.acted) hint = 'Pick another piece, or <b>End</b> the turn.';
+        if (p.acted) hint = 'Tap <b>End</b>.';
         else if (UI.aim) hint = 'Tap <b>Confirm?</b> or the foe again to go.';
-        else if (!p.moved && n) hint = 'Tap a <b>pale</b> square to move, or a <b>red</b> foe to strike.';
-        else if (!p.moved) hint = 'Tap a <b>pale</b> square to move, or drag the piece.';
-        else if (n) hint = 'Tap a <b>red</b> foe to strike.';
-        else hint = 'No foe in reach: <b>Wait</b>, or pick another piece.';
+        else if (!p.moved && n) hint = 'One piece a turn: tap a <b>pale</b> square to move, or a <b>red</b> foe to strike. Tap another piece to use it instead.';
+        else if (!p.moved) hint = 'One piece a turn: tap a <b>pale</b> square to move it, or tap another piece to use it instead.';
+        else if (n) hint = 'Tap a <b>red</b> foe to strike, or <b>End</b> to stop here.';
+        else { hint = 'No foe in reach: tap <b>End</b> to set its facing.'; end.classList.add('pulse'); }
         const fl = focusLine();
         text = fl || `${text} <i>${hint}</i>`;
       } else {
-        title = `${cap(S.turn)}'s turn`; text = '<i>Every piece has done what it can. Tap <b>End</b>, then set facing.</i>';
+        title = `${cap(S.turn)}'s turn`; text = '<i>Tap one of your pieces, or <b>End</b> to pass.</i>';
         hotActions.push({ icon: 'next', label: 'Next', run: () => cycle(1) });
         end.classList.add('pulse');
       }
@@ -836,6 +842,12 @@
     const i = list.findIndex((q) => q.id === UI.sel);
     UI.sel = list[(i + dir + list.length) % list.length].id; UI.picked = UI.sel; UI.aim = null; refresh();
   }
+  function nearestFoe(p) {
+    let best = null, bd = Infinity;
+    for (const e of TC.alive(S, TC.other(p.side))) { const d = Math.abs(e.x - p.x) + Math.abs(e.y - p.y); if (d < bd) { bd = d; best = e; } }
+    return best;
+  }
+  const dirTo = (p, e) => (Math.abs(e.x - p.x) >= Math.abs(e.y - p.y) ? (e.x > p.x ? 1 : 3) : (e.y > p.y ? 2 : 0));
   function face(p, d) {
     if (!p) return;
     try { const ev = TC.setFacing(S, p.id, d); const v = views.get(p.id); if (v) turnTo(v, ev.facing, 140); sfx('pick'); } catch (e) { say(e.message); }
@@ -890,8 +902,11 @@
       UI.sel = null; refresh(); return;
     }
     if (S.phase === 'facing') {
-      if (q && q.side === S.turn) { if (UI.sel === q.id) face(q, (q.facing + 1) % 4); else { UI.sel = q.id; sfx('pick'); refresh(); } return; }
-      if (q) { UI.focus = null; UI.sel = q.id; refresh(); return; }
+      if (q && q.side === S.turn) {
+        if (S.active != null && S.active !== q.id) { say('Only the piece that took the turn can turn'); sfx('no'); refresh(); return; }
+        if (UI.sel === q.id) face(q, (q.facing + 1) % 4); else { UI.sel = q.id; sfx('pick'); refresh(); }
+        return;
+      }
       return;
     }
     if (S.phase !== 'play') return;
@@ -904,7 +919,10 @@
       if (q && q.id === UI.aim.target) { await strike(UI.aim); return; }
       UI.aim = null;
     }
-    if (q && q.side === S.turn) { UI.sel = q.id; UI.picked = q.id; UI.focus = null; sfx('pick'); refresh(); return; }
+    if (q && q.side === S.turn) {
+      if (S.active != null && S.active !== q.id) { say('One piece a turn: undo the move to pick another'); sfx('no'); refresh(); return; }
+      UI.sel = q.id; UI.picked = q.id; UI.focus = null; sfx('pick'); refresh(); return;
+    }
     if (q && sel) {
       const b = targets().get(q.id);
       if (b) {
@@ -957,8 +975,8 @@
     if (!down.drag && Math.hypot(dx, dy) > 12) {
       const q = down.h.piece != null ? TC.piece(S, down.h.piece) : null;
       if (q && humanTurn() && q.side === activeSide()) {
-        if (S.phase === 'facing') down.drag = 'face';
-        else if (S.phase === 'setup' || (S.phase === 'play' && !S.pending && (!q.moved || !q.acted))) down.drag = 'piece';
+        if (S.phase === 'facing' && (S.active == null || S.active === q.id)) down.drag = 'face';
+        else if (S.phase === 'setup' || (S.phase === 'play' && !S.pending && !q.moved && (S.active == null || S.active === q.id))) down.drag = 'piece';
         else down.drag = 'view';
         if (down.drag !== 'view') { UI.sel = q.id; UI.picked = q.id; UI.aim = null; refresh(); }
       } else down.drag = 'view';

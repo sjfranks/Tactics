@@ -123,6 +123,30 @@ test('facing is set at the end of the turn, then the other side plays', () => {
   assert.ok(!TC.piece(s, 2).moved);
 });
 
+test('one piece a turn, and only it turns at the end', () => {
+  const s = game([['white', 'pawn', 4, 5, 0], ['white', 'pawn', 1, 5, 0], ['black', 'pawn', 0, 0, 2]]);
+  TC.move(s, 1, 4, 4);
+  assert.throws(() => TC.move(s, 2, 1, 4), /one piece a turn/);
+  TC.undoMove(s, 1);
+  TC.move(s, 2, 1, 4);            // after an undo, any piece may take the turn
+  assert.throws(() => TC.wait(s, 1), /one piece a turn/);
+  TC.endTurn(s);
+  assert.throws(() => TC.setFacing(s, 1, 1), /only the piece/);
+  TC.setFacing(s, 2, 1);
+  TC.confirmFacing(s);
+  assert.strictEqual(s.active, null);
+  TC.wait(s, 3);
+  TC.endTurn(s); TC.confirmFacing(s);
+  TC.move(s, 1, 4, 3);           // the same pieces are fresh again on White's next turn
+});
+
+test('a turn with no piece used may still turn one piece', () => {
+  const s = game([['white', 'pawn', 4, 5, 0], ['white', 'pawn', 1, 5, 0], ['black', 'pawn', 0, 0, 2]]);
+  TC.endTurn(s);
+  TC.setFacing(s, 2, 3);
+  assert.throws(() => TC.setFacing(s, 1, 3), /only the piece/);
+});
+
 test('bestApproach picks the back', () => {
   const s = game([['white', 'pawn', 4, 7, 0], ['black', 'pawn', 4, 5, 0], ['black', 'pawn', 0, 0, 2]]);
   const b = TC.bestApproach(s, 1, 2, 'attack');
@@ -139,7 +163,7 @@ for (let g = 0; g < 60; g++) {
   TC.autoPlace(s, 'white'); TC.finishSetup(s, 'white');
   TC.autoPlace(s, 'black'); TC.finishSetup(s, 'black');
   let steps = 0;
-  while (s.phase !== 'over' && s.turnNo < 80 && steps++ < 20000) {
+  while (s.phase !== 'over' && s.turnNo < 400 && steps++ < 20000) {
     const o = TC.aiNext(s);
     TC.apply(s, o, rng);
     const seen = new Set();
