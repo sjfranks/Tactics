@@ -58,14 +58,23 @@ On Normal, with 400 battles per level and the levels a party would have reached 
 
 ## Tactics Chess
 
-A second game in `chess/`: [play it](https://sjfranks.github.io/Tactics/chess/), or open `chess/index.html`. Chess pieces with tactics-game rules. Each side places its army on its back two rows. On a turn, every piece may move up to 3 squares orthogonally and take one action. Strikes roll 2d6 against a target number, and the side of the foe you hit (front, flank or behind, shown by the arrow on its square) sets the damage. Facing is set at the end of each turn. Kill the enemy king, or, with no kings, the whole enemy army. You can play pass-and-play or against the computer.
+A second game in `chess/`: [play it](https://sjfranks.github.io/Tactics/chess/), or open `chess/index.html`. Chess pieces with tactics-game rules, on a 3D table in Goblin Crypt's style. Each side places its army on its back two rows. On a turn, every piece may move up to 3 squares orthogonally and take one action. Strikes roll 2d6 against a target number, and the side of the foe you hit (front, flank or behind) sets the damage. The arrow on the ground under each piece shows its facing, which is set at the end of each turn. Kill the enemy king, or, with no kings, the whole enemy army. You can play against the computer or pass and play.
 
 | Piece | HP | Move | Actions |
 | --- | --- | --- | --- |
 | Pawn | 10 | 3 | Attack, 7+: 5 from the flank, 10 from behind, never from the front. Grapple, 8+: move the foe one square. |
 | King | 10 | 3 | Attack, 7+: 5 from the front or the flank, 10 from behind. |
 
-`chess/rules.js` holds the rules and the numbers (`RULES`), with no screen code. `chess/game.js` is the board. `node chess/test.js` runs the rule tests and 60 computer-against-computer games.
+**Playing:** the next piece that can act is already picked. Tap a pale square (or drag the piece) to move. Choose Attack or Grapple on the hotbar, then tap a red foe; the odds show over its head, and a strike that needs a walk asks **Confirm?** first. The dice land on the board. End the turn, turn your pieces with the arrows round them (or a swipe), and tap Done.
+
+| File | What it is |
+| --- | --- |
+| `chess/rules.js` | The rules (`TC`) and every number (`RULES`), with the computer player. No screen code; runs in Node. |
+| `chess/table.js` | The table: the three.js board, minis, facing marks, dice, hotbar, input and camera. |
+| `chess/index.html` | Styles, markup and the How to play sheet. |
+| `chess/vendor/three.min.js` | three.js r128, the same build Goblin Crypt uses. |
+
+`node chess/test.js` runs the rule tests and 60 computer-against-computer games.
 
 ## Archive
 

@@ -22,4 +22,4 @@ jobs:
       - name: Simulated battles, every level
         run: node tools/sim.js 60 all
       - name: Tactics Chess rules
-        run: node --check chess/game.js && node chess/test.js
+        run: node --check chess/table.js && node chess/test.js
