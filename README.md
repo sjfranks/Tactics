@@ -56,6 +56,17 @@ node tools/sim.js 500 all     # battles per level, all levels (or a level index)
 
 On Normal, with 400 battles per level and the levels a party would have reached by then, the bot wins about 100%, 98%, 98%, 89% and 80% of the five campaign battles, and 90% of the Reeve's House (runs vary by a few points). `LV0=1` fights without the levels. The bot ignores foe intents and plays one action at a time, so people do better.
 
+## Tactics Chess
+
+A second game in `chess/`: [play it](https://sjfranks.github.io/Tactics/chess/), or open `chess/index.html`. Chess pieces with tactics-game rules. Each side places its army on its back two rows. On a turn, every piece may move up to 3 squares orthogonally and take one action. Strikes roll 2d6 against a target number, and the side of the foe you hit (front, flank or behind, shown by the arrow on its square) sets the damage. Facing is set at the end of each turn. Kill the enemy king, or, with no kings, the whole enemy army. You can play pass-and-play or against the computer.
+
+| Piece | HP | Move | Actions |
+| --- | --- | --- | --- |
+| Pawn | 10 | 3 | Attack, 7+: 5 from the flank, 10 from behind, never from the front. Grapple, 8+: move the foe one square. |
+| King | 10 | 3 | Attack, 7+: 5 from the front or the flank, 10 from behind. |
+
+`chess/rules.js` holds the rules and the numbers (`RULES`), with no screen code. `chess/game.js` is the board. `node chess/test.js` runs the rule tests and 60 computer-against-computer games.
+
 ## Archive
 
 Earlier projects in this repository are kept in `archive/`: Goblin Crypt as a roguelike run (`archive/goblin-crypt-runs/`: three acts of rooms, relics, shops and new actions, tuned against Slay the Spire run data), Rogue Tactics (`archive/rogue-tactics/`, the game that was at the root before), Emberwatch v1, the pre-1e rulebook and the Tactics 48 prototype. Each has an `ARCHIVED.md` explaining how to bring it back.
