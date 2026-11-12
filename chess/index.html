@@ -31,6 +31,7 @@
   .sq::after { content: ''; position: absolute; inset: 0; pointer-events: none; }
   .sq.zone::after { background: var(--zone); }
   .sq.move::after { background: var(--move); box-shadow: inset 0 0 0 2px rgba(255,255,255,.25); }
+  .sq.move::before { content: ''; position: absolute; left: 50%; top: 50%; width: 26%; height: 26%; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(20, 80, 190, .75); z-index: 1; pointer-events: none; }
   .sq.attack::after { background: var(--attack); }
   .sq.shove::after { background: var(--shove); }
   .sq.face::after { background: rgba(255,255,255,.35); }
@@ -139,7 +140,8 @@
     <p><b>Setup.</b> Each side places its pieces on its own back two rows and sets each piece's facing (the small arrow). White sets up first, then Black.</p>
     <p><b>Your turn.</b> Each of your pieces may <b>move</b> and take <b>one action</b>. A piece moves up to 3 squares orthogonally (no diagonals). It may pass through friends but not foes, and it ends on an empty square. You can take a move back until that piece rolls dice.</p>
     <p><b>Facing.</b> When you end your turn, you set the facing of each of your pieces, then the other side plays. The side of a foe you strike matters: its <b>front</b> is the square it faces, its <b>back</b> is the square behind, and its <b>flanks</b> are the two sides.</p>
-    <p><b>Striking.</b> Select a piece, then click a foe in red. The piece walks to the best square next to it, and 2d6 are rolled. Meet or beat the number to hit.</p>
+    <p><b>Moving.</b> On your turn the next piece that can act is already selected (gold outline). Tap a blue square to move it, or tap another of your pieces to pick that one instead.</p>
+    <p><b>Striking.</b> Tap a foe in red. The piece walks to the best square next to it, and 2d6 are rolled. Meet or beat the number to hit.</p>
     <table>
       <tr><th></th><th>HP</th><th>Move</th><th>Attack (7+)</th><th>Grapple (8+)</th></tr>
       <tr><td>Pawn</td><td>10</td><td>3</td><td>Flank 5, behind 10. Cannot attack a foe that faces it.</td><td>Move the foe one square</td></tr>

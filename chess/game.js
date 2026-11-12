@@ -114,7 +114,22 @@
     return h;
   }
 
+  // On your turn a piece is always selected, so moving is one tap: the next piece that can still act, front first.
+  function autoSelect() {
+    if (S.phase !== 'play' || S.pending || ui.ai[S.turn]) return;
+    // a piece still has something to do if it can move, or strike from where it stands
+    const busy = (q) => !q.acted && (!q.moved || TC.alive(S, TC.other(q.side)).some((e) =>
+      TC.actionInfo(S, q.id, e.id, 'attack') || TC.actionInfo(S, q.id, e.id, 'grapple')));
+    const p = selPiece();
+    if (p && p.side === S.turn && (busy(p) || (ui.picked === p.id && !p.acted))) return;
+    const ready = TC.alive(S, S.turn).filter(busy);
+    ready.sort((a, b) => (S.turn === 'white' ? a.y - b.y : b.y - a.y) || a.x - b.x);
+    if (ready.length) ui.sel = ready[0].id;
+    else if (p && p.side !== S.turn) ui.sel = null;
+  }
+
   function render() {
+    autoSelect();
     const h = highlights();
     for (let y = 0; y < S.h; y++) {
       for (let x = 0; x < S.w; x++) {
@@ -147,8 +162,8 @@
     const b = (s) => `<b class="${s}">${cap(s)}</b>`;
     let t;
     if (S.phase === 'setup') t = `Setup: ${b(side)} places pieces on the back two rows`;
-    else if (S.phase === 'play') t = `Turn ${S.turnNo}: ${b(S.turn)} to move` + (ui.ai[S.turn] ? ' (computer)' : '');
-    else if (S.phase === 'facing') t = `Turn ${S.turnNo}: ${b(S.turn)} sets facing`;
+    else if (S.phase === 'play') t = `Turn ${S.turnNo}: ${b(S.turn)} to move` + (ui.ai[S.turn] ? ' (computer)' : ' · tap a blue square to move, a red foe to strike');
+    else if (S.phase === 'facing') t = `Turn ${S.turnNo}: ${b(S.turn)} sets facing · tap a piece, then a square next to it`;
     else t = `${b(S.winner)} wins!`;
     $('status').innerHTML = t;
   }
@@ -425,7 +440,8 @@
       if (S.pending.options.some((c) => c.x === x && c.y === y)) await order(() => TC.resolveGrapple(S, x, y));
       return;
     }
-    if (q && q.side === S.turn) { ui.sel = ui.sel === q.id ? null : q.id; return render(); }
+    ui.hover = null;
+    if (q && q.side === S.turn) { ui.sel = q.id; ui.picked = q.id; return render(); }
     if (q && p && p.side === S.turn && !p.acted) {
       const best = TC.bestApproach(S, p.id, q.id, ui.mode);
       if (best) {
@@ -437,12 +453,11 @@
         return;
       }
     }
-    if (q) { ui.sel = q.id; return render(); }
+    if (q) { ui.hover = { x, y }; return render(); }   // a foe out of reach: say why, keep the selection
     if (p && p.side === S.turn && !p.moved && TC.reachable(S, p.id).has(x + ',' + y)) {
       await order(() => TC.move(S, p.id, x, y));
       return;
     }
-    ui.sel = null;
     render();
   }
 
@@ -451,12 +466,17 @@
     if (c) clickSquare(c.x, c.y).catch((err) => { flash(err.message); });
   });
   boardEl.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse') return;
     const c = squareFrom(e);
     if ((c && ui.hover && c.x === ui.hover.x && c.y === ui.hover.y) || (!c && !ui.hover)) return;
     ui.hover = c;
     if (!ui.busy) render();
   });
-  boardEl.addEventListener('pointerleave', () => { ui.hover = null; if (!ui.busy) render(); });
+  boardEl.addEventListener('pointerleave', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    ui.hover = null;
+    if (!ui.busy) render();
+  });
 
   $('controls').addEventListener('click', (e) => {
     const b = e.target.closest('button');
