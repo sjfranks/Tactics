@@ -41,10 +41,10 @@
       },
       bishop: {
         name: 'Bishop', role: 'Controller', hp: 8, move: { kind: 'walk', n: 3 }, ranged: true,
-        shoot: { need: 7, dmg: 4, range: 4 },
+        shoot: { need: 7, dmg: 4, range: 4, diagonal: false },   // along ranks and files only
         zoc: 'overwatch',     // a foe stepping into its three lines of fire ahead gets shot
         actions: ['shoot', 'pin'],
-        text: 'An archer. Shoots 4 squares along any line, over friends, and holds the lanes ahead of it.',
+        text: 'An archer. Shoots 4 squares along a rank or file, over friends, and holds the lane ahead of it.',
       },
       knight: {
         name: 'Knight', role: 'Striker', hp: 10, move: { kind: 'leap', n: 5 },
@@ -67,7 +67,7 @@
     },
     actions: {
       attack: { name: 'Attack', text: 'Strike a foe next to you. Double damage to the back.' },
-      shoot: { name: 'Shoot', text: 'Shoot the first foe along any of 8 lines, up to 4 squares, over friends.' },
+      shoot: { name: 'Shoot', text: 'Shoot the first foe along a rank or file, up to 4 squares, over friends. Not diagonally.' },
       push: { name: 'Push', need: 8, text: 'Shove the foe in front back a square and step in. Sure, and up to 2 squares, with an ally right behind you.' },
       grapple: { name: 'Grapple', need: 8, text: 'Catch a foe next to you and drag it one square any way.' },
       pin: { name: 'Pinning shot', need: 7, text: 'Shoot to root a foe: it cannot move on its next turn.' },
@@ -234,10 +234,10 @@
     const [fx, fy] = DIRS[f];
     return [[x + fx - fy, y + fy + fx], [x + fx, y + fy], [x + fx + fy, y + fy - fx]];
   }
-  // The three lines ahead of a piece: straight ahead and the two forward diagonals.
+  // The lines a shooter overwatches: straight ahead, and the two forward diagonals if it can shoot diagonally.
   function frontLines(p) {
-    const [fx, fy] = DIRS[p.facing];
-    return [[fx, fy], [fx - fy, fy + fx], [fx + fy, fy - fx]];
+    const [fx, fy] = DIRS[p.facing], u = unit(p);
+    return u.shoot && !u.shoot.diagonal ? [[fx, fy]] : [[fx, fy], [fx - fy, fy + fx], [fx + fy, fy - fx]];
   }
 
   // The squares a piece's zone covers, for the table to draw and the rules to test.
@@ -257,10 +257,11 @@
   }
 
   // Can a shot fly from a to (x, y) along a straight line within range, over the shooter's friends?
-  function lineOfFire(s, a, x, y, range, ignore) {
+  // diagonal: whether the shot may go along a diagonal as well as a rank or file.
+  function lineOfFire(s, a, x, y, range, ignore, diagonal) {
     const dx = x - a.x, dy = y - a.y, n = Math.max(Math.abs(dx), Math.abs(dy));
     if (!n || n > range) return false;
-    if (dx && dy && Math.abs(dx) !== Math.abs(dy)) return false;
+    if (dx && dy && (!diagonal || Math.abs(dx) !== Math.abs(dy))) return false;
     const sx = Math.sign(dx), sy = Math.sign(dy);
     for (let i = 1; i < n; i++) {
       const q = pieceAt(s, a.x + sx * i, a.y + sy * i);
@@ -334,7 +335,7 @@
             const dx = x - r.x, dy = y - r.y, n = Math.max(Math.abs(dx), Math.abs(dy));
             if (!n || n > u.shoot.range) return false;
             if (!lines.some(([lx, ly]) => lx * n === dx && ly * n === dy)) return false;
-            return lineOfFire(s, r, x, y, u.shoot.range, p.id);
+            return lineOfFire(s, r, x, y, u.shoot.range, p.id, u.shoot.diagonal);
           };
           if (!inLine(ax, ay) && inLine(bx, by)) { out.push({ at: i, reactor: r.id, kind: 'overwatch' }); used.add(r.id); }
         }
@@ -439,7 +440,7 @@
       need = u.attack.need; dmg = u.attack.dmg;
       if (u.charge && p.movedDist >= RULES.chargeDist) { dmg += RULES.chargeBonus; notes.push('charge'); }
     } else if (act === 'shoot' || act === 'pin') {
-      if (!u.shoot || !lineOfFire(s, at, t.x, t.y, u.shoot.range, t.id)) return null;
+      if (!u.shoot || !lineOfFire(s, at, t.x, t.y, u.shoot.range, t.id, u.shoot.diagonal)) return null;
       need = act === 'pin' ? A.need : u.shoot.need; dmg = act === 'pin' ? 0 : u.shoot.dmg;
       if (inCover(s, t)) { need += RULES.coverBonus; notes.push('cover'); }
     } else if (act === 'grapple') {
@@ -709,7 +710,8 @@
     const daring = 1 + Math.min(3, s.turnNo / 12);
     let approach = 0;
     const alone = alive(s, p.side).length === 1;   // a king left alone has to fight
-    if (u.role === 'Striker' || alone) approach = -0.5 * dGoal;
+    const hunt = foes.length <= 2 && p.type !== 'king';   // a few foes left: everyone closes in on them
+    if (u.role === 'Striker' || alone || hunt) approach = -0.5 * dGoal;
     else if (u.role === 'Defender') approach = -0.35 * dNear - 0.1 * dGoal;
     else if (u.role === 'Controller') approach = -0.35 * Math.abs(dNear - 4) - 0.05 * dGoal;
     else approach = -0.05 * dGoal;

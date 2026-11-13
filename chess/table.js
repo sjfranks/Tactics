@@ -555,7 +555,7 @@
       hotActions.push({ icon: 'right', label: 'Turn right', off: sp ? null : 'Tap one of your pieces first', run: () => face(sp, (sp.facing + 1) % 4) });
       hotActions.push({ icon: 'foes', label: 'Face foe', off: sp ? null : 'Tap one of your pieces first', run: () => { const e = nearestFoe(sp); if (e) face(sp, dirTo(sp, e)); } });
       end.disabled = false; $('#endLbl').textContent = 'Done'; end.classList.add('go');
-      const zone = sp && TC.unit(sp).zoc === 'opportunity' ? ' Its <b>zone</b> is the three squares ahead.' : sp && TC.unit(sp).zoc === 'overwatch' ? ' It <b>overwatches</b> the three lines ahead.' : '';
+      const zone = sp && TC.unit(sp).zoc === 'opportunity' ? ' Its <b>zone</b> is the three squares ahead.' : sp && TC.unit(sp).zoc === 'overwatch' ? ' It <b>overwatches</b> the lane straight ahead.' : '';
       text = sp ? `<i>Tap an <b>arrow</b> round it or swipe from it to turn it, then <b>Done</b>. Foes strike hardest from behind.${zone}</i>` : '<i>No piece took the turn. You may tap one piece to turn it, then tap <b>Done</b>.</i>';
     } else if (S.phase === 'play' && S.pending) {
       ph = phases('action'); title = 'Grapple'; meta = 'Caught'; text = '<i>Tap a <b>yellow</b> square to drag the foe there.</i>';
@@ -596,7 +596,7 @@
       else hint = `Nothing in reach for ${actName(UI.act).toLowerCase()}. Try another action, or <b>Skip</b>.`;
       let desc = ACT[UI.act].text;
       if (UI.act === 'attack') desc = `${u.attack.dmg} damage, ${u.attack.dmg * 2} to the back.${u.attack.front === 'ranged' ? ' Not the front of a melee foe.' : ''}${u.charge ? ` +${TC.RULES.chargeBonus} after riding ${TC.RULES.chargeDist}+ squares.` : ''}${u.reach8 ? ' Diagonals too.' : ''}`;
-      if (UI.act === 'shoot') desc = `${u.shoot.dmg} damage (${u.shoot.dmg * 2} to the back), first foe along any line up to ${u.shoot.range}, over friends. Cover +${TC.RULES.coverBonus}.`;
+      if (UI.act === 'shoot') desc = `${u.shoot.dmg} damage (${u.shoot.dmg * 2} to the back), first foe along a rank or file up to ${u.shoot.range}, over friends; not diagonally. Cover +${TC.RULES.coverBonus}.`;
       const fl = focusLine();
       text = fl || `${desc} <i>${hint}</i>`;
       if (UI.act === 'rally' || UI.act === 'sweep') { const b = hotActions.find((h) => h.icon === UI.act); if (b) { const run = b.run; b.run = () => { if (UI.act === b.icon && !UI.aim) { UI.aim = { kind: UI.act }; refresh(); } else if (UI.aim && UI.aim.kind === b.icon) doAct(UI.aim); else run(); }; } }

@@ -67,23 +67,24 @@ test('rook shield, pawn cover, king inspires', () => {
   const s2 = game([['white', 'king', 3, 5, 0], ['white', 'knight', 4, 5, 0], ['black', 'rook', 4, 4, 2], ['black', 'pawn', 0, 0, 2]]);
   assert.strictEqual(TC.strikeInfo(s2, P(s2, 2), P(s2, 3), 'attack').need, 7 + 2 - 1);  // shield +2, inspired -1
   // a black pawn at 4,2 faces south; the black bishop right behind it at 4,1 is in cover
-  const s3 = game([['white', 'bishop', 1, 4, 0], ['black', 'pawn', 4, 2, 2], ['black', 'bishop', 4, 1, 2], ['black', 'king', 0, 0, 2]]);
+  const s3 = game([['white', 'bishop', 0, 1, 0], ['black', 'pawn', 4, 2, 2], ['black', 'bishop', 4, 1, 2], ['black', 'king', 0, 7, 2]]);
   assert.ok(TC.inCover(s3, P(s3, 3)));
-  assert.strictEqual(TC.strikeInfo(s3, P(s3, 1), P(s3, 3), 'shoot').need, 7 + 2);   // a diagonal shot at the bishop in cover
-  P(s3, 1).x = 4; P(s3, 1).y = 6;
+  assert.strictEqual(TC.strikeInfo(s3, P(s3, 1), P(s3, 3), 'shoot').need, 7 + 2);   // along the rank at the bishop in cover
+  P(s3, 1).x = 4; P(s3, 1).y = 5;
   assert.strictEqual(TC.strikeInfo(s3, P(s3, 1), P(s3, 3), 'shoot'), null);         // straight down the file, the pawn blocks
 });
 
-test('bishop: shoots 4 along 8 lines, over friends, blocked by foes; pin roots for a turn', () => {
-  const s = game([['white', 'bishop', 0, 7, 0], ['white', 'pawn', 1, 6, 0], ['black', 'pawn', 3, 4, 2], ['black', 'pawn', 0, 2, 2], ['black', 'pawn', 0, 4, 2], ['black', 'king', 7, 0, 2]]);
+test('bishop: shoots 4 along ranks and files (never diagonally), over friends, blocked by foes; pin roots for a turn', () => {
+  const s = game([['white', 'bishop', 0, 7, 0], ['white', 'pawn', 0, 6, 0], ['black', 'pawn', 3, 4, 2], ['black', 'pawn', 0, 2, 2], ['black', 'pawn', 0, 4, 2], ['black', 'king', 7, 0, 2], ['black', 'pawn', 3, 7, 3]]);
   const ids = TC.targetsFor(s, 1, 'shoot').map((t) => t.target).sort();
-  assert.deepStrictEqual(ids, [3, 5]);          // over the friend on the diagonal; 0,2 is 5 away and behind 0,4
-  const ev = TC.act(s, 1, 'pin', 3, fixed(4, 4));
-  assert.ok(ev.pinned && P(s, 3).pinned);
+  assert.deepStrictEqual(ids, [5, 7]);          // up the file over the friend, and along the rank; not 3,4 on the diagonal; 0,2 is behind 0,4
+  assert.strictEqual(TC.strikeInfo(s, P(s, 1), P(s, 3), 'shoot'), null);
+  const ev = TC.act(s, 1, 'pin', 5, fixed(4, 4));
+  assert.ok(ev.pinned && P(s, 5).pinned);
   TC.endTurn(s); TC.confirmFacing(s);
-  assert.throws(() => TC.move(s, 3, 3, 3), /pinned/);
-  TC.stay(s, 3); TC.wait(s, 3); TC.endTurn(s); TC.confirmFacing(s);
-  assert.ok(!P(s, 3).pinned);
+  assert.throws(() => TC.move(s, 5, 1, 4), /pinned/);
+  TC.stay(s, 5); TC.wait(s, 5); TC.endTurn(s); TC.confirmFacing(s);
+  assert.ok(!P(s, 5).pinned);
 });
 
 test('push: 8+ alone; sure and up to 2 with an ally behind; the pawn steps in', () => {
@@ -113,8 +114,8 @@ test('attack of opportunity: leaving the three squares in front of a pawn', () =
   assert.strictEqual(TC.reactionsFor(s2, P(s2, 1), TC.reachable(s2, 1).get('5,4').path).length, 0);
 });
 
-test('overwatch: stepping into a bishop\'s lines ahead draws a shot, once a turn', () => {
-  // black bishop at 4,0 faces south: lines down column 4 and the two diagonals
+test('overwatch: stepping into the lane ahead of a bishop draws a shot, once a turn', () => {
+  // black bishop at 4,0 faces south: it watches the file below it
   const s = game([['white', 'pawn', 6, 4, 0], ['black', 'bishop', 4, 0, 2], ['black', 'king', 0, 0, 2]]);
   const r = TC.reachable(s, 1).get('4,4');
   const re = TC.reactionsFor(s, P(s, 1), r.path);
@@ -122,6 +123,9 @@ test('overwatch: stepping into a bishop\'s lines ahead draws a shot, once a turn
   const ev = TC.move(s, 1, 4, 4, fixed(6, 6));
   assert.ok(ev.reactions[0].ev.hit && P(s, 1).hp === 6);
   assert.deepStrictEqual(s.spent, [2]);
+  // the diagonals ahead are not watched
+  const s2 = game([['white', 'pawn', 7, 4, 0], ['black', 'bishop', 4, 0, 2], ['black', 'king', 0, 0, 2]]);
+  assert.strictEqual(TC.reactionsFor(s2, P(s2, 1), TC.reachable(s2, 1).get('7,3').path).length, 0);   // 7,3 lies on its diagonal
 });
 
 test('a free attack that kills stops the move where it fell', () => {

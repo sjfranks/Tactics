@@ -64,7 +64,7 @@ A second game in `chess/`: [play it](https://sjfranks.github.io/Tactics/chess/),
 | --- | --- | --- | --- | --- |
 | Pawn | Defender | 10 | 3 | Attack 7+ for 5, never the front of a melee foe (ranged foes are fair game). Push 8+: the foe in front goes back a square and the pawn steps in; sure, and up to 2, with an ally right behind. Grapple 8+: drag a foe a square. An ally right behind a pawn is in cover. A foe leaving the 3 squares ahead of it draws an attack of opportunity. |
 | Rook | Defender | 14 | 4 in a straight line | Attack 7+ for 5. Its shield makes blows to its front need 2 more. Attacks of opportunity like a pawn. |
-| Bishop | Controller | 8 | 3 | Shoot 7+ for 4: the first foe along any of 8 lines within 4 squares, over friends. Pinning shot 7+: the foe cannot move on its next turn. Overwatch: a foe stepping into its 3 lines ahead gets shot. |
+| Bishop | Controller | 8 | 3 | Shoot 7+ for 4: the first foe along a rank or file (not diagonally) within 4 squares, over friends. Pinning shot 7+: the foe cannot move on its next turn. Overwatch: a foe stepping into the lane straight ahead of it gets shot. |
 | Knight | Striker | 10 | 5, leaping | Attack 7+ for 6, +2 after riding 3 or more squares. Leaps over anything. |
 | Queen | Striker | 12 | 4 straight, 8 ways | Attack 7+ for 6, diagonals too. Sweep 8+ for 4 against every foe round her. |
 | King | Leader | 12 | 3 | Attack 7+ for 5. Rally: allies within 2 heal 2 and lose pins. Allies beside him need 1 less to hit. |
