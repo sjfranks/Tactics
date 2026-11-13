@@ -218,7 +218,7 @@
   }
 
   // square markers, one per square
-  const HL_COL = { move: [0x8fd0ff, 0.55], movehot: [0xd8f0ff, 0.9], target: [0xd0402f, 0.65], aim: [0xff5a3a, 0.95], path: [0xe8873a, 0.6], sel: [0xe3ad4f, 0.6], zone: [0xe8873a, 0.26], zonehot: [0xffb060, 0.6], shove: [0xf0c040, 0.7], last: [0x9fb4c8, 0.22] };
+  const HL_COL = { risk: [0xffa030, 0.6], riskhot: [0xffd080, 0.9], dest: [0xffffff, 0.85], zoneE: [0xff4030, 0.3], ally: [0x8fe08a, 0.55], move: [0x8fd0ff, 0.55], movehot: [0xd8f0ff, 0.9], target: [0xd0402f, 0.65], aim: [0xff5a3a, 0.95], path: [0xe8873a, 0.6], sel: [0xe3ad4f, 0.6], zone: [0xe8873a, 0.42], zonehot: [0xffb060, 0.7], shove: [0xf0c040, 0.7], last: [0x9fb4c8, 0.22] };
   const hls = [];
   {
     const geo = new THREE.PlaneGeometry(0.94, 0.94);
@@ -235,11 +235,17 @@
   });
 
   // ---------------- the minis ----------------
+  // Turned on a lathe, then dressed: a pawn's round head, a rook's battlements and great shield, a bishop's mitre,
+  // a knight's horse head, a queen's crown, a king's cross. Each has a gem on its front, and the ground mark turns with it.
   const LATHE = {
     pawn: [[0, 0], [0.3, 0], [0.31, 0.03], [0.3, 0.06], [0.26, 0.085], [0.21, 0.1], [0.15, 0.15], [0.12, 0.22], [0.1, 0.32], [0.095, 0.37], [0.16, 0.39], [0.165, 0.415], [0.09, 0.43], [0, 0.43]],
+    rook: [[0, 0], [0.33, 0], [0.34, 0.04], [0.31, 0.08], [0.26, 0.1], [0.22, 0.14], [0.2, 0.5], [0.25, 0.56], [0.26, 0.68], [0, 0.68]],
+    bishop: [[0, 0], [0.31, 0], [0.32, 0.04], [0.3, 0.07], [0.25, 0.09], [0.19, 0.12], [0.14, 0.2], [0.11, 0.36], [0.1, 0.48], [0.17, 0.51], [0.17, 0.54], [0.08, 0.56], [0, 0.56]],
+    knight: [[0, 0], [0.33, 0], [0.34, 0.04], [0.32, 0.075], [0.27, 0.095], [0.22, 0.13], [0.2, 0.22], [0.21, 0.27], [0, 0.27]],
+    queen: [[0, 0], [0.33, 0], [0.34, 0.04], [0.32, 0.075], [0.27, 0.095], [0.21, 0.13], [0.16, 0.2], [0.13, 0.32], [0.11, 0.5], [0.115, 0.6], [0.2, 0.63], [0.2, 0.66], [0.12, 0.69], [0.16, 0.8], [0.2, 0.88], [0.14, 0.9], [0, 0.88]],
     king: [[0, 0], [0.33, 0], [0.34, 0.04], [0.32, 0.075], [0.27, 0.095], [0.21, 0.13], [0.16, 0.2], [0.13, 0.32], [0.11, 0.5], [0.115, 0.6], [0.2, 0.63], [0.2, 0.66], [0.12, 0.69], [0.15, 0.78], [0.18, 0.85], [0.09, 0.89], [0, 0.89]],
   };
-  const HEIGHT = { pawn: 0.66, king: 1.08 };
+  const HEIGHT = { pawn: 0.66, rook: 0.78, bishop: 0.9, knight: 0.92, queen: 1.04, king: 1.08 };
   const latheGeo = {};
   for (const t in LATHE) latheGeo[t] = new THREE.LatheGeometry(LATHE[t].map(([r, h]) => new THREE.Vector2(r, h)), 28);
   const headGeo = new THREE.SphereGeometry(0.125, 24, 16), gemGeo = new THREE.SphereGeometry(0.04, 12, 8), bandGeo = new THREE.TorusGeometry(0.3, 0.025, 8, 32);
@@ -249,6 +255,41 @@
   };
   const views = new Map(); // piece id -> view
   const pickables = [];
+  function dress(p, fig, bodyMat, bandMat) {
+    const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); fig.add(m); return m; };
+    if (p.type === 'pawn') { add(headGeo, bodyMat, 0, 0.53, 0); return { gemY: 0.55, gemZ: -0.115 }; }
+    if (p.type === 'rook') {
+      const merlon = new THREE.BoxGeometry(0.1, 0.1, 0.08);
+      for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; add(merlon, bodyMat, Math.sin(a) * 0.21, 0.73, Math.cos(a) * 0.21, 0, a, 0); }
+      // the great shield, on its front
+      const shield = add(new THREE.BoxGeometry(0.34, 0.4, 0.05), bandMat, 0, 0.34, -0.24);
+      add(new THREE.BoxGeometry(0.04, 0.3, 0.02), bodyMat, 0, 0.34, -0.27); void shield;
+      return { gemY: 0.62, gemZ: -0.25 };
+    }
+    if (p.type === 'bishop') {
+      const mitre = add(new THREE.SphereGeometry(0.13, 20, 14), bodyMat, 0, 0.7, 0); mitre.scale.set(1, 1.55, 1);
+      add(new THREE.SphereGeometry(0.04, 10, 8), bandMat, 0, 0.92, 0);
+      add(new THREE.BoxGeometry(0.02, 0.2, 0.27), bandMat, 0, 0.74, 0, 0.5, Math.PI / 2, 0);   // the mitre's slit
+      return { gemY: 0.62, gemZ: -0.13 };
+    }
+    if (p.type === 'knight') {
+      add(new THREE.BoxGeometry(0.22, 0.42, 0.26), bodyMat, 0, 0.45, 0.04, -0.25, 0, 0);                    // neck
+      add(new THREE.BoxGeometry(0.2, 0.18, 0.4), bodyMat, 0, 0.7, -0.12, 0.35, 0, 0);                       // head, muzzle forward
+      add(new THREE.BoxGeometry(0.06, 0.32, 0.16), bandMat, 0, 0.6, 0.18, -0.25, 0, 0);                     // mane
+      const ear = new THREE.ConeGeometry(0.035, 0.12, 6);
+      add(ear, bodyMat, -0.06, 0.86, 0.02); add(ear, bodyMat, 0.06, 0.86, 0.02);
+      return { gemY: 0.72, gemZ: -0.3 };
+    }
+    if (p.type === 'queen') {
+      const pearl = new THREE.SphereGeometry(0.035, 10, 8);
+      for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; add(pearl, bandMat, Math.sin(a) * 0.19, 0.92, Math.cos(a) * 0.19); }
+      add(new THREE.SphereGeometry(0.06, 12, 10), bodyMat, 0, 0.96, 0);
+      return { gemY: 0.82, gemZ: -0.175 };
+    }
+    add(new THREE.BoxGeometry(0.06, 0.22, 0.06), bandMat, 0, 0.99, 0);
+    add(new THREE.BoxGeometry(0.18, 0.06, 0.06), bandMat, 0, 1.01, 0);
+    return { gemY: 0.81, gemZ: -0.165 };
+  }
   function makeView(p) {
     const L = SIDE_LOOK[p.side];
     const bodyMat = new THREE.MeshPhysicalMaterial({ color: L.body, roughness: L.rough, metalness: L.metal, clearcoat: 0.5, clearcoatRoughness: 0.3 });
@@ -257,17 +298,10 @@
     const root = new THREE.Group(), spin = new THREE.Group(), fig = new THREE.Group();
     root.add(spin); spin.add(fig);
     const body = new THREE.Mesh(latheGeo[p.type], bodyMat); fig.add(body);
-    const band = new THREE.Mesh(bandGeo, bandMat); band.rotation.x = Math.PI / 2; band.position.y = 0.075; band.scale.setScalar(p.type === 'king' ? 1.05 : 0.95); fig.add(band);
-    let gemY;
-    if (p.type === 'pawn') { const head = new THREE.Mesh(headGeo, bodyMat); head.position.y = 0.53; fig.add(head); gemY = 0.55; }
-    else {
-      const crossMat = bandMat;
-      const v = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.06), crossMat); v.position.y = 0.99; fig.add(v);
-      const h = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.06, 0.06), crossMat); h.position.y = 1.01; fig.add(h);
-      gemY = 0.81;
-    }
-    // a gem on the front of the head, so the mini itself shows which way it faces
-    const gem = new THREE.Mesh(gemGeo, gemMat); gem.position.set(0, gemY, p.type === 'pawn' ? -0.115 : -0.165); fig.add(gem);
+    const band = new THREE.Mesh(bandGeo, bandMat); band.rotation.x = Math.PI / 2; band.position.y = 0.075; band.scale.setScalar(p.type === 'pawn' ? 0.95 : 1.05); fig.add(band);
+    const { gemY, gemZ } = dress(p, fig, bodyMat, bandMat);
+    // a gem on the front, so the mini itself shows which way it faces
+    const gem = new THREE.Mesh(gemGeo, gemMat); gem.position.set(0, gemY, gemZ); fig.add(gem);
     fig.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.pid = p.id; } });
     // the ground mark: ring and facing arrow, turning with the piece
     const mark = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.0), new THREE.MeshBasicMaterial({ map: facingTex, color: L.mark, transparent: true, opacity: 0.95, depthWrite: false, toneMapped: false }));
@@ -276,14 +310,14 @@
     // an invisible column to tap
     const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, HEIGHT[p.type] + 0.1, 8), new THREE.MeshBasicMaterial({ visible: false }));
     hit.position.y = (HEIGHT[p.type] + 0.1) / 2; hit.userData.pid = p.id; root.add(hit); pickables.push(hit);
-    const pos = cellPos(p.x, p.y); root.position.copy(pos);
-    const ang = -p.facing * Math.PI / 2; spin.rotation.y = ang;
+    root.position.copy(cellPos(p.x, p.y));
+    spin.rotation.y = -p.facing * Math.PI / 2;
     scene.add(root);
     const tag = document.createElement('div');
     tag.className = 'tag ' + p.side;
-    tag.innerHTML = '<div class="fc"></div><div class="pips"><i></i><i></i></div><div class="hp"><i class="trail"></i><i class="fill"></i></div>';
+    tag.innerHTML = '<div class="fc"></div><div class="chip"></div><div class="hp"><i class="trail"></i><i class="fill"></i></div>';
     $('#tags').appendChild(tag);
-    const v = { id: p.id, side: p.side, type: p.type, root, spin, fig, mark, gem, body, bodyMat, hit, tag, ang, x: p.x, y: p.y, facing: p.facing, anim: false, hp: p.hp };
+    const v = { id: p.id, side: p.side, type: p.type, root, spin, fig, mark, gem, body, bodyMat, hit, tag, ang: spin.rotation.y, x: p.x, y: p.y, facing: p.facing, anim: false, hp: p.hp };
     views.set(p.id, v);
     return v;
   }
@@ -291,12 +325,18 @@
     scene.remove(v.root); v.tag.remove(); views.delete(v.id);
     const i = pickables.indexOf(v.hit); if (i >= 0) pickables.splice(i, 1);
   }
-  function setAngle(v, f) { v.facing = f; v.ang = -f * Math.PI / 2; v.spin.rotation.y = v.ang; }
   function turnTo(v, f, ms = 180) {
     const from = v.spin.rotation.y; let to = -f * Math.PI / 2;
     while (to - from > Math.PI) to -= Math.PI * 2; while (to - from < -Math.PI) to += Math.PI * 2;
     v.facing = f; v.ang = to;
     if (Math.abs(to - from) < 1e-3) return Promise.resolve();
+    return tween(ms, (k) => { v.spin.rotation.y = from + (to - from) * k; });
+  }
+  // turn to look at a square, any of 8 ways (for a strike on a diagonal); the rules' facing comes back on the next sync
+  function lookToward(v, x, y, ms = 120) {
+    const from = v.spin.rotation.y; let to = Math.atan2(-(x - v.x), -(y - v.y));
+    while (to - from > Math.PI) to -= Math.PI * 2; while (to - from < -Math.PI) to += Math.PI * 2;
+    v.facing = -1;
     return tween(ms, (k) => { v.spin.rotation.y = from + (to - from) * k; });
   }
 
@@ -312,8 +352,7 @@
         if (v.x !== p.x || v.y !== p.y) { v.root.position.copy(cellPos(p.x, p.y)); v.x = p.x; v.y = p.y; }
         if (v.facing !== p.facing) turnTo(v, p.facing);
       }
-      const hidden = S.phase === 'setup' && UI.hide === p.side;
-      v.root.visible = !hidden;
+      v.root.visible = !(S.phase === 'setup' && UI.hide === p.side);
       v.hp = p.hp;
     }
     for (const v of [...views.values()]) if (!living.has(v.id) && !v.dying) dropView(v);
@@ -338,10 +377,9 @@
       const frac = Math.max(0, p.hp / TC.unit(p).hp) * 100 + '%';
       const fill = v.tag.querySelector('.fill'), trail = v.tag.querySelector('.trail');
       if (fill.style.width !== frac) { fill.style.width = frac; trail.style.width = frac; }
-      const mine = S.phase === 'play' && p.side === S.turn && !UI.ai[S.turn];
-      v.tag.classList.toggle('mine', mine);
       v.tag.classList.toggle('sel', UI.sel === p.id);
-      if (mine) { const pips = v.tag.querySelectorAll('.pips i'); pips[0].classList.toggle('off', p.moved); pips[1].classList.toggle('off', p.acted); }
+      const chip = v.tag.querySelector('.chip'), word = p.pinned ? 'Pinned' : '';
+      if (chip.textContent !== word) { chip.textContent = word; chip.classList.toggle('on', !!word); }
     }
   }
   function floatText(pos, text, cls) {
@@ -459,29 +497,27 @@
   // ---------------- what happens: each rules event, shown ----------------
   const sqName = (x, y) => 'abcdefgh'[x] + (N - y);
   const pName = (p) => cap(p.side) + ' ' + TC.unit(p).name.toLowerCase();
+  const anyPiece = (id) => S.pieces.find((q) => q.id === id);
+  const ACT = TC.RULES.actions;
+  const actName = (a) => ACT[a].name;
+  const sideWord = (angle) => (angle === 'behind' ? 'back' : angle);
   function log(text, cls) {
     UI.log.unshift({ text, cls });
     const li = document.createElement('li'); li.className = cls || ''; li.innerHTML = text; $('#logList').prepend(li);
   }
-  async function hop(v, path) {
-    v.anim = true;
-    let [cx, cy] = [v.x, v.y];
-    for (const [x, y] of path) {
-      const from = cellPos(cx, cy), to = cellPos(x, y), d = TC.DIRS.findIndex(([dx, dy]) => dx === x - cx && dy === y - cy);
-      turnTo(v, d, 90);
-      await tween(150, (k) => { v.root.position.lerpVectors(from, to, k); v.fig.position.y = Math.sin(k * Math.PI) * 0.16; }, ease.lin);
-      sfx('step'); cx = x; cy = y;
-    }
-    v.fig.position.y = 0; v.x = cx; v.y = cy; v.anim = false;
+  async function hopStep(v, x, y) {
+    const from = cellPos(v.x, v.y), to = cellPos(x, y), dx = x - v.x, dy = y - v.y;
+    if (Math.abs(dx) + Math.abs(dy) === 1) turnTo(v, TC.DIRS.findIndex(([a, b]) => a === dx && b === dy), 90); else lookToward(v, x, y, 90);
+    const high = TC.unit(TC.piece(S, v.id) || { type: v.type }).move.kind === 'leap' ? 0.32 : 0.16;
+    await tween(150, (k) => { v.root.position.lerpVectors(from, to, k); v.fig.position.y = Math.sin(k * Math.PI) * high; }, ease.lin);
+    v.fig.position.y = 0; v.x = x; v.y = y; sfx('step');
   }
   async function lunge(v, toward) {
     const base = v.root.position.clone(), dir = toward.clone().sub(base).setY(0).normalize();
-    await tween(130, (k) => { v.root.position.copy(base).addScaledVector(dir, k * 0.28); v.fig.rotation.x = 0; }, ease.out);
+    await tween(130, (k) => v.root.position.copy(base).addScaledVector(dir, k * 0.28), ease.out);
     await tween(170, (k) => v.root.position.copy(base).addScaledVector(dir, (1 - k) * 0.28));
   }
-  function flash(v, color) {
-    v.bodyMat.emissive.setHex(color); return tween(320, (k) => { v.bodyMat.emissiveIntensity = (1 - k) * 1.2; });
-  }
+  function flash(v, color) { v.bodyMat.emissive.setHex(color); return tween(320, (k) => { v.bodyMat.emissiveIntensity = (1 - k) * 1.2; }); }
   async function shake(v) {
     const base = v.root.position.clone();
     await tween(320, (k) => v.root.position.set(base.x + Math.sin(k * 30) * 0.05 * (1 - k), base.y, base.z + Math.cos(k * 27) * 0.04 * (1 - k)), ease.lin);
@@ -496,46 +532,121 @@
     await tween(500, (k) => { v.root.position.y = TOP - 0.05 - k * 0.6; v.mark.material.opacity = 0.9 * (1 - k); });
     v.dying = false; dropView(v);
   }
+  // an arrow flying from a bishop to its mark
+  const arrowMat = new THREE.MeshStandardMaterial({ color: 0x5a3a20, roughness: 0.6 }), headMat = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.8, roughness: 0.3 });
+  async function loose(from, to) {
+    const obj = new THREE.Group();
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.42, 5), arrowMat); shaft.rotation.x = Math.PI / 2; obj.add(shaft);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.08, 6), headMat); tip.rotation.x = Math.PI / 2; tip.position.z = 0.24; obj.add(tip);
+    scene.add(obj); sfx('step');
+    const a = from.clone().add(new V3(0, 0.75, 0)), b = to.clone().add(new V3(0, 0.45, 0)), d = a.distanceTo(b);
+    let prev = a.clone();
+    await tween(160 + d * 50, (k) => {
+      const p = a.clone().lerp(b, k); p.y += Math.sin(k * Math.PI) * (0.2 + d * 0.06);
+      obj.position.copy(p); obj.lookAt(p.clone().add(p.clone().sub(prev))); prev = p;
+    }, ease.lin);
+    scene.remove(obj);
+  }
+
+  // One blow: attack, shot, pin, a sweep's stroke, or a free attack drawn by a move.
+  async function showStrike(ev, ctx = {}) {
+    const a = views.get(ev.piece), t = views.get(ev.target), ap = anyPiece(ev.piece), tp = anyPiece(ev.target);
+    if (!a || !t) return;
+    const fast = ctx.fast || 1;
+    lookAtFight(a.root.position, t.root.position);
+    if (Math.max(Math.abs(t.x - a.x), Math.abs(t.y - a.y)) === 1) await lookToward(a, t.x, t.y, 110);
+    const what = ev.kind === 'opportunity' ? 'Attack of opportunity' : ev.kind === 'overwatch' ? 'Overwatch' : actName(ev.act);
+    const notes = ev.notes && ev.notes.length ? ' · ' + ev.notes.join(', ') : '';
+    const label = `${what} · ${ev.act === 'pin' ? 'pinning' : 'the ' + sideWord(ev.angle)}${notes}`;
+    rollReadout(label, `<span>needs ${ev.need}+</span>`);
+    if (ev.kind) { floatText(a.root.position, ev.kind === 'overwatch' ? 'Overwatch!' : 'Opportunity!', 'info'); await wait(250 * fast); }
+    await throwDice(ev.dice, ap.side, t.root.position);
+    const tot = `<b>${ev.dice[0]} + ${ev.dice[1]} = ${ev.total}</b><span>vs ${ev.need}+</span>`;
+    rollReadout(label, tot + (!ev.hit ? '<em class="miss">MISS</em>' : ev.act === 'pin' ? '<em class="grab">PINNED</em>' : `<em class="hit">HIT −${ev.damage}</em>`));
+    await wait(200 * fast);
+    if (ev.act === 'shoot' || ev.act === 'pin' || (ev.kind === 'overwatch')) await loose(a.root.position, t.root.position);
+    else await lunge(a, t.root.position);
+    let line = `${pName(ap)}: ${what.toLowerCase()} on ${pName(tp)} (${ev.act === 'pin' ? 'pinning shot' : sideWord(ev.angle)}${notes}), ${ev.dice[0]}+${ev.dice[1]}=${ev.total} vs ${ev.need}+, `;
+    if (!ev.hit) { sfx('miss'); floatText(t.root.position, 'Miss', 'miss'); line += 'miss.'; }
+    else if (ev.act === 'pin') { sfx('place'); floatText(t.root.position, 'Pinned!', 'info'); flash(t, 0x6aa0ff); line += 'pinned for a turn.'; }
+    else {
+      sfx('hit'); cam.shake = ev.damage >= 10 ? 1 : 0.5;
+      fxLight.position.copy(t.root.position).add(new V3(0, 0.6, 0)); fxLight.intensity = 3; tween(400, (k) => { fxLight.intensity = 3 * (1 - k); });
+      burst(t.root.position.clone().add(new V3(0, 0.5, 0)), [0xff5a3a, 0xffb060, 0xff2a1a], 18, 2.2, 0.22, 0.5, 3);
+      floatText(t.root.position, '−' + ev.damage, 'dmg');
+      flash(t, 0xff2a10); await shake(t);
+      line += `hit for ${ev.damage}` + (ev.killed ? `. The ${TC.unit(tp).name.toLowerCase()} falls!` : ` (${tp.hp} HP left).`);
+      if (ev.killed) await topple(t);
+    }
+    log(line, ap.side);
+    await wait(220 * fast);
+  }
 
   async function show(ev, ctx = {}) {
     const fast = ctx.ai ? 0.8 : 1;
     if (ev.type === 'move') {
-      const v = views.get(ev.piece), p = TC.piece(S, ev.piece);
-      const from = [v.x, v.y];
-      await hop(v, ev.path);
-      log(`${pName(p)} moves ${sqName(...from)} → ${sqName(p.x, p.y)}.`, p.side);
-    } else if (ev.type === 'attack' || ev.type === 'grapple') {
-      const a = views.get(ev.piece), t = views.get(ev.target), ap = TC.piece(S, ev.piece), tp = S.pieces.find((q) => q.id === ev.target);
-      lookAtFight(a.root.position, t.root.position);
-      const toward = TC.DIRS.findIndex(([dx, dy]) => dx === t.x - a.x && dy === t.y - a.y);
-      if (toward >= 0) await turnTo(a, toward, 120); // turn to strike; the rules' facing comes back after
-      const label = `${ev.type === 'attack' ? 'Attack' : 'Grapple'} · from the ${ev.angle === 'behind' ? 'back' : ev.angle}`;
-      rollReadout(label, `<span>needs ${ev.need}+</span>`);
-      await throwDice(ev.dice, ap.side, t.root.position);
-      const tot = `<b>${ev.dice[0]} + ${ev.dice[1]} = ${ev.total}</b><span>vs ${ev.need}+</span>`;
-      if (ev.type === 'attack') rollReadout(label, tot + (ev.hit ? `<em class="hit">HIT −${ev.damage}</em>` : '<em class="miss">MISS</em>'));
-      else rollReadout(label, tot + (ev.hit ? '<em class="grab">CAUGHT</em>' : '<em class="miss">MISS</em>'));
-      await wait(220 * fast);
-      await lunge(a, t.root.position);
-      let line = `${pName(ap)} ${ev.type === 'attack' ? 'attacks' : 'grapples'} ${pName(tp)} from the ${ev.angle === 'behind' ? 'back' : ev.angle}: ${ev.dice[0]}+${ev.dice[1]}=${ev.total} vs ${ev.need}+, `;
-      if (!ev.hit) { sfx('miss'); floatText(t.root.position, 'Miss', 'miss'); line += 'miss.'; }
-      else if (ev.type === 'attack') {
-        sfx('hit'); cam.shake = ev.damage >= 10 ? 1 : 0.5;
-        fxLight.position.copy(t.root.position).add(new V3(0, 0.6, 0)); fxLight.intensity = 3; tween(400, (k) => { fxLight.intensity = 3 * (1 - k); });
-        burst(t.root.position.clone().add(new V3(0, 0.5, 0)), [0xff5a3a, 0xffb060, 0xff2a1a], 18, 2.2, 0.22, 0.5, 3);
-        floatText(t.root.position, '−' + ev.damage, 'dmg');
-        flash(t, 0xff2a10); await shake(t);
-        line += `hit for ${ev.damage}` + (ev.killed ? `. The ${TC.unit(tp).name.toLowerCase()} falls!` : ` (${tp.hp} HP left).`);
-        if (ev.killed) await topple(t);
-      } else {
-        sfx('place'); floatText(t.root.position, ev.options.length ? 'Caught!' : 'No room', 'info');
-        line += ev.options.length ? 'caught!' : 'caught, but there is no room to move it.';
-        flash(t, 0xf0c040);
+      const v = views.get(ev.piece), p = anyPiece(ev.piece);
+      const re = (at, kind) => ev.reactions.filter((r) => r.at === at && r.ev.kind === kind);
+      v.anim = true;
+      let dead = false;
+      for (const r of re(-1, 'opportunity')) { await showStrike(r.ev, { fast }); if (r.ev.killed) dead = true; }
+      for (let i = 0; i < ev.path.length && !dead; i++) {
+        await hopStep(v, ev.path[i][0], ev.path[i][1]);
+        for (const r of [...re(i, 'overwatch'), ...re(i, 'opportunity')]) { await showStrike(r.ev, { fast }); if (r.ev.killed) dead = true; }
       }
-      log(line, ap.side);
-      await wait(250 * fast);
-      if (!S.pending) lookBack();
+      v.anim = false;
+      log(`${pName(p)} moves ${sqName(ev.from.x, ev.from.y)} → ${sqName(p.x, p.y)}${ev.died ? ', and falls on the way' : ''}.`, p.side);
+      lookBack();
       if (ev.winner) await gameOver();
+    } else if (ev.type === 'stay') {
+      const p = anyPiece(ev.piece); log(`${pName(p)} holds its ground.`, p.side);
+    } else if (ev.type === 'strike') {
+      await showStrike(ev, { fast });
+      lookBack();
+      if (ev.winner) await gameOver();
+    } else if (ev.type === 'sweep') {
+      const a = views.get(ev.piece);
+      await tween(360, (k) => { a.spin.rotation.y = a.ang + k * Math.PI * 2; }, ease.inOut);
+      for (const s of ev.strikes) await showStrike(s, { fast: 0.7 });
+      lookBack();
+      if (ev.winner) await gameOver();
+    } else if (ev.type === 'rally') {
+      const a = views.get(ev.piece), p = anyPiece(ev.piece);
+      sfx('turn'); floatText(a.root.position, 'Rally!', 'info');
+      burst(a.root.position.clone().add(new V3(0, 0.8, 0)), [0xffd070, 0xfff0b0], 24, 1.6, 0.3, 0.9);
+      for (const h of ev.healed) { const v = views.get(h.id); if (v) { floatText(v.root.position, '+' + h.amount, 'heal'); flash(v, 0x60ff90); } }
+      for (const id of ev.unpinned) { const v = views.get(id); if (v) floatText(v.root.position, 'Free!', 'info'); }
+      log(`${pName(p)} rallies: ${ev.healed.length ? ev.healed.length + ' healed' : 'no one hurt'}${ev.unpinned.length ? ', ' + ev.unpinned.length + ' freed' : ''}.`, p.side);
+      await wait(700);
+    } else if (ev.type === 'push') {
+      const a = views.get(ev.piece), t = views.get(ev.target), ap = anyPiece(ev.piece), tp = anyPiece(ev.target);
+      lookAtFight(a.root.position, t.root.position);
+      if (!ev.auto) {
+        rollReadout('Push', `<span>needs ${ev.need}+</span>`);
+        await throwDice(ev.dice, ap.side, t.root.position);
+        rollReadout('Push', `<b>${ev.dice[0]} + ${ev.dice[1]} = ${ev.total}</b><span>vs ${ev.need}+</span>` + (ev.hit ? '<em class="grab">SHOVED</em>' : '<em class="miss">HELD</em>'));
+      } else rollReadout('Push · braced', '<em class="grab">SURE</em>');
+      if (ev.steps) {
+        a.anim = t.anim = true; sfx('hit');
+        const af = cellPos(ev.pawnFrom.x, ev.pawnFrom.y), at = cellPos(ev.pawnTo.x, ev.pawnTo.y), tf = cellPos(ev.from.x, ev.from.y), tt = cellPos(ev.to.x, ev.to.y);
+        await tween(260 + ev.steps * 140, (k) => { a.root.position.lerpVectors(af, at, k); t.root.position.lerpVectors(tf, tt, k); t.fig.position.y = Math.abs(Math.sin(k * Math.PI * ev.steps)) * 0.08; });
+        t.fig.position.y = 0; a.x = ev.pawnTo.x; a.y = ev.pawnTo.y; t.x = ev.to.x; t.y = ev.to.y; a.anim = t.anim = false;
+        cam.shake = 0.4; floatText(t.root.position, ev.steps > 1 ? 'Pushed 2!' : 'Pushed!', 'info');
+      } else { await lunge(a, t.root.position); floatText(t.root.position, 'Held', 'miss'); sfx('miss'); }
+      log(`${pName(ap)} pushes ${pName(tp)}${ev.auto ? ', braced by an ally' : `: ${ev.dice[0]}+${ev.dice[1]}=${ev.total} vs ${ev.need}+`}, ${ev.steps ? `${ev.steps} square${ev.steps > 1 ? 's' : ''} back.` : 'but it holds.'}`, ap.side);
+      lookBack();
+    } else if (ev.type === 'grapple') {
+      const a = views.get(ev.piece), t = views.get(ev.target), ap = anyPiece(ev.piece), tp = anyPiece(ev.target);
+      lookAtFight(a.root.position, t.root.position);
+      await lookToward(a, t.x, t.y, 110);
+      rollReadout('Grapple', `<span>needs ${ev.need}+</span>`);
+      await throwDice(ev.dice, ap.side, t.root.position);
+      rollReadout('Grapple', `<b>${ev.dice[0]} + ${ev.dice[1]} = ${ev.total}</b><span>vs ${ev.need}+</span>` + (ev.hit ? '<em class="grab">CAUGHT</em>' : '<em class="miss">MISS</em>'));
+      await lunge(a, t.root.position);
+      if (ev.hit) { sfx('place'); floatText(t.root.position, ev.options.length ? 'Caught!' : 'No room', 'info'); flash(t, 0xf0c040); }
+      else { sfx('miss'); floatText(t.root.position, 'Miss', 'miss'); }
+      log(`${pName(ap)} grapples ${pName(tp)}: ${ev.dice[0]}+${ev.dice[1]}=${ev.total} vs ${ev.need}+, ${ev.hit ? (ev.options.length ? 'caught!' : 'caught, but there is no room.') : 'miss.'}`, ap.side);
+      if (!S.pending) lookBack();
     } else if (ev.type === 'shove') {
       const t = views.get(ev.target), tp = TC.piece(S, ev.target);
       if (ev.moved) {
@@ -545,11 +656,13 @@
         log(`${pName(tp)} is dragged ${sqName(ev.from.x, ev.from.y)} → ${sqName(ev.to.x, ev.to.y)}.`, TC.other(tp.side));
       }
       lookBack();
+    } else if (ev.type === 'wait') {
+      const p = anyPiece(ev.piece); log(`${pName(p)} waits.`, p.side);
     } else if (ev.type === 'face') {
       const v = views.get(ev.piece); if (v) await turnTo(v, ev.facing, 140);
     } else if (ev.type === 'facing') {
       clearDice();
-      if (!UI.ai[S.turn]) { sfx('turn'); banner('Set facing'); }
+      if (!UI.ai[S.turn]) { sfx('turn'); banner('Facing'); }
     } else if (ev.type === 'turn') {
       log(`Turn ${ev.turnNo}: ${cap(ev.side)}`, 'hdr');
       if (!UI.ai[ev.side] && !UI.ai[TC.other(ev.side)]) faceSide(ev.side);
@@ -570,6 +683,7 @@
   }
 
   // Runs one rules order and shows it. Errors from the rules come back as a word on the info line.
+  // Once the piece has acted, the turn goes straight on to its facing.
   async function order(fn) {
     if (UI.busy) return null;
     UI.busy = true; UI.aim = null; refresh();
@@ -577,9 +691,11 @@
     try {
       ev = fn(); await show(ev);
       const a = S.active != null ? TC.piece(S, S.active) : null;
-      if (S.phase === 'play' && !S.pending && a && a.acted && !UI.ai[S.turn]) { await wait(250); await show(TC.endTurn(S)); }
-    }
-    catch (e) { say(e.message); sfx('no'); }
+      if (S.phase === 'play' && !S.pending && !UI.ai[S.turn]) {
+        if (S.active != null && !a) { await wait(400); TC.endTurn(S); await show(TC.confirmFacing(S)); }   // it fell on its way
+        else if (a && a.acted) { await wait(250); await show(TC.endTurn(S)); }
+      }
+    } catch (e) { say(e.message); sfx('no'); }
     finally { UI.busy = false; }
     sync(); refresh();
     runAI();
@@ -601,7 +717,8 @@
       }
       while ((S.phase === 'play' || S.phase === 'facing') && UI.ai[S.turn]) {
         const o = TC.aiNext(S);
-        await wait(o.type === 'face' ? 40 : 280);
+        if (o.id != null && o.type !== 'face') { UI.sel = o.id; refreshHL(); }
+        await wait(o.type === 'face' ? 40 : o.type === 'move' || o.type === 'stay' ? 380 : 240);
         const ev = TC.apply(S, o);
         if (o.type === 'end') log(`${cap(S.turn)} ends the turn.`, S.turn);
         await show(ev, { ai: true });
@@ -625,30 +742,36 @@
   const humanTurn = () => S && S.phase !== 'over' && !UI.ai[activeSide()] && !UI.busy;
   const selPiece = () => (UI.sel != null ? TC.piece(S, UI.sel) : null);
   const myPiece = () => { const p = selPiece(); return p && p.side === activeSide() && humanTurn() ? p : null; };
-  const canStrike = (p) => TC.alive(S, TC.other(p.side)).some((e) => TC.actionInfo(S, p.id, e.id, 'attack') || TC.actionInfo(S, p.id, e.id, 'grapple'));
-  const hasWork = (p) => !p.acted && (!p.moved || canStrike(p));
+  const step = () => (S.phase === 'facing' ? 'facing' : S.phase === 'play' ? S.step : S.phase);
 
-  // On your turn a piece is always picked: the one you chose, or else the next that can still do something, front first.
+  // A piece is always picked on your turn: in the move phase the one you chose (front first to begin with); after that,
+  // the piece that took the turn.
   function autoSelect() {
     if (!S || (S.phase !== 'play' && S.phase !== 'facing') || S.pending || UI.ai[S.turn]) return;
-    // one piece a turn: once a piece has taken the turn, it stays picked
-    if (S.active != null && TC.piece(S, S.active)) { UI.sel = S.active; return; }
-    if (S.phase === 'facing') return;
-    const p = selPiece();
-    if (p && p.side === S.turn && (hasWork(p) || (UI.picked === p.id && !p.acted))) return;
-    const ready = TC.alive(S, S.turn).filter(hasWork).sort((a, b) => (S.turn === 'white' ? a.y - b.y : b.y - a.y) || a.x - b.x);
-    UI.sel = ready.length ? ready[0].id : null; UI.picked = null;
-    const q = selPiece(); if (q && !TC.unit(q).grapple && UI.mode === 'grapple') UI.mode = 'attack';
+    if (S.active != null && TC.piece(S, S.active)) { UI.sel = S.active; }
+    else if (S.phase === 'play') {
+      const p = selPiece();
+      if (!p || p.side !== S.turn) {
+        const list = TC.alive(S, S.turn).sort((a, b) => (S.turn === 'white' ? a.y - b.y : b.y - a.y) || Math.abs(a.x - 3.5) - Math.abs(b.x - 3.5));
+        UI.sel = list.length ? list[0].id : null;
+      }
+    }
+    const q = selPiece();
+    if (q && q.side === S.turn && !TC.unit(q).actions.includes(UI.act)) UI.act = TC.unit(q).actions[0];
   }
 
-  // The foes the selected piece can strike with the chosen action, and from where.
+  // What the chosen action can reach from where the piece stands.
   function targets() {
     const p = myPiece(), out = new Map();
-    if (!p || S.phase !== 'play' || p.acted || S.pending) return out;
-    for (const e of TC.alive(S, TC.other(p.side))) {
-      const b = TC.bestApproach(S, p.id, e.id, UI.mode);
-      if (b) out.set(e.id, b);
-    }
+    if (!p || S.phase !== 'play' || S.step !== 'action' || p.acted || S.pending) return out;
+    for (const t of TC.targetsFor(S, p.id, UI.act)) out.set(t.target, t.info);
+    return out;
+  }
+  // The move phase: each square the piece could go to, with its path and the free attacks it would draw.
+  function moves() {
+    const p = myPiece(), out = new Map();
+    if (!p || S.phase !== 'play' || S.step !== 'move' || S.pending) return out;
+    for (const r of TC.reachable(S, p.id).values()) if (r.dist) out.set(r.x + ',' + r.y, { ...r, reactions: TC.reactionsFor(S, p, r.path) });
     return out;
   }
 
@@ -657,18 +780,19 @@
     hls.forEach((m) => { m.visible = false; });
     faceArrows.forEach((m) => { m.visible = false; });
     for (const v of views.values()) {
-      const p = TC.piece(S, v.id);
-      v.mark.material.opacity = p && S.phase === 'play' && p.side === S.turn && p.acted ? 0.45 : 0.95;
       v.mark.material.color.setHex(UI.sel === v.id ? 0xffffff : SIDE_LOOK[v.side].mark);
       v.mark.scale.setScalar(UI.sel === v.id ? 1.12 : 1);
+      const fc = v.tag.querySelector('.fc'); fc.classList.remove('on', 'focus');
     }
-    for (const v of views.values()) v.tag.querySelector('.fc').classList.remove('on', 'focus');
     if (!S || S.phase === 'over') return;
     const side = activeSide();
     if (S.phase === 'setup' && side && !UI.ai[side]) {
       for (const y of TC.setupRows(S, side)) for (let x = 0; x < N; x++) if (!TC.pieceAt(S, x, y)) setHL(x, y, UI.hover && UI.hover.x === x && UI.hover.y === y ? 'zonehot' : 'zone');
     }
     if (S.phase === 'play' && S.pending) { for (const c of S.pending.options) setHL(c.x, c.y, 'shove'); return; }
+    // the zone of the foe in focus: where it strikes at anything leaving (pawn, rook) or entering (bishop)
+    const f = UI.focus != null ? TC.piece(S, UI.focus) : null;
+    if (f && S.phase === 'play' && !UI.busy) for (const [x, y] of TC.zoneSquares(S, f)) setHL(x, y, 'zoneE');
     const p = selPiece();
     if (p && !(S.phase === 'setup' && UI.hide === p.side)) setHL(p.x, p.y, 'sel');
     if (UI.busy) return;
@@ -681,18 +805,37 @@
       });
     }
     if (S.phase !== 'play' || !mine) return;
-    if (!mine.moved) for (const r of TC.reachable(S, mine.id).values()) if (r.dist > 0) setHL(r.x, r.y, UI.hover && UI.hover.x === r.x && UI.hover.y === r.y ? 'movehot' : 'move');
-    if (UI.aim) for (const [x, y] of UI.aim.path) setHL(x, y, 'path');
-    for (const [id, b] of targets()) {
+    if (S.step === 'move') {
+      for (const r of moves().values()) {
+        const hot = (UI.hover && UI.hover.x === r.x && UI.hover.y === r.y);
+        setHL(r.x, r.y, r.reactions.length ? (hot ? 'riskhot' : 'risk') : hot ? 'movehot' : 'move');
+      }
+      if (UI.aim && UI.aim.kind === 'move') {
+        for (const [x, y] of UI.aim.path) setHL(x, y, 'path');
+        setHL(UI.aim.x, UI.aim.y, 'dest');
+        for (const re of UI.aim.reactions) { const q = TC.piece(S, re.reactor); if (q) setHL(q.x, q.y, 'aim'); }
+      }
+      return;
+    }
+    // the action phase
+    const T = targets();
+    if (UI.act === 'rally') {
+      for (const q of TC.alive(S, mine.side)) if (q !== mine && Math.max(Math.abs(q.x - mine.x), Math.abs(q.y - mine.y)) <= ACT.rally.range) setHL(q.x, q.y, 'ally');
+      return;
+    }
+    if (UI.act === 'sweep') {
+      const t = T.get(null); if (t) for (const id of t.foes) { const e = TC.piece(S, id); setHL(e.x, e.y, 'aim'); }
+      return;
+    }
+    for (const [id, i] of T) {
       const e = TC.piece(S, id), v = views.get(id);
       setHL(e.x, e.y, UI.aim && UI.aim.target === id ? 'aim' : 'target');
-      const fc = v.tag.querySelector('.fc'), i = b.info;
-      const where = i.angle === 'behind' ? 'back' : i.angle;
-      // narrow screens: just the damage and the odds; the side struck shows for the foe in focus
+      const fc = v.tag.querySelector('.fc');
       const full = innerWidth >= 700 || UI.focus === id || (UI.aim && UI.aim.target === id);
-      const html = (i.kind === 'attack' ? `<b>−${i.damage}</b>` : '<b>Grab</b>') + `<i>${full ? where + ' ' : ''}${pct(i.chance)}</i>` + (i.kind === 'attack' && i.damage >= e.hp ? '<i>· kill</i>' : '');
+      const head = i.damage ? `<b>−${i.damage}</b>` : `<b>${UI.act === 'pin' ? 'Pin' : UI.act === 'push' ? 'Push' : 'Grab'}</b>`;
+      const html = head + `<i>${full && i.angle ? sideWord(i.angle) + ' ' : ''}${pct(i.chance)}</i>` + (i.damage && i.damage >= e.hp ? '<i>· kill</i>' : '');
       if (fc._k !== html) { fc._k = html; fc.innerHTML = html; }
-      fc.classList.add('on'); fc.classList.toggle('grab', i.kind === 'grapple');
+      fc.classList.add('on'); fc.classList.toggle('grab', !i.damage);
       fc.classList.toggle('focus', UI.focus === id || (UI.aim && UI.aim.target === id));
     }
   }
@@ -700,7 +843,13 @@
   // ---------------- the dock ----------------
   const ICON = {
     attack: '<path d="M19 4l-9 9"/><path d="M19 4h-4M19 4v4"/><path d="M7.5 10.5l6 6"/><path d="M10 14l-5 5"/><path d="M4 18l2 2"/>',
+    shoot: '<path d="M5 19L19 5"/><path d="M13 5h6v6"/><path d="M5 19l1.5-4M5 19l4-1.5"/><path d="M4 9c2-4 7-6 11-5M9 20c5 1 9-4 11-11"/>',
+    push: '<path d="M3 12h11"/><path d="M10 7l5 5-5 5"/><path d="M19 4v16"/>',
     grapple: '<path d="M8 12V6.5a1.5 1.5 0 0 1 3 0V11M11 10.5V5a1.5 1.5 0 0 1 3 0v5.5M14 10.5V6.5a1.5 1.5 0 0 1 3 0V12M17 11.5V10a1.5 1.5 0 0 1 3 0v3.5c0 4-3 7-7 7-3 0-5-1.5-6.5-4L4 12.5a1.5 1.5 0 0 1 2.6-1.5L8 13"/>',
+    pin: '<path d="M12 3v11"/><path d="M8 3h8"/><path d="M9 14h6l-3 7z"/><path d="M5 21h14"/>',
+    sweep: '<path d="M4 15a8 8 0 0 1 15-4"/><path d="M15 11h4V7"/><circle cx="12" cy="16" r="2" class="f"/>',
+    rally: '<path d="M6 21V4"/><path d="M6 4h12l-3 4 3 4H6"/>',
+    stay: '<circle cx="12" cy="12" r="3" class="f"/><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/>',
     wait: '<path d="M7 3h10M7 21h10"/><path d="M8 3c0 5 8 5 8 9s-8 4-8 9M16 3c0 5-8 5-8 9s8 4 8 9"/>',
     undo: '<path d="M9 7L4 12l5 5"/><path d="M4 12h10a5 5 0 0 1 0 10h-2"/>',
     next: '<path d="M5 12h12"/><path d="M13 7l5 5-5 5"/><circle cx="5" cy="12" r="1.5" class="f"/>',
@@ -708,12 +857,17 @@
     right: '<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4h-4"/>',
     foes: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2" class="f"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
     king: '<path d="M11 2h2v2h2v2h-2v2.5h-2V6H9V4h2z" class="f"/><path d="M8 10c2.5-1.5 5.5-1.5 8 0l-1.5 8h-5z"/><path d="M6 21h12M7 18h10"/>',
+    queen: '<path d="M5 8l2 9h10l2-9-4 4-3-6-3 6z"/><path d="M6 21h12"/><circle cx="12" cy="4.5" r="1.3" class="f"/>',
+    rook: '<path d="M6 4h2.5v2h2V4h3v2h2V4H18v4l-2 2v7h2v4H6v-4h2v-7L6 8z"/>',
+    bishop: '<path d="M12 3c3 3 4 6 2 9h-4c-2-3-1-6 2-9z"/><path d="M9 12h6l1 6H8z"/><path d="M6 21h12"/>',
+    knight: '<path d="M7 21h10l-1.5-6c2-1.5 2.5-4 1-7L13 4l-1.5 2L8 9l-1.5 4 2 1 3-2.5L7 21z"/>',
     pawn: '<circle cx="12" cy="6.5" r="3"/><path d="M9.5 10.5h5l-.8 2c1.6 1.8 2.3 3.6 2.6 5.5H7.7c.3-1.9 1-3.7 2.6-5.5z"/><path d="M6 21h12"/>',
     remove: '<path d="M6 6l12 12M18 6L6 18"/>',
     auto: '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/>',
     clear: '<path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/>',
   };
-  const HUE = { attack: 4, grapple: 38, wait: 210, undo: 260, next: 160, left: 200, right: 200, foes: 0, king: 42, pawn: 30, remove: 0, auto: 120, clear: 20 };
+  const HUE = { attack: 4, shoot: 100, push: 25, grapple: 38, pin: 215, sweep: 330, rally: 48, stay: 180, wait: 210, undo: 260, next: 160, left: 200, right: 200, foes: 0, king: 42, queen: 300, rook: 20, bishop: 120, knight: 260, pawn: 30, remove: 0, auto: 120, clear: 20 };
+  const PIECES = ['king', 'queen', 'rook', 'bishop', 'knight', 'pawn'];
   let hotActions = [];
   function hotButton(spec, i) {
     const b = document.createElement('button');
@@ -732,20 +886,18 @@
   }
 
   let sayMsg = null, sayT = 0;
-  function say(msg) { sayMsg = msg; clearTimeout(sayT); sayT = setTimeout(() => { sayMsg = null; renderDock(); }, 2600); renderDock(); }
+  function say(msg) { sayMsg = msg; clearTimeout(sayT); sayT = setTimeout(() => { sayMsg = null; renderDock(); }, 2800); renderDock(); }
 
+  const pieceIcon = (p) => `<span class="ubadge ${p.side}"><span><svg viewBox="0 0 24 24" style="stroke:#e3d6b9;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round">${ICON[p.type]}</svg></span></span>`;
   function renderTop() {
-    const p = selPiece() || (UI.focus != null ? TC.piece(S, UI.focus) : null);
+    const p = (UI.focus != null ? TC.piece(S, UI.focus) : null) || selPiece();
     const who = $('#uwho');
     if (p && !(S.phase === 'setup' && UI.hide === p.side)) {
       const u = TC.unit(p);
-      const st = S.phase === 'play' && p.side === S.turn ? (p.acted ? 'done' : p.moved ? 'can act' : 'move · act') : `faces ${TC.DIR_NAMES[p.facing]}`;
+      const st = p.pinned ? 'pinned' : u.role;
       who.className = 'uwho ' + p.side;
-      who.innerHTML = `<span class="ubadge ${p.side}"><span><svg viewBox="0 0 24 24" style="stroke:#e3d6b9;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round">${ICON[p.type]}</svg></span></span><span class="nm">${cap(p.side)} ${u.name}</span><span class="hpw"><span class="hpn"><i>${p.hp}</i>/${u.hp}</span><span class="hpb"><i style="width:${p.hp / u.hp * 100}%"></i></span></span><span class="st">${st}</span>`;
-    } else {
-      who.className = 'uwho';
-      who.innerHTML = `<span class="nm">Tactics Chess</span>`;
-    }
+      who.innerHTML = `${pieceIcon(p)}<span class="nm">${cap(p.side)} ${u.name}</span><span class="hpw"><span class="hpn"><i>${p.hp}</i>/${u.hp}</span><span class="hpb"><i style="width:${p.hp / u.hp * 100}%"></i></span></span><span class="st">${st}</span>`;
+    } else { who.className = 'uwho'; who.innerHTML = `<span class="nm">Tactics Chess</span>`; }
     const side = activeSide();
     const tl = $('#turnLbl');
     tl.textContent = S.phase === 'setup' ? `Setup · ${cap(side || 'white')}` : S.phase === 'over' ? `${cap(S.winner)} wins` : `T${S.turnNo} · ${cap(S.turn)}`;
@@ -753,94 +905,121 @@
     $('#armies').innerHTML = TC.SIDES.map((s) => `<span class="tok ${s}${s === side ? ' on' : ''}" title="${cap(s)}: pieces left"><span>${TC.alive(S, s).length}</span></span>`).join('');
   }
 
+  // The three phases of a turn, with the current one lit.
+  function phases(now) {
+    return `<span class="phs">${['move', 'action', 'facing'].map((s, i) => `<i class="${s === now ? 'on' : ['move', 'action', 'facing'].indexOf(now) > i ? 'done' : ''}">${cap(s)}</i>`).join('<b>›</b>')}</span>`;
+  }
+
   function renderDock() {
     if (!S) return;
     renderTop();
     const info = $('#hbInfo'), bar = $('#hotbar'), end = $('#endBtn'), pill = $('#goPill');
     const side = activeSide(), p = myPiece();
-    let title = '', meta = '', text = '';
+    let title = '', meta = '', text = '', ph = '';
     hotActions = [];
     pill.hidden = !UI.aim || UI.busy;
+    pill.textContent = UI.aim && UI.aim.kind === 'move' ? 'Move here?' : 'Confirm?';
     end.classList.remove('go', 'pulse');
     $('#endLbl').textContent = 'End';
+    $('#bar').classList.remove('wrap');
     if (S.phase === 'over') {
       title = `${cap(S.winner)} wins`; text = 'Open the menu for a new game.'; end.disabled = true;
     } else if (UI.ai[side] || UI.busy) {
       title = UI.ai[side] ? `${cap(side)} is thinking` : ''; text = UI.ai[side] ? 'The computer is playing its turn.' : '';
       end.disabled = true;
-      if (UI.busy && !UI.ai[side]) { info.style.visibility = 'visible'; }
     } else if (S.phase === 'setup') {
       const left = TC.remaining(S, side);
       title = `${cap(side)} sets up`; meta = 'Back two rows';
-      for (const t of ['king', 'pawn']) if (S.army[t]) hotActions.push({ icon: t, label: cap(t), dv: '×' + left[t], sel: UI.setupType === t && !p, off: left[t] ? null : `Every ${t} is placed`, run: () => { UI.setupType = t; UI.sel = null; refresh(); } });
+      for (const t of PIECES) if (S.army[t]) hotActions.push({ icon: t, label: TC.RULES.units[t].name, dv: '×' + left[t], sel: UI.setupType === t && !p, off: left[t] ? null : `Every ${t} is placed`, run: () => { UI.setupType = t; UI.sel = null; refresh(); } });
       hotActions.push({ icon: 'remove', label: 'Remove', off: p ? null : 'Tap a placed piece first', run: () => { TC.unplace(S, p.id); UI.sel = null; sync(); refresh(); } });
       hotActions.push({ icon: 'auto', label: 'Auto', run: () => { TC.autoPlace(S, side); UI.sel = null; sfx('place'); sync(); refresh(); } });
       hotActions.push({ icon: 'clear', label: 'Clear', run: () => { TC.clearSide(S, side); UI.sel = null; sync(); refresh(); } });
+      $('#bar').classList.add('wrap');
       const done = Object.values(left).every((n) => n === 0);
       end.disabled = !done; $('#endLbl').textContent = 'Done'; end.classList.toggle('go', done); end.classList.toggle('pulse', done);
-      if (p) text = `<i>Tap an <b>arrow</b> round it to turn it, or tap an empty ember square to move it there.</i>`;
-      else if (!done) text = `<i>Tap an <b>ember square</b> to place a ${UI.setupType}. Tap a placed piece to move or turn it.</i>`;
+      if (p) text = `<b>${TC.unit(p).name}</b>: ${TC.unit(p).text} <i>Tap an <b>arrow</b> round it to turn it, or an empty ember square to move it.</i>`;
+      else if (!done) text = `<b>${TC.RULES.units[UI.setupType].name}</b>: ${TC.RULES.units[UI.setupType].text} <i>Tap an <b>ember square</b> to place one.</i>`;
       else text = `<i>All placed. Turn your pieces with the arrows, then tap <b>Done</b>.</i>`;
     } else if (S.phase === 'facing') {
-      title = 'Set facing'; meta = cap(S.turn);
+      ph = phases('facing');
       const sp = p;
+      title = sp ? TC.unit(sp).name : 'Facing';
       hotActions.push({ icon: 'left', label: 'Turn left', off: sp ? null : 'Tap one of your pieces first', run: () => face(sp, (sp.facing + 3) % 4) });
       hotActions.push({ icon: 'right', label: 'Turn right', off: sp ? null : 'Tap one of your pieces first', run: () => face(sp, (sp.facing + 1) % 4) });
       hotActions.push({ icon: 'foes', label: 'Face foe', off: sp ? null : 'Tap one of your pieces first', run: () => { const e = nearestFoe(sp); if (e) face(sp, dirTo(sp, e)); } });
       end.disabled = false; $('#endLbl').textContent = 'Done'; end.classList.add('go');
-      text = sp ? `<i>Tap an <b>arrow</b> round ${pName(sp).toLowerCase()} or swipe from it to turn it, then <b>Done</b>. Foes strike hardest from behind.</i>` : '<i>No piece took the turn. You may tap one piece to turn it, then tap <b>Done</b>.</i>';
-    } else if (S.phase === 'play') {
-      end.disabled = !!S.pending;
-      if (S.pending) { title = 'Grapple'; meta = 'Caught'; text = '<i>Tap a <b>yellow</b> square to drag the foe there.</i>'; hotActions.push({ icon: 'undo', label: 'Leave it', run: () => order(() => TC.resolveGrapple(S, null)) }); }
-      else if (p) {
-        const u = TC.unit(p), act = u.attack, gr = u.grapple;
-        const acted = p.acted ? 'This piece has acted' : null;
-        hotActions.push({ icon: 'attack', label: 'Attack', dv: act.target + '+', sel: UI.mode === 'attack' && !p.acted, off: acted, run: () => { UI.mode = 'attack'; UI.aim = null; refresh(); } });
-        hotActions.push({ icon: 'grapple', label: 'Grapple', dv: gr ? gr.target + '+' : null, sel: UI.mode === 'grapple' && !p.acted, off: acted || (gr ? null : `A ${u.name.toLowerCase()} cannot grapple`), run: () => { UI.mode = 'grapple'; UI.aim = null; refresh(); } });
-        hotActions.push({ icon: 'wait', label: 'Wait', off: acted, run: () => { UI.picked = null; order(() => TC.wait(S, p.id)); } });
-        hotActions.push({ icon: 'undo', label: 'Undo', off: p.moved && p.from && !p.acted ? null : 'Nothing to undo: a move can be taken back until the piece rolls', run: () => order(() => TC.undoMove(S, p.id)) });
-        hotActions.push({ icon: 'next', label: 'Next', off: S.active != null ? 'One piece a turn: undo the move to pick another' : null, run: () => cycle(1) });
-        if (UI.mode === 'attack') {
-          const d = act.damage;
-          title = 'Attack'; meta = `Action · ${act.target}+ on 2d6 · ${pct(TC.chance2d6(act.target))}`;
-          text = `${d.front == null ? 'Flank 5, back 10. Not the front.' : `Front ${d.front}, flank ${d.flank}, back ${d.behind}.`}`;
-        } else { title = 'Grapple'; meta = `Action · ${gr.target}+ on 2d6 · ${pct(TC.chance2d6(gr.target))}`; text = 'Catch a foe and drag it one square.'; }
-        const n = targets().size;
-        let hint;
-        if (p.acted) hint = 'Tap <b>End</b>.';
-        else if (UI.aim) hint = 'Tap <b>Confirm?</b> or the foe again to go.';
-        else if (!p.moved && n) hint = 'One piece a turn: tap a <b>pale</b> square to move, or a <b>red</b> foe to strike. Tap another piece to use it instead.';
-        else if (!p.moved) hint = 'One piece a turn: tap a <b>pale</b> square to move it, or tap another piece to use it instead.';
-        else if (n) hint = 'Tap a <b>red</b> foe to strike, or <b>End</b> to stop here.';
-        else { hint = 'No foe in reach: tap <b>End</b> to set its facing.'; end.classList.add('pulse'); }
-        const fl = focusLine();
-        text = fl || `${text} <i>${hint}</i>`;
-      } else {
-        title = `${cap(S.turn)}'s turn`; text = '<i>Tap one of your pieces, or <b>End</b> to pass.</i>';
-        hotActions.push({ icon: 'next', label: 'Next', run: () => cycle(1) });
-        end.classList.add('pulse');
+      const zone = sp && TC.unit(sp).zoc === 'opportunity' ? ' Its <b>zone</b> is the three squares ahead.' : sp && TC.unit(sp).zoc === 'overwatch' ? ' It <b>overwatches</b> the three lines ahead.' : '';
+      text = sp ? `<i>Tap an <b>arrow</b> round it or swipe from it to turn it, then <b>Done</b>. Foes strike hardest from behind.${zone}</i>` : '<i>No piece took the turn. You may tap one piece to turn it, then tap <b>Done</b>.</i>';
+    } else if (S.phase === 'play' && S.pending) {
+      ph = phases('action'); title = 'Grapple'; meta = 'Caught'; text = '<i>Tap a <b>yellow</b> square to drag the foe there.</i>';
+      hotActions.push({ icon: 'undo', label: 'Leave it', run: () => order(() => TC.resolveGrapple(S, null)) });
+      end.disabled = true;
+    } else if (S.phase === 'play' && p && S.step === 'move') {
+      ph = phases('move');
+      const u = TC.unit(p);
+      title = u.name; meta = u.role;
+      hotActions.push({ icon: 'stay', label: 'Stay', off: S.active != null && S.active !== p.id ? 'Another piece took the turn' : null, run: () => { UI.aim = null; order(() => TC.stay(S, p.id)); } });
+      hotActions.push({ icon: 'next', label: 'Next', run: () => cycle(1) });
+      end.disabled = false;
+      const m = moves(), risky = [...m.values()].some((r) => r.reactions.length);
+      let hint;
+      if (p.pinned) hint = 'It is <b>pinned</b>: it cannot move this turn. Tap <b>Stay</b> to act from here, or pick another piece.';
+      else if (UI.aim && UI.aim.kind === 'move') hint = UI.aim.reactions.length ? `<b>Careful:</b> ${UI.aim.reactions.map((r) => `${pName(TC.piece(S, r.reactor))} gets a free ${r.kind === 'overwatch' ? 'shot' : 'attack'}`).join('; ')}. Tap <b>Move here?</b> to go anyway.` : 'Tap <b>Move here?</b> (or the square again) to go, anywhere else to choose again.';
+      else hint = `Tap a <b>blue</b> square, then confirm.${risky ? ' <b>Amber</b> squares draw a free attack.' : ''} Or <b>Stay</b> to act from here. Tap another piece to use it instead.`;
+      text = `${u.text} <i>${hint}</i>`;
+    } else if (S.phase === 'play' && p && S.step === 'action') {
+      ph = phases('action');
+      const u = TC.unit(p);
+      for (const a of u.actions) {
+        const any = a === 'rally' || TC.targetsFor(S, p.id, a).length > 0;
+        const need = a === 'attack' ? u.attack.need : a === 'shoot' ? u.shoot.need : ACT[a].need;
+        hotActions.push({ icon: a, label: actName(a), dv: need ? need + '+' : null, sel: UI.act === a, run: () => { UI.act = a; UI.aim = null; refresh(); if (!any) say(`Nothing to ${actName(a).toLowerCase()} from here`); } });
       }
+      hotActions.push({ icon: 'wait', label: 'Skip', run: () => { UI.aim = null; order(() => TC.wait(S, p.id)); } });
+      const canUndo = !p.acted && (p.from || !p.movedDist);
+      hotActions.push({ icon: 'undo', label: 'Undo', off: canUndo ? null : 'A move that drew a free attack cannot be taken back', run: () => { UI.aim = null; order(() => TC.undoMove(S, p.id)); } });
+      title = actName(UI.act);
+      const need = UI.act === 'attack' ? u.attack.need : UI.act === 'shoot' ? u.shoot.need : ACT[UI.act].need;
+      meta = need ? `${need}+ on 2d6 · ${pct(TC.chance2d6(need))}${UI.act === 'push' ? ' · sure when braced' : ''}` : 'Sure';
+      const T = targets();
+      let hint;
+      if (UI.act === 'rally' || UI.act === 'sweep') hint = UI.aim ? 'Tap <b>Confirm?</b> to go.' : UI.act === 'sweep' && !T.size ? 'No foe round her.' : `Tap <b>${actName(UI.act)}</b> again, or Confirm, to go.`;
+      else if (UI.aim) hint = 'Tap <b>Confirm?</b> or the foe again to go.';
+      else if (T.size) hint = `Tap a <b>red</b> foe. Or <b>Skip</b>, and set its facing.`;
+      else hint = `Nothing in reach for ${actName(UI.act).toLowerCase()}. Try another action, or <b>Skip</b>.`;
+      let desc = ACT[UI.act].text;
+      if (UI.act === 'attack') desc = `${u.attack.dmg} damage, ${u.attack.dmg * 2} to the back.${u.attack.front === 'ranged' ? ' Not the front of a melee foe.' : ''}${u.charge ? ` +${TC.RULES.chargeBonus} after riding ${TC.RULES.chargeDist}+ squares.` : ''}${u.reach8 ? ' Diagonals too.' : ''}`;
+      if (UI.act === 'shoot') desc = `${u.shoot.dmg} damage (${u.shoot.dmg * 2} to the back), first foe along any line up to ${u.shoot.range}, over friends. Cover +${TC.RULES.coverBonus}.`;
+      const fl = focusLine();
+      text = fl || `${desc} <i>${hint}</i>`;
+      if (UI.act === 'rally' || UI.act === 'sweep') { const b = hotActions.find((h) => h.icon === UI.act); if (b) { const run = b.run; b.run = () => { if (UI.act === b.icon && !UI.aim) { UI.aim = { kind: UI.act }; refresh(); } else if (UI.aim && UI.aim.kind === b.icon) doAct(UI.aim); else run(); }; } }
+      end.disabled = false;
+    } else if (S.phase === 'play') {
+      title = `${cap(S.turn)}'s turn`; text = '<i>Tap one of your pieces, or <b>End</b> to pass.</i>';
+      hotActions.push({ icon: 'next', label: 'Next', run: () => cycle(1) });
     }
     if (sayMsg) text = `<em class="bl">${sayMsg}.</em> ` + text;
-    info.innerHTML = `<div class="tx"><b>${title}</b><span class="mt">${meta}</span></div><div class="tx2">${text}</div>`;
+    info.innerHTML = `<div class="tx"><b>${title}</b><span class="mt">${meta}</span>${ph}</div><div class="tx2">${text}</div>`;
     bar.innerHTML = '';
     hotActions.forEach((s, i) => bar.appendChild(hotButton(s, i)));
     $('#bar').classList.toggle('labels', hotActions.length > 0);
   }
   function focusLine() {
-    const id = UI.aim ? UI.aim.target : UI.focus; if (id == null) return '';
-    const b = targets().get(id), e = TC.piece(S, id); if (!b || !e) return '';
-    const i = b.info, where = i.angle === 'behind' ? 'back' : i.angle;
-    return `<b>${pName(e)}</b>: ${b.dist ? `walk ${b.dist}, ` : ''}strike its <b>${where}</b> · ${i.target}+ (${pct(i.chance)})${i.kind === 'attack' ? ` for <b>${i.damage}</b>${i.damage >= e.hp ? ' · it dies on a hit' : ''}` : ' to drag it'}.`;
+    const id = UI.aim && UI.aim.target != null ? UI.aim.target : UI.focus; if (id == null) return '';
+    const i = targets().get(id), e = TC.piece(S, id); if (!i || !e) return '';
+    const notes = i.notes && i.notes.length ? ` (${i.notes.join(', ')})` : '';
+    const what = UI.act === 'pin' ? 'to pin it for a turn' : UI.act === 'push' ? (i.auto ? 'sure, braced by your ally: shove it up to 2 back' : 'to shove it back a square') : UI.act === 'grapple' ? 'to drag it a square' : `for <b>${i.damage}</b>${i.damage >= e.hp ? ' · it dies on a hit' : ''}`;
+    return `<b>${pName(e)}</b>${i.angle ? `: its <b>${sideWord(i.angle)}</b>` : ''} · ${i.auto ? '' : `${i.need}+ (${pct(i.chance)}) `}${what}${notes}.`;
   }
 
   function refresh() { autoSelect(); refreshHL(); renderDock(); }
 
   function cycle(dir) {
-    const side = activeSide(), list = TC.alive(S, side).filter((q) => S.phase !== 'play' || !q.acted).sort((a, b) => (side === 'white' ? a.y - b.y : b.y - a.y) || a.x - b.x);
+    if (S.active != null) { say('Another piece took the turn'); return; }
+    const side = activeSide(), list = TC.alive(S, side).sort((a, b) => (side === 'white' ? a.y - b.y : b.y - a.y) || a.x - b.x);
     if (!list.length) return;
     const i = list.findIndex((q) => q.id === UI.sel);
-    UI.sel = list[(i + dir + list.length) % list.length].id; UI.picked = UI.sel; UI.aim = null; refresh();
+    UI.sel = list[(i + dir + list.length) % list.length].id; UI.aim = null; UI.focus = null; refresh();
   }
   function nearestFoe(p) {
     let best = null, bd = Infinity;
@@ -852,6 +1031,11 @@
     if (!p) return;
     try { const ev = TC.setFacing(S, p.id, d); const v = views.get(p.id); if (v) turnTo(v, ev.facing, 140); sfx('pick'); } catch (e) { say(e.message); }
     refresh();
+  }
+  function doAct(aim) {
+    const p = myPiece(); if (!p) return;
+    UI.aim = null; UI.focus = null;
+    order(() => TC.act(S, p.id, aim.kind === 'act' ? aim.act : aim.kind, aim.target != null ? aim.target : null));
   }
 
   // ---------------- input ----------------
@@ -881,7 +1065,6 @@
     ac();
     const side = activeSide(), sel = myPiece();
     const q = h.piece != null ? TC.piece(S, h.piece) : h.cell ? TC.pieceAt(S, h.cell.x, h.cell.y) : null;
-    // the four facing arrows (setup and facing)
     if ((S.phase === 'setup' || S.phase === 'facing') && sel && h.piece == null) {
       const d = arrowHit(sel, h.ground);
       if (d != null) { face(sel, d); return; }
@@ -893,7 +1076,7 @@
           if (sel) { TC.relocate(S, sel.id, h.cell.x, h.cell.y); const v = views.get(sel.id); if (v) { v.anim = true; const from = v.root.position.clone(), to = cellPos(h.cell.x, h.cell.y); tween(200, (k) => { v.root.position.lerpVectors(from, to, k); v.fig.position.y = Math.sin(k * Math.PI) * 0.2; }).then(() => { v.fig.position.y = 0; v.x = h.cell.x; v.y = h.cell.y; v.anim = false; }); } UI.sel = null; }
           else {
             TC.place(S, side, UI.setupType, h.cell.x, h.cell.y);
-            if (!TC.remaining(S, side)[UI.setupType]) { const next = Object.entries(TC.remaining(S, side)).find(([, n]) => n > 0); if (next) UI.setupType = next[0]; }
+            if (!TC.remaining(S, side)[UI.setupType]) { const next = PIECES.find((t) => TC.remaining(S, side)[t] > 0); if (next) UI.setupType = next; }
           }
           sfx('place');
         } catch (e) { say(e.message); sfx('no'); }
@@ -905,7 +1088,6 @@
       if (q && q.side === S.turn) {
         if (S.active != null && S.active !== q.id) { say('Only the piece that took the turn can turn'); sfx('no'); refresh(); return; }
         if (UI.sel === q.id) face(q, (q.facing + 1) % 4); else { UI.sel = q.id; sfx('pick'); refresh(); }
-        return;
       }
       return;
     }
@@ -914,39 +1096,45 @@
       if (h.cell && S.pending.options.some((c) => c.x === h.cell.x && c.y === h.cell.y)) await order(() => TC.resolveGrapple(S, h.cell.x, h.cell.y));
       return;
     }
-    // a strike waiting on Confirm?: the same foe again goes; anything else cancels it and counts as a fresh tap
+    // something waiting on a confirm: the same square or foe again goes; anything else cancels it and counts afresh
     if (UI.aim) {
-      if (q && q.id === UI.aim.target) { await strike(UI.aim); return; }
+      const a = UI.aim;
+      if (a.kind === 'move' && h.cell && h.cell.x === a.x && h.cell.y === a.y && !q) { await go(a); return; }
+      if (a.kind === 'act' && q && q.id === a.target) { doAct(a); return; }
       UI.aim = null;
     }
     if (q && q.side === S.turn) {
       if (S.active != null && S.active !== q.id) { say('One piece a turn: undo the move to pick another'); sfx('no'); refresh(); return; }
-      UI.sel = q.id; UI.picked = q.id; UI.focus = null; sfx('pick'); refresh(); return;
+      UI.sel = q.id; UI.focus = null; sfx('pick'); refresh(); return;
     }
-    if (q && sel) {
-      const b = targets().get(q.id);
-      if (b) {
-        const aim = { target: q.id, x: b.x, y: b.y, kind: UI.mode, path: b.dist ? TC.reachable(S, sel.id).get(b.x + ',' + b.y).path : [] };
-        if (b.dist === 0) { await strike(aim); return; }
-        UI.aim = aim; UI.focus = q.id; sfx('pick'); refresh(); return;
+    if (q) {
+      // a foe: in the action phase, a target; otherwise, a look at it and its zone
+      if (sel && S.step === 'action') {
+        const i = targets().get(q.id);
+        if (i) { UI.aim = { kind: 'act', act: UI.act, target: q.id }; UI.focus = q.id; sfx('pick'); refresh(); return; }
+        UI.focus = q.id;
+        say(sel.acted ? 'This piece has acted' : explainNo(sel, q)); sfx('no'); refresh(); return;
       }
-      UI.focus = q.id; UI.sel = sel.id;
-      say(sel.acted ? 'This piece has acted' : UI.mode === 'attack' && TC.unit(sel).attack.damage.front == null ? `Out of reach, or it faces you: a ${TC.unit(sel).name.toLowerCase()} cannot strike a foe's front` : 'Out of reach');
-      sfx('no'); refresh(); return;
+      UI.focus = UI.focus === q.id ? null : q.id; refresh(); return;
     }
-    if (q) { UI.focus = q.id; refresh(); return; }
-    if (sel && h.cell && !sel.moved && TC.reachable(S, sel.id).has(h.cell.x + ',' + h.cell.y) && (h.cell.x !== sel.x || h.cell.y !== sel.y)) {
-      UI.focus = null; await order(() => TC.move(S, sel.id, h.cell.x, h.cell.y)); return;
+    UI.focus = null;
+    if (sel && S.step === 'move' && h.cell) {
+      const m = moves().get(h.cell.x + ',' + h.cell.y);
+      if (m) { UI.aim = { kind: 'move', x: m.x, y: m.y, path: m.path, reactions: m.reactions }; sfx('pick'); refresh(); return; }
     }
-    UI.focus = null; refresh();
+    refresh();
   }
-
-  async function strike(aim) {
+  function explainNo(p, t) {
+    const u = TC.unit(p);
+    if (UI.act === 'attack' && u.attack && u.attack.front === 'ranged' && TC.sideStruck(t, p.x, p.y) === 'front' && Math.abs(t.x - p.x) + Math.abs(t.y - p.y) === 1 && !TC.unit(t).ranged) return `A ${u.name.toLowerCase()} cannot attack the front of a melee foe`;
+    if (UI.act === 'push') return 'A push needs the foe right in front, with an empty square behind it';
+    if (UI.act === 'shoot' || UI.act === 'pin') return 'Not in a clear line within 4 squares';
+    return 'Out of reach from here';
+  }
+  async function go(aim) {
     const p = myPiece(); if (!p) return;
     UI.aim = null;
-    if (aim.x !== p.x || aim.y !== p.y) { const ev = await order(() => TC.move(S, p.id, aim.x, aim.y)); if (!ev) return; }
-    UI.picked = null; UI.focus = null;
-    await order(() => (aim.kind === 'attack' ? TC.attack(S, p.id, aim.target) : TC.grapple(S, p.id, aim.target)));
+    await order(() => TC.move(S, p.id, aim.x, aim.y));
   }
 
   // pointer: a tap; a drag from your piece (move it, or turn it while setting facing); a drag elsewhere turns the view
@@ -954,20 +1142,17 @@
   canvas.addEventListener('pointerdown', (e) => {
     if (!S) return;
     canvas.setPointerCapture(e.pointerId);
-    const h = pick(e.clientX, e.clientY);
-    down = { x: e.clientX, y: e.clientY, h, drag: null, az: cam.azT };
+    down = { x: e.clientX, y: e.clientY, h: pick(e.clientX, e.clientY), drag: null, az: cam.azT };
   });
   canvas.addEventListener('pointermove', (e) => {
     if (!S) return;
     if (!down) {
       if (e.pointerType !== 'mouse') return;
-      const h = pick(e.clientX, e.clientY), c = h.cell;
+      const c = pick(e.clientX, e.clientY).cell;
       const changed = (c && (!UI.hover || c.x !== UI.hover.x || c.y !== UI.hover.y)) || (!c && UI.hover);
       if (changed) {
         UI.hover = c;
-        const q = c ? TC.pieceAt(S, c.x, c.y) : null;
-        UI.focus = q && S.phase === 'play' && myPiece() && q.side !== S.turn ? q.id : UI.aim ? UI.aim.target : null;
-        if (!UI.busy) { refreshHL(); renderDock(); }
+        if (!UI.busy) { refreshHL(); }
       }
       return;
     }
@@ -976,20 +1161,18 @@
       const q = down.h.piece != null ? TC.piece(S, down.h.piece) : null;
       if (q && humanTurn() && q.side === activeSide()) {
         if (S.phase === 'facing' && (S.active == null || S.active === q.id)) down.drag = 'face';
-        else if (S.phase === 'setup' || (S.phase === 'play' && !S.pending && !q.moved && (S.active == null || S.active === q.id))) down.drag = 'piece';
+        else if (S.phase === 'setup' || (S.phase === 'play' && S.step === 'move' && !S.pending && (S.active == null || S.active === q.id))) down.drag = 'piece';
         else down.drag = 'view';
-        if (down.drag !== 'view') { UI.sel = q.id; UI.picked = q.id; UI.aim = null; refresh(); }
+        if (down.drag !== 'view') { UI.sel = q.id; UI.aim = null; refresh(); }
       } else down.drag = 'view';
     }
     if (down.drag === 'view') cam.azT = down.az - dx * 0.006;
     else if (down.drag === 'face') {
-      const p = selPiece(); const s = project(cellPos(p.x, p.y)), r = canvas.getBoundingClientRect();
-      const g = pick(e.clientX, e.clientY).ground; if (!g) return;
+      const p = selPiece(), g = pick(e.clientX, e.clientY).ground; if (!g || !p) return;
       const c = cellPos(p.x, p.y), d = Math.abs(g.x - c.x) > Math.abs(g.z - c.z) ? (g.x > c.x ? 1 : 3) : (g.z > c.z ? 2 : 0);
-      void s; void r;
       if (d !== p.facing) face(p, d);
     } else if (down.drag === 'piece') {
-      const h = pick(e.clientX, e.clientY); const c = h.cell;
+      const c = pick(e.clientX, e.clientY).cell;
       if (c && (!UI.hover || c.x !== UI.hover.x || c.y !== UI.hover.y)) { UI.hover = c; refreshHL(); }
     }
   });
@@ -999,12 +1182,11 @@
     if (!d.drag) { await tap(d.h); return; }
     if (d.drag === 'piece') {
       const h = pick(e.clientX, e.clientY); UI.hover = null;
-      const p = myPiece(); if (!p || !h.cell) { refresh(); return; }
-      if (h.cell.x === p.x && h.cell.y === p.y) { refresh(); return; }
+      const p = myPiece(); if (!p || !h.cell || (h.cell.x === p.x && h.cell.y === p.y)) { refresh(); return; }
       if (S.phase === 'setup') { UI.sel = p.id; await tap({ piece: null, cell: h.cell, ground: null }); return; }
-      const q = TC.pieceAt(S, h.cell.x, h.cell.y);
-      if (q && q.side !== p.side) { const b = targets().get(q.id); if (b) { await strike({ target: q.id, x: b.x, y: b.y, kind: UI.mode }); return; } }
-      await tap({ piece: null, cell: h.cell, ground: null });
+      // a drag is deliberate: it moves at once (free attacks and all)
+      const m = moves().get(h.cell.x + ',' + h.cell.y);
+      if (m) { await go(m); return; }
     }
     refresh();
   });
@@ -1015,11 +1197,15 @@
   $('#endBtn').onclick = () => {
     ac();
     if (!humanTurn()) return;
+    UI.aim = null; UI.focus = null;
     if (S.phase === 'setup') finishSetup();
-    else if (S.phase === 'play') { UI.sel = null; UI.aim = null; order(() => TC.endTurn(S)); }
+    else if (S.phase === 'play') order(() => TC.endTurn(S));
     else if (S.phase === 'facing') { UI.sel = null; order(() => TC.confirmFacing(S)); }
   };
-  $('#goPill').onclick = () => { if (UI.aim && humanTurn()) strike(UI.aim); };
+  $('#goPill').onclick = () => {
+    if (!UI.aim || !humanTurn()) return;
+    if (UI.aim.kind === 'move') go(UI.aim); else doAct(UI.aim);
+  };
 
   function finishSetup() {
     const side = activeSide();
@@ -1031,7 +1217,7 @@
       $('#passTxt').textContent = 'Pass to ' + cap(next);
       $('#passSub').textContent = `${cap(next)} sets up without seeing ${cap(side)}'s pieces.`;
       $('#pass').hidden = false;
-      faceSide(next); UI.setupType = S.army.king ? 'king' : 'pawn';
+      faceSide(next); UI.setupType = PIECES.find((t) => S.army[t]);
     }
     sync(); refresh();
     if (S.phase === 'play') {
@@ -1050,7 +1236,7 @@
     const p = myPiece();
     const arrows = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3 };
     if (e.key === 'Escape') { UI.aim = null; UI.focus = null; refresh(); }
-    else if (e.key === 'Enter') $('#endBtn').click();
+    else if (e.key === 'Enter') { if (UI.aim) $('#goPill').click(); else $('#endBtn').click(); }
     else if (e.key in arrows && p && (S.phase === 'facing' || S.phase === 'setup')) {
       e.preventDefault();
       // the arrow keys follow the screen: up is away from the viewer
@@ -1073,11 +1259,10 @@
     else if (m === 'sound') { UI.sound = !UI.sound; $('#soundLbl').textContent = UI.sound ? 'On' : 'Off'; }
   };
   document.querySelectorAll('[data-close]').forEach((b) => { b.onclick = () => { b.closest('.ov').hidden = true; }; });
-  function seg(id, key) {
-    const el = $(id);
-    el.onclick = (e) => { const b = e.target.closest('button'); if (!b) return; el.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); UI.army[key] = +b.dataset.v; };
+  {
+    const el = $('#optArmy');
+    el.onclick = (e) => { const b = e.target.closest('button'); if (!b) return; el.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); UI.armyName = b.dataset.v; };
   }
-  seg('#optKing', 'king'); seg('#optPawn', 'pawn');
   $('#goAI').onclick = () => { ac(); newGame(true); };
   $('#goHot').onclick = () => { ac(); newGame(false); };
   $('#goHelp').onclick = () => { $('#help').hidden = false; };
@@ -1088,10 +1273,12 @@
   function newGame(vsAI) {
     for (const v of [...views.values()]) dropView(v);
     clearDice();
-    S = TC.newGame({ army: { king: UI.army.king, pawn: UI.army.pawn } });
-    Object.assign(UI, { sel: null, picked: null, mode: 'attack', aim: null, hide: null, focus: null, busy: false, log: [], setupType: UI.army.king ? 'king' : 'pawn', ai: { white: false, black: !!vsAI } });
+    const army = TC.RULES.armies[UI.armyName || 'full'];
+    S = TC.newGame({ army });
+    Object.assign(UI, { sel: null, act: 'attack', aim: null, hide: null, focus: null, busy: false, log: [], setupType: PIECES.find((t) => army[t]), ai: { white: false, black: !!vsAI } });
     $('#logList').innerHTML = '';
-    log(`New game: ${UI.army.king ? 'a king and ' : ''}${UI.army.pawn} pawns a side${vsAI ? ', against the computer' : ', pass and play'}.`, 'hdr');
+    const n = Object.values(army).reduce((a, b) => a + b, 0);
+    log(`New game: ${n} pieces a side${vsAI ? ', against the computer' : ', pass and play'}.`, 'hdr');
     $('#title').hidden = true; $('#end').hidden = true;
     faceSide('white');
     sync(); resize(); refresh();

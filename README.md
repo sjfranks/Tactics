@@ -58,14 +58,20 @@ On Normal, with 400 battles per level and the levels a party would have reached 
 
 ## Tactics Chess
 
-A second game in `chess/`: [play it](https://sjfranks.github.io/Tactics/chess/), or open `chess/index.html`. Chess pieces with tactics-game rules, on a 3D table in Goblin Crypt's style. Each side places its army on its back two rows. White and Black alternate turns, and each turn one piece moves up to 3 squares orthogonally and takes one action, then that piece (and only it) may change its facing. Strikes roll 2d6 against a target number, and the side of the foe you hit (front, flank or behind) sets the damage. The arrow on the ground under each piece shows its facing. Kill the enemy king, or, with no kings, the whole enemy army. You can play against the computer or pass and play.
+A second game in `chess/`: [play it](https://sjfranks.github.io/Tactics/chess/), or open `chess/index.html`. Chess pieces with tactics-game rules, on a 3D table in Goblin Crypt's style. Each side places its army on its back two rows (or Auto for the chess layout). White and Black alternate turns, and each turn one piece goes through three phases: **Move** (or stay), **Action** from where it stands, then **Facing**, which only that piece changes. Strikes roll 2d6 against a number; a blow to the back does double damage. Kill the enemy king, or, with no kings, the whole enemy army. Armies: full (16), skirmish (8) or pawns and a king (9). Play the computer or pass and play.
 
-| Piece | HP | Move | Actions |
-| --- | --- | --- | --- |
-| Pawn | 10 | 3 | Attack, 7+: 5 from the flank, 10 from behind, never from the front. Grapple, 8+: move the foe one square. |
-| King | 10 | 3 | Attack, 7+: 5 from the front or the flank, 10 from behind. |
+| Piece | Role | HP | Move | Actions and gifts |
+| --- | --- | --- | --- | --- |
+| Pawn | Defender | 10 | 3 | Attack 7+ for 5, never the front of a melee foe (ranged foes are fair game). Push 8+: the foe in front goes back a square and the pawn steps in; sure, and up to 2, with an ally right behind. Grapple 8+: drag a foe a square. An ally right behind a pawn is in cover. A foe leaving the 3 squares ahead of it draws an attack of opportunity. |
+| Rook | Defender | 14 | 4 in a straight line | Attack 7+ for 5. Its shield makes blows to its front need 2 more. Attacks of opportunity like a pawn. |
+| Bishop | Controller | 8 | 3 | Shoot 7+ for 4: the first foe along any of 8 lines within 4 squares, over friends. Pinning shot 7+: the foe cannot move on its next turn. Overwatch: a foe stepping into its 3 lines ahead gets shot. |
+| Knight | Striker | 10 | 5, leaping | Attack 7+ for 6, +2 after riding 3 or more squares. Leaps over anything. |
+| Queen | Striker | 12 | 4 straight, 8 ways | Attack 7+ for 6, diagonals too. Sweep 8+ for 4 against every foe round her. |
+| King | Leader | 12 | 3 | Attack 7+ for 5. Rally: allies within 2 heal 2 and lose pins. Allies beside him need 1 less to hit. |
 
-**Playing:** a piece is already picked; tap another to use it instead. Tap a pale square (or drag the piece) to move. Choose Attack or Grapple on the hotbar, then tap a red foe; the odds show over its head, and a strike that needs a walk asks **Confirm?** first. The dice land on the board. After it strikes, turn the piece with the arrows round it (or a swipe) and tap Done.
+Free attacks (opportunity and overwatch) deal base damage, once per piece each turn. Shots at a piece in cover need 2 more. Every number is in `RULES` at the top of `chess/rules.js`.
+
+**Playing:** in the move phase tap a blue square and confirm (amber squares draw a free attack, and the warning names who), or drag the piece, or Stay. Tap a foe to see its zone. In the action phase pick an action on the hotbar; foes it reaches from where the piece stands turn red with the odds over them; tap one and confirm. Then turn the piece and tap Done.
 
 | File | What it is |
 | --- | --- |

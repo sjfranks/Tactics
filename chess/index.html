@@ -162,6 +162,18 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 #logList{max-height:60vh;overflow:auto;margin:0;padding:0;list-style:none}
 #logList li{padding:4px 0 4px 8px;border-left:2px solid #3d3128;margin:3px 0;font-size:13.5px}
 #logList li.white{border-left-color:#c9bda0}#logList li.black{border-left-color:var(--blood-hi)}#logList li.hdr{font-family:var(--display);color:var(--tarnish);border-left-color:transparent;font-size:16px}
+
+/* the three phases of a turn, on the info scroll */
+.phs{margin-left:auto;display:flex;align-items:center;gap:4px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#5c5046;flex:none}
+.phs i{font-style:normal;padding:2px 5px;border-radius:2px}
+.phs i.on{color:#1a0e08;background:var(--ember)}.phs i.done{color:var(--bone-dim)}.phs b{color:#4a3e33}
+.tag .chip{display:none;padding:1px 5px;border-radius:2px;background:#1e2c50;color:#cfe0ff;font:800 9px/1.3 var(--body);letter-spacing:.08em;text-transform:uppercase;box-shadow:0 0 0 1px #000}
+.tag .chip.on{display:block}
+.float.heal{color:#8dffa6}
+#bar.wrap #hotbar{flex-wrap:wrap;row-gap:22px}
+.stats small{font-weight:400;color:var(--tarnish)}
+.seg button{white-space:nowrap}
+@media (max-width:420px){.opt{flex-wrap:wrap}.seg button{padding:7px 7px;min-width:0}}
 </style>
 </head>
 <body>
@@ -206,9 +218,8 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
     <div class="sheet">
       <p class="kick">A tabletop tactics game</p>
       <h1>Tactics Chess</h1>
-      <p style="text-align:center;margin-top:0">Pawns and kings that strike from the flank and the back.</p>
-      <div class="opt"><span>Kings</span><div class="seg" id="optKing"><button data-v="1" class="on">Yes</button><button data-v="0">No</button></div></div>
-      <div class="opt"><span>Pawns a side</span><div class="seg" id="optPawn"><button data-v="4">4</button><button data-v="6">6</button><button data-v="8" class="on">8</button><button data-v="12">12</button></div></div>
+      <p style="text-align:center;margin-top:0">Chess pieces that hold lines, flank, shoot and push. One piece a turn: move, act, face.</p>
+      <div class="opt"><span>Army</span><div class="seg" id="optArmy"><button data-v="full" class="on">Full · 16</button><button data-v="skirmish">Skirmish · 8</button><button data-v="pawns">Pawns · 9</button></div></div>
       <button class="go" id="goAI">Play the computer<small>You are White</small></button>
       <button class="tb2" id="goHot">Pass and play: two players</button>
       <button class="tb2" id="goHelp">How to play</button>
@@ -243,24 +254,29 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
     <div class="sheet">
       <h2>How to play</h2>
       <h3>Setup</h3>
-      <p>Each side places its army on its own <b>back two rows</b> (the ember squares). Pick a piece on the hotbar, then tap a square. Tap a placed piece to pick it up, then tap a square to move it. To turn a piece, <b>swipe</b> from it the way it should face, or tap one of the arrows round it.</p>
-      <h3>Your turn: one piece</h3>
+      <p>Each side places its army on its own <b>back two rows</b> (the ember squares). Pick a piece on the hotbar, then tap a square, or tap <b>Auto</b> for the chess layout. Tap a placed piece to move it, and the arrows round it to turn it.</p>
+      <h3>A turn: one piece, three phases</h3>
       <ul>
-        <li>White and Black take turns. Each turn you use <b>one piece</b>: it may <b>move</b> and take <b>one action</b>. A piece is picked for you; tap another to use it instead.</li>
-        <li><b>Move:</b> up to 3 squares, never diagonally. Tap a <b>pale</b> square, or drag the piece there. Undo takes the move back (and frees you to pick another piece) until it rolls dice.</li>
-        <li><b>Strike:</b> choose Attack or Grapple on the hotbar. Foes you can reach are marked <b>red</b> with the odds over their heads. Tap one: the path lights up with <b>Confirm?</b>. Tap it again to walk there and roll 2d6.</li>
-        <li>Then <b>set the facing</b> of the piece you used and tap <b>Done</b>. Only that piece turns; the rest hold still. (Tap <b>End</b> to stop early or to pass.)</li>
+        <li>White and Black take turns. Each turn you use <b>one piece</b>, in three phases: <b>Move</b>, <b>Action</b>, <b>Facing</b>.</li>
+        <li><b>Move:</b> tap a <b>blue</b> square, then <b>Move here?</b> (or drag the piece). <b>Amber</b> squares draw a free attack on the way. Or <b>Stay</b>. Tap a foe to see its zone in red.</li>
+        <li><b>Action:</b> pick an action on the hotbar. Foes it can reach <b>from where you stand</b> turn red, with the odds over them. Tap one, then <b>Confirm?</b>. Or <b>Skip</b>. <b>Undo</b> takes back a move that drew no dice.</li>
+        <li><b>Facing:</b> turn the piece with the arrows round it or a swipe, then <b>Done</b>. Only that piece turns.</li>
       </ul>
-      <h3>Facing</h3>
-      <p>The arrow on the ground under each piece is the way it faces. Its <b>front</b> is the square ahead, its <b>back</b> the square behind, its <b>flanks</b> the two sides. Strikes to the back hurt most, and a pawn cannot attack a foe's front at all.</p>
+      <h3>Strikes</h3>
+      <p>Roll 2d6 and meet the number. A blow to the <b>back</b> does double damage. Diagonal blows land on a flank.</p>
       <table class="stats">
-        <tr><th></th><th>HP</th><th>Move</th><th>Attack 7+</th><th>Grapple 8+</th></tr>
-        <tr><td>Pawn</td><td>10</td><td>3</td><td>Flank 5, back 10. Never the front.</td><td>Move the foe 1 square</td></tr>
-        <tr><td>King</td><td>10</td><td>3</td><td>Front 5, flank 5, back 10</td><td>—</td></tr>
+        <tr><th></th><th>HP</th><th>Move</th><th>Actions and gifts</th></tr>
+        <tr><td>Pawn<br><small>Defender</small></td><td>10</td><td>3</td><td><b>Attack</b> 7+, 5: never the front of a melee foe (archers are fair game). <b>Push</b> 8+: shove the foe in front back and step in; with an ally right behind, sure and up to 2. <b>Grapple</b> 8+: drag a foe a square. An ally right behind a pawn is in <b>cover</b>. A foe leaving the 3 squares ahead of it draws a free attack.</td></tr>
+        <tr><td>Rook<br><small>Defender</small></td><td>14</td><td>4 straight</td><td><b>Attack</b> 7+, 5. Its <b>shield</b> makes blows to its front need 2 more. A foe leaving the 3 squares ahead draws a free attack.</td></tr>
+        <tr><td>Bishop<br><small>Controller</small></td><td>8</td><td>3</td><td><b>Shoot</b> 7+, 4: the first foe along any of 8 lines, up to 4 squares, over friends. <b>Pinning shot</b> 7+: the foe cannot move on its next turn. <b>Overwatch:</b> a foe stepping into its 3 lines ahead gets shot.</td></tr>
+        <tr><td>Knight<br><small>Striker</small></td><td>10</td><td>5, leaping</td><td><b>Attack</b> 7+, 6, +2 after riding 3 or more squares. Leaps over anything.</td></tr>
+        <tr><td>Queen<br><small>Striker</small></td><td>12</td><td>4 straight, any of 8 ways</td><td><b>Attack</b> 7+, 6, diagonals too. <b>Sweep</b> 8+, 4: every foe round her, rolled one by one.</td></tr>
+        <tr><td>King<br><small>Leader</small></td><td>12</td><td>3</td><td><b>Attack</b> 7+, 5. <b>Rally:</b> allies within 2 heal 2 and shake off pins. Allies beside him need 1 less to hit.</td></tr>
       </table>
+      <p>Free attacks (opportunity and overwatch) deal base damage, once per piece each turn. Shots at a piece in cover need 2 more.</p>
       <h3>Winning</h3>
       <p>Kill the enemy king. Without kings, kill every enemy piece.</p>
-      <p style="font-size:13px">Keys: 1–5 pick from the hotbar, Enter ends the turn, Esc cancels, arrow keys turn the selected piece while setting facing.</p>
+      <p style="font-size:13px">Keys: 1–9 pick from the hotbar, Enter confirms or ends, Esc cancels, arrow keys turn the piece while setting facing.</p>
       <button class="go" data-close>Close</button>
     </div>
   </div>

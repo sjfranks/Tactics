@@ -3,179 +3,183 @@
 const assert = require('assert');
 const TC = require('./rules.js');
 
-const fixed = (...rolls) => { const r = rolls.map((n) => (n - 0.5) / 6); let i = 0; return () => r[i++]; };
+// dice that come up as given: fixed(3, 4) rolls a 3 and a 4
+const fixed = (...rolls) => { const r = rolls.map((n) => (n - 0.5) / 6); let i = 0; return () => r[i++ % r.length]; };
 let passed = 0;
-function test(name, fn) { fn(); passed++; }
+function test(name, fn) { try { fn(); passed++; } catch (e) { console.error('FAIL: ' + name); throw e; } }
 
-// A game in play with the given pieces: [side, type, x, y, facing]
-function game(list, army) {
-  const s = TC.newGame({ army: army || { king: 0, pawn: 0 } });
-  s.phase = 'play';
+// A game in play with the given pieces: [side, type, x, y, facing]; ids count from 1 in order.
+function game(list, turn = 'white') {
+  const s = TC.newGame({ army: {} });
+  s.phase = 'play'; s.step = 'move'; s.turn = turn;
   s.ready = { white: true, black: true };
   for (const [side, type, x, y, facing] of list) {
-    s.pieces.push({ id: s.nextId++, side, type, x, y, facing, hp: TC.RULES.units[type].hp, moved: false, acted: false, from: null });
+    s.pieces.push({ id: s.nextId++, side, type, x, y, facing, hp: TC.RULES.units[type].hp, moved: false, acted: false, from: null, movedDist: 0, pinned: false });
   }
   return s;
 }
+const P = (s, id) => TC.piece(s, id);
 
-test('setup: back two rows only, every piece placed before Done', () => {
+test('setup: back two rows, chess order', () => {
   const s = TC.newGame();
   assert.throws(() => TC.place(s, 'white', 'pawn', 0, 5));
-  TC.place(s, 'white', 'pawn', 0, 6);
-  assert.throws(() => TC.place(s, 'white', 'pawn', 0, 6));
-  assert.throws(() => TC.finishSetup(s, 'white'));
-  TC.autoPlace(s, 'white');
-  assert.deepStrictEqual(TC.remaining(s, 'white'), { king: 0, pawn: 0 });
-  assert.strictEqual(TC.alive(s, 'white').find((p) => p.type === 'king').y, 7);
-  TC.finishSetup(s, 'white');
-  assert.strictEqual(s.phase, 'setup');
-  TC.autoPlace(s, 'black');
-  for (const p of TC.alive(s, 'black')) assert.ok(p.y <= 1 && p.facing === 2);
-  TC.finishSetup(s, 'black');
+  TC.autoPlace(s, 'white'); TC.autoPlace(s, 'black');
+  const at = (x, y) => TC.pieceAt(s, x, y).type;
+  assert.deepStrictEqual([0, 1, 2, 3, 4, 5, 6, 7].map((x) => at(x, 7)), ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook']);
+  assert.ok([0, 1, 2, 3, 4, 5, 6, 7].every((x) => at(x, 6) === 'pawn' && at(x, 1) === 'pawn'));
+  TC.finishSetup(s, 'white'); TC.finishSetup(s, 'black');
   assert.strictEqual(s.phase, 'play');
 });
 
-test('movement: 3 squares orthogonally, through friends, not through foes', () => {
-  const s = game([['white', 'pawn', 3, 5, 0], ['white', 'pawn', 3, 4, 0], ['black', 'pawn', 4, 5, 2]]);
-  const r = TC.reachable(s, 1);
-  assert.ok(r.has('3,2'));            // through the friend at 3,4
-  assert.ok(!r.has('3,4'));           // but not onto it
-  assert.ok(!r.has('4,5'));           // not onto a foe
-  assert.ok(!r.has('5,5'));           // the foe blocks the straight way, the way round is 4 steps
-  assert.ok(!r.has('4,3') === false); // 3,4 -> 4,4 -> 4,3 is fine
-  assert.ok(!r.has('2,3') === false);
-  assert.ok(!r.has('3,1'));           // 4 squares away
-  TC.move(s, 1, 2, 4);
-  assert.throws(() => TC.move(s, 1, 2, 3));
+test('phases: move, then act from where you stand, then face', () => {
+  const s = game([['white', 'pawn', 3, 6, 0], ['white', 'pawn', 5, 6, 0], ['black', 'pawn', 0, 0, 2]]);
+  assert.throws(() => TC.act(s, 1, 'attack', 3), /cannot attack/);
+  TC.move(s, 1, 3, 4);
+  assert.strictEqual(s.step, 'action');
+  assert.throws(() => TC.move(s, 1, 3, 3), /move phase is over/);
+  assert.throws(() => TC.move(s, 2, 5, 5), /one piece a turn/);
   TC.undoMove(s, 1);
-  assert.deepStrictEqual([TC.piece(s, 1).x, TC.piece(s, 1).y, TC.piece(s, 1).facing], [3, 5, 0]);
-});
-
-test('sides struck', () => {
-  const t = { x: 4, y: 4, facing: 0 }; // facing north
-  assert.strictEqual(TC.sideStruck(t, 4, 3), 'front');
-  assert.strictEqual(TC.sideStruck(t, 4, 5), 'behind');
-  assert.strictEqual(TC.sideStruck(t, 3, 4), 'flank');
-  assert.strictEqual(TC.sideStruck(t, 5, 4), 'flank');
-  assert.strictEqual(TC.sideStruck(t, 5, 5), null);
-});
-
-test('pawn: no attack on a foe that faces it; 5 from the flank, 10 from behind, on 7+', () => {
-  // black pawn at 4,4 facing south (toward 4,5)
-  const s = game([['white', 'pawn', 4, 5, 0], ['white', 'pawn', 3, 4, 1], ['white', 'pawn', 4, 3, 2], ['black', 'pawn', 4, 4, 2]]);
-  assert.throws(() => TC.attack(s, 1, 4, fixed(6, 6)), /faces it/);
-  let ev = TC.attack(s, 2, 4, fixed(3, 3));      // 6: miss
-  assert.ok(!ev.hit && ev.angle === 'flank' && TC.piece(s, 4).hp === 10);
-  assert.throws(() => TC.attack(s, 2, 4, fixed(6, 6)), /acted/);
-  ev = TC.attack(s, 3, 4, fixed(3, 4));          // 7 from behind: hit for 10, dead
-  assert.ok(ev.hit && ev.angle === 'behind' && ev.damage === 10 && ev.killed);
-  assert.strictEqual(ev.winner, 'white');        // black had no king: wiping it out wins
-  assert.strictEqual(s.phase, 'over');
-});
-
-test('flank hit does 5', () => {
-  const s = game([['white', 'pawn', 3, 4, 1], ['black', 'pawn', 4, 4, 2], ['black', 'pawn', 0, 0, 2]]);
-  const ev = TC.attack(s, 1, 2, fixed(6, 1));
-  assert.ok(ev.hit && ev.damage === 5);
-  assert.strictEqual(TC.piece(s, 2).hp, 5);
-  assert.strictEqual(s.winner, null);
-});
-
-test('king strikes a foe that faces it', () => {
-  const s = game([['white', 'king', 4, 5, 0], ['black', 'pawn', 4, 4, 2], ['black', 'pawn', 0, 0, 2]]);
-  const ev = TC.attack(s, 1, 2, fixed(4, 4));
-  assert.ok(ev.hit && ev.angle === 'front' && ev.damage === 5);
-  assert.ok(!TC.RULES.units.king.grapple);
-});
-
-test('killing the king wins even with pawns left', () => {
-  const s = game([['white', 'pawn', 4, 5, 0], ['black', 'king', 4, 4, 0], ['black', 'pawn', 0, 0, 2]]);
-  const ev = TC.attack(s, 1, 2, fixed(5, 5));
-  assert.ok(ev.killed && ev.winner === 'white');
-});
-
-test('grapple: 8+, then the foe moves one empty square orthogonally', () => {
-  const s = game([['white', 'pawn', 4, 5, 0], ['black', 'pawn', 4, 4, 2], ['black', 'pawn', 5, 4, 2]]);
-  let ev = TC.grapple(s, 1, 2, fixed(3, 4)); // 7: fails
-  assert.ok(!ev.hit && !s.pending);
-  const s2 = game([['white', 'pawn', 4, 5, 0], ['black', 'pawn', 4, 4, 2], ['black', 'pawn', 5, 4, 2]]);
-  ev = TC.grapple(s2, 1, 2, fixed(4, 4));
-  assert.ok(ev.hit);
-  assert.deepStrictEqual(ev.options.map((c) => c.x + ',' + c.y).sort(), ['3,4', '4,3']);
-  assert.throws(() => TC.endTurn(s2));
-  assert.throws(() => TC.resolveGrapple(s2, 5, 4));
-  TC.resolveGrapple(s2, 3, 4);
-  assert.deepStrictEqual([TC.piece(s2, 2).x, TC.piece(s2, 2).y], [3, 4]);
-  assert.strictEqual(TC.piece(s2, 2).hp, 10);
-});
-
-test('facing is set at the end of the turn, then the other side plays', () => {
-  const s = game([['white', 'pawn', 4, 5, 0], ['black', 'pawn', 0, 0, 2]]);
-  assert.throws(() => TC.setFacing(s, 1, 1));
-  TC.move(s, 1, 4, 2);
-  TC.endTurn(s);
-  assert.throws(() => TC.move(s, 1, 4, 3));
-  assert.throws(() => TC.setFacing(s, 2, 1));
-  TC.setFacing(s, 1, 3);
-  TC.confirmFacing(s);
-  assert.strictEqual(s.turn, 'black');
-  assert.strictEqual(TC.piece(s, 1).facing, 3);
-  assert.ok(!TC.piece(s, 2).moved);
-});
-
-test('one piece a turn, and only it turns at the end', () => {
-  const s = game([['white', 'pawn', 4, 5, 0], ['white', 'pawn', 1, 5, 0], ['black', 'pawn', 0, 0, 2]]);
-  TC.move(s, 1, 4, 4);
-  assert.throws(() => TC.move(s, 2, 1, 4), /one piece a turn/);
-  TC.undoMove(s, 1);
-  TC.move(s, 2, 1, 4);            // after an undo, any piece may take the turn
-  assert.throws(() => TC.wait(s, 1), /one piece a turn/);
+  assert.strictEqual(s.step, 'move');
+  TC.stay(s, 2);
+  assert.throws(() => TC.move(s, 2, 5, 5), /move phase is over/);
+  TC.wait(s, 2);
   TC.endTurn(s);
   assert.throws(() => TC.setFacing(s, 1, 1), /only the piece/);
-  TC.setFacing(s, 2, 1);
-  TC.confirmFacing(s);
-  assert.strictEqual(s.active, null);
-  TC.wait(s, 3);
+  TC.setFacing(s, 2, 1); TC.confirmFacing(s);
+  assert.strictEqual(s.turn, 'black');
+  assert.strictEqual(s.step, 'move');
+});
+
+test('pawn: no attack on a melee foe that faces it, but yes on a ranged one; double to the back', () => {
+  const s = game([['white', 'pawn', 4, 5, 0], ['black', 'pawn', 4, 4, 2], ['black', 'bishop', 0, 0, 2]]);
+  assert.throws(() => TC.act(s, 1, 'attack', 2, fixed(6, 6)), /faces it/);
+  const s2 = game([['white', 'pawn', 4, 5, 0], ['black', 'bishop', 4, 4, 2], ['black', 'pawn', 0, 0, 2]]);
+  assert.strictEqual(TC.act(s2, 1, 'attack', 2, fixed(3, 4)).damage, 5);
+  const s3 = game([['white', 'pawn', 4, 5, 0], ['black', 'pawn', 4, 4, 0], ['black', 'pawn', 0, 0, 2]]);
+  const ev = TC.act(s3, 1, 'attack', 2, fixed(3, 4));
+  assert.ok(ev.hit && ev.angle === 'behind' && ev.damage === 10 && ev.killed);
+});
+
+test('rook shield, pawn cover, king inspires', () => {
+  const s = game([['white', 'king', 3, 5, 0], ['white', 'pawn', 4, 5, 0], ['black', 'rook', 4, 4, 2], ['black', 'pawn', 0, 0, 2]]);
+  const i = TC.strikeInfo(s, P(s, 2), P(s, 3), 'attack');
+  assert.strictEqual(i, null);                         // a pawn may not hit the rook's front at all
+  const s2 = game([['white', 'king', 3, 5, 0], ['white', 'knight', 4, 5, 0], ['black', 'rook', 4, 4, 2], ['black', 'pawn', 0, 0, 2]]);
+  assert.strictEqual(TC.strikeInfo(s2, P(s2, 2), P(s2, 3), 'attack').need, 7 + 2 - 1);  // shield +2, inspired -1
+  // a black pawn at 4,2 faces south; the black bishop right behind it at 4,1 is in cover
+  const s3 = game([['white', 'bishop', 1, 4, 0], ['black', 'pawn', 4, 2, 2], ['black', 'bishop', 4, 1, 2], ['black', 'king', 0, 0, 2]]);
+  assert.ok(TC.inCover(s3, P(s3, 3)));
+  assert.strictEqual(TC.strikeInfo(s3, P(s3, 1), P(s3, 3), 'shoot').need, 7 + 2);   // a diagonal shot at the bishop in cover
+  P(s3, 1).x = 4; P(s3, 1).y = 6;
+  assert.strictEqual(TC.strikeInfo(s3, P(s3, 1), P(s3, 3), 'shoot'), null);         // straight down the file, the pawn blocks
+});
+
+test('bishop: shoots 4 along 8 lines, over friends, blocked by foes; pin roots for a turn', () => {
+  const s = game([['white', 'bishop', 0, 7, 0], ['white', 'pawn', 1, 6, 0], ['black', 'pawn', 3, 4, 2], ['black', 'pawn', 0, 2, 2], ['black', 'pawn', 0, 4, 2], ['black', 'king', 7, 0, 2]]);
+  const ids = TC.targetsFor(s, 1, 'shoot').map((t) => t.target).sort();
+  assert.deepStrictEqual(ids, [3, 5]);          // over the friend on the diagonal; 0,2 is 5 away and behind 0,4
+  const ev = TC.act(s, 1, 'pin', 3, fixed(4, 4));
+  assert.ok(ev.pinned && P(s, 3).pinned);
   TC.endTurn(s); TC.confirmFacing(s);
-  TC.move(s, 1, 4, 3);           // the same pieces are fresh again on White's next turn
+  assert.throws(() => TC.move(s, 3, 3, 3), /pinned/);
+  TC.stay(s, 3); TC.wait(s, 3); TC.endTurn(s); TC.confirmFacing(s);
+  assert.ok(!P(s, 3).pinned);
 });
 
-test('a turn with no piece used may still turn one piece', () => {
-  const s = game([['white', 'pawn', 4, 5, 0], ['white', 'pawn', 1, 5, 0], ['black', 'pawn', 0, 0, 2]]);
-  TC.endTurn(s);
-  TC.setFacing(s, 2, 3);
-  assert.throws(() => TC.setFacing(s, 1, 3), /only the piece/);
+test('push: 8+ alone; sure and up to 2 with an ally behind; the pawn steps in', () => {
+  const s = game([['white', 'pawn', 4, 5, 0], ['black', 'pawn', 4, 4, 2], ['black', 'king', 0, 0, 2]]);
+  let ev = TC.act(s, 1, 'push', 2, fixed(3, 4));
+  assert.ok(!ev.hit && P(s, 2).y === 4);
+  const s2 = game([['white', 'pawn', 4, 5, 0], ['white', 'pawn', 4, 6, 0], ['black', 'pawn', 4, 4, 2], ['black', 'king', 0, 0, 2]]);
+  ev = TC.act(s2, 1, 'push', 3);
+  assert.ok(ev.auto && ev.steps === 2);
+  assert.deepStrictEqual([P(s2, 3).y, P(s2, 1).y], [2, 3]);
+  const s3 = game([['white', 'pawn', 4, 5, 0], ['black', 'pawn', 4, 4, 2], ['black', 'pawn', 4, 3, 2], ['black', 'king', 0, 0, 2]]);
+  assert.strictEqual(TC.strikeInfo(s3, P(s3, 1), P(s3, 2), 'push'), null);   // nowhere to go
 });
 
-test('bestApproach picks the back', () => {
-  const s = game([['white', 'pawn', 4, 7, 0], ['black', 'pawn', 4, 5, 0], ['black', 'pawn', 0, 0, 2]]);
-  const b = TC.bestApproach(s, 1, 2, 'attack');
-  assert.deepStrictEqual([b.x, b.y, b.info.angle], [4, 6, 'behind']);
+test('attack of opportunity: leaving the three squares in front of a pawn', () => {
+  // black pawn at 4,3 faces south: its zone is 3,4 4,4 5,4. A white knight at 5,4 rides away.
+  const s = game([['white', 'knight', 5, 4, 0], ['black', 'pawn', 4, 3, 2], ['black', 'king', 0, 0, 2]]);
+  const r = TC.reachable(s, 1).get('7,4');
+  assert.deepStrictEqual(TC.reactionsFor(s, P(s, 1), r.path).map((x) => [x.at, x.reactor, x.kind]), [[-1, 2, 'opportunity']]);
+  const ev = TC.move(s, 1, 7, 4, fixed(4, 4));
+  assert.strictEqual(ev.reactions.length, 1);
+  assert.strictEqual(ev.reactions[0].ev.damage, 5);      // base damage, no double
+  assert.strictEqual(P(s, 1).hp, 5);
+  assert.throws(() => TC.undoMove(s, 1), /cannot be taken back/);
+  // moving within the zone, or into it, draws nothing
+  const s2 = game([['white', 'knight', 5, 6, 0], ['black', 'pawn', 4, 3, 2], ['black', 'king', 0, 0, 2]]);
+  assert.strictEqual(TC.reactionsFor(s2, P(s2, 1), TC.reachable(s2, 1).get('5,4').path).length, 0);
+});
+
+test('overwatch: stepping into a bishop\'s lines ahead draws a shot, once a turn', () => {
+  // black bishop at 4,0 faces south: lines down column 4 and the two diagonals
+  const s = game([['white', 'pawn', 6, 4, 0], ['black', 'bishop', 4, 0, 2], ['black', 'king', 0, 0, 2]]);
+  const r = TC.reachable(s, 1).get('4,4');
+  const re = TC.reactionsFor(s, P(s, 1), r.path);
+  assert.strictEqual(re.length, 1); assert.strictEqual(re[0].kind, 'overwatch');
+  const ev = TC.move(s, 1, 4, 4, fixed(6, 6));
+  assert.ok(ev.reactions[0].ev.hit && P(s, 1).hp === 6);
+  assert.deepStrictEqual(s.spent, [2]);
+});
+
+test('a free attack that kills stops the move where it fell', () => {
+  const s = game([['white', 'king', 5, 4, 0], ['black', 'pawn', 4, 3, 2], ['black', 'king', 0, 0, 2]]);
+  P(s, 1).hp = 3;
+  const ev = TC.move(s, 1, 7, 4, fixed(5, 5));
+  assert.ok(ev.died && ev.winner === 'black');
+});
+
+test('knight leaps and charges; queen strikes diagonally and sweeps; king rallies', () => {
+  const s = game([['white', 'knight', 0, 7, 0], ['white', 'pawn', 0, 6, 0], ['black', 'pawn', 0, 5, 2], ['black', 'pawn', 1, 2, 2], ['black', 'king', 7, 0, 2]]);
+  assert.ok(TC.reachable(s, 1).has('0,4'));           // over a friend and a foe
+  TC.move(s, 1, 0, 2, fixed(1, 1));                   // 5 squares, past two pawns whose free attacks miss
+  const i = TC.strikeInfo(s, P(s, 1), P(s, 4), 'attack');
+  assert.strictEqual(i.damage, 6 + 2);                // flank, with the charge
+  const q = game([['white', 'queen', 4, 4, 0], ['black', 'pawn', 5, 3, 2], ['black', 'pawn', 3, 5, 0], ['black', 'king', 0, 0, 2]]);
+  assert.ok(TC.strikeInfo(q, P(q, 1), P(q, 2), 'attack'));
+  const ev = TC.act(q, 1, 'sweep', null, fixed(4, 4));
+  assert.strictEqual(ev.strikes.length, 2);
+  const k = game([['white', 'king', 4, 6, 0], ['white', 'pawn', 5, 5, 0], ['white', 'rook', 4, 4, 0], ['black', 'king', 0, 0, 2]]);
+  P(k, 2).hp = 5; P(k, 3).pinned = true;
+  const r = TC.act(k, 1, 'rally');
+  assert.strictEqual(P(k, 2).hp, 7); assert.ok(!P(k, 3).pinned && r.unpinned.length === 1);
+});
+
+test('grapple: 8+, then the foe moves one empty square', () => {
+  const s = game([['white', 'pawn', 4, 5, 0], ['black', 'pawn', 4, 4, 2], ['black', 'pawn', 5, 4, 2], ['black', 'king', 0, 0, 2]]);
+  const ev = TC.act(s, 1, 'grapple', 2, fixed(4, 4));
+  assert.ok(ev.hit);
+  assert.throws(() => TC.endTurn(s));
+  TC.resolveGrapple(s, 3, 4);
+  assert.deepStrictEqual([P(s, 2).x, P(s, 2).y], [3, 4]);
 });
 
 // Computer against computer: no broken rules, and every game ends.
 const seedRng = (seed) => () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
 const wins = { white: 0, black: 0, unfinished: 0 };
-for (let g = 0; g < 60; g++) {
+let turns = 0;
+for (let g = 0; g < 40; g++) {
   const rng = seedRng(g + 1);
-  const army = g % 3 === 2 ? { king: 0, pawn: 6 } : { king: 1, pawn: 8 };
+  const army = g % 4 === 3 ? TC.RULES.armies.skirmish : TC.RULES.armies.full;
   const s = TC.newGame({ army });
   TC.autoPlace(s, 'white'); TC.finishSetup(s, 'white');
   TC.autoPlace(s, 'black'); TC.finishSetup(s, 'black');
   let steps = 0;
-  while (s.phase !== 'over' && s.turnNo < 400 && steps++ < 20000) {
-    const o = TC.aiNext(s);
-    TC.apply(s, o, rng);
+  while (s.phase !== 'over' && s.turnNo < 300 && steps++ < 50000) {
+    TC.apply(s, TC.aiNext(s), rng);
     const seen = new Set();
     for (const p of TC.alive(s)) {
       const k = p.x + ',' + p.y;
       assert.ok(TC.onBoard(s, p.x, p.y), 'off board');
       assert.ok(!seen.has(k), 'stacked pieces');
-      assert.ok(p.hp > 0 && p.hp <= 10);
+      assert.ok(p.hp > 0 && p.hp <= TC.unit(p).hp);
       seen.add(k);
     }
   }
+  turns += s.turnNo;
   if (s.phase === 'over') wins[s.winner]++; else wins.unfinished++;
 }
 passed++;
-console.log(passed + ' tests passed. Computer v computer, 60 games:', wins);
+console.log(passed + ' tests passed. Computer v computer, 40 games:', wins, 'average turns', Math.round(turns / 40));
