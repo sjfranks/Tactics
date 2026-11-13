@@ -58,7 +58,7 @@ On Normal, with 400 battles per level and the levels a party would have reached 
 
 ## Tactics Chess
 
-A second game in `chess/`: [play it](https://sjfranks.github.io/Tactics/chess/), or open `chess/index.html`. Chess pieces with tactics-game rules, on a 3D table in Goblin Crypt's style. Each side places its army on its back two rows (or Auto for the chess layout). White and Black alternate turns, and each turn one piece goes through three phases: **Move** (or stay), **Action** from where it stands, then **Facing**, which only that piece changes. Strikes roll 2d6 against a number; a blow to the back does double damage. Kill the enemy king, or, with no kings, the whole enemy army. Armies: full (16), skirmish (8) or pawns and a king (9). Play the computer or pass and play.
+A second game in `chess/`: [play it](https://sjfranks.github.io/Tactics/chess/), or open `chess/index.html`. Chess pieces with tactics-game rules, on a flat board in the chess.com manner, with Goblin Crypt's hotbar and info scroll. Each side places its army on its back two rows (or Auto for the chess layout). White and Black alternate turns, and each turn one piece goes through three phases: **Move** (or stay), **Action** from where it stands, then **Facing**, which only that piece changes. Strikes roll 2d6 against a number; a blow to the back does double damage. Kill the enemy king, or, with no kings, the whole enemy army. Armies: full (16), skirmish (8) or pawns and a king (9). Play the computer or pass and play.
 
 | Piece | Role | HP | Move | Actions and gifts |
 | --- | --- | --- | --- | --- |
@@ -76,11 +76,11 @@ Free attacks (opportunity and overwatch) deal base damage, once per piece each t
 | File | What it is |
 | --- | --- |
 | `chess/rules.js` | The rules (`TC`) and every number (`RULES`), with the computer player. No screen code; runs in Node. |
-| `chess/table.js` | The table: the three.js board, minis, facing marks, dice, hotbar, input and camera. |
+| `chess/table.js` | The table: the board, pieces, facing arrows, markers, dice, hotbar and input. |
+| `chess/pieces.js` | The piece art: flat SVG silhouettes drawn for this game. |
 | `chess/index.html` | Styles, markup and the How to play sheet. |
-| `chess/vendor/three.min.js` | three.js r128, the same build Goblin Crypt uses. |
 
-`node chess/test.js` runs the rule tests and 60 computer-against-computer games.
+`node chess/test.js` runs the rule tests and 40 computer-against-computer games.
 
 ## Archive
 

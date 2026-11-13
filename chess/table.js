@@ -1,10 +1,8 @@
 'use strict';
-// TACTICS CHESS · THE TABLE. A three.js diorama in the Goblin Crypt style over the rules in rules.js (TC).
+// TACTICS CHESS · THE TABLE. A flat board in the chess.com manner over the rules in rules.js (TC); the art is pieces.js.
 // The rules decide everything; the table shows what happens and turns taps into orders.
 (() => {
   const $ = (s) => document.querySelector(s);
-  const V3 = THREE.Vector3, UP = new V3(0, 1, 0);
-  const rand = (a, b) => a + Math.random() * (b - a);
   const cap = (w) => w[0].toUpperCase() + w.slice(1);
   const pct = (c) => Math.round(c * 100) + '%';
   const REDUCED = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
@@ -12,155 +10,23 @@
   let S = null; // the rules' state
   const UI = {
     sel: null,          // the selected piece's id
-    picked: null,       // a piece the player tapped on purpose (kept selected even with nothing left to do)
-    mode: 'attack',     // what the hotbar has chosen: attack | grapple
+    act: 'attack',      // the action chosen on the hotbar
     setupType: 'king',  // what a tap in the setup zone places
     ai: { white: false, black: true },
     busy: false,        // something is playing out; input waits
-    aim: null,          // a strike waiting for Confirm?: { target, x, y, path, kind }
+    aim: null,          // waiting on a confirm: { kind: 'move', x, y, path, reactions } or { kind: 'act', act, target } or { kind: 'rally' | 'sweep' }
     hide: null,         // a side whose pieces are hidden while the other sets up
     hover: null,        // the square under the mouse
-    focus: null,        // the foe whose odds the info line shows
+    focus: null,        // the foe in focus: its odds on the info line, its zone on the board
+    last: null,         // the last move, from and to, lit like chess.com does
     log: [],
     sound: true,
-    army: { king: 1, pawn: 8 },
+    armyName: 'full',
   };
 
-  // ---------------- renderer, scene, camera ----------------
-  const canvas = $('#c');
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.outputEncoding = THREE.sRGBEncoding;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0b0908);
-  scene.fog = new THREE.Fog(0x0b0908, 20, 38);
-  const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 120);
-  { // a dim hall with warm torch panels, so the minis and dice catch reflections
-    const pm = new THREE.PMREMGenerator(renderer), es = new THREE.Scene();
-    es.background = new THREE.Color(0x4a5a66);
-    const panel = (r, g, b, x, y, z, w, h) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })); m.material.color.setRGB(r, g, b); m.position.set(x, y, z); m.lookAt(0, 0, 0); es.add(m); };
-    panel(.8, 1, 1.3, 0, 9, 0, 14, 14); panel(1.4, 1.1, .7, 6, 5, 4, 5, 4); panel(.35, .45, .6, -6, 3, -4, 6, 4); panel(.12, .1, .08, 0, -6, 0, 14, 14);
-    scene.environment = pm.fromScene(es, 0.03).texture;
-  }
-
-  // ---------------- textures ----------------
-  function canvasTex(w, h, draw, srgb = true) {
-    const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
-    const t = new THREE.CanvasTexture(c); if (srgb) t.encoding = THREE.sRGBEncoding; t.anisotropy = 8; return t;
-  }
-  function speckle(g, w, h, n, amp, maxR = 7) {
-    for (let i = 0; i < n; i++) {
-      const v = Math.random() * 2 - 1; g.fillStyle = v > 0 ? `rgba(255,240,220,${v * amp})` : `rgba(0,0,0,${-v * amp})`;
-      g.beginPath(); g.arc(Math.random() * w, Math.random() * h, Math.random() * maxR + 1, 0, 7); g.fill();
-    }
-  }
-  function crack(g, w, h, n, a = 0.5) {
-    g.strokeStyle = `rgba(8,6,4,${a})`; g.lineWidth = 1.6;
-    for (let k = 0; k < n; k++) { let x = Math.random() * w, y = Math.random() * h; g.beginPath(); g.moveTo(x, y); for (let i = 0; i < 5; i++) { x += rand(-22, 22); y += rand(-22, 22); g.lineTo(x, y); } g.stroke(); }
-  }
-  function slabTex(base) {
-    return canvasTex(256, 256, (g, w, h) => {
-      g.fillStyle = base; g.fillRect(0, 0, w, h);
-      speckle(g, w, h, 800, 0.12); speckle(g, w, h, 1800, 0.09, 1.5); crack(g, w, h, Math.random() * 3 | 0);
-      const gr = g.createRadialGradient(w * 0.4, h * 0.35, 20, w * 0.5, h * 0.5, w * 0.75); gr.addColorStop(0, 'rgba(255,230,200,.1)'); gr.addColorStop(1, 'rgba(0,0,0,.35)'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
-      g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 6; g.strokeRect(0, 0, w, h);
-    });
-  }
-  const lightTex = [0, 1, 2].map(() => slabTex('#8b7d66'));
-  const darkTex = [0, 1, 2].map(() => slabTex('#3b322a'));
-  const floorTex = canvasTex(512, 512, (g, w, h) => {
-    g.fillStyle = '#15110d'; g.fillRect(0, 0, w, h);
-    for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { const v = 34 + Math.random() * 12 | 0; g.fillStyle = `rgb(${v + 6},${v},${v - 8})`; g.fillRect(x * 128 + 5, y * 128 + 5, 118, 118); }
-    speckle(g, w, h, 1800, 0.1); crack(g, w, h, 8);
-  });
-  floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(8, 8);
-  const woodTex = canvasTex(256, 64, (g, w, h) => {
-    g.fillStyle = '#3a2414'; g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 40; i++) { g.strokeStyle = `rgba(${Math.random() > 0.5 ? '20,10,4' : '120,80,45'},.35)`; g.lineWidth = rand(1, 3); const y = Math.random() * h; g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(80, y + rand(-5, 5), 160, y + rand(-5, 5), w, y + rand(-3, 3)); g.stroke(); }
-  });
-  const glowTex = canvasTex(64, 64, (g, w) => { const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,.7)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, w); }, false);
-  const blobTex = canvasTex(64, 64, (g, w) => { const gr = g.createRadialGradient(32, 32, 8, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,.7)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, w); }, false);
-  // a square marker: a rounded slab of light with a bright rim
-  const hlTex = canvasTex(128, 128, (g) => {
-    const r = 14; g.beginPath(); g.moveTo(8 + r, 8); g.arcTo(120, 8, 120, 120, r); g.arcTo(120, 120, 8, 120, r); g.arcTo(8, 120, 8, 8, r); g.arcTo(8, 8, 120, 8, r); g.closePath();
-    g.fillStyle = 'rgba(255,255,255,.45)'; g.fill(); g.lineWidth = 7; g.strokeStyle = '#fff'; g.stroke();
-  }, false);
-  // the piece's ground mark: a ring, heavy at the front, and an arrow out of it the way the piece faces
-  const facingTex = canvasTex(256, 256, (g) => {
-    const shapes = (ink, extra) => {
-      g.strokeStyle = ink; g.fillStyle = ink; g.lineCap = 'round'; g.lineJoin = 'round';
-      g.lineWidth = 13 + extra; g.beginPath(); g.arc(128, 128, 90, -Math.PI * 0.82, -Math.PI * 0.18); g.stroke();
-      g.lineWidth = 5 + extra; g.beginPath(); g.arc(128, 128, 90, Math.PI * 0.22, Math.PI * 0.78); g.stroke();
-      g.lineWidth = extra || 1; g.beginPath(); g.moveTo(128, 0); g.lineTo(176, 50); g.lineTo(146, 46); g.lineTo(146, 64); g.lineTo(110, 64); g.lineTo(110, 46); g.lineTo(80, 50); g.closePath(); g.fill(); if (extra) g.stroke();
-    };
-    shapes('rgba(0,0,0,.85)', 8); shapes('#fff', 0);
-  }, false);
-  // a big arrow on the ground for choosing a facing
-  const arrowTex = canvasTex(128, 128, (g) => {
-    const path = () => { g.beginPath(); g.moveTo(64, 10); g.lineTo(118, 66); g.lineTo(86, 66); g.lineTo(86, 118); g.lineTo(42, 118); g.lineTo(42, 66); g.lineTo(10, 66); g.closePath(); };
-    g.lineJoin = 'round'; path(); g.lineWidth = 12; g.strokeStyle = 'rgba(0,0,0,.8)'; g.stroke(); g.fillStyle = '#fff'; g.fill();
-  }, false);
-
-  // ---------------- lights ----------------
-  scene.add(new THREE.HemisphereLight(0x8a96b0, 0x2a2420, 0.42));
-  const sun = new THREE.DirectionalLight(0xfff0d6, 1.3);
-  sun.position.set(5, 11, 6); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -7, right: 7, top: 7, bottom: -7, near: 1, far: 30 });
-  sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.025;
-  scene.add(sun);
-  const rim = new THREE.DirectionalLight(0xa8b4c4, 0.45); rim.position.set(-6, 5, -7); scene.add(rim);
-  const fxLight = new THREE.PointLight(0xff8a3a, 0, 5, 2); scene.add(fxLight);
-
-  // ---------------- particles ----------------
-  const P = [], pool = [];
-  function spawn(o) {
-    let s = pool.pop();
-    if (!s) s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-    s.material.color.set(o.color || 0xffffff); s.position.copy(o.pos); s.scale.setScalar(o.size || 0.3); scene.add(s);
-    P.push({ s, v: o.vel ? o.vel.clone() : new V3(), life: o.life || 1, age: 0, size: o.size || 0.3, grow: o.grow || 0, g: o.grav || 0 });
-  }
-  function updateParticles(dt) {
-    for (let i = P.length - 1; i >= 0; i--) {
-      const p = P[i]; p.age += dt;
-      if (p.age >= p.life) { scene.remove(p.s); pool.push(p.s); P.splice(i, 1); continue; }
-      p.v.y -= p.g * dt; p.v.multiplyScalar(1 - 1.5 * dt); p.s.position.addScaledVector(p.v, dt);
-      const k = p.age / p.life; p.s.scale.setScalar(p.size * (1 + p.grow * k)); p.s.material.opacity = k < 0.12 ? k / 0.12 : 1 - (k - 0.12) / 0.88;
-    }
-  }
-  function burst(pos, color, n, speed, size, life, grav = 0) {
-    for (let i = 0; i < n; i++) {
-      const d = new V3(rand(-1, 1), rand(0.2, 1), rand(-1, 1)).normalize().multiplyScalar(speed * rand(0.4, 1));
-      spawn({ pos: pos.clone(), vel: d, color: Array.isArray(color) ? color[i % color.length] : color, size: size * rand(0.6, 1.2), life: life * rand(0.6, 1.1), grav });
-    }
-  }
-  const flames = [];
-  function emitFlames(dt) {
-    for (const e of flames) {
-      if (!e.pos) { e.light.intensity = 1.1 + Math.sin(now / 90 + e.ph) * 0.15 + Math.random() * 0.12; continue; }
-      e.acc += dt * 26;
-      while (e.acc > 1) { e.acc--; spawn({ pos: e.pos.clone().add(new V3(rand(-0.08, 0.08), 0, rand(-0.08, 0.08))), vel: new V3(rand(-0.06, 0.06), rand(0.5, 0.9), rand(-0.06, 0.06)), color: [0xff8a2a, 0xffb040, 0xff5a1a][Math.random() * 3 | 0], size: rand(0.18, 0.3), life: rand(0.45, 0.8), grow: -0.6 }); }
-      e.light.intensity = 1.1 + Math.sin(now / 90 + e.ph) * 0.15 + Math.random() * 0.12;
-    }
-  }
-
-  // ---------------- tweens and the clock ----------------
-  let now = performance.now();
-  const tweens = [];
-  const ease = { inOut: (k) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2), out: (k) => 1 - Math.pow(1 - k, 3), lin: (k) => k };
+  // ---------------- the clock ----------------
   const SPEED = { v: 1 };
-  function tween(ms, fn, e = ease.inOut) { ms = REDUCED ? Math.min(ms, 60) : ms * SPEED.v; return new Promise((res) => tweens.push({ start: now, ms, fn, e, res })); }
-  const wait = (ms) => tween(ms, () => {});
-  function runTweens() {
-    for (let i = tweens.length - 1; i >= 0; i--) {
-      const t = tweens[i], k = Math.min(1, (now - t.start) / Math.max(1, t.ms));
-      t.fn(t.e(k), k);
-      if (k >= 1) { tweens.splice(i, 1); t.res(); }
-    }
-  }
+  const wait = (ms) => new Promise((r) => setTimeout(r, REDUCED ? Math.min(ms, 60) : ms * SPEED.v));
 
   // ---------------- sound: a few synthesized knocks ----------------
   let AC = null, noiseBuf = null;
@@ -190,309 +56,115 @@
   }
 
   // ---------------- the board ----------------
-  const N = 8, TOP = 0.16, RAIL = 0.18;
-  const cellPos = (x, y) => new V3(x - (N - 1) / 2, TOP, y - (N - 1) / 2);
-  const tiles = [];
-  {
-    const geo = new THREE.BoxGeometry(0.97, 0.16, 0.97);
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-      const dark = (x + y) % 2 === 1, tex = (dark ? darkTex : lightTex)[(x * 7 + y * 3) % 3];
-      const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92, color: dark ? 0xffffff : 0xf2e6d2 }));
-      const p = cellPos(x, y); m.position.set(p.x, TOP - 0.08 + rand(-0.006, 0.006), p.z); m.receiveShadow = true; scene.add(m); tiles.push(m);
-    }
-    // the frame: dark timber round the board, on a stone plinth
-    const wood = new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.7, color: 0xb08868 });
-    const rail = (w, d, x, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.26, d), wood); m.position.set(x, 0.05, z); m.castShadow = m.receiveShadow = true; scene.add(m); };
-    rail(8.9, 0.45, 0, -4.22); rail(8.9, 0.45, 0, 4.22); rail(0.45, 8.0, -4.22, 0); rail(0.45, 8.0, 4.22, 0);
-    const brass = new THREE.MeshStandardMaterial({ color: 0x9a7e48, metalness: 0.8, roughness: 0.35 });
-    for (const [x, z] of [[-4.22, -4.22], [4.22, -4.22], [-4.22, 4.22], [4.22, 4.22]]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.32, 10), brass); m.position.set(x, 0.08, z); m.castShadow = true; scene.add(m); }
-    const plinth = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.5, 9.2), new THREE.MeshStandardMaterial({ color: 0x1a1512, roughness: 0.95 }));
-    plinth.position.y = -0.33; plinth.receiveShadow = true; scene.add(plinth);
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 1, color: 0x6a6058 }));
-    floor.rotation.x = -Math.PI / 2; floor.position.y = -0.58; floor.receiveShadow = true; scene.add(floor);
-    // warm torchlight from the far corners, flickering
-    for (const [x, z] of [[-6.5, -6.5], [6.5, -6.5], [-6.5, 6.5], [6.5, 6.5]]) {
-      const light = new THREE.PointLight(0xff8a3a, 1.2, 11, 2); light.position.set(x, 1.6, z); scene.add(light);
-      flames.push({ pos: null, acc: 0, light, ph: Math.random() * 9 });
+  const N = 8;
+  const boardEl = $('#board'), sqsEl = $('#sqs'), hlsEl = $('#hls'), pcsEl = $('#pcs'), fxEl = $('#fx'), floatsEl = $('#floats');
+  let flip = false;   // Black's view: the board turned round
+  const scr = (x, y) => (flip ? [N - 1 - x, N - 1 - y] : [x, y]);
+  const place = (el, x, y) => { const [c, r] = scr(x, y); el.style.left = c * 12.5 + '%'; el.style.top = r * 12.5 + '%'; };
+  const centre = (x, y) => { const [c, r] = scr(x, y); return { x: c + 0.5, y: r + 0.5 }; };   // in squares, for the fx layer
+  function buildSquares() {
+    sqsEl.innerHTML = '';
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      const [x, y] = flip ? [N - 1 - c, N - 1 - r] : [c, r];
+      const d = document.createElement('div');
+      d.className = 'sq ' + ((x + y) % 2 ? 'd' : 'l');
+      d.style.left = c * 12.5 + '%'; d.style.top = r * 12.5 + '%';
+      if (c === 0) d.innerHTML += `<i class="rk">${N - y}</i>`;
+      if (r === N - 1) d.innerHTML += `<i class="fl">${'abcdefgh'[x]}</i>`;
+      sqsEl.appendChild(d);
     }
   }
-
-  // square markers, one per square
-  const HL_COL = { risk: [0xffa030, 0.6], riskhot: [0xffd080, 0.9], dest: [0xffffff, 0.85], zoneE: [0xff4030, 0.3], ally: [0x8fe08a, 0.55], move: [0x8fd0ff, 0.55], movehot: [0xd8f0ff, 0.9], target: [0xd0402f, 0.65], aim: [0xff5a3a, 0.95], path: [0xe8873a, 0.6], sel: [0xe3ad4f, 0.6], zone: [0xe8873a, 0.42], zonehot: [0xffb060, 0.7], shove: [0xf0c040, 0.7], last: [0x9fb4c8, 0.22] };
   const hls = [];
-  {
-    const geo = new THREE.PlaneGeometry(0.94, 0.94);
-    for (let i = 0; i < N * N; i++) {
-      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: hlTex, transparent: true, depthWrite: false, toneMapped: false }));
-      const p = cellPos(i % N, Math.floor(i / N)); m.position.set(p.x, TOP + 0.004, p.z); m.rotation.x = -Math.PI / 2; m.renderOrder = 2; m.visible = false; scene.add(m); hls.push(m);
-    }
-  }
-  function setHL(x, y, type) { const m = hls[y * N + x]; const [c, o] = HL_COL[type]; m.material.color.setHex(c); m.material.opacity = o; m.visible = true; }
-  // four facing arrows round the selected piece
-  const faceArrows = [0, 1, 2, 3].map((d) => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.46), new THREE.MeshBasicMaterial({ map: arrowTex, transparent: true, depthWrite: false, toneMapped: false }));
-    m.rotation.order = 'YXZ'; m.rotation.x = -Math.PI / 2; m.rotation.y = -d * Math.PI / 2; m.renderOrder = 3; m.visible = false; scene.add(m); return m;
+  for (let i = 0; i < N * N; i++) { const d = document.createElement('div'); d.className = 'hl'; hlsEl.appendChild(d); hls.push(d); }
+  function placeHLs() { for (let i = 0; i < N * N; i++) place(hls[i], i % N, Math.floor(i / N)); }
+  const marks = new Array(N * N).fill('');
+  function setHL(x, y, type) { const i = y * N + x; marks[i] = marks[i] ? marks[i] + ' ' + type : type; }
+  function setFlip(f) { if (f === flip) return; flip = f; buildSquares(); placeHLs(); for (const v of views.values()) { place(v.el, v.x, v.y); setFace(v, v.facing); } refreshHL(); }
+  function viewSide() { return UI.ai.black && !UI.ai.white ? 'white' : UI.ai.white && !UI.ai.black ? 'black' : (S ? (S.phase === 'setup' ? setupSide() || 'white' : S.turn) : 'white'); }
+  function faceSide(side) { setFlip(side === 'black'); }
+
+  // the four arrows round a piece, to turn it
+  const farrows = [0, 1, 2, 3].map((d) => {
+    const b = document.createElement('div'); b.className = 'farrow'; b.dataset.dir = d; b.innerHTML = '<span></span>'; b.hidden = true;
+    boardEl.appendChild(b); return b;
   });
 
-  // ---------------- the minis ----------------
-  // Turned on a lathe, then dressed: a pawn's round head, a rook's battlements and great shield, a bishop's mitre,
-  // a knight's horse head, a queen's crown, a king's cross. Each has a gem on its front, and the ground mark turns with it.
-  const LATHE = {
-    pawn: [[0, 0], [0.3, 0], [0.31, 0.03], [0.3, 0.06], [0.26, 0.085], [0.21, 0.1], [0.15, 0.15], [0.12, 0.22], [0.1, 0.32], [0.095, 0.37], [0.16, 0.39], [0.165, 0.415], [0.09, 0.43], [0, 0.43]],
-    rook: [[0, 0], [0.33, 0], [0.34, 0.04], [0.31, 0.08], [0.26, 0.1], [0.22, 0.14], [0.2, 0.5], [0.25, 0.56], [0.26, 0.68], [0, 0.68]],
-    bishop: [[0, 0], [0.31, 0], [0.32, 0.04], [0.3, 0.07], [0.25, 0.09], [0.19, 0.12], [0.14, 0.2], [0.11, 0.36], [0.1, 0.48], [0.17, 0.51], [0.17, 0.54], [0.08, 0.56], [0, 0.56]],
-    knight: [[0, 0], [0.33, 0], [0.34, 0.04], [0.32, 0.075], [0.27, 0.095], [0.22, 0.13], [0.2, 0.22], [0.21, 0.27], [0, 0.27]],
-    queen: [[0, 0], [0.33, 0], [0.34, 0.04], [0.32, 0.075], [0.27, 0.095], [0.21, 0.13], [0.16, 0.2], [0.13, 0.32], [0.11, 0.5], [0.115, 0.6], [0.2, 0.63], [0.2, 0.66], [0.12, 0.69], [0.16, 0.8], [0.2, 0.88], [0.14, 0.9], [0, 0.88]],
-    king: [[0, 0], [0.33, 0], [0.34, 0.04], [0.32, 0.075], [0.27, 0.095], [0.21, 0.13], [0.16, 0.2], [0.13, 0.32], [0.11, 0.5], [0.115, 0.6], [0.2, 0.63], [0.2, 0.66], [0.12, 0.69], [0.15, 0.78], [0.18, 0.85], [0.09, 0.89], [0, 0.89]],
-  };
-  const HEIGHT = { pawn: 0.66, rook: 0.78, bishop: 0.9, knight: 0.92, queen: 1.04, king: 1.08 };
-  const latheGeo = {};
-  for (const t in LATHE) latheGeo[t] = new THREE.LatheGeometry(LATHE[t].map(([r, h]) => new THREE.Vector2(r, h)), 28);
-  const headGeo = new THREE.SphereGeometry(0.125, 24, 16), gemGeo = new THREE.SphereGeometry(0.04, 12, 8), bandGeo = new THREE.TorusGeometry(0.3, 0.025, 8, 32);
-  const SIDE_LOOK = {
-    white: { body: 0xe9dfc8, rough: 0.42, metal: 0.0, band: 0xb08c4a, gem: 0xffc860, mark: 0xf0c878 },
-    black: { body: 0x231b18, rough: 0.28, metal: 0.15, band: 0x8a1a14, gem: 0xff3a24, mark: 0xff4a32 },
-  };
+  // ---------------- the pieces ----------------
   const views = new Map(); // piece id -> view
-  const pickables = [];
-  function dress(p, fig, bodyMat, bandMat) {
-    const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); fig.add(m); return m; };
-    if (p.type === 'pawn') { add(headGeo, bodyMat, 0, 0.53, 0); return { gemY: 0.55, gemZ: -0.115 }; }
-    if (p.type === 'rook') {
-      const merlon = new THREE.BoxGeometry(0.1, 0.1, 0.08);
-      for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; add(merlon, bodyMat, Math.sin(a) * 0.21, 0.73, Math.cos(a) * 0.21, 0, a, 0); }
-      // the great shield, on its front
-      const shield = add(new THREE.BoxGeometry(0.34, 0.4, 0.05), bandMat, 0, 0.34, -0.24);
-      add(new THREE.BoxGeometry(0.04, 0.3, 0.02), bodyMat, 0, 0.34, -0.27); void shield;
-      return { gemY: 0.62, gemZ: -0.25 };
-    }
-    if (p.type === 'bishop') {
-      const mitre = add(new THREE.SphereGeometry(0.13, 20, 14), bodyMat, 0, 0.7, 0); mitre.scale.set(1, 1.55, 1);
-      add(new THREE.SphereGeometry(0.04, 10, 8), bandMat, 0, 0.92, 0);
-      add(new THREE.BoxGeometry(0.02, 0.2, 0.27), bandMat, 0, 0.74, 0, 0.5, Math.PI / 2, 0);   // the mitre's slit
-      return { gemY: 0.62, gemZ: -0.13 };
-    }
-    if (p.type === 'knight') {
-      add(new THREE.BoxGeometry(0.22, 0.42, 0.26), bodyMat, 0, 0.45, 0.04, -0.25, 0, 0);                    // neck
-      add(new THREE.BoxGeometry(0.2, 0.18, 0.4), bodyMat, 0, 0.7, -0.12, 0.35, 0, 0);                       // head, muzzle forward
-      add(new THREE.BoxGeometry(0.06, 0.32, 0.16), bandMat, 0, 0.6, 0.18, -0.25, 0, 0);                     // mane
-      const ear = new THREE.ConeGeometry(0.035, 0.12, 6);
-      add(ear, bodyMat, -0.06, 0.86, 0.02); add(ear, bodyMat, 0.06, 0.86, 0.02);
-      return { gemY: 0.72, gemZ: -0.3 };
-    }
-    if (p.type === 'queen') {
-      const pearl = new THREE.SphereGeometry(0.035, 10, 8);
-      for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; add(pearl, bandMat, Math.sin(a) * 0.19, 0.92, Math.cos(a) * 0.19); }
-      add(new THREE.SphereGeometry(0.06, 12, 10), bodyMat, 0, 0.96, 0);
-      return { gemY: 0.82, gemZ: -0.175 };
-    }
-    add(new THREE.BoxGeometry(0.06, 0.22, 0.06), bandMat, 0, 0.99, 0);
-    add(new THREE.BoxGeometry(0.18, 0.06, 0.06), bandMat, 0, 1.01, 0);
-    return { gemY: 0.81, gemZ: -0.165 };
-  }
   function makeView(p) {
-    const L = SIDE_LOOK[p.side];
-    const bodyMat = new THREE.MeshPhysicalMaterial({ color: L.body, roughness: L.rough, metalness: L.metal, clearcoat: 0.5, clearcoatRoughness: 0.3 });
-    const bandMat = new THREE.MeshStandardMaterial({ color: L.band, metalness: 0.75, roughness: 0.35 });
-    const gemMat = new THREE.MeshStandardMaterial({ color: L.gem, emissive: L.gem, emissiveIntensity: 1.2 });
-    const root = new THREE.Group(), spin = new THREE.Group(), fig = new THREE.Group();
-    root.add(spin); spin.add(fig);
-    const body = new THREE.Mesh(latheGeo[p.type], bodyMat); fig.add(body);
-    const band = new THREE.Mesh(bandGeo, bandMat); band.rotation.x = Math.PI / 2; band.position.y = 0.075; band.scale.setScalar(p.type === 'pawn' ? 0.95 : 1.05); fig.add(band);
-    const { gemY, gemZ } = dress(p, fig, bodyMat, bandMat);
-    // a gem on the front, so the mini itself shows which way it faces
-    const gem = new THREE.Mesh(gemGeo, gemMat); gem.position.set(0, gemY, gemZ); fig.add(gem);
-    fig.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.pid = p.id; } });
-    // the ground mark: ring and facing arrow, turning with the piece
-    const mark = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.0), new THREE.MeshBasicMaterial({ map: facingTex, color: L.mark, transparent: true, opacity: 0.95, depthWrite: false, toneMapped: false }));
-    mark.rotation.x = -Math.PI / 2; mark.position.y = 0.006; mark.renderOrder = 3; spin.add(mark);
-    const blob = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false })); blob.rotation.x = -Math.PI / 2; blob.position.y = 0.003; root.add(blob);
-    // an invisible column to tap
-    const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, HEIGHT[p.type] + 0.1, 8), new THREE.MeshBasicMaterial({ visible: false }));
-    hit.position.y = (HEIGHT[p.type] + 0.1) / 2; hit.userData.pid = p.id; root.add(hit); pickables.push(hit);
-    root.position.copy(cellPos(p.x, p.y));
-    spin.rotation.y = -p.facing * Math.PI / 2;
-    scene.add(root);
-    const tag = document.createElement('div');
-    tag.className = 'tag ' + p.side;
-    tag.innerHTML = '<div class="fc"></div><div class="chip"></div><div class="hp"><i class="trail"></i><i class="fill"></i></div>';
-    $('#tags').appendChild(tag);
-    const v = { id: p.id, side: p.side, type: p.type, root, spin, fig, mark, gem, body, bodyMat, hit, tag, ang: spin.rotation.y, x: p.x, y: p.y, facing: p.facing, anim: false, hp: p.hp };
+    const el = document.createElement('div');
+    el.className = 'pc ' + p.side;
+    el.innerHTML = `<div class="face"></div>${PIECES.pieceSVG(p.type, p.side, 'fig')}<div class="hpb"></div><div class="pin" title="Pinned"><svg viewBox="0 0 24 24" width="70%" height="70%"><path d="M12 3v10M8 3h8M8.5 13h7L12 21z" fill="#fff" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></div><div class="fc"></div>`;
+    pcsEl.appendChild(el);
+    const v = { id: p.id, side: p.side, type: p.type, el, x: p.x, y: p.y, facing: p.facing, anim: false };
+    place(el, p.x, p.y); setFace(v, p.facing);
     views.set(p.id, v);
     return v;
   }
-  function dropView(v) {
-    scene.remove(v.root); v.tag.remove(); views.delete(v.id);
-    const i = pickables.indexOf(v.hit); if (i >= 0) pickables.splice(i, 1);
-  }
-  function turnTo(v, f, ms = 180) {
-    const from = v.spin.rotation.y; let to = -f * Math.PI / 2;
-    while (to - from > Math.PI) to -= Math.PI * 2; while (to - from < -Math.PI) to += Math.PI * 2;
-    v.facing = f; v.ang = to;
-    if (Math.abs(to - from) < 1e-3) return Promise.resolve();
-    return tween(ms, (k) => { v.spin.rotation.y = from + (to - from) * k; });
-  }
-  // turn to look at a square, any of 8 ways (for a strike on a diagonal); the rules' facing comes back on the next sync
-  function lookToward(v, x, y, ms = 120) {
-    const from = v.spin.rotation.y; let to = Math.atan2(-(x - v.x), -(y - v.y));
-    while (to - from > Math.PI) to -= Math.PI * 2; while (to - from < -Math.PI) to += Math.PI * 2;
-    v.facing = -1;
-    return tween(ms, (k) => { v.spin.rotation.y = from + (to - from) * k; });
-  }
-
-  // Brings the minis into line with the rules: new ones appear, fallen ones go, everything else snaps into place.
+  function setFace(v, f) { v.facing = f; const d = flip ? (f + 2) % 4 : f; v.el.querySelector('.face').style.transform = `rotate(${d * 90}deg)`; }
+  function dropView(v) { v.el.remove(); views.delete(v.id); }
+  // Brings the pieces into line with the rules.
   function sync() {
     if (!S) return;
     const living = new Set();
     for (const p of TC.alive(S)) {
       living.add(p.id);
-      let v = views.get(p.id);
-      if (!v) { v = makeView(p); v.fig.scale.setScalar(0.01); tween(220, (k) => v.fig.scale.setScalar(Math.max(0.01, k)), ease.out); }
-      if (!v.anim) {
-        if (v.x !== p.x || v.y !== p.y) { v.root.position.copy(cellPos(p.x, p.y)); v.x = p.x; v.y = p.y; }
-        if (v.facing !== p.facing) turnTo(v, p.facing);
-      }
-      v.root.visible = !(S.phase === 'setup' && UI.hide === p.side);
-      v.hp = p.hp;
+      const v = views.get(p.id) || makeView(p);
+      if (!v.anim) { if (v.x !== p.x || v.y !== p.y) { v.x = p.x; v.y = p.y; place(v.el, p.x, p.y); } if (v.facing !== p.facing) setFace(v, p.facing); }
+      v.el.classList.toggle('hidden', S.phase === 'setup' && UI.hide === p.side);
+      const u = TC.unit(p), hb = v.el.querySelector('.hpb'), frac = p.hp / u.hp;
+      if (hb.textContent !== String(p.hp)) hb.textContent = p.hp;
+      hb.className = 'hpb' + (frac <= 0.34 ? ' low' : frac <= 0.67 ? ' mid' : '') + (frac < 1 ? '' : ' full');   // shown once hurt
+      v.el.querySelector('.pin').classList.toggle('on', !!p.pinned);
+      v.el.title = `${cap(p.side)} ${u.name} · ${p.hp}/${u.hp} HP · faces ${TC.DIR_NAMES[p.facing]}${p.pinned ? ' · pinned' : ''}`;
     }
     for (const v of [...views.values()]) if (!living.has(v.id) && !v.dying) dropView(v);
   }
 
-  // ---------------- nameplates, odds and floating numbers ----------------
-  const tmp = new V3();
-  function project(pos) {
-    tmp.copy(pos).project(camera);
-    const r = canvas.getBoundingClientRect();
-    return { x: (tmp.x + 1) / 2 * r.width, y: (1 - tmp.y) / 2 * r.height, z: tmp.z };
+  // ---------------- effects ----------------
+  function pulse(v, cls) { if (!v) return; v.el.classList.remove(cls); void v.el.offsetWidth; v.el.classList.add(cls); setTimeout(() => v.el.classList.remove(cls), 800); }
+  function floatText(x, y, text, cls) {
+    const el = document.createElement('div'); el.className = 'float ' + (cls || ''); el.textContent = text;
+    const c = centre(x, y); el.style.left = c.x * 12.5 + '%'; el.style.top = (c.y - 0.3) * 12.5 + '%';
+    floatsEl.appendChild(el); setTimeout(() => el.remove(), 1150);
   }
-  function updateTags() {
-    for (const v of views.values()) {
-      const p = TC.piece(S, v.id);
-      if (!v.root.visible || (!p && !v.dying)) { v.tag.classList.add('hide'); continue; }
-      v.tag.classList.remove('hide');
-      const top = v.root.position.clone(); top.y += HEIGHT[v.type] + 0.22 + v.fig.position.y;
-      const s = project(top);
-      v.tag.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-100%)`;
-      if (!p) continue;
-      const frac = Math.max(0, p.hp / TC.unit(p).hp) * 100 + '%';
-      const fill = v.tag.querySelector('.fill'), trail = v.tag.querySelector('.trail');
-      if (fill.style.width !== frac) { fill.style.width = frac; trail.style.width = frac; }
-      v.tag.classList.toggle('sel', UI.sel === p.id);
-      const chip = v.tag.querySelector('.chip'), word = p.pinned ? 'Pinned' : '';
-      if (chip.textContent !== word) { chip.textContent = word; chip.classList.toggle('on', !!word); }
-    }
+  function banner(text) { const b = $('#bannerTxt'); b.textContent = text; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show'); }
+  async function stepTo(v, x, y) { v.x = x; v.y = y; place(v.el, x, y); sfx('step'); await wait(140); }
+  async function lunge(a, t) {
+    const [ac, ar] = scr(a.x, a.y), [tc, tr] = scr(t.x, t.y);
+    a.el.style.transition = 'transform .12s ease-out';
+    a.el.style.transform = `translate(${(tc - ac) * 30}%,${(tr - ar) * 30}%)`;
+    await wait(130); a.el.style.transform = ''; await wait(130); a.el.style.transition = '';
   }
-  function floatText(pos, text, cls) {
-    const el = document.createElement('div'); el.className = 'float ' + (cls || ''); el.textContent = text; $('#floats').appendChild(el);
-    const start = pos.clone(); start.y += 1.0;
-    tween(1100, (k) => {
-      const s = project(start.clone().add(new V3(0, k * 0.5, 0)));
-      el.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-50%) scale(${k < 0.15 ? 0.6 + k / 0.15 * 0.4 : 1})`;
-      el.style.opacity = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
-    }, ease.lin).then(() => el.remove());
+  async function topple(v) { v.dying = true; sfx('kill'); v.el.classList.add('dying'); await wait(480); v.dying = false; dropView(v); }
+  // a shot: a line that streaks from the archer to its mark
+  async function loose(a, t) {
+    const p = centre(a.x, a.y), q = centre(t.x, t.y);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', p.x); line.setAttribute('y1', p.y); line.setAttribute('x2', p.x); line.setAttribute('y2', p.y);
+    line.setAttribute('stroke', '#ffe7a6'); line.setAttribute('stroke-width', '0.07'); line.setAttribute('stroke-linecap', 'round');
+    fxEl.appendChild(line); sfx('step');
+    const steps = 8;
+    for (let i = 1; i <= steps; i++) { line.setAttribute('x2', p.x + (q.x - p.x) * i / steps); line.setAttribute('y2', p.y + (q.y - p.y) * i / steps); if (i > 3) { line.setAttribute('x1', p.x + (q.x - p.x) * (i - 3) / steps); line.setAttribute('y1', p.y + (q.y - p.y) * (i - 3) / steps); } await wait(22); }
+    line.remove();
   }
-  function banner(text) {
-    const b = $('#bannerTxt'); b.textContent = text; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
-  }
-
-  // ---------------- the camera ----------------
-  const cam = { az: 0, azT: 0, tx: 0, tz: 0, txT: 0, tzT: 0, zoom: 1, zoomT: 1, pitch: 0.98, shake: 0 };
-  const pitchFor = () => (innerHeight > innerWidth * 1.2 ? 1.06 : 0.98);
-  function viewSide() { return UI.ai.white && !UI.ai.black ? 'black' : !UI.ai.white && UI.ai.black ? 'white' : (S ? (S.phase === 'setup' ? setupSide() || 'white' : S.turn) : 'white'); }
-  function faceSide(side) {
-    let to = side === 'black' ? Math.PI : 0;
-    while (to - cam.azT > Math.PI) to -= Math.PI * 2; while (to - cam.azT < -Math.PI) to += Math.PI * 2;
-    cam.azT = to; cam.txT = 0; cam.tzT = 0; cam.zoomT = 1;
-  }
-  let W = 1, H = 1, topH = 46, dockH = 120;
-  function resize() {
-    W = innerWidth; H = innerHeight;
-    renderer.setSize(W, H, false);
-    camera.aspect = W / H;
-    topH = $('#top').getBoundingClientRect().height;
-    dockH = $('#dock').getBoundingClientRect().height + 8;
-    // shift the picture so the board sits in the space between the top plate and the dock
-    camera.setViewOffset(W, H, 0, (dockH * 0.82 - topH) / 2, W, H);
-    camera.updateProjectionMatrix();
-    cam.pitch = pitchFor();
-  }
-  function fitDistance() {
-    const vf = camera.fov * Math.PI / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
-    const avail = Math.max(0.35, (H - topH - dockH * 0.82) / H);
-    const half = H > W * 1.2 ? 4.02 : 4.35, halfDepth = half * Math.sin(cam.pitch) + 0.5 * Math.cos(cam.pitch);
-    const dW = half / Math.tan(hf / 2) + half * Math.cos(cam.pitch), dH = halfDepth / (Math.tan(vf / 2) * avail) + half * Math.cos(cam.pitch);
-    return Math.max(dW, dH) * 0.97;
-  }
-  function placeCamera(dt) {
-    const k = 1 - Math.exp(-dt * 6);
-    cam.az += (cam.azT - cam.az) * k; cam.tx += (cam.txT - cam.tx) * k; cam.tz += (cam.tzT - cam.tz) * k; cam.zoom += (cam.zoomT - cam.zoom) * k;
-    const d = fitDistance() * cam.zoom;
-    const target = new V3(cam.tx, 0.2, cam.tz);
-    camera.position.set(target.x + Math.sin(cam.az) * Math.cos(cam.pitch) * d, target.y + Math.sin(cam.pitch) * d, target.z + Math.cos(cam.az) * Math.cos(cam.pitch) * d);
-    if (cam.shake > 0) { camera.position.add(new V3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(cam.shake * 0.05)); cam.shake = Math.max(0, cam.shake - dt * 4); }
-    camera.lookAt(target);
-  }
-  const camToward = () => new V3(Math.sin(cam.az), 0, Math.cos(cam.az));
-  const camRight = () => new V3(Math.cos(cam.az), 0, -Math.sin(cam.az));
-  function lookAtFight(a, b) { const m = a.clone().add(b).multiplyScalar(0.5); cam.txT = m.x * 0.3; cam.tzT = m.z * 0.3; cam.zoomT = 0.88; }
-  function lookBack() { cam.txT = 0; cam.tzT = 0; cam.zoomT = 1; }
-
-  // ---------------- dice ----------------
-  const NUMS = [1, 6, 2, 5, 3, 4], NORMALS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].map((a) => new V3(...a));
-  const PIPS = { 1: [[0.5, 0.5]], 2: [[0.27, 0.27], [0.73, 0.73]], 3: [[0.25, 0.25], [0.5, 0.5], [0.75, 0.75]], 4: [[0.27, 0.27], [0.73, 0.27], [0.27, 0.73], [0.73, 0.73]], 5: [[0.25, 0.25], [0.75, 0.25], [0.5, 0.5], [0.25, 0.75], [0.75, 0.75]], 6: [[0.27, 0.22], [0.73, 0.22], [0.27, 0.5], [0.73, 0.5], [0.27, 0.78], [0.73, 0.78]] };
-  const diceMats = {};
-  function dieMats(side) {
-    if (diceMats[side]) return diceMats[side];
-    const st = side === 'white' ? { bg: '#d6cab0', ink: '#3a2414' } : { bg: '#5a1814', ink: '#e8d2a6' };
-    return (diceMats[side] = NUMS.map((n) => new THREE.MeshPhysicalMaterial({
-      roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.18,
-      map: canvasTex(128, 128, (g, w, h) => {
-        g.fillStyle = st.bg; g.fillRect(0, 0, w, h);
-        const gr = g.createRadialGradient(w * 0.42, h * 0.4, 6, w * 0.5, h * 0.5, w * 0.8); gr.addColorStop(0, 'rgba(255,255,255,.2)'); gr.addColorStop(1, 'rgba(0,0,0,.3)'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
-        g.fillStyle = st.ink; for (const [px, py] of PIPS[n]) { g.beginPath(); g.arc(px * w, py * h, 11, 0, 7); g.fill(); }
-      }),
-    })));
-  }
-  const dieGeo = new THREE.BoxGeometry(0.28, 0.28, 0.28);
-  let liveDice = [];
-  function clearDice() {
-    for (const d of liveDice) { const m = d; tween(200, (k) => m.scale.setScalar(Math.max(0.01, 1 - k))).then(() => scene.remove(m)); }
-    liveDice = [];
-  }
-  async function throwDice(values, side, near) {
-    clearDice(); sfx('dice');
-    const right = camRight(), toward = camToward();
-    // an empty square near the fight, nearest the viewer's side of it
-    const want = near.clone().add(toward.clone().multiplyScalar(1.4));
-    let spot = null, best = Infinity;
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-      if (TC.pieceAt(S, x, y)) continue;
-      const c = cellPos(x, y); if (c.distanceTo(near) > 2.3) continue;
-      const d = c.distanceTo(want); if (d < best) { best = d; spot = c; }
-    }
-    if (!spot) spot = near.clone().add(toward.clone().multiplyScalar(0.9));
-    const jobs = values.map((v, i) => {
-      const m = new THREE.Mesh(dieGeo, dieMats(side)); m.castShadow = true; scene.add(m); liveDice.push(m);
-      const land = spot.clone().add(right.clone().multiplyScalar(i ? 0.18 : -0.18)); land.y = TOP + 0.14;
-      const from = land.clone().add(toward.clone().multiplyScalar(2.2)).add(right.clone().multiplyScalar(rand(-0.4, 0.4))); from.y = 2.0;
-      const face = NUMS.indexOf(v), qEnd = new THREE.Quaternion().setFromUnitVectors(NORMALS[face], UP);
-      qEnd.premultiply(new THREE.Quaternion().setFromAxisAngle(UP, rand(0, Math.PI * 2)));
-      const axis = new V3(rand(-1, 1), rand(-0.3, 0.3), rand(-1, 1)).normalize(), turns = rand(3, 5) * Math.PI;
-      return tween(900 + i * 90, (k, raw) => {
-        const kk = raw;
-        m.position.lerpVectors(from, land, ease.out(kk));
-        const b = kk < 0.55 ? Math.sin(kk / 0.55 * Math.PI / 2 + Math.PI / 2) : kk < 0.8 ? Math.sin((kk - 0.55) / 0.25 * Math.PI) * 0.25 : Math.sin((kk - 0.8) / 0.2 * Math.PI) * 0.07;
-        m.position.y = TOP + 0.14 + Math.max(0, kk < 0.55 ? (from.y - TOP) * b * (1 - kk / 0.55) + (1 - kk / 0.55) * 0.2 : b);
-        const spinQ = new THREE.Quaternion().setFromAxisAngle(axis, turns * Math.pow(1 - kk, 2));
-        m.quaternion.copy(qEnd).premultiply(spinQ);
-      }, ease.lin);
-    });
-    await Promise.all(jobs);
-  }
-  function rollReadout(label, res) {
-    $('#rollLbl').innerHTML = label; $('#rollRes').innerHTML = res; $('#roll').classList.remove('out');
+  // the dice: two little dice tumble in the readout, then show the roll
+  const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+  const dieHTML = (n, side, rolling) => `<span class="die ${side}${rolling ? ' rolling' : ''}">${Array.from({ length: 9 }, (_, i) => `<i class="${PIPS[n].includes(i) ? 'p' : ''}"></i>`).join('')}</span>`;
+  function rollReadout(label, res, dice) {
+    const r = $('#roll'); r.style.minHeight = $('#hbInfo').offsetHeight + 'px';   // it lies over the info scroll
+    $('#rollLbl').innerHTML = label; $('#rollRes').innerHTML = (dice ? `<span class="dice">${dice}</span>` : '') + res; r.classList.remove('out');
     clearTimeout(rollReadout.t); rollReadout.t = setTimeout(() => $('#roll').classList.add('out'), 2600);
   }
+  async function throwDice(values, side, label) {
+    sfx('dice');
+    for (let i = 0; i < 7; i++) {
+      rollReadout(label, '', dieHTML(1 + Math.floor(Math.random() * 6), side, true) + dieHTML(1 + Math.floor(Math.random() * 6), side, true));
+      await wait(70);
+    }
+  }
+  const diceRes = (ev, side) => dieHTML(ev.dice[0], side) + dieHTML(ev.dice[1], side);
+  function clearDice() { fxEl.innerHTML = ''; }
 
   // ---------------- what happens: each rules event, shown ----------------
   const sqName = (x, y) => 'abcdefgh'[x] + (N - y);
@@ -505,79 +177,32 @@
     UI.log.unshift({ text, cls });
     const li = document.createElement('li'); li.className = cls || ''; li.innerHTML = text; $('#logList').prepend(li);
   }
-  async function hopStep(v, x, y) {
-    const from = cellPos(v.x, v.y), to = cellPos(x, y), dx = x - v.x, dy = y - v.y;
-    if (Math.abs(dx) + Math.abs(dy) === 1) turnTo(v, TC.DIRS.findIndex(([a, b]) => a === dx && b === dy), 90); else lookToward(v, x, y, 90);
-    const high = TC.unit(TC.piece(S, v.id) || { type: v.type }).move.kind === 'leap' ? 0.32 : 0.16;
-    await tween(150, (k) => { v.root.position.lerpVectors(from, to, k); v.fig.position.y = Math.sin(k * Math.PI) * high; }, ease.lin);
-    v.fig.position.y = 0; v.x = x; v.y = y; sfx('step');
-  }
-  async function lunge(v, toward) {
-    const base = v.root.position.clone(), dir = toward.clone().sub(base).setY(0).normalize();
-    await tween(130, (k) => v.root.position.copy(base).addScaledVector(dir, k * 0.28), ease.out);
-    await tween(170, (k) => v.root.position.copy(base).addScaledVector(dir, (1 - k) * 0.28));
-  }
-  function flash(v, color) { v.bodyMat.emissive.setHex(color); return tween(320, (k) => { v.bodyMat.emissiveIntensity = (1 - k) * 1.2; }); }
-  async function shake(v) {
-    const base = v.root.position.clone();
-    await tween(320, (k) => v.root.position.set(base.x + Math.sin(k * 30) * 0.05 * (1 - k), base.y, base.z + Math.cos(k * 27) * 0.04 * (1 - k)), ease.lin);
-    v.root.position.copy(base);
-  }
-  async function topple(v) {
-    v.dying = true; sfx('kill');
-    const away = v.root.position.clone().sub(camera.position).setY(0).normalize();
-    const axis = new V3(away.z, 0, -away.x);
-    burst(v.root.position.clone().add(new V3(0, 0.3, 0)), [0x8a7a6a, 0x5a4a3a], 16, 1.4, 0.35, 0.9, 1.5);
-    await tween(520, (k) => { v.root.setRotationFromAxisAngle(axis, -k * Math.PI / 2); v.root.position.y = TOP - k * 0.05; }, ease.inOut);
-    await tween(500, (k) => { v.root.position.y = TOP - 0.05 - k * 0.6; v.mark.material.opacity = 0.9 * (1 - k); });
-    v.dying = false; dropView(v);
-  }
-  // an arrow flying from a bishop to its mark
-  const arrowMat = new THREE.MeshStandardMaterial({ color: 0x5a3a20, roughness: 0.6 }), headMat = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.8, roughness: 0.3 });
-  async function loose(from, to) {
-    const obj = new THREE.Group();
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.42, 5), arrowMat); shaft.rotation.x = Math.PI / 2; obj.add(shaft);
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.08, 6), headMat); tip.rotation.x = Math.PI / 2; tip.position.z = 0.24; obj.add(tip);
-    scene.add(obj); sfx('step');
-    const a = from.clone().add(new V3(0, 0.75, 0)), b = to.clone().add(new V3(0, 0.45, 0)), d = a.distanceTo(b);
-    let prev = a.clone();
-    await tween(160 + d * 50, (k) => {
-      const p = a.clone().lerp(b, k); p.y += Math.sin(k * Math.PI) * (0.2 + d * 0.06);
-      obj.position.copy(p); obj.lookAt(p.clone().add(p.clone().sub(prev))); prev = p;
-    }, ease.lin);
-    scene.remove(obj);
-  }
 
   // One blow: attack, shot, pin, a sweep's stroke, or a free attack drawn by a move.
   async function showStrike(ev, ctx = {}) {
     const a = views.get(ev.piece), t = views.get(ev.target), ap = anyPiece(ev.piece), tp = anyPiece(ev.target);
     if (!a || !t) return;
     const fast = ctx.fast || 1;
-    lookAtFight(a.root.position, t.root.position);
-    if (Math.max(Math.abs(t.x - a.x), Math.abs(t.y - a.y)) === 1) await lookToward(a, t.x, t.y, 110);
     const what = ev.kind === 'opportunity' ? 'Attack of opportunity' : ev.kind === 'overwatch' ? 'Overwatch' : actName(ev.act);
     const notes = ev.notes && ev.notes.length ? ' · ' + ev.notes.join(', ') : '';
     const label = `${what} · ${ev.act === 'pin' ? 'pinning' : 'the ' + sideWord(ev.angle)}${notes}`;
-    rollReadout(label, `<span>needs ${ev.need}+</span>`);
-    if (ev.kind) { floatText(a.root.position, ev.kind === 'overwatch' ? 'Overwatch!' : 'Opportunity!', 'info'); await wait(250 * fast); }
-    await throwDice(ev.dice, ap.side, t.root.position);
-    const tot = `<b>${ev.dice[0]} + ${ev.dice[1]} = ${ev.total}</b><span>vs ${ev.need}+</span>`;
-    rollReadout(label, tot + (!ev.hit ? '<em class="miss">MISS</em>' : ev.act === 'pin' ? '<em class="grab">PINNED</em>' : `<em class="hit">HIT −${ev.damage}</em>`));
-    await wait(200 * fast);
-    if (ev.act === 'shoot' || ev.act === 'pin' || (ev.kind === 'overwatch')) await loose(a.root.position, t.root.position);
-    else await lunge(a, t.root.position);
+    a.el.classList.add('anim', 'lift'); t.el.classList.add('anim');
+    if (ev.kind) { floatText(a.x, a.y, ev.kind === 'overwatch' ? 'Overwatch!' : 'Opportunity!', 'info'); await wait(300 * fast); }
+    await throwDice(ev.dice, ap.side, label);
+    rollReadout(label, `<b>${ev.total}</b><span>vs ${ev.need}+</span>` + (!ev.hit ? '<em class="miss">MISS</em>' : ev.act === 'pin' ? '<em class="grab">PINNED</em>' : `<em class="hit">HIT −${ev.damage}</em>`), diceRes(ev, ap.side));
+    await wait(220 * fast);
+    if (ev.act === 'shoot' || ev.act === 'pin' || ev.kind === 'overwatch') await loose(a, t); else await lunge(a, t);
     let line = `${pName(ap)}: ${what.toLowerCase()} on ${pName(tp)} (${ev.act === 'pin' ? 'pinning shot' : sideWord(ev.angle)}${notes}), ${ev.dice[0]}+${ev.dice[1]}=${ev.total} vs ${ev.need}+, `;
-    if (!ev.hit) { sfx('miss'); floatText(t.root.position, 'Miss', 'miss'); line += 'miss.'; }
-    else if (ev.act === 'pin') { sfx('place'); floatText(t.root.position, 'Pinned!', 'info'); flash(t, 0x6aa0ff); line += 'pinned for a turn.'; }
+    a.el.classList.remove('lift');
+    if (!ev.hit) { sfx('miss'); floatText(t.x, t.y, 'Miss', 'miss'); line += 'miss.'; }
+    else if (ev.act === 'pin') { sfx('place'); floatText(t.x, t.y, 'Pinned!', 'info'); pulse(t, 'blue'); line += 'pinned for a turn.'; }
     else {
-      sfx('hit'); cam.shake = ev.damage >= 10 ? 1 : 0.5;
-      fxLight.position.copy(t.root.position).add(new V3(0, 0.6, 0)); fxLight.intensity = 3; tween(400, (k) => { fxLight.intensity = 3 * (1 - k); });
-      burst(t.root.position.clone().add(new V3(0, 0.5, 0)), [0xff5a3a, 0xffb060, 0xff2a1a], 18, 2.2, 0.22, 0.5, 3);
-      floatText(t.root.position, '−' + ev.damage, 'dmg');
-      flash(t, 0xff2a10); await shake(t);
+      sfx('hit'); floatText(t.x, t.y, '−' + ev.damage, 'dmg'); pulse(t, 'flash'); pulse(t, 'shake');
+      sync(); await wait(360);
       line += `hit for ${ev.damage}` + (ev.killed ? `. The ${TC.unit(tp).name.toLowerCase()} falls!` : ` (${tp.hp} HP left).`);
       if (ev.killed) await topple(t);
     }
+    a.el.classList.remove('anim'); if (t.el) t.el.classList.remove('anim');
     log(line, ap.side);
     await wait(220 * fast);
   }
@@ -587,86 +212,68 @@
     if (ev.type === 'move') {
       const v = views.get(ev.piece), p = anyPiece(ev.piece);
       const re = (at, kind) => ev.reactions.filter((r) => r.at === at && r.ev.kind === kind);
-      v.anim = true;
+      v.anim = true; v.el.classList.add('anim', 'lift');
       let dead = false;
       for (const r of re(-1, 'opportunity')) { await showStrike(r.ev, { fast }); if (r.ev.killed) dead = true; }
       for (let i = 0; i < ev.path.length && !dead; i++) {
-        await hopStep(v, ev.path[i][0], ev.path[i][1]);
+        await stepTo(v, ev.path[i][0], ev.path[i][1]);
         for (const r of [...re(i, 'overwatch'), ...re(i, 'opportunity')]) { await showStrike(r.ev, { fast }); if (r.ev.killed) dead = true; }
       }
-      v.anim = false;
+      v.anim = false; v.el.classList.remove('anim', 'lift');
+      UI.last = { from: ev.from, to: { x: p.x, y: p.y } };
       log(`${pName(p)} moves ${sqName(ev.from.x, ev.from.y)} → ${sqName(p.x, p.y)}${ev.died ? ', and falls on the way' : ''}.`, p.side);
-      lookBack();
       if (ev.winner) await gameOver();
     } else if (ev.type === 'stay') {
       const p = anyPiece(ev.piece); log(`${pName(p)} holds its ground.`, p.side);
     } else if (ev.type === 'strike') {
       await showStrike(ev, { fast });
-      lookBack();
       if (ev.winner) await gameOver();
     } else if (ev.type === 'sweep') {
-      const a = views.get(ev.piece);
-      await tween(360, (k) => { a.spin.rotation.y = a.ang + k * Math.PI * 2; }, ease.inOut);
+      pulse(views.get(ev.piece), 'spin'); await wait(400);
       for (const s of ev.strikes) await showStrike(s, { fast: 0.7 });
-      lookBack();
       if (ev.winner) await gameOver();
     } else if (ev.type === 'rally') {
       const a = views.get(ev.piece), p = anyPiece(ev.piece);
-      sfx('turn'); floatText(a.root.position, 'Rally!', 'info');
-      burst(a.root.position.clone().add(new V3(0, 0.8, 0)), [0xffd070, 0xfff0b0], 24, 1.6, 0.3, 0.9);
-      for (const h of ev.healed) { const v = views.get(h.id); if (v) { floatText(v.root.position, '+' + h.amount, 'heal'); flash(v, 0x60ff90); } }
-      for (const id of ev.unpinned) { const v = views.get(id); if (v) floatText(v.root.position, 'Free!', 'info'); }
+      sfx('turn'); floatText(a.x, a.y, 'Rally!', 'info'); pulse(a, 'glow');
+      for (const h of ev.healed) { const v = views.get(h.id); if (v) { floatText(v.x, v.y, '+' + h.amount, 'heal'); pulse(v, 'glow'); } }
+      for (const id of ev.unpinned) { const v = views.get(id); if (v) floatText(v.x, v.y, 'Free!', 'info'); }
       log(`${pName(p)} rallies: ${ev.healed.length ? ev.healed.length + ' healed' : 'no one hurt'}${ev.unpinned.length ? ', ' + ev.unpinned.length + ' freed' : ''}.`, p.side);
-      await wait(700);
+      sync(); await wait(800);
     } else if (ev.type === 'push') {
       const a = views.get(ev.piece), t = views.get(ev.target), ap = anyPiece(ev.piece), tp = anyPiece(ev.target);
-      lookAtFight(a.root.position, t.root.position);
       if (!ev.auto) {
-        rollReadout('Push', `<span>needs ${ev.need}+</span>`);
-        await throwDice(ev.dice, ap.side, t.root.position);
-        rollReadout('Push', `<b>${ev.dice[0]} + ${ev.dice[1]} = ${ev.total}</b><span>vs ${ev.need}+</span>` + (ev.hit ? '<em class="grab">SHOVED</em>' : '<em class="miss">HELD</em>'));
+        await throwDice(ev.dice, ap.side, 'Push');
+        rollReadout('Push', `<b>${ev.total}</b><span>vs ${ev.need}+</span>` + (ev.hit ? '<em class="grab">SHOVED</em>' : '<em class="miss">HELD</em>'), diceRes(ev, ap.side));
+        await wait(250);
       } else rollReadout('Push · braced', '<em class="grab">SURE</em>');
       if (ev.steps) {
-        a.anim = t.anim = true; sfx('hit');
-        const af = cellPos(ev.pawnFrom.x, ev.pawnFrom.y), at = cellPos(ev.pawnTo.x, ev.pawnTo.y), tf = cellPos(ev.from.x, ev.from.y), tt = cellPos(ev.to.x, ev.to.y);
-        await tween(260 + ev.steps * 140, (k) => { a.root.position.lerpVectors(af, at, k); t.root.position.lerpVectors(tf, tt, k); t.fig.position.y = Math.abs(Math.sin(k * Math.PI * ev.steps)) * 0.08; });
-        t.fig.position.y = 0; a.x = ev.pawnTo.x; a.y = ev.pawnTo.y; t.x = ev.to.x; t.y = ev.to.y; a.anim = t.anim = false;
-        cam.shake = 0.4; floatText(t.root.position, ev.steps > 1 ? 'Pushed 2!' : 'Pushed!', 'info');
-      } else { await lunge(a, t.root.position); floatText(t.root.position, 'Held', 'miss'); sfx('miss'); }
+        sfx('hit'); a.anim = t.anim = true;
+        const [fx, fy] = [Math.sign(ev.to.x - ev.from.x), Math.sign(ev.to.y - ev.from.y)];
+        for (let i = 1; i <= ev.steps; i++) { t.x = ev.from.x + fx * i; t.y = ev.from.y + fy * i; place(t.el, t.x, t.y); a.x = ev.pawnFrom.x + fx * i; a.y = ev.pawnFrom.y + fy * i; place(a.el, a.x, a.y); await wait(180); }
+        a.anim = t.anim = false;
+        floatText(t.x, t.y, ev.steps > 1 ? 'Pushed 2!' : 'Pushed!', 'info'); pulse(t, 'shake');
+      } else { await lunge(a, t); floatText(t.x, t.y, 'Held', 'miss'); sfx('miss'); }
       log(`${pName(ap)} pushes ${pName(tp)}${ev.auto ? ', braced by an ally' : `: ${ev.dice[0]}+${ev.dice[1]}=${ev.total} vs ${ev.need}+`}, ${ev.steps ? `${ev.steps} square${ev.steps > 1 ? 's' : ''} back.` : 'but it holds.'}`, ap.side);
-      lookBack();
     } else if (ev.type === 'grapple') {
       const a = views.get(ev.piece), t = views.get(ev.target), ap = anyPiece(ev.piece), tp = anyPiece(ev.target);
-      lookAtFight(a.root.position, t.root.position);
-      await lookToward(a, t.x, t.y, 110);
-      rollReadout('Grapple', `<span>needs ${ev.need}+</span>`);
-      await throwDice(ev.dice, ap.side, t.root.position);
-      rollReadout('Grapple', `<b>${ev.dice[0]} + ${ev.dice[1]} = ${ev.total}</b><span>vs ${ev.need}+</span>` + (ev.hit ? '<em class="grab">CAUGHT</em>' : '<em class="miss">MISS</em>'));
-      await lunge(a, t.root.position);
-      if (ev.hit) { sfx('place'); floatText(t.root.position, ev.options.length ? 'Caught!' : 'No room', 'info'); flash(t, 0xf0c040); }
-      else { sfx('miss'); floatText(t.root.position, 'Miss', 'miss'); }
+      await throwDice(ev.dice, ap.side, 'Grapple');
+      rollReadout('Grapple', `<b>${ev.total}</b><span>vs ${ev.need}+</span>` + (ev.hit ? '<em class="grab">CAUGHT</em>' : '<em class="miss">MISS</em>'), diceRes(ev, ap.side));
+      await lunge(a, t);
+      if (ev.hit) { sfx('place'); floatText(t.x, t.y, ev.options.length ? 'Caught!' : 'No room', 'info'); pulse(t, 'blue'); }
+      else { sfx('miss'); floatText(t.x, t.y, 'Miss', 'miss'); }
       log(`${pName(ap)} grapples ${pName(tp)}: ${ev.dice[0]}+${ev.dice[1]}=${ev.total} vs ${ev.need}+, ${ev.hit ? (ev.options.length ? 'caught!' : 'caught, but there is no room.') : 'miss.'}`, ap.side);
-      if (!S.pending) lookBack();
     } else if (ev.type === 'shove') {
-      const t = views.get(ev.target), tp = TC.piece(S, ev.target);
-      if (ev.moved) {
-        t.anim = true; const from = cellPos(ev.from.x, ev.from.y), to = cellPos(ev.to.x, ev.to.y);
-        await tween(320, (k) => { t.root.position.lerpVectors(from, to, k); t.fig.position.y = Math.sin(k * Math.PI) * 0.1; });
-        t.fig.position.y = 0; t.x = ev.to.x; t.y = ev.to.y; t.anim = false; sfx('place');
-        log(`${pName(tp)} is dragged ${sqName(ev.from.x, ev.from.y)} → ${sqName(ev.to.x, ev.to.y)}.`, TC.other(tp.side));
-      }
-      lookBack();
+      const tp = TC.piece(S, ev.target);
+      if (ev.moved) { sfx('place'); log(`${pName(tp)} is dragged ${sqName(ev.from.x, ev.from.y)} → ${sqName(ev.to.x, ev.to.y)}.`, TC.other(tp.side)); }
+      sync(); await wait(200);
     } else if (ev.type === 'wait') {
       const p = anyPiece(ev.piece); log(`${pName(p)} waits.`, p.side);
-    } else if (ev.type === 'face') {
-      const v = views.get(ev.piece); if (v) await turnTo(v, ev.facing, 140);
     } else if (ev.type === 'facing') {
-      clearDice();
-      if (!UI.ai[S.turn]) { sfx('turn'); banner('Facing'); }
+      if (!UI.ai[S.turn]) sfx('turn');
     } else if (ev.type === 'turn') {
       log(`Turn ${ev.turnNo}: ${cap(ev.side)}`, 'hdr');
-      if (!UI.ai[ev.side] && !UI.ai[TC.other(ev.side)]) faceSide(ev.side);
-      sfx('turn'); banner(`${cap(ev.side)}'s turn`);
+      sfx('turn');
+      if (!UI.ai[ev.side] && !UI.ai[TC.other(ev.side)]) { faceSide(ev.side); banner(`${cap(ev.side)}'s turn`); }   // pass and play: the board turns for the player
     }
     sync(); refresh();
   }
@@ -777,60 +384,59 @@
 
   // ---------------- the board marks ----------------
   function refreshHL() {
-    hls.forEach((m) => { m.visible = false; });
-    faceArrows.forEach((m) => { m.visible = false; });
-    for (const v of views.values()) {
-      v.mark.material.color.setHex(UI.sel === v.id ? 0xffffff : SIDE_LOOK[v.side].mark);
-      v.mark.scale.setScalar(UI.sel === v.id ? 1.12 : 1);
-      const fc = v.tag.querySelector('.fc'); fc.classList.remove('on', 'focus');
-    }
-    if (!S || S.phase === 'over') return;
+    marks.fill('');
+    farrows.forEach((b) => { b.hidden = true; });
+    for (const v of views.values()) v.el.querySelector('.fc').classList.remove('on', 'focus');
+    const paint = () => { for (let i = 0; i < N * N; i++) { const c = 'hl ' + marks[i]; if (hls[i].className !== c) hls[i].className = c; } };
+    if (!S || S.phase === 'over') return paint();
     const side = activeSide();
+    if (UI.last && S.phase !== 'setup') { setHL(UI.last.from.x, UI.last.from.y, 'last'); setHL(UI.last.to.x, UI.last.to.y, 'last'); }
     if (S.phase === 'setup' && side && !UI.ai[side]) {
       for (const y of TC.setupRows(S, side)) for (let x = 0; x < N; x++) if (!TC.pieceAt(S, x, y)) setHL(x, y, UI.hover && UI.hover.x === x && UI.hover.y === y ? 'zonehot' : 'zone');
     }
-    if (S.phase === 'play' && S.pending) { for (const c of S.pending.options) setHL(c.x, c.y, 'shove'); return; }
-    // the zone of the foe in focus: where it strikes at anything leaving (pawn, rook) or entering (bishop)
+    if (S.phase === 'play' && S.pending) { for (const c of S.pending.options) setHL(c.x, c.y, 'shove'); return paint(); }
+    // the zone of the piece in focus: where it strikes at anything leaving (pawn, rook) or entering (bishop)
     const f = UI.focus != null ? TC.piece(S, UI.focus) : null;
     if (f && S.phase === 'play' && !UI.busy) for (const [x, y] of TC.zoneSquares(S, f)) setHL(x, y, 'zoneE');
     const p = selPiece();
     if (p && !(S.phase === 'setup' && UI.hide === p.side)) setHL(p.x, p.y, 'sel');
-    if (UI.busy) return;
+    if (UI.busy) return paint();
     const mine = myPiece();
     if (mine && (S.phase === 'facing' || S.phase === 'setup')) {
       TC.DIRS.forEach(([dx, dy], d) => {
-        const m = faceArrows[d], c = cellPos(mine.x, mine.y);
-        m.position.set(c.x + dx * 0.66, TOP + 0.01, c.z + dy * 0.66); m.visible = true;
-        m.material.color.setHex(d === mine.facing ? 0xffa040 : 0xe8f0ff); m.material.opacity = d === mine.facing ? 1 : 0.85;
+        const x = mine.x + dx, y = mine.y + dy, b = farrows[d];
+        if (!TC.onBoard(S, x, y)) return;
+        place(b, x, y); b.hidden = false; b.classList.toggle('on', d === mine.facing);
+        b.firstChild.style.transform = `rotate(${(flip ? (d + 2) % 4 : d) * 90}deg)`;
       });
     }
-    if (S.phase !== 'play' || !mine) return;
+    if (S.phase !== 'play' || !mine) return paint();
     if (S.step === 'move') {
       for (const r of moves().values()) {
-        const hot = (UI.hover && UI.hover.x === r.x && UI.hover.y === r.y);
+        const hot = UI.hover && UI.hover.x === r.x && UI.hover.y === r.y;
         setHL(r.x, r.y, r.reactions.length ? (hot ? 'riskhot' : 'risk') : hot ? 'movehot' : 'move');
       }
       if (UI.aim && UI.aim.kind === 'move') {
-        for (const [x, y] of UI.aim.path) setHL(x, y, 'path');
+        for (const [x, y] of UI.aim.path.slice(0, -1)) setHL(x, y, 'path');
         setHL(UI.aim.x, UI.aim.y, 'dest');
         for (const re of UI.aim.reactions) { const q = TC.piece(S, re.reactor); if (q) setHL(q.x, q.y, 'aim'); }
       }
-      return;
+      return paint();
     }
     // the action phase
     const T = targets();
     if (UI.act === 'rally') {
       for (const q of TC.alive(S, mine.side)) if (q !== mine && Math.max(Math.abs(q.x - mine.x), Math.abs(q.y - mine.y)) <= ACT.rally.range) setHL(q.x, q.y, 'ally');
-      return;
+      return paint();
     }
     if (UI.act === 'sweep') {
       const t = T.get(null); if (t) for (const id of t.foes) { const e = TC.piece(S, id); setHL(e.x, e.y, 'aim'); }
-      return;
+      return paint();
     }
     for (const [id, i] of T) {
       const e = TC.piece(S, id), v = views.get(id);
       setHL(e.x, e.y, UI.aim && UI.aim.target === id ? 'aim' : 'target');
-      const fc = v.tag.querySelector('.fc');
+      const fc = v.el.querySelector('.fc');
       const full = innerWidth >= 700 || UI.focus === id || (UI.aim && UI.aim.target === id);
       const head = i.damage ? `<b>−${i.damage}</b>` : `<b>${UI.act === 'pin' ? 'Pin' : UI.act === 'push' ? 'Push' : 'Grab'}</b>`;
       const html = head + `<i>${full && i.angle ? sideWord(i.angle) + ' ' : ''}${pct(i.chance)}</i>` + (i.damage && i.damage >= e.hp ? '<i>· kill</i>' : '');
@@ -838,6 +444,7 @@
       fc.classList.add('on'); fc.classList.toggle('grab', !i.damage);
       fc.classList.toggle('focus', UI.focus === id || (UI.aim && UI.aim.target === id));
     }
+    paint();
   }
 
   // ---------------- the dock ----------------
@@ -867,7 +474,7 @@
     clear: '<path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/>',
   };
   const HUE = { attack: 4, shoot: 100, push: 25, grapple: 38, pin: 215, sweep: 330, rally: 48, stay: 180, wait: 210, undo: 260, next: 160, left: 200, right: 200, foes: 0, king: 42, queen: 300, rook: 20, bishop: 120, knight: 260, pawn: 30, remove: 0, auto: 120, clear: 20 };
-  const PIECES = ['king', 'queen', 'rook', 'bishop', 'knight', 'pawn'];
+  const PIECES_ORDER = ['king', 'queen', 'rook', 'bishop', 'knight', 'pawn'];
   let hotActions = [];
   function hotButton(spec, i) {
     const b = document.createElement('button');
@@ -930,7 +537,7 @@
     } else if (S.phase === 'setup') {
       const left = TC.remaining(S, side);
       title = `${cap(side)} sets up`; meta = 'Back two rows';
-      for (const t of PIECES) if (S.army[t]) hotActions.push({ icon: t, label: TC.RULES.units[t].name, dv: '×' + left[t], sel: UI.setupType === t && !p, off: left[t] ? null : `Every ${t} is placed`, run: () => { UI.setupType = t; UI.sel = null; refresh(); } });
+      for (const t of PIECES_ORDER) if (S.army[t]) hotActions.push({ icon: t, label: TC.RULES.units[t].name, dv: '×' + left[t], sel: UI.setupType === t && !p, off: left[t] ? null : `Every ${t} is placed`, run: () => { UI.setupType = t; UI.sel = null; refresh(); } });
       hotActions.push({ icon: 'remove', label: 'Remove', off: p ? null : 'Tap a placed piece first', run: () => { TC.unplace(S, p.id); UI.sel = null; sync(); refresh(); } });
       hotActions.push({ icon: 'auto', label: 'Auto', run: () => { TC.autoPlace(S, side); UI.sel = null; sfx('place'); sync(); refresh(); } });
       hotActions.push({ icon: 'clear', label: 'Clear', run: () => { TC.clearSide(S, side); UI.sel = null; sync(); refresh(); } });
@@ -1038,45 +645,34 @@
     order(() => TC.act(S, p.id, aim.kind === 'act' ? aim.act : aim.kind, aim.target != null ? aim.target : null));
   }
 
+  function turnTo(v, f) { setFace(v, f); }
+
   // ---------------- input ----------------
-  const ray = new THREE.Raycaster(), groundPlane = new THREE.Plane(UP, -TOP);
+  // The square under a point, and where in it (0..1 across, in board terms).
   function pick(cx, cy) {
-    const r = canvas.getBoundingClientRect();
-    ray.setFromCamera({ x: (cx - r.left) / r.width * 2 - 1, y: -((cy - r.top) / r.height) * 2 + 1 }, camera);
-    const hits = ray.intersectObjects(pickables.filter((h) => h.parent && h.parent.visible), false);
-    const g = new V3(); const onGround = ray.ray.intersectPlane(groundPlane, g);
-    const out = { piece: hits.length ? hits[0].object.userData.pid : null, ground: onGround ? g : null, cell: null };
-    if (onGround) { const x = Math.floor(g.x + N / 2), y = Math.floor(g.z + N / 2); if (x >= 0 && y >= 0 && x < N && y < N) out.cell = { x, y }; }
-    if (out.piece != null) { const p = TC.piece(S, out.piece); if (p) out.cell = { x: p.x, y: p.y }; }
-    return out;
-  }
-  // a tap near the selected piece on one of its four arrows: which way
-  function arrowHit(p, g) {
-    if (!p || !g) return null;
-    const c = cellPos(p.x, p.y), dx = g.x - c.x, dz = g.z - c.z;
-    const ax = Math.abs(dx), az = Math.abs(dz);
-    const along = Math.max(ax, az), perp = Math.min(ax, az);
-    if (along < 0.42 || along > 0.9 || perp > 0.26) return null;
-    return ax > az ? (dx > 0 ? 1 : 3) : (dz > 0 ? 2 : 0);
+    const r = boardEl.getBoundingClientRect();
+    const fx = (cx - r.left) / r.width * N, fy = (cy - r.top) / r.height * N;
+    let c = Math.floor(fx), w = Math.floor(fy);
+    if (c < 0 || w < 0 || c >= N || w >= N) return { cell: null, piece: null };
+    const [x, y] = flip ? [N - 1 - c, N - 1 - w] : [c, w];
+    const q = S ? TC.pieceAt(S, x, y) : null;
+    return { cell: { x, y }, piece: q && !(S.phase === 'setup' && UI.hide === q.side) ? q.id : null };
   }
 
-  async function tap(h) {
+  async function tap(h, arrow) {
     if (!humanTurn()) return;
     ac();
     const side = activeSide(), sel = myPiece();
-    const q = h.piece != null ? TC.piece(S, h.piece) : h.cell ? TC.pieceAt(S, h.cell.x, h.cell.y) : null;
-    if ((S.phase === 'setup' || S.phase === 'facing') && sel && h.piece == null) {
-      const d = arrowHit(sel, h.ground);
-      if (d != null) { face(sel, d); return; }
-    }
+    if (arrow != null && sel && (S.phase === 'setup' || S.phase === 'facing')) { face(sel, arrow); return; }
+    const q = h.piece != null ? TC.piece(S, h.piece) : null;
     if (S.phase === 'setup') {
       if (q && q.side === side) { if (UI.sel === q.id) face(q, (q.facing + 1) % 4); else { UI.sel = q.id; sfx('pick'); refresh(); } return; }
       if (h.cell && !q && TC.inSetupZone(S, side, h.cell.x, h.cell.y)) {
         try {
-          if (sel) { TC.relocate(S, sel.id, h.cell.x, h.cell.y); const v = views.get(sel.id); if (v) { v.anim = true; const from = v.root.position.clone(), to = cellPos(h.cell.x, h.cell.y); tween(200, (k) => { v.root.position.lerpVectors(from, to, k); v.fig.position.y = Math.sin(k * Math.PI) * 0.2; }).then(() => { v.fig.position.y = 0; v.x = h.cell.x; v.y = h.cell.y; v.anim = false; }); } UI.sel = null; }
+          if (sel) { TC.relocate(S, sel.id, h.cell.x, h.cell.y); UI.sel = null; }
           else {
             TC.place(S, side, UI.setupType, h.cell.x, h.cell.y);
-            if (!TC.remaining(S, side)[UI.setupType]) { const next = PIECES.find((t) => TC.remaining(S, side)[t] > 0); if (next) UI.setupType = next; }
+            if (!TC.remaining(S, side)[UI.setupType]) { const next = PIECES_ORDER.find((t) => TC.remaining(S, side)[t] > 0); if (next) UI.setupType = next; }
           }
           sfx('place');
         } catch (e) { say(e.message); sfx('no'); }
@@ -1137,62 +733,69 @@
     await order(() => TC.move(S, p.id, aim.x, aim.y));
   }
 
-  // pointer: a tap; a drag from your piece (move it, or turn it while setting facing); a drag elsewhere turns the view
+  // pointer: a tap; a drag from your piece (move it, or turn it while setting facing)
   let down = null;
-  canvas.addEventListener('pointerdown', (e) => {
+  boardEl.addEventListener('pointerdown', (e) => {
     if (!S) return;
-    canvas.setPointerCapture(e.pointerId);
-    down = { x: e.clientX, y: e.clientY, h: pick(e.clientX, e.clientY), drag: null, az: cam.azT };
+    const fa = e.target.closest('.farrow');
+    if (fa) { e.preventDefault(); tap({ cell: null, piece: null }, +fa.dataset.dir); return; }
+    boardEl.setPointerCapture(e.pointerId);
+    down = { x: e.clientX, y: e.clientY, h: pick(e.clientX, e.clientY), drag: null };
   });
-  canvas.addEventListener('pointermove', (e) => {
+  boardEl.addEventListener('pointermove', (e) => {
     if (!S) return;
     if (!down) {
       if (e.pointerType !== 'mouse') return;
       const c = pick(e.clientX, e.clientY).cell;
-      const changed = (c && (!UI.hover || c.x !== UI.hover.x || c.y !== UI.hover.y)) || (!c && UI.hover);
-      if (changed) {
-        UI.hover = c;
-        if (!UI.busy) { refreshHL(); }
-      }
+      if ((c && (!UI.hover || c.x !== UI.hover.x || c.y !== UI.hover.y)) || (!c && UI.hover)) { UI.hover = c; if (!UI.busy) refreshHL(); }
       return;
     }
     const dx = e.clientX - down.x, dy = e.clientY - down.y;
-    if (!down.drag && Math.hypot(dx, dy) > 12) {
+    if (!down.drag && Math.hypot(dx, dy) > 10) {
       const q = down.h.piece != null ? TC.piece(S, down.h.piece) : null;
       if (q && humanTurn() && q.side === activeSide()) {
         if (S.phase === 'facing' && (S.active == null || S.active === q.id)) down.drag = 'face';
         else if (S.phase === 'setup' || (S.phase === 'play' && S.step === 'move' && !S.pending && (S.active == null || S.active === q.id))) down.drag = 'piece';
-        else down.drag = 'view';
-        if (down.drag !== 'view') { UI.sel = q.id; UI.aim = null; refresh(); }
-      } else down.drag = 'view';
+        else down.drag = 'none';
+        if (down.drag !== 'none') { UI.sel = q.id; UI.aim = null; refresh(); }
+        if (down.drag === 'piece') { const v = views.get(q.id); v.el.classList.add('anim', 'lift'); v.el.style.transition = 'none'; down.v = v; down.rect = boardEl.getBoundingClientRect(); }
+      } else down.drag = 'none';
     }
-    if (down.drag === 'view') cam.azT = down.az - dx * 0.006;
-    else if (down.drag === 'face') {
-      const p = selPiece(), g = pick(e.clientX, e.clientY).ground; if (!g || !p) return;
-      const c = cellPos(p.x, p.y), d = Math.abs(g.x - c.x) > Math.abs(g.z - c.z) ? (g.x > c.x ? 1 : 3) : (g.z > c.z ? 2 : 0);
+    if (down.drag === 'face') {
+      const p = selPiece(); if (!p) return;
+      const r = boardEl.getBoundingClientRect(), c = centre(p.x, p.y);
+      const sx = e.clientX - (r.left + c.x / N * r.width), sy = e.clientY - (r.top + c.y / N * r.height);
+      if (Math.hypot(sx, sy) < r.width / N * 0.3) return;
+      let d = Math.abs(sx) > Math.abs(sy) ? (sx > 0 ? 1 : 3) : (sy > 0 ? 2 : 0);
+      if (flip) d = (d + 2) % 4;
       if (d !== p.facing) face(p, d);
     } else if (down.drag === 'piece') {
+      // the piece follows the finger
+      const [c0, r0] = scr(down.v.x, down.v.y);
+      down.v.el.style.left = ((e.clientX - down.rect.left) / down.rect.width * 100 - 6.25) + '%';
+      down.v.el.style.top = ((e.clientY - down.rect.top) / down.rect.height * 100 - 6.25) + '%';
+      void c0; void r0;
       const c = pick(e.clientX, e.clientY).cell;
       if (c && (!UI.hover || c.x !== UI.hover.x || c.y !== UI.hover.y)) { UI.hover = c; refreshHL(); }
     }
   });
-  canvas.addEventListener('pointerup', async (e) => {
+  boardEl.addEventListener('pointerup', async (e) => {
     if (!down) return;
     const d = down; down = null;
     if (!d.drag) { await tap(d.h); return; }
     if (d.drag === 'piece') {
       const h = pick(e.clientX, e.clientY); UI.hover = null;
+      d.v.el.style.transition = ''; d.v.el.classList.remove('anim', 'lift'); place(d.v.el, d.v.x, d.v.y);
       const p = myPiece(); if (!p || !h.cell || (h.cell.x === p.x && h.cell.y === p.y)) { refresh(); return; }
-      if (S.phase === 'setup') { UI.sel = p.id; await tap({ piece: null, cell: h.cell, ground: null }); return; }
+      if (S.phase === 'setup') { UI.sel = p.id; await tap({ piece: null, cell: h.cell }); return; }
       // a drag is deliberate: it moves at once (free attacks and all)
       const m = moves().get(h.cell.x + ',' + h.cell.y);
       if (m) { await go(m); return; }
     }
     refresh();
   });
-  canvas.addEventListener('pointercancel', () => { down = null; });
-  canvas.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !down) { UI.hover = null; if (S && !UI.busy) refreshHL(); } });
-  canvas.addEventListener('wheel', (e) => { cam.zoomT = Math.min(1.4, Math.max(0.55, cam.zoomT * (e.deltaY > 0 ? 1.08 : 0.93))); e.preventDefault(); }, { passive: false });
+  boardEl.addEventListener('pointercancel', () => { if (down && down.v) { down.v.el.style.transition = ''; place(down.v.el, down.v.x, down.v.y); } down = null; });
+  boardEl.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !down) { UI.hover = null; if (S && !UI.busy) refreshHL(); } });
 
   $('#endBtn').onclick = () => {
     ac();
@@ -1217,7 +820,7 @@
       $('#passTxt').textContent = 'Pass to ' + cap(next);
       $('#passSub').textContent = `${cap(next)} sets up without seeing ${cap(side)}'s pieces.`;
       $('#pass').hidden = false;
-      faceSide(next); UI.setupType = PIECES.find((t) => S.army[t]);
+      faceSide(next); UI.setupType = PIECES_ORDER.find((t) => S.army[t]);
     }
     sync(); refresh();
     if (S.phase === 'play') {
@@ -1239,9 +842,7 @@
     else if (e.key === 'Enter') { if (UI.aim) $('#goPill').click(); else $('#endBtn').click(); }
     else if (e.key in arrows && p && (S.phase === 'facing' || S.phase === 'setup')) {
       e.preventDefault();
-      // the arrow keys follow the screen: up is away from the viewer
-      const turns = Math.round(((cam.az % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / (Math.PI / 2)) % 4;
-      face(p, (arrows[e.key] + 4 - turns) % 4);
+      face(p, flip ? (arrows[e.key] + 2) % 4 : arrows[e.key]);   // the arrow keys follow the screen
     }
   });
 
@@ -1253,7 +854,7 @@
     $('#menu').hidden = true;
     const m = b.dataset.m;
     if (m === 'new') { $('#goBack').hidden = !S; $('#title').hidden = false; }
-    else if (m === 'view') faceSide(viewSide());
+    else if (m === 'view') setFlip(!flip);
     else if (m === 'log') $('#logOv').hidden = false;
     else if (m === 'help') $('#help').hidden = false;
     else if (m === 'sound') { UI.sound = !UI.sound; $('#soundLbl').textContent = UI.sound ? 'On' : 'Off'; }
@@ -1275,7 +876,7 @@
     clearDice();
     const army = TC.RULES.armies[UI.armyName || 'full'];
     S = TC.newGame({ army });
-    Object.assign(UI, { sel: null, act: 'attack', aim: null, hide: null, focus: null, busy: false, log: [], setupType: PIECES.find((t) => army[t]), ai: { white: false, black: !!vsAI } });
+    Object.assign(UI, { sel: null, act: 'attack', aim: null, hide: null, focus: null, busy: false, log: [], setupType: PIECES_ORDER.find((t) => army[t]), ai: { white: false, black: !!vsAI } });
     $('#logList').innerHTML = '';
     const n = Object.values(army).reduce((a, b) => a + b, 0);
     log(`New game: ${n} pieces a side${vsAI ? ', against the computer' : ', pass and play'}.`, 'hdr');
@@ -1285,22 +886,21 @@
     banner('Set up your army');
   }
 
-  // ---------------- the frame loop ----------------
-  let last = performance.now();
-  function frame(t) {
-    requestAnimationFrame(frame);
-    const dt = Math.min(0.05, (t - last) / 1000); last = t; now = t;
-    runTweens(); updateParticles(dt); emitFlames(dt); placeCamera(dt);
-    // the selected piece breathes
-    for (const v of views.values()) if (!v.anim && !v.dying) v.fig.position.y = UI.sel === v.id ? Math.abs(Math.sin(t / 380)) * 0.05 : 0;
-    renderer.render(scene, camera);
-    if (S) updateTags();
+  // ---------------- layout ----------------
+  function resize() {
+    const top = $('#top').getBoundingClientRect().height, dock = $('#dock').getBoundingClientRect().height;
+    const W = innerWidth, H = innerHeight, pad = 10;
+    const avail = H - top - dock - pad * 2;
+    const size = Math.floor(Math.max(220, Math.min(W - 16, avail, 760)));
+    boardEl.style.width = boardEl.style.height = size + 'px';
+    boardEl.style.left = Math.round((W - size) / 2) + 'px';
+    boardEl.style.top = Math.round(top + pad + Math.max(0, (avail - size) / 2)) + 'px';
   }
-  addEventListener('resize', () => { resize(); });
-  new ResizeObserver(() => resize()).observe($('#dock'));
-  resize();
-  requestAnimationFrame(frame);
+  addEventListener('resize', resize);
+  new ResizeObserver(resize).observe($('#dock'));
+  buildSquares(); placeHLs(); resize();
 
-  // for tests and the console
-  window.TCtable = { get state() { return S; }, UI, newGame, tap, pick, refresh: () => { sync(); refresh(); }, cellPos, camera, project, pressHot, views, SPEED };
+  // for tests and the console: the screen point at the middle of a square
+  function screenOf(x, y) { const r = boardEl.getBoundingClientRect(), c = centre(x, y); return { x: r.left + c.x / N * r.width, y: r.top + c.y / N * r.height }; }
+  window.TCtable = { get state() { return S; }, UI, newGame, tap, pick, refresh: () => { sync(); refresh(); }, screenOf, pressHot, views, SPEED };
 })();
