@@ -259,7 +259,7 @@ const VIEW = (() => {
 
   // ---------------- dice ----------------
   // Each unit type rolls its own size of die (d4, d6, d8 or d10) in its own colour, numbered the usual way, with the
-  // surge's burst behind the top number. A d4 is read by the number at its top corner.
+  // critical's burst behind the top number. A d4 is read by the number at its top corner.
   const kits = {}, faceTex = {};
   function faceTexture(style, shape, labels, topN, hi) {
     const k = [style, shape, labels.join('.'), topN, hi || ''].join('|');

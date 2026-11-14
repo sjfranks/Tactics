@@ -334,7 +334,7 @@ const ART = (() => {
   }
 
   // ---------------- die faces ----------------
-  // Each character's die is numbered the usual way, in their colour, with the surge's burst behind the top number.
+  // Each character's die is numbered the usual way, in their colour, with a critical's burst behind the top number.
   // Drawn smooth: dice are things, not pixel art.
   const DICE = {
     fighter: { bg: '#7a1f18', edge: '#3a0c08' }, mage: { bg: '#25336a', edge: '#0e1530' },
@@ -344,7 +344,7 @@ const ART = (() => {
   // the marks, on a 100×100 grid: [shape, data, fill, stroke, stroke width]
   function burstPts(r0, r1, n, rot) { const o = []; for (let i = 0; i < n * 2; i++) { const a = rot + i * Math.PI / n, r = i % 2 ? r0 : r1 * (i % 4 === 0 ? 1 : .86); o.push([50 + Math.cos(a) * r, 50 + Math.sin(a) * r]); } return o; }
   const SYM = {
-    // the surge's burst, behind the top number
+    // a critical's burst, behind the top number
     burst: [['poly', burstPts(30, 50, 9, -.2), '#ffb11a', '#7a2a00', 4], ['poly', burstPts(20, 36, 9, .15), '#ff5a1a', null, 0]],
   };
   // the burst with an exclamation mark in it: a critical hit
